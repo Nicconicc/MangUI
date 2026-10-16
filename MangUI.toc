@@ -1,0 +1,101 @@
+## Interface: 120100, 16001, 50504, 38001, 20506, 11509
+## Title: MangUI |cffffcc66Unit Frames|r
+## Title-zhCN: MangUI |cffffcc66单位框体|r
+## Title-zhTW: MangUI |cffffcc66單位框體|r
+## Title-deDE: MangUI |cffffcc66Einheitenfenster|r
+## Title-frFR: MangUI |cffffcc66Cadres d’unités|r
+## Title-esES: MangUI |cffffcc66Marcos de unidad|r
+## Title-esMX: MangUI |cffffcc66Marcos de unidad|r
+## Title-itIT: MangUI |cffffcc66Riquadri unità|r
+## Title-ptBR: MangUI |cffffcc66Quadros de unidades|r
+## Title-ruRU: MangUI |cffffcc66Рамки персонажей|r
+## Title-koKR: MangUI |cffffcc66유닛 프레임|r
+## Notes: Customizable unit, party and boss frames with previews and a unified movement mode. Author: Nc.
+## Notes-zhCN: 可自定义的单位、队伍和首领框体，提供预览设置和统一移动模式。作者：Nc。
+## Notes-zhTW: 可自訂的單位、隊伍與首領框體，提供預覽設定及統一移動模式。作者：Nc。
+## Notes-deDE: Anpassbare Einheiten-, Gruppen- und Bossfenster mit Vorschau und gemeinsamem Verschiebemodus.
+## Notes-frFR: Cadres d’unités, de groupe et de boss personnalisables, avec aperçu et mode de déplacement commun.
+## Notes-esES: Marcos de unidad, grupo y jefe personalizables, con vista previa y modo de movimiento conjunto.
+## Notes-esMX: Marcos de unidad, grupo y jefe personalizables, con vista previa y modo de movimiento conjunto.
+## Notes-itIT: Riquadri di unità, gruppo e boss personalizzabili, con anteprima e modalità di spostamento comune.
+## Notes-ptBR: Quadros de unidades, grupo e chefes personalizáveis, com prévia e modo de movimentação conjunto.
+## Notes-ruRU: Настраиваемые рамки персонажей, группы и боссов с предпросмотром и общим режимом перемещения.
+## Notes-koKR: 미리보기와 전체 이동 모드를 제공하는 사용자 지정 유닛, 파티 및 우두머리 프레임.
+## Author: Nc
+## Version: 1.0.496
+## IconTexture: Interface\AddOns\MangUI\Assets\UI\Logo.png
+## OptionalDeps: SharedMedia
+## SavedVariables: MangUIUFDB
+
+Code\Core\Bootstrap.lua
+Code\Media\AssetPaths.lua
+Code\Media\ModuleTextures.lua
+Code\Interfaces\Registry.lua
+Code\Localization\Locale.lua
+Code\Localization\Languages.lua
+Code\Localization\ReviewedTranslations.lua
+Code\Diagnostics\CPUUsage.lua
+Code\Diagnostics\ModuleProfiler.lua
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibRangeCheck-3.0\LibRangeCheck-3.0.lua
+Libs\LibSerialize\LibSerialize.lua
+Libs\LibDeflate\LibDeflate.lua
+Code\Interfaces\Default\Defaults.lua
+Code\Media\Catalog.lua
+Code\Core\Config\LayoutRules.lua
+Code\Core\Config\Migrations\Focus.lua
+Code\Core\Config\Migrations\Pet.lua
+Code\Core\Config\Migrations\TargetTarget.lua
+Code\Core\Config\Migrations\MainBars.lua
+Code\Core\Config\Migrations\PortraitAndEffects.lua
+Code\Core\Config\Migrations\AurasAndResources.lua
+Code\Core\Config\Migrations\PlayerCast.lua
+Code\Core\Config\Migrations\TargetCast.lua
+Code\Core\Config\Store.lua
+Code\Core\Config\NodeTypes.lua
+Code\Interfaces\Default\BuildDefaults.lua
+Code\Interfaces\Default\RecordedDefaults.lua
+Code\Modules\UnitFrames\Main\BarLayout.lua
+Code\Core\Config\SettingRanges.lua
+Code\Modules\Cooldowns\Monitor.lua
+Code\Modules\Chat\Buttons.lua
+Code\Modules\Combat\Notices.lua
+Code\Modules\System\Menu.lua
+Code\Modules\Mouse\Circle.lua
+Code\Modules\Experience\Bar.lua
+Code\Modules\Target\Threat.lua
+Code\Modules\Target\Distance.lua
+Code\Modules\UnitFrames\Boss\Frames.lua
+Code\Modules\UnitFrames\Party\Frames.lua
+Code\Core\Config\Sharing.lua
+Code\Core\Runtime\Compat.lua
+Code\Modules\UnitFrames\Player\AttackProgress.lua
+Code\Modules\UnitFrames\Shared\Portraits.lua
+Code\Modules\UnitFrames\Main\Sweep.lua
+Code\Core\Runtime\Renderer\Common.lua
+Code\Core\Runtime\Renderer\Frames.lua
+Code\Core\Runtime\Renderer\State.lua
+Code\Modules\UnitFrames\Shared\NativeDisplays.lua
+Code\Modules\UnitFrames\Shared\Auras.lua
+Code\Modules\UnitFrames\Player\Resources.lua
+Code\Core\Runtime\Renderer\Effects.lua
+Code\Core\Runtime\Renderer\Paint.lua
+Code\Core\Runtime\Renderer\Update.lua
+Code\Core\Runtime\SettingsEntry.lua
+Code\Core\Runtime\BlizzardFrames.lua
+Code\Core\Runtime\Live.lua
+Code\Editor\Widgets.lua
+Code\Editor\Footer.lua
+Code\Editor\Undo.lua
+Code\Editor\Context.lua
+Code\Editor\Preview.lua
+Code\Editor\ModuleList.lua
+Code\Editor\Properties\Refresh.lua
+Code\Editor\MediaMenus.lua
+Code\Editor\Properties\Controls.lua
+Code\Editor\Movement\FrameMode.lua
+Code\Editor\Movement\Unlocked.lua
+Code\Editor\Window.lua
+Code\Editor\General.lua
+Code\Interfaces\Default\Register.lua

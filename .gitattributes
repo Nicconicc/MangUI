@@ -1,0 +1,6 @@
+* -text
+*.lua text eol=lf
+*.toc text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
