@@ -27,6 +27,11 @@ function M:OpenDesigner()
     f:Hide()
     f:SetSize(820,760);f:SetScale(math.min(1,(UIParent:GetWidth()-40)/820,(UIParent:GetHeight()-40)/760));f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG");f:SetFrameLevel(100);f:EnableMouse(true);f:SetMovable(true);f:RegisterForDrag("LeftButton");f:SetClampedToScreen(false)
+    f:SetToplevel(true)
+    f:HookScript("OnShow",function(self)
+        local stack=_G.MangUIOptionsWindowStack
+        if stack then stack:Register(self) end
+    end)
     f:SetScript("OnDragStart",function(self)self:StartMoving()end);f:SetScript("OnDragStop",function(self)self:StopMovingOrSizing()end)
     if f.Bg then f.Bg:SetColorTexture(.12,.12,.13,.8) end
     local frameName=f.GetName and f:GetName() or "MangUIUFOptions"

@@ -5,7 +5,7 @@ local F={};M.FooterLinks=F
 -- Replace these temporary URLs with the creator's pages and community invites.
 F.entries={
     {id="cardmaster",label="MangUI卡牌大师",tooltip="与插件“MangUI卡牌大师”配合使用体验更佳",fullColor=true,
-        copyText="MangUICardMaster",description="复制插件名在任意插件平台搜索。",copyHint="按 Ctrl+C 复制插件名"},
+        copyText="CardMaster",description="复制插件名在任意插件平台搜索。",copyHint="按 Ctrl+C 复制插件名"},
     {id="paypal",label="PayPal",url="https://www.paypal.com/",description="支持 MangUI 的开发。"},
     {id="afdian",label="爱发电",url="https://afdian.com/",description="支持 MangUI 的开发。"},
     {id="patreon",label="Patreon",url="https://www.patreon.com/",description="支持 MangUI 的开发。"},
