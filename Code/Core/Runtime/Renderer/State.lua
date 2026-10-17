@@ -88,6 +88,14 @@ local function Appearance(view,n,s,o)
         else tint[1],tint[2],tint[3]=healthGreen[1],healthGreen[2],healthGreen[3] end
         tint[4]=col[4] or 1;col=tint
     end
+    -- Creature ownership takes priority over configured health colors. Forever
+    -- may use the mainline project id, but must follow the Classic tap rule.
+    o.tapColorActive=not view.preview and (not C.retail or C.interface==16001)
+        and n.tapColor==true and s.tapped==true
+    if o.tapColorActive then
+        tint[1],tint[2],tint[3],tint[4]=tappedColor[1],tappedColor[2],tappedColor[3],col[4] or 1
+        col=tint;o.healthThresholdActive=false
+    end
     return col,alpha
 end
 local function CastRatio(s)
@@ -148,7 +156,7 @@ local function RestrictedHealthColor(o,s)
 end
 local function RestrictedHealthThreshold(o,s,col)
     local n=o.spec
-    if not (o.targetHealthThreshold and n.healthThresholdEnabled==true and not o.classHealthColor
+    if not (o.targetHealthThreshold and n.healthThresholdEnabled==true and not o.classHealthColor and not o.tapColorActive
         and C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor and UnitHealthPercent
         and Enum and Enum.LuaCurveType and Enum.LuaCurveType.Step) then return end
     -- Gradient APIs cannot receive secret curve colors. Preserve the configured

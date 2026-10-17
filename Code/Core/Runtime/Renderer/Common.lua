@@ -44,7 +44,8 @@ local function HealthTint(o,key,target,col,force)
         CachedColor(o,key,target,"SetVertexColor",col);return
     end
     local n=o.spec
-    local finish=not o.classHealthColor and not o.healthThresholdActive and n.healthGradient==true and (n.healthGradientEnd or col) or nil
+    local finish=not o.classHealthColor and not o.healthThresholdActive and not o.tapColorActive
+        and n.healthGradient==true and (n.healthGradientEnd or col) or nil
     local a=col[4] or 1;local ea=finish and (finish[4] or a)
     local cache=o.healthTintCache or {};o.healthTintCache=cache
     local last=cache[key]

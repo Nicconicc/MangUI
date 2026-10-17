@@ -308,7 +308,7 @@ local function Paint(view,o,animateOnly,visibleHint)
         if o.nativeArt and not (o.customHealthStyle or o.classHealthColor or o.targetHealthThreshold) then
             CachedColor(o,"nativeArtColor",o.nativeArt,"SetVertexColor",col)
         end
-        if o.healthWarning and (view.preview or s.healthRatio~=nil or n.healthThresholdEnabled~=true or o.classHealthColor) then
+        if o.healthWarning and (view.preview or s.healthRatio~=nil or n.healthThresholdEnabled~=true or o.classHealthColor or o.tapColorActive) then
             o.healthWarning:Hide()
         end
     elseif o.texture then
