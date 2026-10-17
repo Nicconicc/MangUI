@@ -148,13 +148,13 @@ function E.State(preview)
         levelTime=s.levelTime and s.levelTime+math.max(0,now-(s.playedAt or now))}
 end
 local function FormatNumber(value)return Call(FormatLargeNumber,value) or tostring(math.floor(value)) end
-function E.FormatTime(value)
+function E.FormatTime(value,english)
     if value==nil then return "--" end
-    if value<60 then return M:T("不到1分钟") end
+    if value<60 then return english and "< 1m" or M:T("不到1分钟") end
     local d=math.floor(value/86400);local h=math.floor(value/3600)%24;local m=math.floor(value/60)%60
-    return (d>0 and string.format(M:T("%d天"),d).." "or "")
-        ..((d>0 or h>0)and string.format(M:T("%d小时"),h).." "or "")
-        ..string.format(M:T("%d分钟"),m)
+    return (d>0 and string.format(english and "%dd" or M:T("%d天"),d).." "or "")
+        ..((d>0 or h>0)and string.format(english and "%dh" or M:T("%d小时"),h).." "or "")
+        ..string.format(english and "%dm" or M:T("%d分钟"),m)
 end
 local function Percent(value,maximum)return maximum>0 and value/maximum*100 or 0 end
 function E.Tooltip(o)
@@ -262,7 +262,7 @@ function E.Paint(view,o,animateOnly)
         Label(o,2,string.format("%s / %s (%s)",FormatNumber(s.current),FormatNumber(s.maximum),FormatNumber(math.max(0,s.maximum-s.current))))
         local percentage=string.format("%.1f%%",actual*100)
         if s.complete>0 then percentage=percentage..string.format(" (%.1f%%)",(actual+s.complete/maximum)*100) end
-        Label(o,3,percentage);Label(o,4,E.FormatTime(s.levelTime))
+        Label(o,3,percentage);Label(o,4,E.FormatTime(s.levelTime,true))
         if not o.labels[4]:IsShown() then o.labels[4]:Show() end
         if o.hovered then E.Tooltip(o) end
     end
