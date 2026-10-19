@@ -126,7 +126,7 @@ function I.BuildControls(e,parent)
                         edit:HookScript("OnHide",function(self)self:ClearFocus()end)
                     end
                     row.create:HookScript("OnEnter",function(self)
-                        GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText(M:T("如果左侧是制造物，可在此输入制造技能名以便右键制造"),1,1,1,true);GameTooltip:Show()
+                        GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText(M:T("如果左侧是制造物，可在此输入制造技能名以便右键制造"),1,1,1,1,true);GameTooltip:Show()
                     end)
                     row.create:HookScript("OnLeave",function()GameTooltip:Hide()end)
                     row.remove=W.Button(row,"删除",72,function()
