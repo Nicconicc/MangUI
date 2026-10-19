@@ -154,7 +154,9 @@ local function Paint(view,o,animateOnly,visibleHint)
     if view.preview and (n.id=="wad38d9b944e" or n.id=="wad25ba7d231") then
         shown=n.enabled~=false and State(view,"target").exists
     end
-    if view.preview and view.selected==n.id then shown=true end
+    -- Keep the optional player percentage selectable in the design preview
+    -- after hiding it in the live UI, including after reopening the editor.
+    if view.preview and (view.selected==n.id or n.id=="playerHealthPercent") then shown=true end
     if view.hidden and view.hidden[n.id] then shown=false end
     if n.kind=="hitbox" then shown=false end
     local nativeSparkOwner

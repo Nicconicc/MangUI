@@ -144,7 +144,7 @@ function M:RefreshProperties()
     e.propScroll:SetPoint("BOTTOMRIGHT",e.right,"BOTTOMRIGHT",-30,12)
     e.propScroll:Show()
     local valueTextTitle=n.id=="wadb51e41246" or n.id=="wa8ee62b16d6" or n.id=="wa6edbcf125a"
-        or n.id=="wa8492858a6d" or n.id=="wa074335b474" or n.id=="wa712a8bee10"
+        or n.id=="wa8492858a6d" or n.id=="wa074335b474" or n.id=="wa712a8bee10" or n.id=="playerHealthPercent"
     e.propTitle:SetText(decoration and "头像框体装饰" or n.id=="targetUnifiedName" and "目标名字" or n.id=="playerResources" and "玩家资源" or n.id=="centerClassification" and "稀有精英图标" or n.id=="waf24f8d43e3" and "团队标记" or ((n.compound or valueTextTitle) and n.label or ((self.kindLabels[n.kind] or n.kind).." · "..n.label)))
     e.propTitle:SetTextColor(1,1,1)
     if n.id=="wa026b04c50e" then e.propTitle:SetText("目标Debuff")
@@ -355,6 +355,7 @@ function M:RefreshProperties()
     e.hideUntimedBuffs:SetChecked(n.hideUntimedBuffs==true)
     e.onlyPlayerDebuffs:SetChecked(n.onlyPlayerDebuffs==true)
     e.debuffHidden:SetChecked(n.enabled==false)
+    e.playerHealthPercentHidden:SetChecked(n.enabled==false)
     e.reverse:SetChecked(n.reverse or false)
     local c=n.color or {1,1,1,1}
     for i,edit in ipairs(e.colors) do if not edit:HasFocus() then edit:SetText(string.format("%.2f",c[i] or 1)) end end
@@ -411,6 +412,7 @@ function M:RefreshProperties()
         if row.key=="healthThresholdEnabled" or row.key=="healthThreshold" then visible=n.id=="waf465575a72" end
         if MainTextElement(n) then
             visible=row.key=="x" or row.key=="y" or row.key=="fontSize" or row.key=="nameFont"
+                or (n.id=="playerHealthPercent" and row.key=="playerHealthPercentHidden")
         end
         if n.id=="wa026b04c50e" then
             visible=row.key=="x" or row.key=="y" or row.key=="scale"

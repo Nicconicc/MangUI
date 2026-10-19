@@ -22,7 +22,7 @@
 ## Notes-ruRU: Настраиваемые рамки персонажей, группы и боссов с предпросмотром и общим режимом перемещения.
 ## Notes-koKR: 미리보기와 전체 이동 모드를 제공하는 사용자 지정 유닛, 파티 및 우두머리 프레임.
 ## Author: Nc
-## Version: 1.0.506
+## Version: 1.0.507
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\Logo.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB

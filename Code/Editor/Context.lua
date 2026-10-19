@@ -152,7 +152,7 @@ local propertyCategories={
         {"file","media","rotation","blend","colorTitle","color1","color2","color3","color4"},
         {"progressTitle","reverse","cropX","cropY","rows","columns","frames","fps","play"},
         {"model","modelScale","modelX","modelY","modelZ"},
-        {"hideUntimedBuffs","decorationHidden","flags","rulesTitle","rules"}},
+        {"hideUntimedBuffs","decorationHidden","playerHealthPercentHidden","flags","rulesTitle","rules"}},
 }
 local function OrganizePropertyRows(n,rows)
     local profile=propertyCategories[n.compound] or propertyCategories.generic

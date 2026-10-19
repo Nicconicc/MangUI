@@ -735,6 +735,12 @@ local function BuildProperties(e)
         Change("enabled",not hidden)
     end)
     Row(32,{{e.debuffHidden,-4,0}},{},"debuffHidden");y=y-32
+    e.playerHealthPercentHidden=W.Check(content,"隐藏",function(hidden)
+        local node=Selected()
+        if not node or node.id~="playerHealthPercent" or not M:CanEdit() then return end
+        Change("enabled",not hidden)
+    end)
+    Row(32,{{e.playerHealthPercentHidden,-4,0}},{},"playerHealthPercentHidden");y=y-32
     Field("固定文字","text");Field("字体大小","fontSize",true,4,150);Field("贴图旋转","rotation",true,-360,360)
     Field("素材路径","file")
     local media=W.Button(content,"从素材库替换…",propertyWidth,function()M:OpenMedia()end);media:SetPoint("TOPLEFT",1,y);y=y-34

@@ -155,6 +155,45 @@ function M:NormalizeValueTextAnchors(design)
         end
     end
 end
+function M:EnsurePlayerHealthPercent(design)
+    if not design or not design.nodes then return end
+    local index={}
+    for _,n in ipairs(design.nodes) do
+        if n.id=="playerHealthPercent" then return end
+        index[n.id]=n
+    end
+    local target=index.wa712a8bee10
+    local player=index.wadb51e41246
+    if not target or not player or not index[player.parent] then return end
+    local label=self.Copy(target)
+    label.id="playerHealthPercent";label.label="玩家生命值百分比"
+    label.parent=player.parent;label.treeParent="mainComposite"
+    label.unit="player";label.scope="player";label.visibleUnit="player"
+    label.binding="healthPercent";label.text="%c%"
+    label.enabled=true;label.alpha=1;label.rules={};label.conditions={}
+    label.point="CENTER";label.anchor="CENTER";label.justify="CENTER"
+    label.autoWidth=true;label.autoHeight=true
+    label.valueTextOriginRevision=1;label.valueTextAnchorRevision=1;label.valueTextScaleFixRevision=1
+    label.valueTextScalePreviousX=nil;label.valueTextScalePreviousY=nil
+    label.x=-150
+    if self.Geometry then
+        local geo=self:Geometry(index,{target.id,target.parent,player.parent,"wabc757f81ee"})
+        local source,parent,portrait=geo[target.id],geo[player.parent],geo.wabc757f81ee
+        local sourceParent=geo[target.parent]
+        if source and parent and portrait and parent.s>0 then
+            label.y=(source.y-portrait.y)/parent.s
+            -- Copy the target label's physical font size even if its ancestor
+            -- group has a different saved scale from the player's group.
+            local ratio=(sourceParent and sourceParent.s or parent.s)/parent.s
+            label.scale=(label.scale or 1)*ratio
+            label.scaleReference=(label.scaleReference or target.scale or 1)*ratio
+        end
+    end
+    for i,n in ipairs(design.nodes) do
+        if n.id==player.id then table.insert(design.nodes,i+1,label);return end
+    end
+end
+
 function M:RepairValueTextScale()
     local design,reference=self.db.design,self.db.moduleDefaults
     if not reference or not reference.nodes then return end

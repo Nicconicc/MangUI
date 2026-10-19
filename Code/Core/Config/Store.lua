@@ -266,6 +266,10 @@ function M:Index(editing)
     self:EnsureCenterClassification(self.db.design)
     self:EnsureCenterClassification(self.db.moduleDefaults)
     self:RepairValueTextScale()
+    self:EnsurePlayerHealthPercent(self.defaults)
+    self:EnsurePlayerHealthPercent(self.recordedDefaults)
+    self:EnsurePlayerHealthPercent(self.db.design)
+    self:EnsurePlayerHealthPercent(self.db.moduleDefaults)
     if self.EnsureAttackProgress then self:EnsureAttackProgress(self.db.design) end
     self.byID={}
     for _,n in ipairs(self.db.design.nodes) do self.byID[n.id]=n end

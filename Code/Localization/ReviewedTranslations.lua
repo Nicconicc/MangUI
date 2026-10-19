@@ -2,6 +2,7 @@ local _,M=...
 -- Reviewed against the Simplified Chinese UI. Columns: source, en, de, fr, es, it, pt, ru, ko, zhTW.
 local codes={"enUS","deDE","frFR","esES","itIT","ptBR","ruRU","koKR","zhTW"}
 local rows=[[
+玩家生命值百分比|Player health percentage|Spielerleben in Prozent|Pourcentage de vie du joueur|Porcentaje de salud del jugador|Percentuale salute giocatore|Porcentagem de vida do jogador|Процент здоровья игрока|플레이어 생명력 백분율|玩家生命值百分比
 仅在副本中显示|Only show in dungeons and raids|Nur in Dungeons und Schlachtzügen anzeigen|Afficher uniquement en donjons et raids|Mostrar solo en mazmorras y bandas|Mostra solo in spedizioni e incursioni|Mostrar apenas em masmorras e raides|Показывать только в подземельях и рейдах|던전과 공격대에서만 표시|僅在副本中顯示
 世界|World|Welt|Monde|Mundo|Mondo|Mundo|Мир|세계|世界
 文本显示|Text labels|Textbeschriftungen|Libellés textuels|Etiquetas de texto|Etichette di testo|Rótulos de texto|Текстовые подписи|텍스트 표시|文字顯示
