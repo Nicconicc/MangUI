@@ -198,6 +198,7 @@ function M:InitStore()
     if self.EnsurePetBuffs then self:EnsurePetBuffs(db.moduleDefaults) end
     if self.EnsureCooldownModule then self:EnsureCooldownModule(db.moduleDefaults) end
     if self.EnsurePlayerSkillMonitor then self:EnsurePlayerSkillMonitor(db.moduleDefaults) end
+    if self.UpgradePlayerSkillMonitorDefaults then self:UpgradePlayerSkillMonitorDefaults(db) end
     if self.EnsureChatButtonsModule then self:EnsureChatButtonsModule(db.moduleDefaults) end
     if self.EnsureCombatNoticesModule then self:EnsureCombatNoticesModule(db.moduleDefaults) end
     if self.EnsureSystemMenuModule then self:EnsureSystemMenuModule(db.moduleDefaults) end

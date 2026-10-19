@@ -17,7 +17,7 @@ end
 S.directionChoices={{name="从左向右",path="RIGHT"},{name="从中间向两边",path="CENTER"},{name="从右向左",path="LEFT"}}
 function S.Direction(group)
     local direction=group and group.growthDirection
-    return (direction=="LEFT"or direction=="CENTER")and direction or "RIGHT"
+    return (direction=="LEFT"or direction=="RIGHT")and direction or "CENTER"
 end
 function S.RowOffset(group,count)
     local extent=math.max(0,count-1)*22;local direction=S.Direction(group)
@@ -107,7 +107,7 @@ function M:EnsurePlayerSkillMonitor(design)
     if not group then
         local cd=seen.cooldownMonitor
         group={id="playerSkillMonitor",label="玩家技能监控",kind="group",compound="playerSkillMonitor",scope="player",unit="player",
-            x=0,y=-295,width=2,height=2,scale=cd and cd.scale or 1,scaleReference=cd and (cd.scaleReference or cd.scale) or 1,
+            x=0,y=-120,width=2,height=2,scale=cd and cd.scale or 1,scaleReference=cd and (cd.scaleReference or cd.scale) or 1,
             point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=340,monitors={S.NewEntry()},rules={},conditions={}}
         design.nodes[#design.nodes+1]=group
     end
@@ -123,6 +123,15 @@ function M:EnsurePlayerSkillMonitor(design)
         design.nodes[#design.nodes+1]={id="playerSkillMonitorIcons",label="玩家技能监控",kind="skillmonitor",parent=group.id,
             internal=true,locked=true,scope="player",unit="player",x=0,y=0,width=216,height=66,autoWidth=true,
             scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=341}
+    end
+end
+function M:UpgradePlayerSkillMonitorDefaults(db)
+    if db.playerSkillMonitorDefaultsRevision==1 then return end
+    local group=MonitorGroup(db.moduleDefaults)
+    if group then
+        -- Update only this module's reset baseline, not the active layout.
+        group.x,group.y,group.growthDirection=0,-120,"CENTER"
+        db.playerSkillMonitorDefaultsRevision=1
     end
 end
 M.moduleIDs.playerSkillMonitor=true
