@@ -122,7 +122,7 @@ local function MissingItem(button)
     end
     -- Native text supports secret counts; only readable counts affect artwork.
     local missing=Number(count)==0
-    if type(count)=="nil"or missing then button.count:SetText("")else button.count:SetText(count)end
+    if type(count)=="nil"or missing or Number(count)==1 then button.count:SetText("")else button.count:SetText(count)end
     return missing
 end
 function I.Paint(view,o,animateOnly)
