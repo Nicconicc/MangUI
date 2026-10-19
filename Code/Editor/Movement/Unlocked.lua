@@ -74,6 +74,7 @@ function M:ResetUnlockedModulePositions()
             local node=mover.node;local ref=defaults[node.id]
             if ref then
                 node.x=ref.x or 0;node.y=ref.y or 0
+                if node.id=="playerSkillMonitor"then M.PlayerSkillMonitor.RestorePosition(node,ref)end
                 if node.id=="mainComposite"then node.moveX=ref.moveX or 0;node.moveY=ref.moveY or 0 end
             end
         end

@@ -104,6 +104,7 @@ function M:EnsurePlayerSkillMonitor(design)
     if not design or not design.nodes then return end
     local seen={};for _,n in ipairs(design.nodes)do seen[n.id]=n end
     local group=seen.playerSkillMonitor
+    local created=not group
     if not group then
         local cd=seen.cooldownMonitor
         group={id="playerSkillMonitor",label="玩家技能监控",kind="group",compound="playerSkillMonitor",scope="player",unit="player",
@@ -124,18 +125,20 @@ function M:EnsurePlayerSkillMonitor(design)
             internal=true,locked=true,scope="player",unit="player",x=0,y=0,width=216,height=66,autoWidth=true,
             scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=341}
     end
+    if created then S.RestorePosition(group)end
 end
 function M:UpgradePlayerSkillMonitorDefaults(db)
-    if db.playerSkillMonitorDefaultsRevision==1 then return end
+    if db.playerSkillMonitorDefaultsRevision==2 then return end
     local group=MonitorGroup(db.moduleDefaults)
     if group then
-        -- Update only this module's reset baseline, not the active layout.
-        group.x,group.y,group.growthDirection=0,-120,"CENTER"
-        db.playerSkillMonitorDefaultsRevision=1
+        group.growthDirection="CENTER";S.RestorePosition(group)
+        -- Repair the exact 1.0.527 default, which ignored scale and mover pivot.
+        local active=MonitorGroup(db.design)
+        if active and active.x==0 and active.y==-120 and S.Direction(active)=="CENTER"then S.RestorePosition(active)end
+        db.playerSkillMonitorDefaultsRevision=2
     end
 end
 M.moduleIDs.playerSkillMonitor=true
-M:EnsurePlayerSkillMonitor(M.defaults);M:EnsurePlayerSkillMonitor(M.recordedDefaults)
 function S.Entries(group)
     local result={}
     for _,entry in ipairs(group.monitors or {})do
@@ -148,6 +151,16 @@ function S.MoveBounds(group)
     if count==0 then count=#samples end -- Movement mode shows the sample row.
     return S.RowOffset(group,count),20,math.max(180,count*44+20),112
 end
+function S.RestorePosition(group,reference)
+    local x,y=0,-120
+    if reference then
+        local cx,cy=S.MoveBounds(reference);local scale=M:NodeScale(reference)
+        x,y=((reference.x or 0)+cx)*scale,((reference.y or 0)+cy)*scale
+    end
+    local cx,cy=S.MoveBounds(group);local scale=math.max(.001,M:NodeScale(group))
+    group.x,group.y=x/scale-cx,y/scale-cy
+end
+M:EnsurePlayerSkillMonitor(M.defaults);M:EnsurePlayerSkillMonitor(M.recordedDefaults)
 function S.EntryIndex(group,entry)
     for i,current in ipairs(group.monitors or {})do if current==entry then return i end end
 end
