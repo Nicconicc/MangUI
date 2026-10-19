@@ -460,6 +460,9 @@ function S.BuildControls(e,parent,Row)
             local row=self.rows[i]
             if not row then
                 row=CreateFrame("Frame",nil,self);row:SetHeight(84);self.rows[i]=row
+                row.separator=row:CreateTexture(nil,"ARTWORK");row.separator:SetHeight(1)
+                row.separator:SetPoint("TOPLEFT",0,8);row.separator:SetPoint("TOPRIGHT",0,8)
+                row.separator:SetColorTexture(.45,.45,.45,.22)
                 row.dragTint=row:CreateTexture(nil,"BACKGROUND");row.dragTint:SetAllPoints();row.dragTint:SetColorTexture(.2,.6,.9,.2);row.dragTint:Hide()
                 DragSurface(row,row)
                 row.dragHandle=CreateFrame("Button",nil,row);row.dragHandle:SetSize(100,16);row.dragHandle:SetPoint("TOPRIGHT",0,0)
@@ -485,7 +488,7 @@ function S.BuildControls(e,parent,Row)
                 end)
                 row.showShortcut.label:SetWordWrap(false)
                 row.shortcutEdit=W.Edit(row,100);row.shortcutEdit:SetMaxLetters(32);row.shortcutEdit:SetTextInsets(6,6,0,0)
-                row.shortcutPlaceholder=W.Label(row.shortcutEdit,"输入快捷键（仅显示）",11)
+                row.shortcutPlaceholder=W.Label(row.shortcutEdit,"快捷键",11)
                 row.shortcutPlaceholder:SetPoint("LEFT",6,0);row.shortcutPlaceholder:SetPoint("RIGHT",-6,0)
                 row.shortcutPlaceholder:SetTextColor(.5,.5,.5);row.shortcutPlaceholder:SetWordWrap(false)
                 row.shortcutEdit:HookScript("OnTextChanged",function(self)row.shortcutPlaceholder:SetShown(self:GetText()=="")end)
@@ -521,9 +524,9 @@ function S.BuildControls(e,parent,Row)
             row.showShortcut:ClearAllPoints();row.showShortcut:SetPoint("TOPLEFT",row,"TOPLEFT",dropWidth+10,-20)
             local keyX=dropWidth+10+24+math.max(72,row.showShortcut.label:GetStringWidth())+8
             row.shortcutEdit:ClearAllPoints();row.shortcutEdit:SetPoint("TOPLEFT",row,"TOPLEFT",keyX,-21)
-            row.shortcutEdit:SetWidth(math.max(50,width-keyX-30))
-            row.shortcutColor:ClearAllPoints();row.shortcutColor:SetPoint("TOPRIGHT",row,"TOPRIGHT",0,-23)
-            row.edit:SetWidth(width/2)
+            row.shortcutEdit:SetWidth(70)
+            row.shortcutColor:ClearAllPoints();row.shortcutColor:SetPoint("LEFT",row.shortcutEdit,"RIGHT",12,0)
+            row.edit:SetWidth(width/3);row.separator:SetShown(i>1)
             if not row.edit:HasFocus()then row.edit:SetText(entry.value)end
             if not row.shortcutEdit:HasFocus()then row.shortcutEdit:SetText(entry.shortcut or "")end
             row.showShortcut:SetChecked(entry.showShortcut~=false);row.shortcutColor:SetColor(entry.shortcutColor or {1,1,1,1})
