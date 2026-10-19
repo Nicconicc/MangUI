@@ -7,6 +7,27 @@ local CachedPair=private.CachedPair
 local CachedPoint=private.CachedPoint
 local Font=private.Font
 
+local function HideAuraTooltip(icon)
+    local hovered=icon.auraHovered
+    icon.auraHovered=nil
+    if hovered and GameTooltip and GameTooltip:IsOwned(icon) then GameTooltip:Hide() end
+end
+local function ShowAuraTooltip(icon)
+    if not GameTooltip or not icon.auraUnit or not icon:IsVisible() then return end
+    local tooltip=GameTooltip;local ok
+    tooltip:SetOwner(icon,"ANCHOR_RIGHT")
+    if icon.auraInstanceID and tooltip.SetUnitAuraByAuraInstanceID then
+        ok=pcall(tooltip.SetUnitAuraByAuraInstanceID,tooltip,icon.auraUnit,icon.auraInstanceID)
+    elseif icon.auraIndex and tooltip.SetUnitAura then
+        ok=pcall(tooltip.SetUnitAura,tooltip,icon.auraUnit,icon.auraIndex,icon.auraFilter)
+    elseif icon.auraIndex then
+        local query
+        if icon.auraFilter=="HARMFUL" then query=tooltip.SetUnitDebuff else query=tooltip.SetUnitBuff end
+        if query then ok=pcall(query,tooltip,icon.auraUnit,icon.auraIndex) end
+    end
+    if ok then tooltip:Show() else HideAuraTooltip(icon) end
+end
+
 local auraPreviewIcons={
     "Spell_Holy_PowerWordShield","Spell_Holy_WordFortitude","Spell_Holy_DivineSpirit","Spell_Holy_InnerFire",
     "Spell_Holy_Renew","Spell_Holy_BlessingOfKings","Spell_Holy_FistOfJustice","Spell_Holy_SealOfWisdom",
@@ -55,8 +76,24 @@ local function Auras(view,o,s)
             icon=CreateFrame("Frame",nil,o.frame);icon.tex=icon:CreateTexture(nil,"ARTWORK");icon.tex:SetAllPoints()
             icon.labels={};icon.shadows={}
             icon.cd=CreateFrame("Cooldown",nil,icon,"CooldownFrameTemplate");icon.cd:SetAllPoints()
+            icon.cd:EnableMouse(false)
+            icon:EnableMouse(false)
+            if not view.preview then
+                if icon.EnableMouseMotion then icon:EnableMouseMotion(true) else icon:EnableMouse(true) end
+                icon:SetScript("OnEnter",function(self)
+                    self.auraHovered=true;o.nextAuraScan=0
+                    -- Refresh identity before showing a tooltip after a target
+                    -- switch or aura reorder, even between scheduled scans.
+                    Auras(view,o,{unit=C.Unit(o.spec.unit)})
+                end)
+                icon:SetScript("OnLeave",HideAuraTooltip)
+                icon:SetScript("OnHide",HideAuraTooltip)
+            end
             o.icons[i]=icon
         end
+        local hitbox=n.partyIndex~=nil and view.nodes["party"..n.partyIndex.."Hitbox"]
+        local level=math.max(o.frame:GetFrameLevel()+1,hitbox and hitbox.frame:GetFrameLevel()+1 or 1)
+        CachedValue(icon,"auraFrameLevel",icon,"SetFrameLevel",level)
         local reverse=n.cooldownReverse
         if reverse==nil then reverse=filter=="HELPFUL" or debuff==true end
         CachedValue(icon,"auraCooldownReverse",icon.cd,"SetReverse",reverse)
@@ -77,6 +114,10 @@ local function Auras(view,o,s)
         end
         local a=data[i];CachedValue(icon,"auraShown",icon,"SetShown",a~=nil)
         if a then
+            if not view.preview then
+                icon.auraUnit,icon.auraFilter=s.unit,filter
+                icon.auraIndex,icon.auraInstanceID=C.Number(a.auraIndex),C.Number(a.auraInstanceID)
+            end
             CachedValue(icon,"auraIcon",icon.tex,"SetTexture",a.icon)
             local configure=icon.auraGeneration~=view.applyGeneration
             if configure then
@@ -108,6 +149,10 @@ local function Auras(view,o,s)
             local cooling=duration and duration>0 and expiration~=nil
             if cooling then CachedPair(icon,"auraCooldown",icon.cd,"SetCooldown",expiration-duration,duration) end
             CachedValue(icon,"auraCooldownShown",icon.cd,"SetShown",not not cooling)
+            if scan and icon.auraHovered then ShowAuraTooltip(icon) end
+        else
+            HideAuraTooltip(icon)
+            icon.auraUnit,icon.auraIndex,icon.auraInstanceID=nil,nil,nil
         end
     end
 end

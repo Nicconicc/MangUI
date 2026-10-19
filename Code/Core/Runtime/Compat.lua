@@ -191,6 +191,7 @@ function C.Aura(unit,index,filter,out)
         local a=out or {}
         a.name,a.icon,a.applications,a.dispelName=name,icon,stacks,dispel
         a.duration,a.expirationTime,a.sourceUnit,a.spellId=duration,expiration,sourceUnit,spellID
+        a.auraInstanceID=nil
         return a
     end
 end
@@ -210,6 +211,9 @@ function C.Auras(unit,filter,count,out,hideUntimed,onlyPlayer)
         local own=not onlyPlayer or (C.Readable(a.sourceUnit) and
             (a.sourceUnit=="player" or (a.sourceUnit and UnitIsUnit and C.Bool(UnitIsUnit(a.sourceUnit,"player")))))
         if own and (not hideUntimed or not untimed) then
+            -- Keep the original filtered-list index for tooltip APIs. Display
+            -- slots can differ after permanent/other-caster auras are skipped.
+            a.auraIndex=i
             used=used+1;result[used]=a
             if used>=count then break end
         end

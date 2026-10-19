@@ -34,9 +34,13 @@ local function StyleAura(view,o,frame)
     local n=o.spec
     frame:SetSize(n.width,n.height)
     frame:EnableMouse(false)
+    frame:EnableMouseMotion(true)
+    frame:SetTooltipAnchorPoint("ANCHOR_RIGHT")
+    frame:SetHideTooltipInCombat(false)
     if not frame.manguiIcon then
         frame.manguiIcon=frame:CreateTexture(nil,"ARTWORK");frame.manguiIcon:SetAllPoints()
         frame.manguiCooldown=CreateFrame("Cooldown",nil,frame,"CooldownFrameTemplate");frame.manguiCooldown:SetAllPoints()
+        frame.manguiCooldown:EnableMouse(false)
         frame.manguiCooldown:SetDrawEdge(false);frame.manguiCooldown:SetDrawBling(false)
         frame.manguiLabels={}
         frame:SetIcon(frame.manguiIcon)
