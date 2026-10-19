@@ -197,7 +197,12 @@ function O.Item(slot)
         icon=icon or O.Safe(GetInventoryItemTexture,"player",slot)
     end
     local enchant,gem
-    if type(link)=="string"then enchant,gem=link:match("item:%d+:(%d+):(%d+)");enchant,gem=tonumber(enchant),tonumber(gem)end
+    if O.Readable(link)and type(link)=="string"then
+        -- Empty fields are valid in item links. An unsocketed weapon can have
+        -- an enchant followed by blank gem fields; parse each independently.
+        enchant,gem=link:match("item:%d+:([^:|]*):?([^:|]*)")
+        enchant,gem=tonumber(enchant),tonumber(gem)
+    end
     return id,name,icon,enchant,gem
 end
 function O.Effects(slot)
