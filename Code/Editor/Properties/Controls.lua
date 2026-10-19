@@ -88,6 +88,21 @@ local function BuildProperties(e)
         if Selected() and Selected().compound=="playerSkillMonitor"then Change("hideWithoutTarget",hidden==true)end
     end)
     Row(32,{{e.skillMonitorHideWithoutTarget,-4,0}},{},"skillMonitorHideWithoutTarget");y=y-32
+    e.skillMonitorDirection=W.MediaSelect(content,"排列方向",(propertyWidth-4)/2,"choice",function()
+        local owner=Selected();if not owner or owner.compound~="playerSkillMonitor"then return end
+        local drop=e.skillMonitorDirection
+        if drop.menu then drop.menu:Hide();return end
+        W.MediaMenu(drop,M.PlayerSkillMonitor.directionChoices,"choice",M.PlayerSkillMonitor.Direction(owner),function(choice)
+            if Selected()==owner then Change("growthDirection",choice.path)end
+        end)
+    end)
+    function e.skillMonitorDirection:SetValue(value)
+        self.value=value
+        for _,choice in ipairs(M.PlayerSkillMonitor.directionChoices)do
+            if choice.path==value then self:SetMedia(choice.name,value);return end
+        end
+    end
+    Row(53,{{e.skillMonitorDirection,0,0}},{},"skillMonitorDirection");y=y-53
     e.partyFields={}
     e.partyHideInRaid=W.Check(content,"在团队时隐藏",function(hidden)
         if Selected() and Selected().compound=="partyFrames"then Change("hidePartyInRaid",hidden)end

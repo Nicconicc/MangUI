@@ -1,5 +1,6 @@
 local _,M=...
 local S={};M.PlayerSkillMonitor=S
+local samples={{type="cooldown",value="116"},{type="debuff",value="172"},{type="cooldown",value="133"}}
 local function Readable(v)return not issecretvalue or not issecretvalue(v)end
 local function Number(v)return Readable(v) and type(v)=="number" and v or nil end
 local function Safe(fn,...)
@@ -12,6 +13,20 @@ function S.Input(value)
 end
 function S.NewEntry()
     return {type="cooldown",value="",showShortcut=true,shortcut="",shortcutColor={1,1,1,1}}
+end
+S.directionChoices={{name="从左向右",path="RIGHT"},{name="从中间向两边",path="CENTER"},{name="从右向左",path="LEFT"}}
+function S.Direction(group)
+    local direction=group and group.growthDirection
+    return (direction=="LEFT"or direction=="CENTER")and direction or "RIGHT"
+end
+function S.RowOffset(group,count)
+    local extent=math.max(0,count-1)*22;local direction=S.Direction(group)
+    return direction=="LEFT"and -extent or (direction=="CENTER"and 0 or extent)
+end
+function S.IconOffset(group,index,count)
+    local direction=S.Direction(group)
+    if direction=="LEFT"then return -(index-1)*44 end
+    return (direction=="CENTER"and -(count-1)*22 or 0)+(index-1)*44
 end
 function S.ValidEntries(entries)
     if type(entries)~="table" then return false end
@@ -98,6 +113,7 @@ function M:EnsurePlayerSkillMonitor(design)
     end
     if not S.ValidEntries(group.monitors) then group.monitors={S.NewEntry()} end
     if group.hideWithoutTarget==nil then group.hideWithoutTarget=false end
+    group.growthDirection=S.Direction(group)
     for _,entry in ipairs(group.monitors)do
         entry.value=S.Input(entry.value);entry.shortcut=S.Input(entry.shortcut)
         if entry.showShortcut==nil then entry.showShortcut=true end
@@ -119,7 +135,9 @@ function S.Entries(group)
     return result
 end
 function S.MoveBounds(group)
-    return 0,20,math.max(180,#S.Entries(group)*44+20),112
+    local count=#S.Entries(group)
+    if count==0 then count=#samples end -- Movement mode shows the sample row.
+    return S.RowOffset(group,count),20,math.max(180,count*44+20),112
 end
 function S.EntryIndex(group,entry)
     for i,current in ipairs(group.monitors or {})do if current==entry then return i end end
@@ -384,7 +402,6 @@ local function TargetAuras(o)
         end
     end
 end
-local samples={{type="cooldown",value="116"},{type="debuff",value="172"},{type="cooldown",value="133"}}
 function S.Paint(view,o,animateOnly)
     local group=view.byID[o.spec.parent]
     local shown=o.spec.enabled~=false and (view.preview or group.enabled~=false) and not(view.hidden and view.hidden[o.spec.id])
@@ -393,6 +410,7 @@ function S.Paint(view,o,animateOnly)
     if not shown then return end
     local now=GetTime();local entries=o.entries or {}
     if view.preview and #entries==0 then entries=samples end
+    o.rowCount=#entries
     local width=math.max(1,#entries*44-4)
     if o.rowWidth~=width then o.frame:SetSize(width,66);o.rowWidth=width end
     if not animateOnly or now>=(o.nextScan or 0) then
@@ -405,7 +423,7 @@ function S.Paint(view,o,animateOnly)
                 Resolve(slot,entry)
                 if o.usesNativeAuras and not InCombatLockdown() then BindAura(slot,group.enabled~=false)end
             end
-            local x=-(#entries-1)*22+(i-1)*44
+            local x=S.IconOffset(group,i,#entries)
             if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
             if not slot:IsShown() then slot:Show()end
             if not view.preview and entry.type=="cooldown" then Cooldown(entry,slot)end

@@ -367,6 +367,7 @@ function M:RefreshProperties()
     e.ruleText:SetText(#rules>0 and table.concat(rules,"\n") or "跟随所属单位显示")
     if n.compound=="playerSkillMonitor" then
         e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
+        e.skillMonitorDirection:SetValue(M.PlayerSkillMonitor.Direction(n))
         e.skillMonitorPanel:Refresh(n)
     end
     local rows={}
@@ -388,7 +389,7 @@ function M:RefreshProperties()
                     or (n.compound=="targetCast" and (row.key=="x" or row.key=="y" or row.key=="hideCastName"))
                     or (n.compound=="playerCast" and (row.key=="castColor" or row.key=="showRangedProgress" or row.key=="showMeleeProgress"))
             elseif n.compound=="playerSkillMonitor" then
-                visible=row.key=="scale" or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"
+                visible=row.key=="scale" or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"
             elseif n.compound=="cooldownMonitor" then
                 visible=row.key=="scale" or row.key=="minCooldown" or row.key=="maxCooldown" or row.key=="blacklist"
             elseif n.compound=="chatButtons" then

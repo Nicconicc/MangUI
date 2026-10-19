@@ -25,7 +25,12 @@ function M:FitPreview()
             (not e.previewFocusID or self:IsChild(n.id,e.previewFocusID)))) then
             local g=geo[n.id]
             local width=n.autoWidth and e.view.nodes[n.id] and e.view.nodes[n.id].frame:GetWidth() or g.w
-            local x1,y1,x2,y2=g.x-width*g.s/2,g.y-g.h*g.s/2,g.x+width*g.s/2,g.y+g.h*g.s/2
+            local x=g.x
+            if n.kind=="skillmonitor"then
+                local object=e.view.nodes[n.id]
+                x=x+M.PlayerSkillMonitor.RowOffset(e.view.byID[n.parent],object and object.rowCount or 0)*g.s
+            end
+            local x1,y1,x2,y2=x-width*g.s/2,g.y-g.h*g.s/2,x+width*g.s/2,g.y+g.h*g.s/2
             minx=minx and math.min(minx,x1) or x1;miny=miny and math.min(miny,y1) or y1
             maxx=maxx and math.max(maxx,x2) or x2;maxy=maxy and math.max(maxy,y2) or y2
         end
@@ -47,7 +52,7 @@ function M:FitPreview()
     end
     local portrait=e.mainPreview and geo.wabc757f81ee
     local cast=HasDedicatedPreview(selected) and geo[e.previewFocusID or selected.id]
-    if PreviewModuleID(selected)=="partyFrames" or PreviewModuleID(selected)=="bossFrames" then cast=nil end
+    if PreviewModuleID(selected)=="partyFrames" or PreviewModuleID(selected)=="bossFrames"or PreviewModuleID(selected)=="playerSkillMonitor" then cast=nil end
     e.centerX,e.centerY=portrait and portrait.x or (cast and cast.x or (minx+maxx)/2),
         portrait and portrait.y or (cast and cast.y or (miny+maxy)/2)
     e.view.root:SetScale(e.fit);e.view.root:ClearAllPoints()
