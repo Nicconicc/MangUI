@@ -101,6 +101,9 @@ local function ItemCooldown(item,now)
     end
     if item.slot then Include(Safe(GetInventoryItemCooldown,"player",item.slot))end
     if item.id then
+        -- Current Classic/Titan clients expose item cooldowns in C_Container.
+        -- Retain legacy APIs and combine results with equipped-slot cooldowns.
+        if C_Container then Include(Safe(C_Container.GetItemCooldown,item.id))end
         Include(Safe(GetItemCooldown,item.id))
         if C_Item and C_Item.GetItemCooldown~=GetItemCooldown then Include(Safe(C_Item.GetItemCooldown,item.id))end
     end
