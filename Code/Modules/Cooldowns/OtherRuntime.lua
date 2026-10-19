@@ -33,7 +33,7 @@ local function CanRead(unit)
 end
 local function Auras(unit,filter)
     if not CanRead(unit)then return nil end
-    local result={byID={},byName={}}
+    local result={byID={},byName={},instancesByID={}}
     for index=1,255 do
         local aura=M.Compat.Aura(unit,index,filter);if not aura then break end
         local id=aura.spellId;if type(id)=="nil"then id=aura.spellID end
@@ -42,7 +42,18 @@ local function Auras(unit,filter)
                 (aura.sourceUnit and M.Compat.Bool(Safe(UnitIsUnit,aura.sourceUnit,"player")))))then
                 local key=Number(id)
                 aura.monitorIndex=index
-                if key then result.byID[key]=aura end
+                if key then
+                    result.byID[key]=aura
+                    local instances=result.instancesByID[key]or {};result.instancesByID[key]=instances
+                    instances[#instances+1]=aura
+                    local instanceID=Number(aura.auraInstanceID)
+                    -- Legacy clients have no instance IDs. A refresh changes the
+                    -- time key but does not displace another surviving instance.
+                    local identity=instanceID and "id:"..instanceID or "time:"..tostring(Number(aura.expirationTime))..":"..tostring(Number(aura.duration))
+                    local ordinal=1
+                    for i=1,#instances-1 do if instances[i].monitorIdentity==identity then ordinal=ordinal+1 end end
+                    aura.monitorIdentity=identity;aura.monitorKey=identity..":"..ordinal;aura.monitorLegacy=not instanceID
+                end
                 if type(aura.name)=="string"then result.byName[aura.name]=aura end
             end
         end
@@ -142,6 +153,7 @@ local function Icon(o,index)
         if self.item and self.item.id and GameTooltip.SetInventoryItem then GameTooltip:SetInventoryItem("player",self.entry.slot)
         elseif self.auraIndex and GameTooltip.SetUnitAura then GameTooltip:SetUnitAura(IsTarget(self.entry)and "target"or "player",self.auraIndex,IsTarget(self.entry)and "HARMFUL|PLAYER"or "HELPFUL")
         elseif self.spellID and GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(self.spellID)else GameTooltip:AddLine(self.spellName or "",1,1,1)end
+        if self.sharedWeapon then GameTooltip:AddLine(M:T("相同效果按Buff实例显示，不代表实际主副手。"),1,.82,0,true)end
         GameTooltip:Show()
     end)
     slot:SetScript("OnLeave",function()GameTooltip:Hide()end)
@@ -152,6 +164,59 @@ local function ItemFingerprint(item)
     local text={tostring(item.id),tostring(item.icon),tostring(item.enchant),tostring(item.gem)}
     for _,id in ipairs(ids)do text[#text+1]=tostring(id)..":"..tostring(item.effects[id].cooldown)end
     return table.concat(text,":")
+end
+local function WeaponAuras(o,auras)
+    local groups={}
+    for _,slot in ipairs(o.otherIcons)do
+        slot.sharedWeapon=false
+        if slot.entry and slot.item and (slot.entry.slot==16 or slot.entry.slot==17)then
+            for spell in pairs(slot.item.effects)do
+                local group=groups[spell]or {};groups[spell]=group
+                group[slot.entry.slot]=slot.fingerprint
+            end
+        end
+    end
+    o.weaponAuraBindings=o.weaponAuraBindings or {}
+    local assignments={};local retained={}
+    for spell,hands in pairs(groups)do
+        if hands[16]and hands[17]then
+            for _,slot in ipairs(o.otherIcons)do
+                if slot.entry and slot.item and hands[slot.entry.slot]and slot.item.effects[spell]then slot.sharedWeapon=true end
+            end
+            if auras then
+                local prior=o.weaponAuraBindings[spell]or {hands={},bindings={}}
+                local current=auras.instancesByID[spell]or {};local available={};local used={};local selected={}
+                for _,aura in ipairs(current)do available[aura.monitorKey]=aura end
+                -- Match existing instance IDs before assigning newly seen ones.
+                -- Never move the remaining buff into the other empty position.
+                for _,hand in ipairs({16,17})do
+                    local key=prior.hands[hand]==hands[hand]and prior.bindings[hand]
+                    if key and available[key]and not used[key]then selected[hand]=available[key];used[key]=true end
+                end
+                for _,aura in ipairs(current)do
+                    if not used[aura.monitorKey]then
+                        if aura.monitorLegacy then
+                            for _,hand in ipairs({16,17})do
+                                if not selected[hand]and prior.bindings[hand]and prior.hands[hand]==hands[hand]then
+                                    selected[hand]=aura;used[aura.monitorKey]=true;break
+                                end
+                            end
+                        end
+                    end
+                    if not used[aura.monitorKey]then
+                        for _,hand in ipairs({16,17})do
+                            if not selected[hand]then selected[hand]=aura;used[aura.monitorKey]=true;break end
+                        end
+                    end
+                end
+                local bindings={}
+                for hand,aura in pairs(selected)do bindings[hand]=aura.monitorKey end
+                retained[spell]={hands=hands,bindings=bindings};assignments[spell]=selected
+            else retained[spell]=o.weaponAuraBindings[spell]end
+        end
+    end
+    o.weaponAuraBindings=retained
+    return assignments
 end
 function O.Configure(view,o)
     o.otherIcons=o.otherIcons or {};o.entries=O.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
@@ -194,13 +259,14 @@ local function Timer(slot,spell,cooldown,aura,now)
     end
     return record.expires
 end
-local function Equipment(slot,auras,now)
+local function Equipment(slot,auras,now,weaponAuras)
     local active,expires,stacks,cdExpires,hasFixed=false,nil,nil,nil,false
     local start,duration=Safe(GetInventoryItemCooldown,"player",slot.entry.slot)
     start,duration=Number(start),Number(duration)
     if start and duration and duration>1.5 then cdExpires=start+duration;hasFixed=true end
     for spell,effect in pairs(slot.item.effects)do
         local aura=auras and auras.byID[spell]
+        if (slot.entry.slot==16 or slot.entry.slot==17)and weaponAuras[spell]then aura=weaponAuras[spell][slot.entry.slot]end
         if aura then
             local finish=Number(aura.expirationTime)
             if not expires or (finish and finish>expires)then expires=finish;stacks=aura.applications end
@@ -212,7 +278,7 @@ local function Equipment(slot,auras,now)
     end
     slot.active=active;slot.expires=active and expires or cdExpires;slot.stacks=active and stacks or nil
     slot.faded=not active and hasFixed and cdExpires~=nil and cdExpires>now or false
-    slot.fixedCooldown=hasFixed;slot.condition=active;slot.show=true
+    slot.fixedCooldown=hasFixed;slot.condition=active;slot.show=true;slot.rawKnown=auras~=nil
 end
 local function Refresh(view,o,now)
     local player=Auras("player","HELPFUL")
@@ -235,7 +301,14 @@ local function Refresh(view,o,now)
                         if o.native then if not InCombatLockdown()then BindNative(slot)else slot.nativeDirty=true end end
                     else slot.item=item end
                 end
-                Equipment(slot,player,now)
+            end
+        end
+    end
+    local weaponAuras=WeaponAuras(o,player)
+    for _,slot in ipairs(o.otherIcons)do
+        local entry=slot.entry
+        if entry then
+            if entry.type=="equipment"then Equipment(slot,player,now,weaponAuras)
             else
                 local auras=player;if IsTarget(entry)then auras=target end
                 local aura=Find(auras,entry,slot.spellID);local present=aura~=nil
@@ -270,7 +343,14 @@ function O.Paint(view,o,animateOnly)
         local slot=Icon(o,i);if slot.entry~=entry then Resolve(slot,entry)end
         local x=S.IconOffset(group,i,#entries)
         if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
-        local native=not view.preview and o.native and slot.nativeBound
+        local rawWeapon=slot.sharedWeapon and slot.rawKnown
+        local native=not view.preview and o.native and slot.nativeBound and not rawWeapon
+        if slot.container then
+            slot.container:SetAlpha(rawWeapon and 0 or 1)
+            if rawWeapon then
+                for _,frame in ipairs(slot.nativeFrames or {})do frame.baseGate:SetAlpha(1);frame.timeGate:SetAlpha(1)end
+            end
+        end
         local eligible=not IsTarget(entry)or M.Compat.Bool(Safe(UnitExists,"target"))
         local visible=view.preview or (native and eligible)or slot.show==true
         slot:SetShown(visible);slot.base:SetAlpha(1);slot.annotations:SetAlpha(1)

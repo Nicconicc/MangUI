@@ -617,4 +617,5 @@ english["进入战场队列"]="Join battleground queue"
 english["任务提示"]="Tutorial alert"
 english["装备修理"]="Repair"
 english["成就提示"]="Achievement alert"
+english["相同效果按Buff实例显示，不代表实际主副手。"]="Matching effects use separate buff instances; positions do not identify the triggering weapon hand."
 M:RebuildLocaleKeys()
