@@ -18,15 +18,15 @@ function M:EnsurePetBuffs(design)
     if not root then return end
     for i=1,5 do root["petBuff"..i]=P.Input(root["petBuff"..i]) end
     if found then
-        -- Keep the row's top edge below the pet power bar when enlarging an
-        -- existing 50px icon. Repeated loads must not move it farther down.
-        if found.width==50 and found.height==50 then found.y=(found.y or -75)-12.5 end
-        found.width,found.height=75,75
+        -- Preserve the row's top edge when updating saved icon sizes.
+        local previousHeight=found.height or 50
+        if previousHeight~=62.5 then found.y=(found.y or (-50-previousHeight/2))+(previousHeight-62.5)/2 end
+        found.width,found.height=62.5,62.5
     end
     if not found then
         design.nodes[#design.nodes+1]={id=P.nodeID,label="宠物Buff监控",kind="auras",parent="petComposite",
             internal=true,locked=true,scope="pet",unit="pet",visibleUnit="pet",enabled=true,
-            x=175,y=-87.5,width=75,height=75,scale=1,point="LEFT",anchor="CENTER",alpha=1,layer=330,
+            x=175,y=-81.25,width=62.5,height=62.5,scale=1,point="LEFT",anchor="CENTER",alpha=1,layer=330,
             filter="HELPFUL",count=5,spacing=5,cooldownReverse=true,hideCooldownNumbers=true,rules={},conditions={}}
     end
 end
