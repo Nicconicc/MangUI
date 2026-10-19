@@ -137,10 +137,10 @@ function M:RefreshProperties()
     end
     e.empty:SetText("从左侧列表或画布选择元素")
     e.props:SetShown(n~=nil);e.empty:SetShown(n==nil)
-    e.propTitle:SetShown(n~=nil and not IsUnitComposite(n) and n.id~="wa8d650f8d3a" and n.compound~="partyFrames" and n.compound~="bossFrames" and n.compound~="cooldownMonitor" and n.compound~="chatButtons" and n.compound~="combatNotices" and n.compound~="systemMenu" and n.compound~="mouseCircle" and n.compound~="experienceBar" and n.compound~="targetThreat" and n.compound~="targetDistance")
+    e.propTitle:SetShown(n~=nil and not IsUnitComposite(n) and n.id~="wa8d650f8d3a" and n.compound~="partyFrames" and n.compound~="bossFrames" and n.compound~="playerSkillMonitor" and n.compound~="cooldownMonitor" and n.compound~="chatButtons" and n.compound~="combatNotices" and n.compound~="systemMenu" and n.compound~="mouseCircle" and n.compound~="experienceBar" and n.compound~="targetThreat" and n.compound~="targetDistance")
     if not n then ResetDividers(e);e.propertyLayoutSignature=nil;return end
     e.propScroll:ClearAllPoints()
-    e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,((IsUnitComposite(n) or n.id=="wa8d650f8d3a" or n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="cooldownMonitor" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="systemMenu" or n.compound=="mouseCircle" or n.compound=="experienceBar" or n.compound=="targetThreat" or n.compound=="targetDistance") and -12 or -42)-headerOffset)
+    e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,((IsUnitComposite(n) or n.id=="wa8d650f8d3a" or n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="playerSkillMonitor" or n.compound=="cooldownMonitor" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="systemMenu" or n.compound=="mouseCircle" or n.compound=="experienceBar" or n.compound=="targetThreat" or n.compound=="targetDistance") and -12 or -42)-headerOffset)
     e.propScroll:SetPoint("BOTTOMRIGHT",e.right,"BOTTOMRIGHT",-30,12)
     e.propScroll:Show()
     local valueTextTitle=n.id=="wadb51e41246" or n.id=="wa8ee62b16d6" or n.id=="wa6edbcf125a"
@@ -365,6 +365,7 @@ function M:RefreshProperties()
     local rules={}
     for _,rule in ipairs(n.rules or {}) do rules[#rules+1]=(rule.invert and "非 " or "")..(rule.unit or "player").." · "..({casting="施法中",exists="单位存在",classification="分类",isPlayer="玩家",friendly="友方",leader="队长",afk="暂离",dead="死亡",hearth="炉石",raid="团队标记"})[rule.test] end
     e.ruleText:SetText(#rules>0 and table.concat(rules,"\n") or "跟随所属单位显示")
+    if n.compound=="playerSkillMonitor" then e.skillMonitorPanel:Refresh(n) end
     local rows={}
     local propertyRows=e.propRows or {}
     for _,row in ipairs(propertyRows) do
@@ -383,6 +384,8 @@ function M:RefreshProperties()
                     or row.key=="castFontSize" or row.key=="nameFont"
                     or (n.compound=="targetCast" and (row.key=="x" or row.key=="y" or row.key=="hideCastName"))
                     or (n.compound=="playerCast" and (row.key=="castColor" or row.key=="showRangedProgress" or row.key=="showMeleeProgress"))
+            elseif n.compound=="playerSkillMonitor" then
+                visible=row.key=="scale" or row.key=="skillMonitorItems"
             elseif n.compound=="cooldownMonitor" then
                 visible=row.key=="scale" or row.key=="minCooldown" or row.key=="maxCooldown" or row.key=="blacklist"
             elseif n.compound=="chatButtons" then

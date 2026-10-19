@@ -31,12 +31,16 @@ local function CleanNodes(nodes)
         local value=node["petBuff"..i]
         if value~=nil and (type(value)~="string" or #value>384) then return end
     end end
+    for _,node in ipairs(nodes) do
+        if node.monitors~=nil and not M.PlayerSkillMonitor.ValidEntries(node.monitors) then return end
+    end
     M:NormalizeAssetPaths(nodes)
     M:NormalizeRetiredFonts(nodes)
     M:NormalizeCenterDecoration({nodes=nodes})
     M:EnsureCenterClassification({nodes=nodes})
     if M.EnsurePetBuffs then M:EnsurePetBuffs({nodes=nodes}) end
     if M.EnsureCooldownModule then M:EnsureCooldownModule({nodes=nodes}) end
+    if M.EnsurePlayerSkillMonitor then M:EnsurePlayerSkillMonitor({nodes=nodes}) end
     if M.EnsureChatButtonsModule then M:EnsureChatButtonsModule({nodes=nodes}) end
     if M.EnsureCombatNoticesModule then M:EnsureCombatNoticesModule({nodes=nodes}) end
     if M.EnsureSystemMenuModule then M:EnsureSystemMenuModule({nodes=nodes}) end

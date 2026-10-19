@@ -3,16 +3,19 @@ local D={};M.CooldownMonitor=D
 D.defaultBlacklist="炉石\n猛虎之怒\n精灵之火（野性）\n十字军打击\n神圣风暴\n奉献\n驱邪术\n愤怒之锤\n神圣震击\n正义之锤\n正义盾击\n神圣之盾\n烈焰震击\n熔岩爆裂\n闪电链\n火焰新星\n雷霆风暴\n风暴打击\n熔岩猛击\n大地震击\n暗影灼烧\n混乱之箭\n鬼影缠身\n裂伤（熊）\n裂伤（豹）\n野性成长\n迅捷治愈\n激流\n脚踢\n嫁祸诀窍\n冲击波\n龙息术\n心灵震爆\n暗言术：灭\n苦修\n愈合祷言\n陷阱发射器：爆炸陷阱\n爆炸射击\n多重射击\n杀戮射击\n火焰冲击"
 local function Templates()
     return {
-        {id="cooldownMonitor",label="技能冷却监控",kind="group",compound="cooldownMonitor",scope="player",unit="player",
+        {id="cooldownMonitor",label="玩家技能冷却监控",kind="group",compound="cooldownMonitor",scope="player",unit="player",
             x=0,y=-375,width=2,height=2,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=350,
             blacklist=D.defaultBlacklist,minCooldown=1.5,maxCooldown=86400,rules={},conditions={}},
-        {id="cooldownMonitorIcons",label="技能冷却监控",kind="cooldowns",parent="cooldownMonitor",internal=true,locked=true,
+        {id="cooldownMonitorIcons",label="玩家技能冷却监控",kind="cooldowns",parent="cooldownMonitor",internal=true,locked=true,
             scope="player",unit="player",x=0,y=0,width=216,height=60,autoWidth=true,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=351},
     }
 end
 function M:EnsureCooldownModule(design)
     local seen={};for _,n in ipairs(design.nodes) do seen[n.id]=n end
     for _,n in ipairs(Templates()) do if not seen[n.id] then design.nodes[#design.nodes+1]=n end end
+    for _,node in ipairs(design.nodes) do
+        if node.id=="cooldownMonitor" or node.id=="cooldownMonitorIcons" then node.label="玩家技能冷却监控" end
+    end
     local group=seen.cooldownMonitor
     if group and type(group.blacklist)~="string" then group.blacklist=D.defaultBlacklist end
     if group then

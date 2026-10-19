@@ -620,6 +620,7 @@ local function BuildProperties(e)
     end)
     e.petNameEnabled:SetPoint("TOPLEFT",-4,y);e.petNameEnabled.label:SetTextColor(1,1,1)
     Row(30,{{e.petNameEnabled,-4,0}},{},"petNameEnabled");y=y-30
+    M.PlayerSkillMonitor.BuildControls(e,content,Row)
     local petBuffTitle=W.Label(content,"宠物Buff监控",13)
     Row(28,{{petBuffTitle,0,-3}},{},"petBuffTitle");y=y-28
     e.petBuffInputs={}
