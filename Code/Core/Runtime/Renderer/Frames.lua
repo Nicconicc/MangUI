@@ -71,12 +71,30 @@ end
 
 -- Preview parents may be raised or assigned inherited levels as their window
 -- first appears. Restore layers after that show cycle as well as after edits.
+local function PreviewFrameMatches(frame,level,strata)
+    return frame:GetFrameLevel()==level and (not strata or not frame.GetFrameStrata or frame:GetFrameStrata()==strata)
+end
 function R.SyncPreviewLayers(view,force)
     if not view.preview or not view.design or (view.applying and not force) then return end
     local base=view.root:GetFrameLevel()
     local strata=view.root.GetFrameStrata and view.root:GetFrameStrata()
+    local now=GetTime()
     if not force and not view.previewLayersPending and view.previewLayerBase==base
-        and view.previewLayerStrata==strata then return end
+        and view.previewLayerStrata==strata then
+        if now<(view.nextPreviewLayerCheck or 0) then return end
+        view.nextPreviewLayerCheck=now+.25
+        local changed=false
+        for _,o in ipairs(view.ordered) do
+            if o.frame:IsVisible() then
+                local level=base+math.max(1,math.floor(o.spec.layer or 1))
+                if not PreviewFrameMatches(o.frame,level,strata) or (o.bar and not PreviewFrameMatches(o.bar,level+1,strata))
+                    or (o.clip and not PreviewFrameMatches(o.clip,level+1,strata))
+                    or (o.portraitViewport and not PreviewFrameMatches(o.portraitViewport,level,strata))
+                    or (o.portraitModel and not PreviewFrameMatches(o.portraitModel,level,strata)) then changed=true;break end
+            end
+        end
+        if not changed then return end
+    end
     local order,depths={},{}
     local function Depth(frame)
         if not frame or frame==view.root then return 0 end
@@ -99,6 +117,12 @@ function R.SyncPreviewLayers(view,force)
         local level=base+math.max(1,math.floor(o.spec.layer or 1))
         if strata and f:GetFrameStrata()~=strata then f:SetFrameStrata(strata) end
         if f:GetFrameLevel()~=level then f:SetFrameLevel(level) end
+        -- Bar fills live on child frames, outside the saved node list. Their
+        -- levels must follow the owning bar rather than a startup inheritance.
+        for _,child in ipairs({o.bar,o.clip}) do
+            if strata and child.GetFrameStrata and child:GetFrameStrata()~=strata then child:SetFrameStrata(strata) end
+            if child:GetFrameLevel()~=level+1 then child:SetFrameLevel(level+1) end
+        end
         if o.portraitViewport and o.portraitViewport:GetFrameLevel()~=level then
             o.portraitViewport:SetFrameLevel(level)
         end
@@ -108,6 +132,7 @@ function R.SyncPreviewLayers(view,force)
         end
     end
     view.previewLayerBase=base;view.previewLayerStrata=strata;view.previewLayersPending=nil
+    view.nextPreviewLayerCheck=now+.25
 end
 
 function R.New(parent,preview)
@@ -116,7 +141,17 @@ function R.New(parent,preview)
     local view={root=root,preview=preview,nodes={},ordered={},scene="normal",cache={},stateBuffers={}}
     if preview then
         root:HookScript("OnShow",function()view.previewLayersPending=true end)
-        root:HookScript("OnUpdate",function()R.SyncPreviewLayers(view)end)
+        root:HookScript("OnUpdate",function()
+            if view.previewSetupPending and view.design and not view.applying then
+                view.previewSetupPending=nil
+                -- The first Apply allocates and reparents the entire tree. Do
+                -- one complete configuration with the final hierarchy and the
+                -- editor's fitted viewport, as an ordinary property edit does.
+                for _,o in ipairs(view.ordered) do o.specRevision=nil end
+                R.Apply(view,view.design,true)
+            end
+            R.SyncPreviewLayers(view)
+        end)
     end
     return view
 end
@@ -431,7 +466,10 @@ function R.Apply(view,design,unchanged)
     local active=byID
     -- Allocate first, then parent: duplicates may follow their original descendants.
     for _,n in ipairs(design.nodes) do
-        if not view.nodes[n.id] then Build(view,n) end
+        if not view.nodes[n.id] then
+            Build(view,n)
+            if view.preview then view.previewSetupPending=true end
+        end
     end
     view.byID=byID
     local changed,anyChanged={},false
@@ -445,7 +483,9 @@ function R.Apply(view,design,unchanged)
     view.lastConfiguredCount=0
     view.lastReindexed=reindex
     if not anyChanged and not reindex then
-        view.applying=false;R.Update(view);QueuePreviewFontRefresh(view);return
+        view.applying=false
+        if view.preview and selectionChanged then R.SyncPreviewLayers(view,true) end
+        R.Update(view);QueuePreviewFontRefresh(view);return
     end
     view.fontsPending=nil;view.fontRetryCount=0;view.fontRetryAt=GetTime()+.5
     view.applyGeneration=(view.applyGeneration or 0)+1
