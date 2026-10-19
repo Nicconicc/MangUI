@@ -69,10 +69,56 @@ function R.SyncMainPortraitAnchor(view)
     end
 end
 
+-- Preview parents may be raised or assigned inherited levels as their window
+-- first appears. Restore layers after that show cycle as well as after edits.
+function R.SyncPreviewLayers(view,force)
+    if not view.preview or not view.design or (view.applying and not force) then return end
+    local base=view.root:GetFrameLevel()
+    local strata=view.root.GetFrameStrata and view.root:GetFrameStrata()
+    if not force and not view.previewLayersPending and view.previewLayerBase==base
+        and view.previewLayerStrata==strata then return end
+    local order,depths={},{}
+    local function Depth(frame)
+        if not frame or frame==view.root then return 0 end
+        if depths[frame] then return depths[frame] end
+        local depth=1;local parent=frame:GetParent()
+        while parent and parent~=view.root and depth<100 do
+            depth=depth+1;parent=parent:GetParent()
+        end
+        depths[frame]=depth;return depth
+    end
+    for i,o in ipairs(view.ordered) do order[i]={node=o,depth=Depth(o.frame),index=i} end
+    table.sort(order,function(a,b)
+        if a.depth==b.depth then return a.index<b.index end
+        return a.depth<b.depth
+    end)
+    -- Saved node order need not follow the physical hierarchy. Finish every
+    -- parent before its descendants, including entry-animation containers.
+    for _,item in ipairs(order) do
+        local o=item.node;local f=o.frame
+        local level=base+math.max(1,math.floor(o.spec.layer or 1))
+        if strata and f:GetFrameStrata()~=strata then f:SetFrameStrata(strata) end
+        if f:GetFrameLevel()~=level then f:SetFrameLevel(level) end
+        if o.portraitViewport and o.portraitViewport:GetFrameLevel()~=level then
+            o.portraitViewport:SetFrameLevel(level)
+        end
+        if o.portraitModel then
+            if strata and o.portraitModel:GetFrameStrata()~=strata then o.portraitModel:SetFrameStrata(strata) end
+            if o.portraitModel:GetFrameLevel()~=level then o.portraitModel:SetFrameLevel(level) end
+        end
+    end
+    view.previewLayerBase=base;view.previewLayerStrata=strata;view.previewLayersPending=nil
+end
+
 function R.New(parent,preview)
     local root=CreateFrame("Frame",nil,parent);root:SetSize(2,2);root:SetPoint("CENTER")
     root:SetFrameLevel(parent:GetFrameLevel()+2)
-    return {root=root,preview=preview,nodes={},ordered={},scene="normal",cache={},stateBuffers={}}
+    local view={root=root,preview=preview,nodes={},ordered={},scene="normal",cache={},stateBuffers={}}
+    if preview then
+        root:HookScript("OnShow",function()view.previewLayersPending=true end)
+        root:HookScript("OnUpdate",function()R.SyncPreviewLayers(view)end)
+    end
+    return view
 end
 local function NativeModelPose(o)
     local n=o.spec
@@ -618,7 +664,11 @@ function R.Apply(view,design,unchanged)
     -- Parenting/entry-animation frames can shift descendants' native levels.
     -- Restore every requested level after all parents have been configured,
     -- then place native models on their portrait's final layer and strata.
-    if levelsChanged then
+    if view.preview then
+        -- Apply once now, then confirm after native show/parent updates settle.
+        R.SyncPreviewLayers(view,true)
+        view.previewLayersPending=true
+    elseif levelsChanged then
     for pass=1,2 do
         for _,o in ipairs(view.ordered) do
             local level=view.root:GetFrameLevel()+math.max(1,math.floor(o.spec.layer or 1))

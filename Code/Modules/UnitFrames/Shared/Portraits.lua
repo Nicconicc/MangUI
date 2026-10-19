@@ -198,9 +198,11 @@ function P.Configure(view,o)
             icon:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
             icon:SetDesaturated(true);icon:Hide()
         end
-        local size=math.min(o.spec.width,o.spec.height)/3
+        local baseSize=math.min(o.spec.width,o.spec.height)/3
+        local size=baseSize*1.5
         icon:SetSize(size,size);icon:ClearAllPoints()
-        icon:SetPoint("RIGHT",o.frame,"LEFT",-size*.75,0)
+        -- Enlarge around the existing center instead of moving the indicator.
+        icon:SetPoint("RIGHT",o.frame,"LEFT",-baseSize*.5,0)
     end
     if not view.preview and not o.staticPortraitShowHook
         and (o.spec.id=="wa88b1376baa" or o.spec.id=="wa0b0b0540c7") then
