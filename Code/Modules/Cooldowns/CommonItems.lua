@@ -125,7 +125,10 @@ function I.Resolve(entry)
         if equipped and ((id and equipped==id)or (not id and I.Safe(C_Item and C_Item.GetItemInfo or GetItemInfo,equipped)==value))then id=equipped;equippedSlot=slot;break end
     end
     if not icon and id then icon=I.Safe(C_Item and C_Item.GetItemIconByID or GetItemIcon,id)end
-    local equippable=equippedSlot~=nil or (type(equip)=="string"and equip~="")
+    -- Titan uses a nonempty NON_EQUIP marker for consumables. It is not
+    -- an equipment slot and must not disable their secure item action.
+    local equippable=equippedSlot~=nil or (type(equip)=="string"and equip~=""
+        and equip~="INVTYPE_NON_EQUIP_IGNORE"and equip~="INVTYPE_NON_EQUIP")
     if not equippable then equippable=I.Safe(C_Item and C_Item.IsEquippableItem or IsEquippableItem,id or input)==true end
     -- Never bind a gear item by name/ID: the native action would equip it.
     local use=equippedSlot and tostring(equippedSlot)or (not equippable and (name or equip~=nil)and id and "item:"..id or nil)
