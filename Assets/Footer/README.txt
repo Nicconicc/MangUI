@@ -8,4 +8,9 @@ Afdian: https://static.afdiancdn.com/static/img/icons/apple-touch-icon-120x120.p
 KOOK: https://www.kookapp.cn/favicon.ico
 Changelog document symbol: created for MangUI.
 Brand marks belong to their respective owners.
-Temporary destination URLs are centralized in FooterLinks.lua, F.entries.
+Community/support layout, localized entries, colored hover marks and destinations
+match CardMaster 1.1.178. CardMaster.png uses CardMaster's CMLogo.png.
+GitHub marks and colored hover assets are copied from CardMaster's footer assets.
+The donation card count is a catalogue snapshot (2678); update F.cardCount when
+aligning this area to a newer CardMaster catalogue. No CardMaster addon is required.
+Entry definitions and destinations are centralized in Code/Editor/Footer.lua.

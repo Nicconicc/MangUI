@@ -1,155 +1,246 @@
-local _,M=...
-local W=M.Widgets
+local _, M = ...
 local F={};M.FooterLinks=F
+-- Card count matches the current CardMaster catalogue; no CardMaster dependency.
+F.cardCount=2678
 
--- Replace these temporary URLs with the creator's pages and community invites.
-F.entries={
-    {id="cardmaster",label="MangUI卡牌大师",tooltip="与插件“MangUI卡牌大师”配合使用体验更佳",fullColor=true,
-        copyText="CardMaster",description="复制插件名在任意插件平台搜索。",copyHint="按 Ctrl+C 复制插件名"},
-    {id="paypal",label="PayPal",url="https://www.paypal.com/",description="支持 MangUI 的开发。"},
-    {id="afdian",label="爱发电",url="https://afdian.com/",description="支持 MangUI 的开发。"},
-    {id="patreon",label="Patreon",url="https://www.patreon.com/",description="支持 MangUI 的开发。"},
-    {id="discord",label="Discord",url="https://discord.com/",description="加入 MangUI 社区。"},
-    {id="kook",label="Kook",url="https://www.kookapp.cn/",description="加入 MangUI 社区。"},
-    {id="changelog",label="更新日志",url="https://example.com/mangui/changelog",description="查看 MangUI 的更新记录。"},
+local ROOT = "Interface\\AddOns\\MangUI\\Assets\\Footer\\"
+local ENTRIES = {
+    { id = "kook", zh = "KOOK", en = "KOOK", chinese = true, activeTexture = "kook_color.tga", url = "https://kook.vip/DqQ5U4" },
+    { id = "discord", zh = "Discord", en = "Discord", chinese = false, activeTexture = "discord_color.tga", pending = true },
+    { id = "afdian", zh = "爱发电", en = "爱发电", chinese = true, activeTexture = "afdian_color.tga", url = "https://ifdian.net/a/cardmaster" },
+    { id = "patreon", zh = "Patreon", en = "Patreon", chinese = false, activeTexture = "patreon_color.tga", pending = true },
+    { id = "cardmaster", zh = "CardMaster 卡牌大师", en = "CardMaster", fullColor = true, copyText = "CardMaster" },
+    { id = "github", zh = "GitHub", en = "GitHub", url = "https://github.com/Nicconicc/CardMaster" },
 }
+F.entries=ENTRIES
 
-local function Highlight(button,active)
-    if button.entry.fullColor then
-        button.icon:SetTexture("Interface\\AddOns\\MangUI\\Assets\\Footer\\"..button.entry.id..".tga")
-        button.icon:SetDesaturated(false);button.icon:SetAlpha(1)
-        if button.shine then button.shine:SetShown(active) end
-        button.glow:SetShown(active)
-        return
+local function text(zh, en)
+    return M:EffectiveLanguage() == "enUS" and en or zh
+end
+
+local function chineseClient()
+    local locale = GetLocale and GetLocale() or "enUS"
+    return locale == "zhCN" or locale == "zhTW"
+end
+
+local function description(entry)
+    if entry.id == "cardmaster" then
+        return text("欢迎使用CardMaster卡牌大师插件，它经常和MangUI配套使用，祝开心", "Welcome to CardMaster! It is often used alongside MangUI. Have fun!")
+    elseif entry.id == "kook" then
+        return text("欢迎加入KOOK社群，在这里找到作者，并与朋友们畅聊。", "Join our KOOK community to meet the author and chat with friends.")
+    elseif entry.id == "afdian" then
+        local total = F.cardCount
+        return string.format(text("感谢您请我喝茶，我已绘制了%d张卡牌，您的支持是我开发和绘制下一套卡牌的绝对动力。", "Thank you for treating me to tea! I have drawn %d cards, and your support keeps me developing CardMaster and drawing the next set."), total)
+    elseif entry.pending then
+        return text("创建中，请等待", "Coming soon, please wait")
     end
-    button.icon:SetTexture("Interface\\AddOns\\MangUI\\Assets\\Footer\\"..button.entry.id..(active and "_white" or "")..".tga")
-    button.icon:SetAlpha(active and 1 or .65)
+    return text("复制下方网址，在浏览器中打开。", "Copy the website address below and open it in your browser.")
+end
+
+local function panel(parent)
+    local frame = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    frame:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    frame:SetBackdropColor(0.025, 0.025, 0.035, 0.98)
+    frame:SetBackdropBorderColor(0.8, 0.8, 0.8, 1)
+    return frame
+end
+
+local function highlight(button, active)
+    local entry = button.entry
+    button.icon:SetTexture(entry.fullColor and (ROOT .. "CardMaster.png") or
+        (ROOT .. (active and entry.activeTexture or (entry.id .. (active and "_white" or "") .. ".tga"))))
+    button.icon:SetDesaturated(not (entry.fullColor or active))
+    button.icon:SetVertexColor(1, 1, 1, 1)
+    button.icon:SetAlpha(entry.fullColor and 1 or (active and 1 or 0.65))
     button.glow:SetShown(active)
+    if button.shine then button.shine:SetShown(active) end
 end
 
 function F.Attach(editor)
-    local bar=CreateFrame("Frame",nil,editor.window)
-    bar:SetSize(284,30);bar:SetPoint("BOTTOMRIGHT",-20,12)
-    editor.footerLinks=bar;bar.buttons={}
+    local window=editor.window
+    local bar = CreateFrame("Frame", nil, window)
+    bar:SetSize(158, 30)
+    bar:SetPoint("BOTTOMRIGHT", -20, 12)
+    bar.buttons = {}
+    editor.footerLinks = bar
+    bar.label = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    bar.label:SetJustifyV("MIDDLE")
+    bar.label:SetPoint("RIGHT", bar, "LEFT", -12, 0)
+    bar.label:SetText(chineseClient() and "在这里找到作者" or "Community & Support")
+    bar.label:SetTextColor(0.7, 0.75, 0.8)
 
-    local nameTip=W.Panel(bar);bar.nameTip=nameTip
-    nameTip:Hide();nameTip:SetFrameStrata("TOOLTIP");nameTip:SetFrameLevel(10200)
-    nameTip:SetClampedToScreen(true);nameTip:EnableMouse(false)
-    nameTip:SetBackdropColor(.025,.025,.035,.98);nameTip:SetBackdropBorderColor(.8,.8,.8,1)
-    nameTip.label=nameTip:CreateFontString(nil,"OVERLAY","GameTooltipText")
-    nameTip.label:SetPoint("CENTER",0,0)
-    nameTip.label:SetJustifyH("CENTER");nameTip.label:SetJustifyV("MIDDLE")
-    nameTip.label:SetTextColor(1,.82,0,1)
-
-    local popup=W.Panel(bar);bar.popup=popup
-    popup:Hide();popup:SetSize(380,120)
-    popup:SetFrameStrata("TOOLTIP");popup:SetFrameLevel(10100)
-    popup:SetClampedToScreen(true);popup:EnableMouse(true)
-    popup:SetPoint("BOTTOMRIGHT",bar,"TOPRIGHT",0,5)
-    popup:SetBackdropColor(.025,.025,.035,.98)
-    popup:SetBackdropBorderColor(.8,.8,.8,1)
-    popup:RegisterEvent("GLOBAL_MOUSE_DOWN")
-    popup:SetScript("OnEvent",function(self,event)
-        if event=="GLOBAL_MOUSE_DOWN" and self:IsShown() and not self:IsMouseOver() then
-            self:Hide()
-        end
+    local popup = panel(bar)
+    popup:SetSize(420, 110)
+    popup:SetPoint("BOTTOMRIGHT", bar, "TOPRIGHT", 0, 5)
+    popup:SetFrameStrata("TOOLTIP")
+    popup:SetClampedToScreen(true)
+    popup:EnableMouse(true)
+    popup:Hide()
+    popup:EnableKeyboard(true);popup:SetPropagateKeyboardInput(true)
+    popup:SetScript("OnKeyDown",function(owner,key)
+        owner:SetPropagateKeyboardInput(key~="ESCAPE")
+        if key=="ESCAPE"then owner:Hide()end
     end)
-    popup.title=W.Label(popup,"",14);popup.title:SetPoint("TOPLEFT",12,-10)
-    popup.title:SetTextColor(1,.82,0)
-    local close=CreateFrame("Button",nil,popup,"UIPanelCloseButton")
-    close:SetSize(24,24);close:SetPoint("TOPRIGHT",0,0);W.StyleButton(close)
-    close:SetScript("OnClick",function()popup:Hide()end);popup.close=close
-    popup.description=W.Label(popup,"",12)
-    popup.description:SetPoint("TOPLEFT",12,-32);popup.description:SetSize(356,22)
+    popup.title = popup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    popup.title:SetPoint("TOPLEFT", 12, -12)
+    popup.title:SetTextColor(1, 0.82, 0)
+    local popupFont, popupFontSize, popupFontFlags = popup.title:GetFont()
+    bar.label:SetFont(popupFont, popupFontSize, popupFontFlags)
+    popup.description = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    popup.description:SetFont(popupFont, popupFontSize, popupFontFlags)
+    popup.description:SetPoint("TOPLEFT", popup.title, "BOTTOMLEFT", 0, -8)
+    popup.description:SetWidth(396)
+    popup.description:SetJustifyH("LEFT")
+    popup.description:SetJustifyV("TOP")
     popup.description:SetWordWrap(true)
-    local function LayoutPopup()
-        local height=math.max(22,popup.description:GetStringHeight()+2)
-        popup.description:SetHeight(height);popup:SetHeight(98+height)
-        if popup.address then
-            popup.address:ClearAllPoints()
-            popup.address:SetPoint("TOPLEFT",12,-37-height)
-            popup.address:SetPoint("TOPRIGHT",-12,-37-height)
-        end
-    end
-    popup.hint=W.Label(popup,"按 Ctrl+C 复制 URL",12)
-    popup.hint:SetPoint("BOTTOMLEFT",12,10)
-
-    local address=CreateFrame("EditBox",nil,popup,"BackdropTemplate");popup.address=address
-    address:SetPoint("TOPLEFT",12,-59);address:SetPoint("TOPRIGHT",-12,-59);address:SetHeight(23)
-    address:SetFontObject(GameFontHighlightSmall);address:SetTextColor(1,1,1)
-    address:SetAutoFocus(false);address:SetMultiLine(false);address:SetTextInsets(6,6,0,0)
-    address:SetBackdrop({bgFile="Interface\\ChatFrame\\ChatFrameBackground",
-        edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=10,
-        insets={left=2,right=2,top=2,bottom=2}})
-    address:SetBackdropColor(.015,.015,.02,1);address:SetBackdropBorderColor(.5,.5,.5,1)
-    local function SelectAddress()address:SetFocus();address:HighlightText()end
-    address:SetScript("OnEditFocusGained",function(self)self:HighlightText()end)
-    address:SetScript("OnMouseUp",SelectAddress)
-    address:SetScript("OnEnterPressed",SelectAddress)
-    address:SetScript("OnEscapePressed",function()popup:Hide()end)
-    -- Keep the copy field selectable without allowing edits to change its content.
-    address:SetScript("OnTextChanged",function(self,userInput)
-        if userInput and popup.owner then
-            self:SetText(popup.owner.entry.copyText or popup.owner.entry.url);self:HighlightText()
-        end
+    popup.description:SetNonSpaceWrap(true)
+    if popup.description.SetMaxLines then popup.description:SetMaxLines(0) end
+    popup.description:SetTextColor(1, 1, 1)
+    popup.hint = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    popup.hint:SetFont(popupFont, popupFontSize, popupFontFlags)
+    popup.hint:SetTextColor(1, 1, 1)
+    local address = CreateFrame("EditBox", nil, popup, "InputBoxTemplate")
+    address:SetPoint("TOPLEFT", popup.description, "BOTTOMLEFT", 4, -10)
+    address:SetSize(388, 23)
+    address:SetFont(popupFont, popupFontSize, popupFontFlags)
+    address:SetTextColor(1, 1, 1)
+    popup.hint:SetPoint("TOPLEFT", address, "BOTTOMLEFT", -4, -8)
+    address:SetAutoFocus(false)
+    address:SetScript("OnEscapePressed", function() popup:Hide() end)
+    address:SetScript("OnEditFocusGained", function(owner) owner:HighlightText() end)
+    address:SetScript("OnMouseUp", function(owner) popup.pinned = true; owner:SetFocus(); owner:HighlightText() end)
+    address:SetScript("OnTextChanged", function(owner, userInput)
+        if userInput and popup.copyText then owner:SetText(popup.copyText); owner:HighlightText() end
     end)
-    popup:SetScript("OnHide",function(self)
+    local close = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", 0, 0)
+    close:SetSize(24, 24)
+    M.Widgets.StyleButton(close)
+    close:SetScript("OnClick", function() popup:Hide() end)
+    popup:SetScript("OnHide", function()
         address:ClearFocus()
-        if self.owner then Highlight(self.owner,self.owner:IsMouseOver()) end
-        self.owner=nil
+        if popup.owner then highlight(popup.owner, false) end
+        popup.owner, popup.copyText, popup.pinned = nil, nil, nil
     end)
-    local function Show(button)
-        nameTip:Hide()
-        if popup.owner and popup.owner~=button then Highlight(popup.owner,popup.owner:IsMouseOver()) end
-        popup.owner=button
-        popup.title:SetText(button.entry.label);popup.description:SetText(button.entry.description)
-        local copyText=button.entry.copyText or button.entry.url
-        popup.hint:SetText(button.entry.copyHint or "按 Ctrl+C 复制 URL")
-        address:SetText(copyText)
-        M:ApplyLocaleFont(address,copyText,true)
-        LayoutPopup()
-        popup:Show();Highlight(button,true);SelectAddress()
+    bar.popup = popup
+
+    -- Leave time to cross the small gap into the copyable popup. A click pins
+    -- it until closed so copying does not depend on keeping the pointer still.
+    local hideToken = 0
+    local function cancelHide()
+        hideToken = hideToken + 1
     end
-    for index,entry in ipairs(F.entries) do
-        local button=CreateFrame("Button",nil,bar);bar.buttons[index]=button;button.entry=entry
-        button:SetSize(32,30);button:SetPoint("LEFT",bar,"LEFT",(index-1)*42,0)
-        button.glow=button:CreateTexture(nil,"BACKGROUND")
-        button.glow:SetTexture("Interface\\Buttons\\UI-Common-MouseHilight")
-        button.glow:SetBlendMode("ADD");button.glow:SetVertexColor(1,1,1,.25)
-        button.glow:SetAllPoints();button.glow:Hide()
-        button.icon=button:CreateTexture(nil,"ARTWORK")
-        button.icon:SetSize(30,30);button.icon:SetPoint("CENTER")
-        button.icon:SetTexture("Interface\\AddOns\\MangUI\\Assets\\Footer\\"..entry.id..".tga")
-        button.icon:SetDesaturated(not entry.fullColor)
-        if entry.fullColor then
-            button.shine=button:CreateTexture(nil,"OVERLAY")
-            button.shine:SetAllPoints(button.icon)
-            button.shine:SetTexture("Interface\\AddOns\\MangUI\\Assets\\Footer\\"..entry.id..".tga")
-            button.shine:SetBlendMode("ADD");button.shine:SetAlpha(.25)
+    local function scheduleHide()
+        cancelHide()
+        local token = hideToken
+        C_Timer.After(0.25, function()
+            if token ~= hideToken or popup.pinned or not popup:IsShown() then return end
+            if MouseIsOver(popup) or (popup.owner and MouseIsOver(popup.owner)) then return end
+            popup:Hide()
+        end)
+    end
+    popup:SetScript("OnEnter", cancelHide)
+    popup:SetScript("OnLeave", scheduleHide)
+    address:SetScript("OnEnter", cancelHide)
+    address:SetScript("OnLeave", scheduleHide)
+
+    local function layoutPopup()
+        -- Clear the last entry's height before measuring; otherwise a short
+        -- tooltip can constrain a later long Chinese description to one line.
+        popup.description:SetHeight(0)
+        local descriptionHeight = math.max(popupFontSize, math.ceil(popup.description:GetStringHeight())) + 2
+        popup.description:SetHeight(descriptionHeight)
+        popup:SetHeight(12 + math.ceil(popup.title:GetStringHeight()) + 8
+            + descriptionHeight + 10 + 23 + 8
+            + math.ceil(popup.hint:GetStringHeight()) + 12)
+    end
+
+    local function showPopup(owner, focus)
+        cancelHide()
+        GameTooltip:Hide()
+        local sameOwner = popup.owner == owner
+        if popup.owner and not sameOwner then highlight(popup.owner, false) end
+        popup.owner = owner
+        popup.pinned = focus or (sameOwner and popup.pinned) or false
+        local entry = owner.entry
+        popup.title:SetText(text(entry.zh, entry.en))
+        popup.description:SetHeight(0)
+        popup.description:SetText(description(entry))
+        popup.copyText = entry.copyText or entry.url or text("创建中，请等待", "Coming soon, please wait")
+        popup.hint:SetText(text("按 Ctrl+C 复制", "Press Ctrl+C to copy"))
+        layoutPopup()
+        if not sameOwner then address:ClearFocus() end
+        address:SetText(popup.copyText)
+        popup:Show()
+        C_Timer.After(0, function()
+            if popup:IsShown() and popup.owner == owner then layoutPopup() end
+        end)
+        highlight(owner, true)
+        if focus then
+            address:SetFocus()
+            address:HighlightText()
         end
-        Highlight(button,false)
-        button:SetScript("OnEnter",function(self)
-            Highlight(self,true)
-            if popup:IsShown() then
-                nameTip:Hide();nameTip.owner=nil
-                return
-            end
-            local title=M:T(self.entry.tooltip or self.entry.label)
-            local reference=_G.GameTooltipTextLeft1 or GameTooltipHeaderText or GameTooltipText
-            local font,size,flags=reference:GetFont()
-            nameTip.label:SetFont(M:ResolveFontPath(font),size,flags or "")
-            nameTip.label:SetText(title)
-            if title:find("[\128-\255]") then M:ApplyLocaleFont(nameTip.label,title) end
-            nameTip:SetSize(math.max(90,nameTip.label:GetStringWidth()+24),38)
-            nameTip:ClearAllPoints();nameTip:SetPoint("BOTTOM",self,"TOP",0,8)
-            nameTip.owner=self;nameTip:Show()
-        end)
-        button:SetScript("OnLeave",function(self)
-            if nameTip.owner==self then nameTip:Hide();nameTip.owner=nil end
-            Highlight(self,popup:IsShown() and popup.owner==self)
-        end)
-        if entry.url or entry.copyText then button:SetScript("OnClick",Show) end
     end
-    bar:SetScript("OnHide",function()nameTip:Hide();nameTip.owner=nil;popup:Hide()end)
+
+    for index, entry in ipairs(ENTRIES) do
+        local button = CreateFrame("Button", nil, bar)
+        button.entry = entry
+        button:SetSize(32, 30)
+        button.glow = button:CreateTexture(nil, "BACKGROUND")
+        button.glow:SetTexture("Interface\\Buttons\\UI-Common-MouseHilight")
+        button.glow:SetBlendMode("ADD")
+        button.glow:SetVertexColor(1, 1, 1, 0.25)
+        button.glow:SetAllPoints()
+        button.icon = button:CreateTexture(nil, "ARTWORK")
+        button.icon:SetSize(30, 30)
+        button.icon:SetPoint("CENTER")
+        if entry.fullColor then
+            button.shine = button:CreateTexture(nil, "OVERLAY")
+            button.shine:SetAllPoints(button.icon)
+            button.shine:SetTexture(ROOT .. "CardMaster.png")
+            button.shine:SetBlendMode("ADD")
+            button.shine:SetAlpha(0.25)
+        end
+        highlight(button, false)
+        button:SetScript("OnEnter", function(owner)
+            showPopup(owner, false)
+        end)
+        button:SetScript("OnLeave", function(owner)
+            highlight(owner, popup:IsShown() and popup.owner == owner)
+            scheduleHide()
+        end)
+        button:SetScript("OnClick", function(owner)
+            showPopup(owner, true)
+        end)
+        bar.buttons[index] = button
+    end
+    bar:SetScript("OnHide", function() popup:Hide(); GameTooltip:Hide() end)
+    bar:SetScript("OnShow",function()F.Refresh(editor)end)
+    F.Refresh(editor)
     return bar
+end
+
+function F.Refresh(editor)
+    local bar = editor and editor.footerLinks
+    if not bar then return end
+    bar.label:SetText(chineseClient() and "在这里找到作者" or "Community & Support")
+    bar.popup:Hide()
+    local chinese = chineseClient()
+    local visible = 0
+    for _, button in ipairs(bar.buttons) do
+        local show = button.entry.chinese == nil or button.entry.chinese == chinese
+        button:SetShown(show)
+        button:ClearAllPoints()
+        if show then
+            button:SetPoint("LEFT", bar, "LEFT", visible * 42, 0)
+            visible = visible + 1
+        end
+    end
+    bar:SetWidth(math.max(32, (visible - 1) * 42 + 32))
+    GameTooltip:Hide()
 end

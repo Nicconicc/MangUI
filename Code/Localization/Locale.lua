@@ -182,6 +182,7 @@ function M:RefreshLanguage()
     for object in pairs(self.localizedInputs)do self:ApplyLocaleFont(object,object:GetText(),true)end
     if self.RefreshEditor then self:RefreshEditor() end
     if self.RefreshOtherSettings then self:RefreshOtherSettings() end
+    if self.FooterLinks and self.FooterLinks.Refresh then self.FooterLinks.Refresh(self.editor) end
 end
 function M:SetLanguage(language)
     if not self:IsLanguageSupported(language) then return end
