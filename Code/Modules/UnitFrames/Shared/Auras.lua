@@ -127,22 +127,34 @@ local function Auras(view,o,s)
             for _,spec in ipairs(view.auraTemplates[n.id] or {}) do
                 local label=icon.labels[spec.id]
                 if not label then label=icon:CreateFontString(nil,"OVERLAY");icon.labels[spec.id]=label end
+                local stacks=spec.binding=="auraStacks"
                 local shadow=icon.shadows[spec.id]
-                if not shadow then shadow=icon:CreateFontString(nil,"OVERLAY",nil,-1);icon.shadows[spec.id]=shadow end
+                if stacks then
+                    -- Stack counts have one glyph run only. Remove any older
+                    -- black duplicate when a retained icon is reconfigured.
+                    if shadow then shadow:Hide();shadow:SetText("");icon.shadows[spec.id]=nil;shadow=nil end
+                elseif not shadow then
+                    shadow=icon:CreateFontString(nil,"OVERLAY",nil,-1);icon.shadows[spec.id]=shadow
+                end
                 if configure then
                     label:SetFont(Font(spec),spec.fontSize or 12,"OUTLINE");label:SetTextColor(unpack(spec.color or {1,1,1,1}))
-                    shadow:SetFont(Font(spec),spec.fontSize or 12,"OUTLINE")
-                    label:SetShadowColor(0,0,0,0);shadow:SetShadowColor(0,0,0,0)
-                    shadow:SetTextColor(0,0,0,(spec.color and spec.color[4]) or 1)
+                    label:SetShadowColor(0,0,0,0);label:SetShadowOffset(0,0)
                     label:ClearAllPoints();label:SetPoint(spec.point or "CENTER",icon,spec.anchor or "CENTER",spec.x or 0,spec.y or 0)
-                    local shadowOffset=debuff and spec.binding=="auraStacks" and 2 or 6
-                    shadow:ClearAllPoints();shadow:SetPoint(spec.point or "CENTER",icon,spec.anchor or "CENTER",(spec.x or 0)+shadowOffset,(spec.y or 0)-shadowOffset)
+                    if shadow then
+                        shadow:SetFont(Font(spec),spec.fontSize or 12,"OUTLINE");shadow:SetShadowColor(0,0,0,0)
+                        shadow:SetTextColor(0,0,0,(spec.color and spec.color[4]) or 1)
+                        shadow:ClearAllPoints();shadow:SetPoint(spec.point or "CENTER",icon,spec.anchor or "CENTER",(spec.x or 0)+6,(spec.y or 0)-6)
+                    end
                 end
                 local value=""
                 if spec.binding=="auraStacks" then value=C.Number(a.applications,0)>1 and a.applications or ""
                 elseif C.Number(a.expirationTime) then value=string.format("%.0f",math.max(0,a.expirationTime-GetTime())) end
-                CachedValue(label,"auraText",label,"SetText",value);CachedValue(shadow,"auraText",shadow,"SetText",value)
-                CachedValue(label,"auraShown",label,"SetShown",spec.enabled~=false);CachedValue(shadow,"auraShown",shadow,"SetShown",spec.enabled~=false)
+                CachedValue(label,"auraText",label,"SetText",value)
+                CachedValue(label,"auraShown",label,"SetShown",spec.enabled~=false)
+                if shadow then
+                    CachedValue(shadow,"auraText",shadow,"SetText",value)
+                    CachedValue(shadow,"auraShown",shadow,"SetShown",spec.enabled~=false)
+                end
             end
             icon.auraGeneration=view.applyGeneration
             local duration,expiration=C.Number(a.duration),C.Number(a.expirationTime)

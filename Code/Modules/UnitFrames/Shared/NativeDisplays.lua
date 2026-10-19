@@ -57,7 +57,11 @@ local function StyleAura(view,o,frame)
             if not label then label=frame:CreateFontString(nil,"OVERLAY");frame.manguiLabels[spec.id]=label end
             label:SetFontObject(o.nativeAuraFonts[spec.id])
             label:SetTextColor(unpack(spec.color or {1,1,1,1}))
-            label:SetShadowColor(0,0,0,(spec.color and spec.color[4]) or 1);label:SetShadowOffset(2,-2)
+            if spec.binding=="auraStacks" then
+                label:SetShadowColor(0,0,0,0);label:SetShadowOffset(0,0)
+            else
+                label:SetShadowColor(0,0,0,(spec.color and spec.color[4]) or 1);label:SetShadowOffset(2,-2)
+            end
             label:ClearAllPoints();label:SetPoint(spec.point or "CENTER",frame,spec.anchor or "CENTER",spec.x or 0,spec.y or 0)
             if spec.binding=="auraStacks" then frame:SetApplicationCount(label,{})
             elseif spec.binding=="auraTime" then frame:SetDurationText(label,{}) end
