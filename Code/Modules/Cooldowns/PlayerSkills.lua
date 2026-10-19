@@ -74,12 +74,19 @@ end
 function S.EntryIndex(group,entry)
     for i,current in ipairs(group.monitors or {})do if current==entry then return i end end
 end
-local curve
+local curve,shortcutCurve
 local function DesaturationCurve()
     if not curve and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
         curve=C_CurveUtil.CreateCurve();curve:SetType(Enum.LuaCurveType.Step);curve:AddPoint(0,0);curve:AddPoint(.001,1)
     end
     return curve
+end
+local function ShortcutCurve()
+    if not shortcutCurve and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
+        shortcutCurve=C_CurveUtil.CreateCurve();shortcutCurve:SetType(Enum.LuaCurveType.Step)
+        shortcutCurve:AddPoint(0,1);shortcutCurve:AddPoint(.001,0)
+    end
+    return shortcutCurve
 end
 local function NativeAurasAvailable()
     local interface=M.Compat.interface or 0
@@ -104,6 +111,11 @@ local function StyleNativeAura(slot,frame)
     frame.monitorTime=frame:CreateFontString(nil,"OVERLAY");Font(frame.monitorTime)
     frame.monitorTime:SetPoint("BOTTOM",frame,"TOP",0,7)
     frame:SetIcon(frame.monitorIcon);frame:SetDurationText(frame.monitorTime,{})
+    -- Each native aura frame gates the annotation through engine alpha. This
+    -- also handles private visibility without testing secret booleans in Lua.
+    frame.shortcutGate=CreateFrame("Frame",nil,slot.shortcutGate or slot.shortcutFrame)
+    frame.shortcutGate:SetAllPoints();frame.shortcutGate:EnableMouse(false)
+    slot.shortcutGate=frame.shortcutGate;slot.shortcut:SetParent(frame.shortcutGate)
     slot.nativeFrames[#slot.nativeFrames+1]=frame
 end
 local function NativeAura(slot)
@@ -131,7 +143,7 @@ local function Icon(o,i)
     -- Keep the annotation above the native aura overlay and cooldown children.
     slot.shortcutFrame=CreateFrame("Frame",nil,slot);slot.shortcutFrame:SetAllPoints();slot.shortcutFrame:EnableMouse(false)
     slot.shortcutFrame:SetFrameLevel(slot:GetFrameLevel()+30)
-    slot.shortcut=slot.shortcutFrame:CreateFontString(nil,"OVERLAY");slot.shortcut:SetPoint("CENTER",slot,"BOTTOM",0,0)
+    slot.shortcut=slot.shortcutFrame:CreateFontString(nil,"OVERLAY");slot.shortcut:SetPoint("CENTER",slot,"BOTTOM",2,2)
     slot:SetScript("OnEnter",function(self)
         if not self.entry then return end
         GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
@@ -283,6 +295,14 @@ function S.Paint(view,o,animateOnly)
     end
     for i=1,#entries do
         local slot=o.skillIcons[i]
+        slot.shortcutFrame:SetAlpha(1)
+        for _,frame in ipairs(slot.nativeFrames or {})do
+            if not view.preview and o.usesNativeAuras and slot.entry.type=="debuff" then
+                local present=frame:IsShown()
+                if frame.shortcutGate.SetAlphaFromBoolean then frame.shortcutGate:SetAlphaFromBoolean(present,0,1)
+                elseif Readable(present)then frame.shortcutGate:SetAlpha(present and 0 or 1)end
+            else frame.shortcutGate:SetAlpha(1)end
+        end
         if view.preview then
             ClearCooldown(slot.cooldown);slot.texture:SetDesaturated(i%2==1);slot.text:SetText(tostring(30-i))
         elseif slot.duration then
@@ -290,9 +310,13 @@ function S.Paint(view,o,animateOnly)
             if desat and slot.duration.EvaluateRemainingDuration and slot.texture.SetDesaturation then
                 -- The engine consumes this potentially secret number directly.
                 slot.texture:SetDesaturation(slot.duration:EvaluateRemainingDuration(desat,0))
+                slot.shortcutFrame:SetAlpha(slot.duration:EvaluateRemainingDuration(ShortcutCurve(),1))
             else
                 local remaining=Number(Safe(slot.duration.GetRemainingDuration,slot.duration))
-                if remaining then slot.texture:SetDesaturated(remaining>0);Remaining(slot,remaining)end
+                if remaining then
+                    slot.texture:SetDesaturated(remaining>0);Remaining(slot,remaining)
+                    slot.shortcutFrame:SetAlpha(remaining>0 and 0 or 1)
+                end
             end
         elseif slot.entry.type=="debuff" and o.usesNativeAuras then
             slot.texture:SetDesaturated(false);slot.text:SetText("")
@@ -301,6 +325,7 @@ function S.Paint(view,o,animateOnly)
         else
             local active=slot.active and (not slot.expires or slot.expires>now)
             slot.texture:SetDesaturated(active==true);Remaining(slot,active and slot.expires and slot.expires-now or nil)
+            slot.shortcutFrame:SetAlpha(active and 0 or 1)
         end
     end
 end
@@ -332,6 +357,80 @@ function S.BuildControls(e,parent,Row)
     local function Flush()
         for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
     end
+    local function SkillIcon(row)
+        local value=S.Input(row.edit:GetText())
+        local name,_,icon
+        if value~="" then name,_,icon=M.PetBuffs.SpellInfo(value)end
+        row.skillIcon.texture:SetTexture(name and icon or 134400)
+    end
+    panel.insertMarker=CreateFrame("Frame",nil,panel);panel.insertMarker:SetSize(470,2)
+    panel.insertMarker:SetFrameLevel(panel:GetFrameLevel()+40);panel.insertMarker:Hide()
+    local line=panel.insertMarker:CreateTexture(nil,"OVERLAY");line:SetAllPoints();line:SetColorTexture(1,.82,0,1)
+    panel.dragGhost=W.Panel(e.window);panel.dragGhost:SetSize(220,32);panel.dragGhost:SetFrameStrata("TOOLTIP")
+    panel.dragGhost:SetFrameLevel(9200);panel.dragGhost:Hide()
+    panel.dragText=panel.dragGhost:CreateFontString(nil,"OVERLAY");panel.dragText:SetFont(M:DefaultFontPath(),12,"")
+    panel.dragText:SetPoint("LEFT",10,0);panel.dragText:SetWidth(200);panel.dragText:SetWordWrap(false)
+    function panel:FinishDrag(apply)
+        local drag=self.drag;if not drag then return end
+        self.drag=nil;self.insertMarker:Hide();self.dragGhost:Hide();self:EnableKeyboard(false);self:SetPropagateKeyboardInput(true)
+        for _,row in ipairs(self.rows)do row.dragTint:Hide()end
+        if not apply or not drag.valid or Current()~=drag.group or drag.entries~=drag.group.monitors or not Editable(drag.group,drag.entry)then return end
+        local from=S.EntryIndex(drag.group,drag.entry)
+        if from~=drag.target then
+            table.remove(drag.entries,from);table.insert(drag.entries,drag.target,drag.entry);M:Commit()
+        end
+    end
+    function panel:UpdateDrag(elapsed)
+        local drag=self.drag;if not drag then return end
+        if not self:IsVisible()or Current()~=drag.group or drag.entries~=drag.group.monitors or #drag.entries~=drag.count or not Editable(drag.group,drag.entry)then
+            self:FinishDrag(false);return
+        end
+        local cursorX,cursorY=GetCursorPosition();local scale=self:GetEffectiveScale()
+        local x,y=cursorX/scale,cursorY/scale;local scroll=e.propScroll
+        local top,bottom,left,right=scroll:GetTop(),scroll:GetBottom(),scroll:GetLeft(),scroll:GetRight()
+        if not top or not bottom or not left or not right or not self:GetTop()then self:FinishDrag(false);return end
+        drag.valid=x>=left and x<=right and y>=bottom and y<=top
+        if drag.valid then
+            local direction=y>top-22 and -1 or (y<bottom+22 and 1 or 0)
+            if direction~=0 then
+                local limit=math.max(0,e.props:GetHeight()-scroll:GetHeight())
+                scroll:SetVerticalScroll(M.Clamp(scroll:GetVerticalScroll()+direction*(elapsed or 0)*260,0,limit))
+            end
+            local insertion=M.Clamp(math.floor((self:GetTop()-y)/88+.5)+1,1,drag.count+1)
+            local from=S.EntryIndex(drag.group,drag.entry)
+            drag.target=M.Clamp(insertion-(insertion>from and 1 or 0),1,drag.count)
+            self.insertMarker:ClearAllPoints();self.insertMarker:SetPoint("TOPLEFT",self,"TOPLEFT",0,-(insertion-1)*88+3)
+            self.insertMarker:SetWidth(self:GetWidth());self.insertMarker:Show()
+        else self.insertMarker:Hide()end
+        local ghostScale=self.dragGhost:GetEffectiveScale()
+        self.dragGhost:ClearAllPoints();self.dragGhost:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",cursorX/ghostScale+14,cursorY/ghostScale+12)
+    end
+    function panel:BeginDrag(row)
+        if self.drag or not Editable(row.group,row.entry)or #row.group.monitors<2 then return end
+        Flush()
+        for _,current in ipairs(self.rows)do if current.drop.menu then current.drop.menu:Hide()end end
+        local group,entry=row.group,row.entry;local index=S.EntryIndex(group,entry)
+        self.drag={group=group,entry=entry,entries=group.monitors,count=#group.monitors,target=index,valid=false}
+        row.dragTint:Show();self.dragText:SetText((entry.value~="" and entry.value or M:T("拖拽排序")):gsub("|","||"))
+        self.dragGhost:Show();self:EnableKeyboard(true);self:SetPropagateKeyboardInput(true);self:UpdateDrag(0)
+    end
+    local function DragSurface(surface,row)
+        surface:EnableMouse(true);surface:RegisterForDrag("LeftButton")
+        surface:SetScript("OnDragStart",function()panel:BeginDrag(row)end)
+        surface:SetScript("OnDragStop",function()panel:UpdateDrag(0);panel:FinishDrag(true)end)
+        surface:SetScript("OnMouseUp",function(_,button)if button=="RightButton"then panel:FinishDrag(false)end end)
+    end
+    panel:SetScript("OnUpdate",function(self,elapsed)
+        if not self.drag then return end
+        self:UpdateDrag(elapsed)
+        if IsMouseButtonDown("RightButton")then self:FinishDrag(false)
+        elseif not IsMouseButtonDown("LeftButton")then self:FinishDrag(true)end
+    end)
+    panel:SetScript("OnKeyDown",function(self,key)
+        self:SetPropagateKeyboardInput(key~="ESCAPE")
+        if key=="ESCAPE"then self:FinishDrag(false);self:SetPropagateKeyboardInput(false)end
+    end)
+    panel:SetScript("OnHide",function(self)self:FinishDrag(false)end)
     local function BindInput(row,edit,field)
         local function Save(self,owner,item)
             owner=owner or self.monitorOwner or row.group;item=item or self.monitorEntry or row.entry
@@ -352,6 +451,7 @@ function S.BuildControls(e,parent,Row)
         Flush();group.monitors[#group.monitors+1]=S.NewEntry();M:Commit()
     end)
     function panel:Refresh(group)
+        if self.drag and (self.drag.group~=group or self.drag.entries~=group.monitors or self.drag.count~=#group.monitors)then self:FinishDrag(false)end
         local monitors=group and group.monitors or {};local width=e.props:GetWidth()
         if self.owner~=group or self.count~=#monitors or self.width~=width then e.propertyLayoutSignature=nil end
         self.owner,self.count,self.width=group,#monitors,width
@@ -360,6 +460,11 @@ function S.BuildControls(e,parent,Row)
             local row=self.rows[i]
             if not row then
                 row=CreateFrame("Frame",nil,self);row:SetHeight(84);self.rows[i]=row
+                row.dragTint=row:CreateTexture(nil,"BACKGROUND");row.dragTint:SetAllPoints();row.dragTint:SetColorTexture(.2,.6,.9,.2);row.dragTint:Hide()
+                DragSurface(row,row)
+                row.dragHandle=CreateFrame("Button",nil,row);row.dragHandle:SetSize(100,16);row.dragHandle:SetPoint("TOPRIGHT",0,0)
+                row.dragLabel=W.Label(row.dragHandle,"拖拽排序",10);row.dragLabel:SetPoint("RIGHT");row.dragLabel:SetTextColor(.65,.65,.65)
+                DragSurface(row.dragHandle,row)
                 -- Reuse the font selector's skin, arrow, menu rows and single check mark.
                 row.drop=W.MediaSelect(row,"监控类型",160,"choice",function()
                     if row.drop.menu then row.drop.menu:Hide();return end
@@ -380,6 +485,10 @@ function S.BuildControls(e,parent,Row)
                 end)
                 row.showShortcut.label:SetWordWrap(false)
                 row.shortcutEdit=W.Edit(row,100);row.shortcutEdit:SetMaxLetters(32);row.shortcutEdit:SetTextInsets(6,6,0,0)
+                row.shortcutPlaceholder=W.Label(row.shortcutEdit,"输入快捷键（仅显示）",11)
+                row.shortcutPlaceholder:SetPoint("LEFT",6,0);row.shortcutPlaceholder:SetPoint("RIGHT",-6,0)
+                row.shortcutPlaceholder:SetTextColor(.5,.5,.5);row.shortcutPlaceholder:SetWordWrap(false)
+                row.shortcutEdit:HookScript("OnTextChanged",function(self)row.shortcutPlaceholder:SetShown(self:GetText()=="")end)
                 BindInput(row,row.shortcutEdit,"shortcut")
                 row.shortcutColor=W.ColorSwatch(row,function(color)
                     local owner,item=row.colorOwner,row.colorEntry
@@ -389,11 +498,15 @@ function S.BuildControls(e,parent,Row)
                 row.shortcutColor:SetScript("OnClick",function(button)
                     Flush();row.colorOwner,row.colorEntry=row.group,row.entry;openColor(button)
                 end)
-                row.edit=W.Edit(row,width-4);row.edit:SetMaxLetters(128);row.edit:SetTextInsets(6,6,0,0);row.edit:SetPoint("TOPLEFT",2,-53)
-                row.placeholder=W.Label(row.edit,"输入需要监控的技能或Debuff名称或ID",11)
+                row.skillIcon=CreateFrame("Button",nil,row);row.skillIcon:SetSize(26,26);row.skillIcon:SetPoint("TOPLEFT",0,-51)
+                row.skillIcon.texture=row.skillIcon:CreateTexture(nil,"ARTWORK");row.skillIcon.texture:SetAllPoints()
+                DragSurface(row.skillIcon,row)
+                row.edit=W.Edit(row,width/2);row.edit:SetMaxLetters(128);row.edit:SetTextInsets(6,6,0,0)
+                row.edit:SetPoint("LEFT",row.skillIcon,"RIGHT",8,0)
+                row.placeholder=W.Label(row.edit,"输入监控技能名或ID",11)
                 row.placeholder:SetPoint("LEFT",row.edit,"LEFT",6,0);row.placeholder:SetPoint("RIGHT",row.edit,"RIGHT",-6,0)
                 row.placeholder:SetTextColor(.5,.5,.5);row.placeholder:SetWordWrap(false)
-                row.edit:HookScript("OnTextChanged",function(self)row.placeholder:SetShown(self:GetText()=="")end)
+                row.edit:HookScript("OnTextChanged",function(self)row.placeholder:SetShown(self:GetText()=="");SkillIcon(row)end)
                 BindInput(row,row.edit,"value")
                 row.remove=W.Button(row,"删除",72,function()
                     local owner,item=row.group,row.entry;Flush()
@@ -410,10 +523,15 @@ function S.BuildControls(e,parent,Row)
             row.shortcutEdit:ClearAllPoints();row.shortcutEdit:SetPoint("TOPLEFT",row,"TOPLEFT",keyX,-21)
             row.shortcutEdit:SetWidth(math.max(50,width-keyX-30))
             row.shortcutColor:ClearAllPoints();row.shortcutColor:SetPoint("TOPRIGHT",row,"TOPRIGHT",0,-23)
-            row.edit:SetWidth((width-4)*2/3)
+            row.edit:SetWidth(width/2)
             if not row.edit:HasFocus()then row.edit:SetText(entry.value)end
             if not row.shortcutEdit:HasFocus()then row.shortcutEdit:SetText(entry.shortcut or "")end
             row.showShortcut:SetChecked(entry.showShortcut~=false);row.shortcutColor:SetColor(entry.shortcutColor or {1,1,1,1})
+            local shortcutEnabled=entry.showShortcut~=false
+            if shortcutEnabled then row.shortcutEdit:Enable()else row.shortcutEdit:ClearFocus();row.shortcutEdit:Disable()end
+            row.shortcutEdit:EnableMouse(shortcutEnabled);row.shortcutEdit:SetAlpha(shortcutEnabled and 1 or .55)
+            row.shortcutEdit:SetTextColor(shortcutEnabled and 1 or .45,shortcutEnabled and 1 or .45,shortcutEnabled and 1 or .45)
+            row.shortcutPlaceholder:SetShown(row.shortcutEdit:GetText()=="");SkillIcon(row)
             row.placeholder:SetShown(row.edit:GetText()=="");row:Show()
         end
         for i=#monitors+1,#self.rows do self.rows[i]:Hide()end

@@ -554,4 +554,7 @@ english["添加监控"]="Add monitor"
 english["删除"]="Remove"
 english["输入需要监控的技能或Debuff名称或ID"]="Enter the spell or debuff name or ID to track"
 english["显示快捷键"]="Show shortcut"
+english["输入快捷键（仅显示）"]="Shortcut (display only)"
+english["输入监控技能名或ID"]="Enter spell name or ID"
+english["拖拽排序"]="Drag to reorder"
 M:RebuildLocaleKeys()
