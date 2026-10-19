@@ -448,7 +448,11 @@ function O.Paint(view,o,animateOnly)
         o.nextDiscovery=now+1
     end
     local entries=o.entries or {}
-    if view.preview and #entries==0 and #(M.db.otherMonitorEquipmentEntries or {})==0 then entries=samples end
+    if view.preview and #entries==0 then
+        local equipment=false
+        for _,entry in ipairs(group.otherMonitors or {})do if entry.type=="equipment"then equipment=true;break end end
+        if not equipment then entries=samples end
+    end
     o.rowCount=#entries;local width=math.max(1,#entries*44-4)
     if width~=o.rowWidth then o.frame:SetSize(width,66);o.rowWidth=width end
     if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then Refresh(view,o,now);o.nextScan=now+.2 end

@@ -2,7 +2,7 @@ local _,M=...
 local O={};M.PlayerOtherMonitor=O
 local S=M.PlayerSkillMonitor
 O.types={{name="玩家Buff已找到",path="buffFound"},{name="玩家Buff未找到",path="buffMissing"},
-    {name="目标Debuff已找到",path="debuffFound"},{name="目标Debuff未找到",path="debuffMissing"}}
+    {name="目标Debuff已找到",path="debuffFound"},{name="目标Debuff未找到",path="debuffMissing"},{name="装备触发",path="equipment"}}
 O.slots={{name="头部",path="1"},{name="颈部",path="2"},{name="肩部",path="3"},{name="衬衣",path="4"},
     {name="胸部",path="5"},{name="腰部",path="6"},{name="腿部",path="7"},{name="脚部",path="8"},{name="手腕",path="9"},
     {name="手套",path="10"},{name="戒指1",path="11"},{name="戒指2",path="12"},{name="饰品1",path="13"},{name="饰品2",path="14"},
@@ -50,35 +50,26 @@ function O.ValidEquipmentEntries(entries)
     for _,entry in ipairs(entries)do if entry.type~="equipment"then return false end end
     return true
 end
-function O.WithoutEquipment(entries)
-    local result={};for _,entry in ipairs(entries or {})do if entry.type~="equipment"then result[#result+1]=M.Copy(entry)end end;return result
-end
+-- Upgrade the former account-wide equipment list into the owning class once.
+-- Other classes retain their own lists and never inherit these rows on login.
 function O.MigrateEquipment(db)
-    local created=db.otherMonitorEquipmentEntries==nil
-    if not O.ValidEquipmentEntries(db.otherMonitorEquipmentEntries)then db.otherMonitorEquipmentEntries={}end
-    local equipment=db.otherMonitorEquipmentEntries;local slots={}
-    for _,entry in ipairs(equipment)do slots[entry.slot or 13]=true end
-    local function Extract(entries)
-        for _,entry in ipairs(entries or {})do
-            if entry.type=="equipment"and not slots[entry.slot or 13]then
-                equipment[#equipment+1]=M.Copy(entry);slots[entry.slot or 13]=true
-            end
-        end
-        return O.WithoutEquipment(entries)
+    local equipment=db.otherMonitorEquipmentEntries
+    if equipment==nil then return end
+    if not O.ValidEquipmentEntries(equipment)then db.otherMonitorEquipmentEntries=nil;return end
+    local group=O.Group(db.design);if not group then return end
+    local entries=group.otherMonitors or {};local slots={}
+    for _,entry in ipairs(entries)do if entry.type=="equipment"then slots[entry.slot or 13]=true end end
+    for _,entry in ipairs(equipment)do
+        if not slots[entry.slot or 13]then entries[#entries+1]=M.Copy(entry);slots[entry.slot or 13]=true end
     end
-    local active=O.Group(db.design)
-    if active then
-        local found=false;for _,entry in ipairs(active.otherMonitors or {})do if entry.type=="equipment"then found=true;break end end
-        if found then active.otherMonitors=Extract(active.otherMonitors)end
+    group.otherMonitors=entries
+    local _,current=O.Safe(UnitClass,"player")
+    local owner=S.ValidClass(db.playerOtherMonitorClass)and db.playerOtherMonitorClass or current
+    if S.ValidClass(owner)then
+        db.playerOtherMonitorsByClass=db.playerOtherMonitorsByClass or {}
+        db.playerOtherMonitorsByClass[owner]=M.Copy(entries)
     end
-    local profiles=db.playerOtherMonitorsByClass or {};local classes={};for class in pairs(profiles)do classes[#classes+1]=class end;table.sort(classes)
-    for _,class in ipairs(classes)do
-        local found=false;for _,entry in ipairs(profiles[class])do if entry.type=="equipment"then found=true;break end end
-        if found then profiles[class]=Extract(profiles[class])end
-    end
-    local defaults=O.Group(db.moduleDefaults)
-    if defaults then defaults.otherMonitors=O.WithoutEquipment(defaults.otherMonitors)end
-    if created and #equipment==0 then equipment[1]=O.NewEquipmentEntry()end
+    db.otherMonitorEquipmentEntries=nil
 end
 function O.NewOverride()return {itemID="",spellID="",cooldown=""}end
 function O.ValidOverrides(rows)
@@ -154,11 +145,12 @@ function M:ImportPlayerOtherMonitorClasses(config)
 end
 function O.Entries(group)
     local entries={}
-    for _,e in ipairs(M.db and M.db.otherMonitorEquipmentEntries or {})do
-        local item=O.Effects(e.slot or 13)
-        if item.id and next(item.effects)then entries[#entries+1]=e end
+    for _,entry in ipairs(group.otherMonitors or {})do
+        if entry.type=="equipment"then
+            local item=O.Effects(entry.slot or 13)
+            if item.id and next(item.effects)then entries[#entries+1]=entry end
+        elseif entry.value~=""then entries[#entries+1]=entry end
     end
-    for _,e in ipairs(group.otherMonitors or {})do if e.type~="equipment"and e.value~=""then entries[#entries+1]=e end end
     return entries
 end
 function O.MoveBounds(group)

@@ -247,7 +247,6 @@ function M:ExportConfigString()
             playerSkillMonitorsByClass=self.db.playerSkillMonitorsByClass,playerSkillMonitorClass=self.db.playerSkillMonitorClass,
             playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass,playerOtherMonitorClass=self.db.playerOtherMonitorClass,
             otherMonitorEquipmentOverrides=self.db.otherMonitorEquipmentOverrides,
-            otherMonitorEquipmentEntries=self.db.otherMonitorEquipmentEntries,
             design=self.db.design,moduleDefaults=self.db.moduleDefaults})
         if not config then return end
         local payload=serializer:Serialize(config)

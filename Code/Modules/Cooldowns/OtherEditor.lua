@@ -8,7 +8,7 @@ local function Index(entries,entry)for i,current in ipairs(entries or {})do if c
 function O.BuildControls(e,parent)
     local W=M.Widgets
     local function Current()local n=M.byID[M.selection];return n and n.compound=="playerOtherMonitor"and n end
-    local function Editable(owner,entry)return owner and M.byID[owner.id]==owner and (Index(owner.otherMonitors,entry)or Index(M.db.otherMonitorEquipmentEntries,entry))and M:CanEdit()end
+    local function Editable(owner,entry)return owner and M.byID[owner.id]==owner and Index(owner.otherMonitors,entry)and M:CanEdit()end
     local function Property(frame,key,height)
         local row={height=height,controls={{frame,0,0}},kinds={},key=key};e.propRows[#e.propRows+1]=row;frame.propertyRow=row
     end
@@ -23,15 +23,14 @@ function O.BuildControls(e,parent)
     end
     local sharing=CreateFrame("Frame",nil,parent);sharing:SetSize(470,56);sharing.title=Section(sharing,"配置分享")
     local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);panel.rows={};panel.title=Section(panel,"监控设置")
-    local equipment=CreateFrame("Frame",nil,parent);equipment:SetSize(470,30);equipment.rows={};equipment.equipment=true;equipment.title=Section(equipment,"装备监控设置")
     local supplement=CreateFrame("Frame",nil,parent);supplement:SetSize(470,96);supplement.rows={};supplement.title=Section(supplement,"装备监控补充")
-    e.otherMonitorEquipmentPanel=equipment;e.otherMonitorPanel=panel;e.otherMonitorSharing=sharing;e.otherMonitorSupplement=supplement
-    Property(sharing,"otherMonitorSharing",56);Property(equipment,"otherMonitorEquipmentItems",30);Property(panel,"otherMonitorItems",30);Property(supplement,"otherMonitorEquipment",96)
+    e.otherMonitorPanel=panel;e.otherMonitorSharing=sharing;e.otherMonitorSupplement=supplement
+    Property(sharing,"otherMonitorSharing",56);Property(panel,"otherMonitorItems",30);Property(supplement,"otherMonitorEquipment",96)
     local function Flush()
-        for _,list in ipairs({equipment,panel})do for _,row in ipairs(list.rows)do for _,edit in ipairs(row.inputs or {})do edit:ClearFocus()end end end
+        for _,row in ipairs(panel.rows)do for _,edit in ipairs(row.inputs or {})do edit:ClearFocus()end end
         for _,row in ipairs(supplement.rows)do for _,edit in ipairs(row.inputs or {})do edit:ClearFocus()end end
     end
-    function O.FlushEditor()panel:FinishDrag(false);equipment:FinishDrag(false);Flush()end
+    function O.FlushEditor()panel:FinishDrag(false);Flush()end
     sharing.exportAll=W.Button(sharing,"导出全职业配置",150,function()Flush();M:ShowConfigStringDialog("export","otherAll")end)
     sharing.exportClass=W.Button(sharing,"导出当前职业配置",150,function()Flush();M:ShowConfigStringDialog("export","otherClass")end)
     sharing.import=W.Button(sharing,"导入配置",150,function()Flush();M:ShowConfigStringDialog("import","other")end)
@@ -111,8 +110,8 @@ function O.BuildControls(e,parent)
         for i=#rows+1,#self.rows do self.rows[i]:Hide()end
         self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-#rows*64)
     end
-    for _,panel in ipairs({equipment,panel})do
-    local function MonitorEntries(owner)return panel.equipment and M.db.otherMonitorEquipmentEntries or owner.otherMonitors end
+    do
+    local function MonitorEntries(owner)return owner.otherMonitors end
     panel.marker=CreateFrame("Frame",nil,panel);panel.marker:SetHeight(2);panel.marker:SetFrameLevel(panel:GetFrameLevel()+40);panel.marker:Hide()
     local line=panel.marker:CreateTexture(nil,"OVERLAY");line:SetAllPoints();line:SetColorTexture(1,.82,0,1)
     panel.ghost=W.Panel(e.window);panel.ghost:SetSize(220,32);panel.ghost:SetFrameStrata("TOOLTIP");panel.ghost:SetFrameLevel(9200);panel.ghost:Hide()
@@ -163,8 +162,8 @@ function O.BuildControls(e,parent)
     panel:SetScript("OnUpdate",function(self,elapsed)if self.drag then self:UpdateDrag(elapsed)end end)
     panel:SetScript("OnHide",function(self)self:FinishDrag(false);Flush()end)
     supplement:SetScript("OnHide",Flush)
-    panel.add=W.Button(panel,panel.equipment and "添加装备监控"or "添加监控",130,function()
-        Flush();local group=Current();if group and M:CanEdit()then local entries=MonitorEntries(group);entries[#entries+1]=panel.equipment and O.NewEquipmentEntry()or O.NewEntry();M:Commit()end
+    panel.add=W.Button(panel,"添加监控",130,function()
+        Flush();local group=Current();if group and M:CanEdit()then local entries=MonitorEntries(group);entries[#entries+1]=O.NewEntry();M:Commit()end
     end)
     function panel:Refresh(group)
         if self.drag and (self.drag.owner~=group or self.drag.entries~=MonitorEntries(group))then self:FinishDrag(false)end
@@ -227,8 +226,8 @@ function O.BuildControls(e,parent)
             row.height=entry.soundEnabled and (extended and 246 or 192)or 132
             row:SetSize(width,row.height-4);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-offset);offset=offset+row.height
             local dropWidth=(width-16)/2
-            row.type:SetShown(not self.equipment);row.type:SetWidth(dropWidth);row.type:SetPoint("TOPLEFT",0,0);row.type:SetValue(entry.type)
-            row.slot:SetWidth(dropWidth);row.slot:ClearAllPoints();row.slot:SetPoint(self.equipment and "TOPLEFT"or "TOPRIGHT",0,0);row.slot:SetValue(tostring(entry.slot or 13));row.slot:SetShown(entry.type=="equipment")
+            row.type:Show();row.type:SetWidth(dropWidth);row.type:SetPoint("TOPLEFT",0,0);row.type:SetValue(entry.type)
+            row.slot:SetWidth(dropWidth);row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT",0,0);row.slot:SetValue(tostring(entry.slot or 13));row.slot:SetShown(entry.type=="equipment")
             row.edit:SetWidth(width/3)
             if entry.type=="equipment"then row.edit:ClearFocus();row.edit:Disable()else row.edit:Enable()end
             row.edit:EnableMouse(entry.type~="equipment");row.edit:SetTextColor(1,1,1)
@@ -249,7 +248,7 @@ function O.BuildControls(e,parent)
         self.contentHeight=offset;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-offset)
         if self:GetHeight()~=offset+32 then e.propertyLayoutSignature=nil end
         self:SetHeight(offset+32);self.propertyRow.height=offset+32
-        if not self.equipment then equipment:Refresh(group);supplement:Refresh(width)end
+        supplement:Refresh(width)
     end
     end
 end

@@ -17,8 +17,7 @@ function M:ExportPlayerOtherMonitorString(all)
     local ok,result=pcall(function()
         local class=self.db.playerOtherMonitorClass;local profiles=self.db.playerOtherMonitorsByClass or {}
         local config=Clean({format=1,module="playerOtherMonitor",scope=all and "all"or "class",class=not all and class or nil,
-            profiles=all and profiles or {[class]=profiles[class]},overrides=all and self.db.otherMonitorEquipmentOverrides or nil,
-            equipment=all and self.db.otherMonitorEquipmentEntries or nil})
+            profiles=all and profiles or {[class]=profiles[class]},overrides=all and self.db.otherMonitorEquipmentOverrides or nil})
         if not config then return end
         local serializer,deflate=LibStub("LibSerialize"),LibStub("LibDeflate");local payload=serializer:Serialize(config)
         if #payload>2000000 then return end
@@ -48,7 +47,7 @@ function M:ApplyPlayerOtherMonitorString(input)
     self:SavePlayerOtherMonitorClass();local current=self.db.playerOtherMonitorClass
     self.db.playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass or {}
     for class,entries in pairs(config.profiles)do
-        self.db.playerOtherMonitorsByClass[class]=config.scope=="class"and O.WithoutEquipment(entries)or M.Copy(entries)
+        self.db.playerOtherMonitorsByClass[class]=M.Copy(entries)
     end
     if config.profiles[current]then
         self.byID.playerOtherMonitor.otherMonitors=M.Copy(self.db.playerOtherMonitorsByClass[current]);self:EnsurePlayerOtherMonitor(self.db.design)
