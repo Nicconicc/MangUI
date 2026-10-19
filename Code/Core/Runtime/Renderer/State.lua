@@ -23,7 +23,7 @@ local function Rule(view,r)
     elseif r.test=="classification" then for _,c in ipairs(r.values or {}) do if s.classification==c then v=true end end
     elseif r.test=="hearth" then v=false
         if s.cast.active and C.Readable(s.cast.name) then v=s.cast.name=="炉石" or s.cast.name=="Hearthstone" end
-    elseif r.test=="raid" then v=s.raid~=nil
+    elseif r.test=="raid" then v=type(s.raid)~="nil"
     else v=s[r.test] end
     if r.invert then return not v end
     return not not v

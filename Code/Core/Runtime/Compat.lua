@@ -6,6 +6,15 @@ C.retail=WOW_PROJECT_ID and WOW_PROJECT_MAINLINE and WOW_PROJECT_ID==WOW_PROJECT
 function C.Readable(v) return not (issecretvalue and issecretvalue(v)) end
 function C.Number(v,default) if C.Readable(v) and type(v)=="number" then return v end; return default end
 function C.Bool(v) if C.Readable(v) then return not not v end; return false end
+function C.RaidTargetIndex(unit)
+    if not GetRaidTargetIndex then return end
+    local ok,index=pcall(GetRaidTargetIndex,unit)
+    if not ok then return end
+    -- Preserve opaque indices for the native sprite-sheet selector. Converting
+    -- them to numbers here incorrectly makes a marked target look unmarked.
+    if not C.Readable(index) then return index end
+    if type(index)=="number" and index>=1 and index<=8 then return index end
+end
 local function DifficultyRGB(fn,value)
     if type(fn)~="function" then return end
     local ok,color=pcall(fn,value)
@@ -192,7 +201,7 @@ function C.State(unit,preview,scene,out,fields)
     out.powerColor,out.nameColor,out.name,out.level=pc,nc,UnitName(unit),UnitLevel(unit)
     out.isPlayer,out.reaction=player,reaction
     out.friendly,out.dead,out.connected=C.Bool(UnitIsFriend("player",unit)),C.Bool(UnitIsDeadOrGhost(unit)),C.Bool(UnitIsConnected(unit))
-    out.classification,out.raid=classification,GetRaidTargetIndex and C.Number(GetRaidTargetIndex(unit))
+    out.classification,out.raid=classification,C.RaidTargetIndex(unit)
     out.leader,out.afk=UnitIsGroupLeader and C.Bool(UnitIsGroupLeader(unit)),UnitIsAFK and C.Bool(UnitIsAFK(unit))
     out.tapped=UnitIsTapDenied and C.Bool(UnitIsTapDenied(unit)) and not C.Bool(UnitPlayerControlled(unit))
     out.cast,out.petStatus=C.GetCast(unit,cast),petStatus

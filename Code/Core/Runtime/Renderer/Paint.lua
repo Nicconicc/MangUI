@@ -3,6 +3,7 @@ local C,B,R=M.Compat,M.MainBarLayout,M.Renderer
 local unpack=unpack or table.unpack
 local private=M.RendererInternals
 local raidMarkFiles=private.raidMarkFiles
+local raidMarkSheet="Interface\\AddOns\\MangUI\\Assets\\Target\\RaidMark\\Target_waf24f8d43e3_Atlas-v3.tga"
 local Readable=private.Readable
 local Cache=private.Cache
 local CachedValue=private.CachedValue
@@ -360,8 +361,22 @@ local function Paint(view,o,animateOnly,visibleHint)
         elseif n.binding=="castIcon" then CachedValue(o,"castIcon",o.texture,"SetTexture",s.cast.icon or 134400)
         elseif n.binding=="partyClass" or n.binding=="partyRole" then M.PartyFrames.Texture(o,s)
         elseif n.binding=="raid" then
-            local mark=s.raid or (view.preview and 8)
-            if mark and o.raidMark~=mark then
+            local mark=s.raid
+            if view.preview and type(mark)=="nil" then mark=8 end
+            if not Readable(mark) then
+                -- Use the existing artwork as a native 4x4 sheet. The opaque
+                -- index never enters a Lua table lookup, comparison or cache.
+                local sheet=n.id=="waf24f8d43e3" and raidMarkSheet or "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
+                CachedValue(o,"raidMarkSheet",o.texture,"SetTexture",sheet);o.raidMarkSheet=sheet
+                local selectCell=o.texture.SetSpriteSheetCell
+                local ok=false
+                if selectCell then ok=pcall(selectCell,o.texture,mark,4,4)
+                elseif SetRaidTargetIconTexture then ok=pcall(SetRaidTargetIconTexture,o.texture,mark) end
+                o.raidMark=nil
+                if not ok then f:Hide() end
+            elseif mark and (o.raidMark~=mark or o.raidMarkSheet) then
+                o.raidMarkSheet=nil
+                Cache(o).raidMarkSheet=nil
                 local file=n.id=="waf24f8d43e3" and raidMarkFiles[mark]
                 if file then
                     o.texture:SetTexture(M:TexturePath(n,file))
