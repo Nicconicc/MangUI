@@ -365,7 +365,10 @@ function M:RefreshProperties()
     local rules={}
     for _,rule in ipairs(n.rules or {}) do rules[#rules+1]=(rule.invert and "非 " or "")..(rule.unit or "player").." · "..({casting="施法中",exists="单位存在",classification="分类",isPlayer="玩家",friendly="友方",leader="队长",afk="暂离",dead="死亡",hearth="炉石",raid="团队标记"})[rule.test] end
     e.ruleText:SetText(#rules>0 and table.concat(rules,"\n") or "跟随所属单位显示")
-    if n.compound=="playerSkillMonitor" then e.skillMonitorPanel:Refresh(n) end
+    if n.compound=="playerSkillMonitor" then
+        e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
+        e.skillMonitorPanel:Refresh(n)
+    end
     local rows={}
     local propertyRows=e.propRows or {}
     for _,row in ipairs(propertyRows) do
@@ -385,7 +388,7 @@ function M:RefreshProperties()
                     or (n.compound=="targetCast" and (row.key=="x" or row.key=="y" or row.key=="hideCastName"))
                     or (n.compound=="playerCast" and (row.key=="castColor" or row.key=="showRangedProgress" or row.key=="showMeleeProgress"))
             elseif n.compound=="playerSkillMonitor" then
-                visible=row.key=="scale" or row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"
+                visible=row.key=="scale" or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"
             elseif n.compound=="cooldownMonitor" then
                 visible=row.key=="scale" or row.key=="minCooldown" or row.key=="maxCooldown" or row.key=="blacklist"
             elseif n.compound=="chatButtons" then

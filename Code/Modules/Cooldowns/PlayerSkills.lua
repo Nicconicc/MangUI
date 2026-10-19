@@ -97,6 +97,7 @@ function M:EnsurePlayerSkillMonitor(design)
         design.nodes[#design.nodes+1]=group
     end
     if not S.ValidEntries(group.monitors) then group.monitors={S.NewEntry()} end
+    if group.hideWithoutTarget==nil then group.hideWithoutTarget=false end
     for _,entry in ipairs(group.monitors)do
         entry.value=S.Input(entry.value);entry.shortcut=S.Input(entry.shortcut)
         if entry.showShortcut==nil then entry.showShortcut=true end
@@ -387,6 +388,7 @@ local samples={{type="cooldown",value="116"},{type="debuff",value="172"},{type="
 function S.Paint(view,o,animateOnly)
     local group=view.byID[o.spec.parent]
     local shown=o.spec.enabled~=false and (view.preview or group.enabled~=false) and not(view.hidden and view.hidden[o.spec.id])
+    if shown and not view.preview and group.hideWithoutTarget==true then shown=M.Compat.Bool(Safe(UnitExists,"target"))end
     if o.frame:IsShown()~=shown then o.frame:SetShown(shown)end
     if not shown then return end
     local now=GetTime();local entries=o.entries or {}

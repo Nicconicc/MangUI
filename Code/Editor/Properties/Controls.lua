@@ -84,6 +84,10 @@ local function BuildProperties(e)
     e.coordXLabel=Field("X偏移","x",true);e.coordYLabel=Field("Y偏移","y",true)
     Field("宽度","width",true,1,4000);Field("高度","height",true,1,4000)
     Field("缩放","scale",true,.05,10,.05)
+    e.skillMonitorHideWithoutTarget=W.Check(content,"无目标时隐藏",function(hidden)
+        if Selected() and Selected().compound=="playerSkillMonitor"then Change("hideWithoutTarget",hidden==true)end
+    end)
+    Row(32,{{e.skillMonitorHideWithoutTarget,-4,0}},{},"skillMonitorHideWithoutTarget");y=y-32
     e.partyFields={}
     e.partyHideInRaid=W.Check(content,"在团队时隐藏",function(hidden)
         if Selected() and Selected().compound=="partyFrames"then Change("hidePartyInRaid",hidden)end
