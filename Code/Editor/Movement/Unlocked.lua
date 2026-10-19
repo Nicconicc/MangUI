@@ -4,6 +4,15 @@ local unpack=unpack or table.unpack
 local private=M.EditorInternals
 local topLevelFrames=private.topLevelFrames
 local unlockExcluded=private.unlockExcluded
+local unlockGroupColors={{.25,1,.35},{1,.25,.25},{1,.85,.2},{.4,.8,1}}
+local unlockModuleColors={}
+do
+    local groupIndex=1
+    for _,id in ipairs(topLevelFrames)do
+        unlockModuleColors[id]=unlockGroupColors[groupIndex]
+        if private.moduleGroupBreaks[id]then groupIndex=groupIndex+1 end
+    end
+end
 local RoundOffset=private.RoundOffset
 local MainCompositeRoots=private.MainCompositeRoots
 local UpdatePreviewGrid=private.UpdatePreviewGrid
@@ -89,14 +98,14 @@ local function SelectUnlockedMover(mode,selected)
     mode.selectedMover=selected
     for _,mover in ipairs(mode.movers)do
         local active=mover==selected
+        local r,g,b=unpack(mover.groupColor)
         mover:SetFrameLevel(active and 8500 or mover.baseLevel or 8000)
         for i,texture in ipairs(mover.moveAreaTextures)do
             if i<=9 then
-                if active then texture:SetVertexColor(.14,1,.38,.42)
-                else texture:SetVertexColor(.08,.8,.25,.27)end
+                texture:SetVertexColor(r*.8,g*.8,b*.8,active and .42 or .27)
             else
-                if active then texture:SetVertexColor(.7,1,.75,1)
-                else texture:SetVertexColor(.25,1,.35,.95)end
+                if active then texture:SetVertexColor(r+(1-r)*.45,g+(1-g)*.45,b+(1-b)*.45,1)
+                else texture:SetVertexColor(r,g,b,.95)end
             end
         end
     end
@@ -142,7 +151,7 @@ function M:StartUnlockedMoveMode()
         mode.view=R.New(stage,true);mode.view.unlockMode=true;mode.view.scene="cast"
         local panel=W.Panel(stage);mode.panel=panel;panel:SetSize(350,110)
         panel:SetPoint("CENTER",UIParent,"TOP",0,-UIParent:GetHeight()/3);panel:SetFrameStrata("FULLSCREEN_DIALOG");panel:SetFrameLevel(9100)
-        panel.label=W.Label(panel,"拖动绿色区域调整位置；右键选择重叠框体。",13);panel.label:SetPoint("TOP",0,-12)
+        panel.label=W.Label(panel,"拖动彩色区域调整位置；右键选择重叠框体。",13);panel.label:SetPoint("TOP",0,-12)
         mode.snapCheck=W.Check(panel,"吸附网格线",function(enabled)M.db.editor.snap=enabled==true end)
         mode.snapCheck:SetPoint("TOPLEFT",24,-40)
         mode.done=W.Button(panel,"完成移动",100,function()M:FinishUnlockedMoveMode()end)
@@ -240,7 +249,8 @@ function M:StartUnlockedMoveMode()
                 end)
                 mode.movers[count]=mover
             end
-            mover.node=group;mover.drag=nil;mover.label:SetText(group.label);mover:EnableMouse(false)
+            mover.node=group;mover.groupColor=unlockModuleColors[id]
+            mover.drag=nil;mover.label:SetText(group.label);mover:EnableMouse(false)
             PositionUnlockedMover(mode,mover,geometry);mover:Show()
         end
     end
