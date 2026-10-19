@@ -385,7 +385,7 @@ function M:RefreshProperties()
                     or (n.compound=="targetCast" and (row.key=="x" or row.key=="y" or row.key=="hideCastName"))
                     or (n.compound=="playerCast" and (row.key=="castColor" or row.key=="showRangedProgress" or row.key=="showMeleeProgress"))
             elseif n.compound=="playerSkillMonitor" then
-                visible=row.key=="scale" or row.key=="skillMonitorItems"
+                visible=row.key=="scale" or row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"
             elseif n.compound=="cooldownMonitor" then
                 visible=row.key=="scale" or row.key=="minCooldown" or row.key=="maxCooldown" or row.key=="blacklist"
             elseif n.compound=="chatButtons" then

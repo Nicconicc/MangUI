@@ -1,5 +1,6 @@
 local _,M=...
 local PREFIX="!MUF1:"
+local SKILL_PREFIX="!MUS1:"
 local MAX_TEXT=200000
 local MAX_PAYLOAD=2000000
 local INVALID="配置字符串无效或已损坏，请检查是否完整复制。"
@@ -160,6 +161,69 @@ local function CleanConfig(config)
         playerSkillMonitorClass=config.playerSkillMonitorsByClass and config.playerSkillMonitorClass,
         design={nodes=nodes},moduleDefaults={nodes=defaults}}
 end
+local function CleanSkillConfig(config)
+    if type(config)~="table"or not ValidTree(config,{},0,{count=0})then return end
+    if config.format~=1 or config.module~="playerSkillMonitor"or not M.PlayerSkillMonitor.ValidClassProfiles(config.profiles)then return end
+    if config.scope=="class"then
+        if not M.PlayerSkillMonitor.ValidClass(config.class)or config.profiles[config.class]==nil then return end
+        for class in pairs(config.profiles)do if class~=config.class then return end end
+    elseif config.scope~="all"or config.class~=nil then return end
+    if next(config.profiles)==nil then return end
+    return {format=1,module="playerSkillMonitor",scope=config.scope,class=config.class,profiles=M.Copy(config.profiles)}
+end
+function M:ExportPlayerSkillMonitorString(allClasses)
+    self:SavePlayerSkillMonitorClass()
+    local ok,result=pcall(function()
+        local class=self.db.playerSkillMonitorClass
+        if not self.PlayerSkillMonitor.ValidClass(class)then return end
+        local profiles=self.db.playerSkillMonitorsByClass or {}
+        if not allClasses then profiles={[class]=profiles[class]}end
+        local config=CleanSkillConfig({format=1,module="playerSkillMonitor",scope=allClasses and "all"or "class",
+            class=not allClasses and class or nil,profiles=profiles})
+        if not config then return end
+        local serializer,deflate=Libraries();local payload=serializer:Serialize(config)
+        if #payload>MAX_PAYLOAD then return end
+        local text=SKILL_PREFIX..string.format("%08X",deflate:Adler32(payload))..":"..deflate:EncodeForPrint(deflate:CompressDeflate(payload,{level=1}))
+        if #text<=MAX_TEXT then return text end
+    end)
+    return ok and result or nil
+end
+function M:ImportPlayerSkillMonitorString(input)
+    if type(input)~="string"or #input>MAX_TEXT*2 then return end
+    local text=input:gsub("%s+","")
+    if #text>MAX_TEXT or text:sub(1,#SKILL_PREFIX)~=SKILL_PREFIX then return end
+    local checksum,encoded=text:sub(#SKILL_PREFIX+1):match("^([0-9A-Fa-f]+):(.+)$")
+    if not checksum or #checksum~=8 then return end
+    local ok,result=pcall(function()
+        local serializer,deflate=Libraries();local packed=deflate:DecodeForPrint(encoded)
+        if not packed then return end
+        local payload,remaining=deflate:DecompressDeflate(packed)
+        if not payload or remaining~=0 or #payload>MAX_PAYLOAD then return end
+        if string.format("%08X",deflate:Adler32(payload))~=checksum:upper()then return end
+        local success,config=serializer:Deserialize(payload)
+        if success then return CleanSkillConfig(config)end
+    end)
+    return ok and result or nil
+end
+function M:ApplyPlayerSkillMonitorString(input)
+    if not self:CanEdit()then return false,"战斗中暂不能修改布局，脱战后即可编辑。"end
+    local config=self:ImportPlayerSkillMonitorString(input)
+    local current=self.db.playerSkillMonitorClass
+    if not config or not self.PlayerSkillMonitor.ValidClass(current)then return false,INVALID end
+    local panel=self.editor and self.editor.skillMonitorPanel
+    if panel then
+        panel:FinishDrag(false)
+        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
+    end
+    self:SavePlayerSkillMonitorClass()
+    if type(self.db.playerSkillMonitorsByClass)~="table"then self.db.playerSkillMonitorsByClass={}end
+    for class,entries in pairs(config.profiles)do self.db.playerSkillMonitorsByClass[class]=self.Copy(entries)end
+    if config.profiles[current]then
+        local group=self.byID.playerSkillMonitor
+        group.monitors=self.Copy(config.profiles[current]);self:EnsurePlayerSkillMonitor(self.db.design)
+    end
+    self:Commit();return true
+end
 function M:ExportConfigString()
     self:SavePlayerSkillMonitorClass()
     local ok,result=pcall(function()
@@ -205,6 +269,9 @@ function M:ImportConfigString(input)
 end
 function M:ApplyConfigString(input)
     if not self:CanEdit() then return false,"战斗中暂不能修改布局，脱战后即可编辑。" end
+    if type(input)=="string"and #input<=MAX_TEXT*2 and input:gsub("%s+",""):sub(1,#SKILL_PREFIX)==SKILL_PREFIX then
+        return self:ApplyPlayerSkillMonitorString(input)
+    end
     local config=self:ImportConfigString(input)
     if not config then return false,INVALID end
     if self.moveMode and self.StopFrameMoveMode then self:StopFrameMoveMode(false) end

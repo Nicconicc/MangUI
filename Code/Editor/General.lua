@@ -165,7 +165,7 @@ local function WrapString(value,edit,measure)
     end
     return table.concat(rows,"\n")
 end
-function M:ShowConfigStringDialog(mode)
+function M:ShowConfigStringDialog(mode,scope)
     local dialog=self.configDialog
     if not dialog then
         dialog=CreateFrame("Frame","MangUIUFConfigStringDialog",self.editor.window,"BackdropTemplate");self.configDialog=dialog
@@ -197,7 +197,9 @@ function M:ShowConfigStringDialog(mode)
         dialog.status:SetWidth(670);dialog.status:SetJustifyH("CENTER");dialog.status:SetTextColor(1,.3,.3)
         dialog.action=Button(dialog,"",120,26,function()
             if dialog.mode=="export" then edit:SetFocus();edit:HighlightText();return end
-            local ok,errorText=M:ApplyConfigString(edit:GetText())
+            local ok,errorText
+            if dialog.scope then ok,errorText=M:ApplyPlayerSkillMonitorString(edit:GetText())
+            else ok,errorText=M:ApplyConfigString(edit:GetText())end
             if not ok then dialog.status:SetText(errorText);return end
             dialog:Hide();M:Print("配置导入成功。")
         end)
@@ -207,15 +209,18 @@ function M:ShowConfigStringDialog(mode)
         close:SetScript("OnClick",function()dialog:Hide()end)
         dialog:SetScript("OnHide",function()edit:ClearFocus()end)
     end
-    dialog.mode=mode;dialog.status:SetText("");dialog:Show()
+    dialog.mode,dialog.scope=mode,scope;dialog.status:SetText("");dialog:Show()
     if mode=="export" then
-        dialog.title:SetText("导出配置");dialog.hint:SetText("按 Ctrl+C 复制下方字符串，分享给其他用户。")
+        dialog.title:SetText(scope=="skillsAll"and "导出全职业配置"or scope=="skillsClass"and "导出当前职业配置"or "导出配置")
+        dialog.hint:SetText("按 Ctrl+C 复制下方字符串，分享给其他用户。")
         dialog.action:SetText("全选")
-        local value=self:ExportConfigString()
+        local value
+        if scope then value=self:ExportPlayerSkillMonitorString(scope=="skillsAll")else value=self:ExportConfigString()end
         dialog.edit:SetText(value and WrapString(value,dialog.edit,dialog.measure) or "")
         if not value then dialog.status:SetText("当前配置无法导出，请检查配置数据。") end
     else
-        dialog.title:SetText("导入配置");dialog.hint:SetText("粘贴配置字符串；导入后将覆盖当前全部设置。")
+        dialog.title:SetText("导入配置")
+        dialog.hint:SetText(scope and "粘贴技能监控配置字符串；仅更新字符串包含的职业配置。"or "粘贴配置字符串；技能监控配置仅更新对应职业，整体配置更新全部设置。")
         dialog.action:SetText("确认导入");dialog.edit:SetText("")
     end
     dialog.scroll:SetVerticalScroll(0);dialog.edit:SetFocus();dialog.edit:HighlightText()

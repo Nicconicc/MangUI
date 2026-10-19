@@ -123,7 +123,7 @@ end
 function S.EntryIndex(group,entry)
     for i,current in ipairs(group.monitors or {})do if current==entry then return i end end
 end
-local curve,shortcutCurve
+local curve,shortcutCurve,fadeCurve
 local function DesaturationCurve()
     if not curve and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
         curve=C_CurveUtil.CreateCurve();curve:SetType(Enum.LuaCurveType.Step);curve:AddPoint(0,0);curve:AddPoint(.001,1)
@@ -136,6 +136,13 @@ local function ShortcutCurve()
         shortcutCurve:AddPoint(0,1);shortcutCurve:AddPoint(.001,0)
     end
     return shortcutCurve
+end
+local function FadeCurve()
+    if not fadeCurve and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
+        fadeCurve=C_CurveUtil.CreateCurve();fadeCurve:SetType(Enum.LuaCurveType.Step)
+        fadeCurve:AddPoint(0,1);fadeCurve:AddPoint(.001,.5)
+    end
+    return fadeCurve
 end
 local function NativeAurasAvailable()
     local interface=M.Compat.interface or 0
@@ -157,6 +164,7 @@ local function StyleNativeAura(slot,frame)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
     frame.monitorIcon=frame:CreateTexture(nil,"ARTWORK");frame.monitorIcon:SetAllPoints();frame.monitorIcon:SetDesaturated(true)
+    frame.monitorIcon:SetAlpha(.5)
     frame.monitorTime=frame:CreateFontString(nil,"OVERLAY");Font(frame.monitorTime)
     frame.monitorTime:SetPoint("BOTTOM",frame,"TOP",0,7)
     frame:SetIcon(frame.monitorIcon);frame:SetDurationText(frame.monitorTime,{})
@@ -165,6 +173,11 @@ local function StyleNativeAura(slot,frame)
     frame.shortcutGate=CreateFrame("Frame",nil,slot.shortcutGate or slot.shortcutFrame)
     frame.shortcutGate:SetAllPoints();frame.shortcutGate:EnableMouse(false)
     slot.shortcutGate=frame.shortcutGate;slot.shortcut:SetParent(frame.shortcutGate)
+    -- Remove the colored backing while a native gray icon is present, so its
+    -- half opacity is not composited over another fully opaque icon.
+    frame.baseIconGate=CreateFrame("Frame",nil,slot.baseIconGate or slot.baseIconFrame)
+    frame.baseIconGate:SetAllPoints();frame.baseIconGate:EnableMouse(false)
+    slot.baseIconGate=frame.baseIconGate;slot.texture:SetParent(frame.baseIconGate)
     slot.nativeFrames[#slot.nativeFrames+1]=frame
 end
 local function NativeAura(slot)
@@ -180,7 +193,8 @@ end
 local function Icon(o,i)
     local slot=o.skillIcons[i];if slot then return slot end
     slot=CreateFrame("Frame",nil,o.frame);slot:SetSize(40,40);slot:EnableMouse(true)
-    slot.texture=slot:CreateTexture(nil,"ARTWORK");slot.texture:SetAllPoints()
+    slot.baseIconFrame=CreateFrame("Frame",nil,slot);slot.baseIconFrame:SetAllPoints();slot.baseIconFrame:EnableMouse(false)
+    slot.texture=slot.baseIconFrame:CreateTexture(nil,"ARTWORK");slot.texture:SetAllPoints()
     slot.text=slot:CreateFontString(nil,"OVERLAY");Font(slot.text);slot.text:SetPoint("BOTTOM",slot,"TOP",0,7)
     slot.cooldown=CreateFrame("Cooldown",nil,slot,"CooldownFrameTemplate");slot.cooldown:SetAllPoints();slot.cooldown:EnableMouse(false)
     slot.cooldown:SetDrawEdge(false);slot.cooldown:SetDrawBling(false);slot.cooldown:SetDrawSwipe(false)
@@ -345,25 +359,31 @@ function S.Paint(view,o,animateOnly)
     for i=1,#entries do
         local slot=o.skillIcons[i]
         slot.shortcutFrame:SetAlpha(1)
+        slot.texture:SetAlpha(1)
         for _,frame in ipairs(slot.nativeFrames or {})do
             if not view.preview and o.usesNativeAuras and slot.entry.type=="debuff" then
                 local present=frame:IsShown()
-                if frame.shortcutGate.SetAlphaFromBoolean then frame.shortcutGate:SetAlphaFromBoolean(present,0,1)
-                elseif Readable(present)then frame.shortcutGate:SetAlpha(present and 0 or 1)end
-            else frame.shortcutGate:SetAlpha(1)end
+                if frame.shortcutGate.SetAlphaFromBoolean then
+                    frame.shortcutGate:SetAlphaFromBoolean(present,0,1);frame.baseIconGate:SetAlphaFromBoolean(present,0,1)
+                elseif Readable(present)then
+                    frame.shortcutGate:SetAlpha(present and 0 or 1);frame.baseIconGate:SetAlpha(present and 0 or 1)
+                end
+            else frame.shortcutGate:SetAlpha(1);frame.baseIconGate:SetAlpha(1)end
         end
         if view.preview then
-            ClearCooldown(slot.cooldown);slot.texture:SetDesaturated(i%2==1);slot.text:SetText(tostring(30-i))
+            ClearCooldown(slot.cooldown);slot.texture:SetDesaturated(i%2==1);slot.texture:SetAlpha(i%2==1 and .5 or 1);slot.text:SetText(tostring(30-i))
         elseif slot.duration then
             local desat=DesaturationCurve()
             if desat and slot.duration.EvaluateRemainingDuration and slot.texture.SetDesaturation then
                 -- The engine consumes this potentially secret number directly.
                 slot.texture:SetDesaturation(slot.duration:EvaluateRemainingDuration(desat,0))
+                slot.texture:SetAlpha(slot.duration:EvaluateRemainingDuration(FadeCurve(),1))
                 slot.shortcutFrame:SetAlpha(slot.duration:EvaluateRemainingDuration(ShortcutCurve(),1))
             else
                 local remaining=Number(Safe(slot.duration.GetRemainingDuration,slot.duration))
                 if remaining then
                     slot.texture:SetDesaturated(remaining>0);Remaining(slot,remaining)
+                    slot.texture:SetAlpha(remaining>0 and .5 or 1)
                     slot.shortcutFrame:SetAlpha(remaining>0 and 0 or 1)
                 end
             end
@@ -374,6 +394,7 @@ function S.Paint(view,o,animateOnly)
         else
             local active=slot.active and (not slot.expires or slot.expires>now)
             slot.texture:SetDesaturated(active==true);Remaining(slot,active and slot.expires and slot.expires-now or nil)
+            slot.texture:SetAlpha(active and .5 or 1)
             slot.shortcutFrame:SetAlpha(active and 0 or 1)
         end
     end
@@ -397,6 +418,9 @@ function S.BuildControls(e,parent,Row)
     local W=M.Widgets
     local choices={{name="玩家技能冷却",path="cooldown"},{name="目标Debuff",path="debuff"}}
     local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);e.skillMonitorPanel=panel
+    local sharing=CreateFrame("Frame",nil,parent);sharing:SetSize(470,56);e.skillMonitorSharing=sharing
+    sharing.title=W.Label(sharing,"配置分享",12);sharing.title:SetPoint("TOPLEFT",0,0)
+    e.propRows[#e.propRows+1]={height=56,controls={{sharing,0,0}},kinds={},key="skillMonitorSharing"}
     local property={height=30,controls={{panel,0,0}},kinds={},key="skillMonitorItems"}
     e.propRows[#e.propRows+1]=property;panel.propertyRow=property;panel.rows={}
     local function Current()local n=M.byID[M.selection];return n and n.compound=="playerSkillMonitor" and n end
@@ -406,6 +430,9 @@ function S.BuildControls(e,parent,Row)
     local function Flush()
         for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
     end
+    sharing.exportAll=W.Button(sharing,"导出全职业配置",150,function()Flush();M:ShowConfigStringDialog("export","skillsAll")end)
+    sharing.exportClass=W.Button(sharing,"导出当前职业配置",150,function()Flush();M:ShowConfigStringDialog("export","skillsClass")end)
+    sharing.import=W.Button(sharing,"导入配置",150,function()Flush();M:ShowConfigStringDialog("import","skills")end)
     local function SkillIcon(row)
         local value=S.Input(row.edit:GetText())
         local name,_,icon
@@ -483,7 +510,10 @@ function S.BuildControls(e,parent,Row)
     end)
     panel:EnableKeyboard(false);panel:SetPropagateKeyboardInput(true)
     panel:SetScript("OnShow",function(self)if not self.drag then self:EnableKeyboard(false);self:SetPropagateKeyboardInput(true)end end)
-    panel:SetScript("OnHide",function(self)self:FinishDrag(false)end)
+    panel:SetScript("OnHide",function(self)
+        self:FinishDrag(false)
+        if M.configDialog and M.configDialog.scope then M.configDialog:Hide()end
+    end)
     local function BindInput(row,edit,field)
         local function Save(self,owner,item)
             owner=owner or self.monitorOwner or row.group;item=item or self.monitorEntry or row.entry
@@ -506,6 +536,11 @@ function S.BuildControls(e,parent,Row)
     function panel:Refresh(group)
         if self.drag and (self.drag.group~=group or self.drag.entries~=group.monitors or self.drag.count~=#group.monitors)then self:FinishDrag(false)end
         local monitors=group and group.monitors or {};local width=e.props:GetWidth()
+        sharing:SetWidth(width)
+        for i,button in ipairs({sharing.exportAll,sharing.exportClass,sharing.import})do
+            local buttonWidth=(width-16)/3;button:SetWidth(buttonWidth)
+            button:ClearAllPoints();button:SetPoint("TOPLEFT",sharing,"TOPLEFT",(i-1)*(buttonWidth+8),-24)
+        end
         if self.owner~=group or self.count~=#monitors or self.width~=width then e.propertyLayoutSignature=nil end
         self.owner,self.count,self.width=group,#monitors,width
         self:SetSize(width,#monitors*88+32);property.height=self:GetHeight()
@@ -520,6 +555,7 @@ function S.BuildControls(e,parent,Row)
                 DragSurface(row,row)
                 row.dragHandle=CreateFrame("Button",nil,row);row.dragHandle:SetSize(100,18)
                 row.dragLabel=W.Label(row.dragHandle,"拖拽排序",12);row.dragLabel:SetPoint("CENTER");row.dragLabel:SetJustifyH("CENTER")
+                row.dragLabel:SetTextColor(.65,.65,.65)
                 M:SetLocaleLineHeight(row.dragLabel,18);row.dragLabel:SetWordWrap(false)
                 DragSurface(row.dragHandle,row)
                 -- Reuse the font selector's skin, arrow, menu rows and single check mark.

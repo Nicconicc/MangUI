@@ -140,7 +140,7 @@ local propertyCategories={
     partyFrames={{"scale","partySpacing","partyPlayerX"},{"partyMaterial","partyHealthColor","partyHealthEndColor"},
         {"partyFont","partyNameSize"},{"partyHideInRaid","partyHideNumbers","partyHidePlayer"}},
     cast={{"overallScale","castIconSize","castColor"},{"nameFont","castFontSize"},{"showRangedProgress","showMeleeProgress"}},
-    playerSkillMonitor={{"scale"},{"skillMonitorItems"}},
+    playerSkillMonitor={{"scale"},{"skillMonitorSharing"},{"skillMonitorItems"}},
     cooldownMonitor={{"scale"},{"minCooldown","maxCooldown"},{"blacklist"}},
     chatButtons={{"iconSize","buttonSpacing"},{"nameFont","fontSize","fontYOffset","chatTextLabels"},{"customChannelName","pullSeconds"}},
     targetThreat={{"nameFont","fontSize"},{"threatInstanceOnly"}},
