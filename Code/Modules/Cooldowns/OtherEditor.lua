@@ -78,6 +78,18 @@ function O.BuildControls(e,parent)
         row.icon.texture:SetTexture(icon or 134400)
         if entry.type=="equipment"then row.edit:SetText(name or M:T("未装备"))end
     end
+    local function RefreshSupplementIcon(row)
+        local id=tonumber(row.edits[1]:GetText());local icon
+        if id and id>0 and id%1==0 and id<=1000000000 then
+            icon=O.Safe(C_Item and C_Item.GetItemIconByID or GetItemIcon,id)
+            if not icon then
+                local _,_,_,_,_,_,_,_,_,texture=O.Safe(C_Item and C_Item.GetItemInfo or GetItemInfo,id)
+                icon=texture
+            end
+        end
+        if not O.Readable(icon)or icon==0 then icon=nil end
+        row.icon.texture:SetTexture(icon or 134400)
+    end
     function supplement:Refresh(width)
         local rows=M.db.otherMonitorEquipmentOverrides or {};self:SetWidth(width)
         local height=#rows*64+32
@@ -87,10 +99,13 @@ function O.BuildControls(e,parent)
             local row=self.rows[i]
             if not row then
                 row=CreateFrame("Frame",nil,self);row:SetHeight(60);self.rows[i]=row;row.edits={};row.captions={}
+                row.icon=CreateFrame("Frame",nil,row);row.icon:SetSize(26,26)
+                row.icon.texture=row.icon:CreateTexture(nil,"ARTWORK");row.icon.texture:SetAllPoints()
                 for index,field in ipairs({"itemID","spellID","cooldown"})do
                     row.captions[index]=W.Label(row,({"装备ID","Buff Spell ID","内置CD（秒）"})[index],11)
                     local edit=W.Edit(row,100);edit:SetMaxLetters(128);edit:SetTextInsets(6,6,0,0);row.edits[index]=edit
                     BindInput(row,edit,field,true)
+                    if index==1 then edit:HookScript("OnTextChanged",function()RefreshSupplementIcon(row)end)end
                 end
                 row.remove=W.Button(row,"删除",72,function()
                     Flush();local index=Index(M.db.otherMonitorEquipmentOverrides,row.record)
@@ -102,9 +117,11 @@ function O.BuildControls(e,parent)
             for index,field in ipairs({"itemID","spellID","cooldown"})do
                 local x=(index-1)*(fieldWidth+8)
                 row.captions[index]:ClearAllPoints();row.captions[index]:SetPoint("TOPLEFT",x,0)
-                row.edits[index]:ClearAllPoints();row.edits[index]:SetPoint("TOPLEFT",x,-22);row.edits[index]:SetWidth(fieldWidth)
+                local inset=index==1 and 34 or 0
+                row.edits[index]:ClearAllPoints();row.edits[index]:SetPoint("TOPLEFT",x+inset,-22);row.edits[index]:SetWidth(fieldWidth-inset)
                 if not row.edits[index]:HasFocus()then row.edits[index]:SetText(record[field])end
             end
+            row.icon:ClearAllPoints();row.icon:SetPoint("RIGHT",row.edits[1],"LEFT",-8,0);RefreshSupplementIcon(row)
             row.remove:ClearAllPoints();row.remove:SetPoint("TOPRIGHT",0,-22);row:Show()
         end
         for i=#rows+1,#self.rows do self.rows[i]:Hide()end
