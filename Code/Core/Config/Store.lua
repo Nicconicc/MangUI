@@ -232,7 +232,9 @@ function M:InitStore()
     end
     db.schema=82
     db.hideBlizzard=db.hideBlizzard or false
-    self.db=db; self:Index()
+    self.db=db
+    if self.BindPlayerSkillMonitorClass then self:BindPlayerSkillMonitorClass()end
+    self:Index()
 end
 function M:Index(editing)
     -- A numeric/color edit keeps the existing node objects. Loading, importing,
@@ -379,6 +381,7 @@ function M:FlushCommit()
     if not ok then error(err) end
 end
 function M:Commit()
+    if self.SavePlayerSkillMonitorClass then self:SavePlayerSkillMonitorClass()end
     local session=self.EditorUndo and self.EditorUndo.session
     if C_Timer and C_Timer.After and session and session.transaction then
         if not self.commitRefreshToken then

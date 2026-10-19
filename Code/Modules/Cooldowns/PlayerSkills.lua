@@ -36,6 +36,55 @@ function S.ValidEntries(entries)
     for i=1,#entries do if type(entries[i])~="table" then return false end end
     return true
 end
+local classes={WARRIOR=true,PALADIN=true,HUNTER=true,ROGUE=true,PRIEST=true,DEATHKNIGHT=true,
+    SHAMAN=true,MAGE=true,WARLOCK=true,MONK=true,DRUID=true,DEMONHUNTER=true,EVOKER=true}
+function S.ValidClassProfiles(profiles)
+    if type(profiles)~="table"then return false end
+    for class,entries in pairs(profiles)do if not classes[class]or not S.ValidEntries(entries)then return false end end
+    return true
+end
+function S.ValidClass(class)return type(class)=="string"and classes[class]==true end
+local function CurrentClass()
+    local _,class=Safe(UnitClass,"player")
+    return S.ValidClass(class)and class or nil
+end
+local function MonitorGroup(design)
+    for _,node in ipairs(design and design.nodes or {})do if node.id=="playerSkillMonitor"then return node end end
+end
+function M:SavePlayerSkillMonitorClass()
+    local db=self.db;local class=CurrentClass();local group=db and MonitorGroup(db.design)
+    if not class or not group or db.playerSkillMonitorClass~=class or not S.ValidEntries(group.monitors)then return end
+    if type(db.playerSkillMonitorsByClass)~="table"then db.playerSkillMonitorsByClass={}end
+    db.playerSkillMonitorsByClass[class]=self.Copy(group.monitors)
+end
+function M:BindPlayerSkillMonitorClass()
+    local db=self.db;local class=CurrentClass();local group=db and MonitorGroup(db.design)
+    if not class or not group then return end
+    if type(db.playerSkillMonitorsByClass)~="table"then db.playerSkillMonitorsByClass={}end
+    local profiles=db.playerSkillMonitorsByClass
+    for key,entries in pairs(profiles)do if not S.ValidClass(key)or not S.ValidEntries(entries)then profiles[key]=nil end end
+    local previous=db.playerSkillMonitorClass
+    if S.ValidClass(previous)and S.ValidEntries(group.monitors)then
+        profiles[previous]=self.Copy(group.monitors)
+    elseif profiles[class]==nil then
+        -- Adopt the pre-upgrade list once, for the first class that loads it.
+        profiles[class]=self.Copy(group.monitors)
+    end
+    group.monitors=self.Copy(profiles[class]or {S.NewEntry()})
+    self:EnsurePlayerSkillMonitor(db.design)
+    db.playerSkillMonitorClass=class;profiles[class]=self.Copy(group.monitors)
+end
+function M:ImportPlayerSkillMonitorClasses(config)
+    if config.playerSkillMonitorsByClass then
+        if type(self.db.playerSkillMonitorsByClass)~="table"then self.db.playerSkillMonitorsByClass={}end
+        for class,entries in pairs(config.playerSkillMonitorsByClass)do self.db.playerSkillMonitorsByClass[class]=self.Copy(entries)end
+        self.db.playerSkillMonitorClass=config.playerSkillMonitorClass
+        self:BindPlayerSkillMonitorClass()
+    else
+        -- Older exports contain one list; import it into the current class.
+        self.db.playerSkillMonitorClass=CurrentClass();self:SavePlayerSkillMonitorClass()
+    end
+end
 function M:EnsurePlayerSkillMonitor(design)
     if not design or not design.nodes then return end
     local seen={};for _,n in ipairs(design.nodes)do seen[n.id]=n end
@@ -371,8 +420,9 @@ function S.BuildControls(e,parent,Row)
     panel.dragText=panel.dragGhost:CreateFontString(nil,"OVERLAY");panel.dragText:SetFont(M:DefaultFontPath(),12,"")
     panel.dragText:SetPoint("LEFT",10,0);panel.dragText:SetWidth(200);panel.dragText:SetWordWrap(false)
     function panel:FinishDrag(apply)
+        self:EnableKeyboard(false);self:SetPropagateKeyboardInput(true)
         local drag=self.drag;if not drag then return end
-        self.drag=nil;self.insertMarker:Hide();self.dragGhost:Hide();self:EnableKeyboard(false);self:SetPropagateKeyboardInput(true)
+        self.drag=nil;self.insertMarker:Hide();self.dragGhost:Hide()
         for _,row in ipairs(self.rows)do row.dragTint:Hide()end
         if not apply or not drag.valid or Current()~=drag.group or drag.entries~=drag.group.monitors or not Editable(drag.group,drag.entry)then return end
         local from=S.EntryIndex(drag.group,drag.entry)
@@ -427,9 +477,12 @@ function S.BuildControls(e,parent,Row)
         elseif not IsMouseButtonDown("LeftButton")then self:FinishDrag(true)end
     end)
     panel:SetScript("OnKeyDown",function(self,key)
+        if not self.drag then self:SetPropagateKeyboardInput(true);return end
         self:SetPropagateKeyboardInput(key~="ESCAPE")
         if key=="ESCAPE"then self:FinishDrag(false);self:SetPropagateKeyboardInput(false)end
     end)
+    panel:EnableKeyboard(false);panel:SetPropagateKeyboardInput(true)
+    panel:SetScript("OnShow",function(self)if not self.drag then self:EnableKeyboard(false);self:SetPropagateKeyboardInput(true)end end)
     panel:SetScript("OnHide",function(self)self:FinishDrag(false)end)
     local function BindInput(row,edit,field)
         local function Save(self,owner,item)
@@ -461,12 +514,13 @@ function S.BuildControls(e,parent,Row)
             if not row then
                 row=CreateFrame("Frame",nil,self);row:SetHeight(84);self.rows[i]=row
                 row.separator=row:CreateTexture(nil,"ARTWORK");row.separator:SetHeight(1)
-                row.separator:SetPoint("TOPLEFT",0,8);row.separator:SetPoint("TOPRIGHT",0,8)
+                row.separator:SetPoint("TOPLEFT",0,6);row.separator:SetPoint("TOPRIGHT",0,6)
                 row.separator:SetColorTexture(.45,.45,.45,.22)
                 row.dragTint=row:CreateTexture(nil,"BACKGROUND");row.dragTint:SetAllPoints();row.dragTint:SetColorTexture(.2,.6,.9,.2);row.dragTint:Hide()
                 DragSurface(row,row)
-                row.dragHandle=CreateFrame("Button",nil,row);row.dragHandle:SetSize(100,16);row.dragHandle:SetPoint("TOPRIGHT",0,0)
-                row.dragLabel=W.Label(row.dragHandle,"拖拽排序",10);row.dragLabel:SetPoint("RIGHT");row.dragLabel:SetTextColor(.65,.65,.65)
+                row.dragHandle=CreateFrame("Button",nil,row);row.dragHandle:SetSize(100,18)
+                row.dragLabel=W.Label(row.dragHandle,"拖拽排序",12);row.dragLabel:SetPoint("CENTER");row.dragLabel:SetJustifyH("CENTER")
+                M:SetLocaleLineHeight(row.dragLabel,18);row.dragLabel:SetWordWrap(false)
                 DragSurface(row.dragHandle,row)
                 -- Reuse the font selector's skin, arrow, menu rows and single check mark.
                 row.drop=W.MediaSelect(row,"监控类型",160,"choice",function()
@@ -517,8 +571,10 @@ function S.BuildControls(e,parent,Row)
                     if index and Editable(owner,item)then table.remove(owner.monitors,index);M:Commit()end
                 end)
                 row.remove:SetPoint("TOPRIGHT",row,"TOPRIGHT",0,-53)
+                row.dragHandle:SetPoint("TOP",row.remove,"TOP",0,53)
             end
             row.group,row.entry=group,entry;row:SetWidth(width);row:SetPoint("TOPLEFT",self,"TOPLEFT",0,-(i-1)*88)
+            row.dragHandle:SetWidth(math.max(100,row.dragLabel:GetStringWidth()+4))
             local dropWidth=math.max(140,width*.34)
             row.drop:SetWidth(dropWidth);row.drop:SetValue(entry.type)
             row.showShortcut:ClearAllPoints();row.showShortcut:SetPoint("TOPLEFT",row,"TOPLEFT",dropWidth+10,-20)

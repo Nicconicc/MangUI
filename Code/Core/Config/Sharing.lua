@@ -138,6 +138,8 @@ local function CleanConfig(config)
     if config.healthClassColor~=nil and type(config.healthClassColor)~="boolean" then return end
     if config.adapt4KUIScale~=nil and type(config.adapt4KUIScale)~="boolean" then return end
     if config.useGlobalFont~=nil and type(config.useGlobalFont)~="boolean" then return end
+    if config.playerSkillMonitorsByClass~=nil and (not M.PlayerSkillMonitor.ValidClassProfiles(config.playerSkillMonitorsByClass)
+        or not M.PlayerSkillMonitor.ValidClass(config.playerSkillMonitorClass))then return end
     for _,key in ipairs({"globalFontPath","globalFontName"})do
         if config[key]~=nil and (type(config[key])~="string"or #config[key]>512)then return end
     end
@@ -154,9 +156,12 @@ local function CleanConfig(config)
         globalFontPath=M:ResolveFontPath(config.globalFontPath and config.globalFontPath~="" and config.globalFontPath or M:DefaultFontPath()),
         globalFontName=not M:IsRetiredFont(config.globalFontName) and config.globalFontName and config.globalFontName~="" and config.globalFontName or "默认",
         minimap={hide=config.minimap.hide,angle=config.minimap.angle},
+        playerSkillMonitorsByClass=config.playerSkillMonitorsByClass and M.Copy(config.playerSkillMonitorsByClass),
+        playerSkillMonitorClass=config.playerSkillMonitorsByClass and config.playerSkillMonitorClass,
         design={nodes=nodes},moduleDefaults={nodes=defaults}}
 end
 function M:ExportConfigString()
+    self:SavePlayerSkillMonitorClass()
     local ok,result=pcall(function()
         local serializer,deflate=Libraries()
         local config=CleanConfig({format=1,schema=self.db.schema,language=self.db.language,
@@ -164,6 +169,7 @@ function M:ExportConfigString()
             healthClassColor=self.db.healthClassColor,minimap=self.db.minimap,
             adapt4KUIScale=self.db.adapt4KUIScale,
             useGlobalFont=self.db.useGlobalFont,globalFontPath=self.db.globalFontPath,globalFontName=self.db.globalFontName,
+            playerSkillMonitorsByClass=self.db.playerSkillMonitorsByClass,playerSkillMonitorClass=self.db.playerSkillMonitorClass,
             design=self.db.design,moduleDefaults=self.db.moduleDefaults})
         if not config then return end
         local payload=serializer:Serialize(config)
@@ -202,7 +208,9 @@ function M:ApplyConfigString(input)
     local config=self:ImportConfigString(input)
     if not config then return false,INVALID end
     if self.moveMode and self.StopFrameMoveMode then self:StopFrameMoveMode(false) end
+    self:SavePlayerSkillMonitorClass()
     self.db.design=config.design;self.db.moduleDefaults=config.moduleDefaults
+    self:ImportPlayerSkillMonitorClasses(config)
     self.db.language=config.language;self.db.minimap=config.minimap;self.db.hideBlizzard=config.hideBlizzard
     self.db.hideWithoutTarget=config.hideWithoutTarget
     self.db.portrait3D=config.portrait3D
