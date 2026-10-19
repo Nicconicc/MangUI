@@ -246,6 +246,7 @@ local function Build(view,n)
     elseif n.kind=="experiencebar" then M.ExperienceBar.Build(view,o)
     elseif n.kind=="targetthreat" then M.TargetThreat.Build(view,o)
     elseif n.kind=="targetdistance" then M.TargetDistance.Build(view,o)
+    elseif n.kind=="othermonitor" then o.otherIcons={}
     elseif n.kind=="skillmonitor" then o.skillIcons={}
     elseif n.kind=="cooldowns" then
         o.cooldownIcons={}
@@ -589,6 +590,7 @@ function R.Apply(view,design,unchanged)
             if f:GetFrameLevel()~=level then f:SetFrameLevel(level);levelsChanged=true end
             f:SetAlpha(n.alpha or 1)
             if o.chatButtons then M.ChatButtons.Configure(view,o)
+            elseif n.kind=="othermonitor" then M.PlayerOtherMonitor.Configure(view,o)
             elseif n.kind=="skillmonitor" then M.PlayerSkillMonitor.Configure(view,o)
             elseif o.menuButtons then M.SystemMenu.Configure(view,o)
             elseif n.kind=="mousecircle" then M.MouseCircle.Configure(view,o)

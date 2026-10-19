@@ -82,7 +82,7 @@ function M:StartLive()
         "NAME_PLATE_UNIT_ADDED","NAME_PLATE_UNIT_REMOVED",
         "PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","UPDATE_EXPANSION_LEVEL","QUEST_LOG_UPDATE","UNIT_QUEST_LOG_CHANGED","TIME_PLAYED_MSG",
         "UNIT_SPELLCAST_SUCCEEDED","SPELL_UPDATE_COOLDOWN","SPELL_UPDATE_CHARGES","SPELLS_CHANGED","LEARNED_SPELL_IN_TAB",
-        "BAG_UPDATE_COOLDOWN","BAG_UPDATE_DELAYED","PLAYER_EQUIPMENT_CHANGED","GET_ITEM_INFO_RECEIVED",
+        "BAG_UPDATE_COOLDOWN","BAG_UPDATE_DELAYED","PLAYER_EQUIPMENT_CHANGED","GET_ITEM_INFO_RECEIVED","UNIT_INVENTORY_CHANGED",
         "UNIT_PORTRAIT_UPDATE","UNIT_MODEL_CHANGED","PORTRAITS_UPDATED","UNIT_FLAGS","UNIT_CONNECTION","UNIT_FACTION","UNIT_CLASSIFICATION_CHANGED","UNIT_AURA","RAID_TARGET_UPDATE","GROUP_ROSTER_UPDATE",
         "UNIT_TARGETABLE_CHANGED","UNIT_PHASE","ENCOUNTER_START","ENCOUNTER_END","INSTANCE_ENCOUNTER_ENGAGE_UNIT",
         "PARTY_LEADER_CHANGED","PLAYER_GUILD_UPDATE","GUILD_ROSTER_UPDATE","ZONE_CHANGED_NEW_AREA","ZONE_CHANGED","ZONE_CHANGED_INDOORS","UPDATE_BATTLEFIELD_STATUS",
@@ -136,6 +136,7 @@ function M:StartLive()
         end
         if M.CooldownMonitor and cooldownEvents[event] and (event~="UNIT_SPELLCAST_SUCCEEDED" or unit=="player") then Dispatch("cooldownMonitor",M.CooldownMonitor.Event,M.CooldownMonitor,event,unit,...) end
         if M.PlayerSkillMonitor then Dispatch("playerSkillMonitor",M.PlayerSkillMonitor.Event,M.live,event,unit) end
+        if M.PlayerOtherMonitor then Dispatch("playerOtherMonitor",M.PlayerOtherMonitor.Event,M.live,event,unit) end
         if M.ChatButtons and chatEvents[event] then Dispatch("chatButtons",M.ChatButtons.Event,M.live,event) end
         local combatEvent=event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_REGEN_ENABLED"
         if M.CombatNotices and combatEvent then Dispatch("combatNotices",M.CombatNotices.Event,M.live,event) end

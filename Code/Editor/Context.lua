@@ -1,7 +1,7 @@
 local _,M=...
 local W,R=M.Widgets,M.Renderer
 local unpack=unpack or table.unpack
-local topLevelFrames={"mainComposite","wa8d650f8d3a","petComposite","totComposite","focusComposite","partyFrames","bossFrames","playerSkillMonitor","cooldownMonitor","targetDistance","targetThreat","chatButtons","systemMenu","experienceBar","mouseCircle","combatNotices"}
+local topLevelFrames={"mainComposite","wa8d650f8d3a","petComposite","totComposite","focusComposite","partyFrames","bossFrames","playerSkillMonitor","playerOtherMonitor","cooldownMonitor","targetDistance","targetThreat","chatButtons","systemMenu","experienceBar","mouseCircle","combatNotices"}
 local unlockExcluded={mouseCircle=true,targetDistance=true,systemMenu=true}
 local function ModuleAvailable(id)
     local interface=M.Compat.interface or 0
@@ -30,7 +30,7 @@ local function IsUnitComposite(group)
     return group and compositeParts[group.compound]~=nil
 end
 local function HasDedicatedPreview(group)
-    return group and (group.compound=="playerCast" or group.compound=="playerSkillMonitor" or group.compound=="cooldownMonitor" or group.compound=="chatButtons" or group.compound=="combatNotices" or group.compound=="systemMenu" or group.compound=="mouseCircle" or group.compound=="experienceBar" or group.compound=="targetThreat" or group.compound=="targetDistance" or M:ModuleID(group)=="bossFrames" or M:ModuleID(group)=="partyFrames")
+    return group and (group.compound=="playerCast" or group.compound=="playerSkillMonitor" or group.compound=="playerOtherMonitor" or group.compound=="cooldownMonitor" or group.compound=="chatButtons" or group.compound=="combatNotices" or group.compound=="systemMenu" or group.compound=="mouseCircle" or group.compound=="experienceBar" or group.compound=="targetThreat" or group.compound=="targetDistance" or M:ModuleID(group)=="bossFrames" or M:ModuleID(group)=="partyFrames")
 end
 local function IsCastGroup(group)
     return group and (group.compound=="playerCast" or group.compound=="targetCast")
@@ -141,6 +141,7 @@ local propertyCategories={
         {"partyFont","partyNameSize"},{"partyHideInRaid","partyHideNumbers","partyHidePlayer"}},
     cast={{"overallScale","castIconSize","castColor"},{"nameFont","castFontSize"},{"showRangedProgress","showMeleeProgress"}},
     playerSkillMonitor={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"skillMonitorSharing"},{"skillMonitorItems"}},
+    playerOtherMonitor={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"otherMonitorSharing"},{"otherMonitorItems"},{"otherMonitorEquipment"}},
     cooldownMonitor={{"scale"},{"minCooldown","maxCooldown"},{"blacklist"}},
     chatButtons={{"iconSize","buttonSpacing"},{"nameFont","fontSize","fontYOffset","chatTextLabels"},{"customChannelName","pullSeconds"}},
     targetThreat={{"nameFont","fontSize"},{"threatInstanceOnly"}},
@@ -255,7 +256,7 @@ local function Change(field,value)
     local n=Selected();if not n or not M:CanEdit() then return end
     if type(value)=="number" then value=M.SettingRanges.Clamp(n,field,value) end
     if (n.compound=="systemMenu" or n.compound=="mouseCircle") and field=="scale" then n.scale=M:ScaleInputValue(n,M.Clamp(value,.1,2))
-    elseif (n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="playerSkillMonitor" or n.compound=="cooldownMonitor" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="experienceBar") and field=="scale" then M:SetCompositeScaleFromCenter(n,value,M:ScaleInputValue(n,M.Clamp(value,.1,2)))
+    elseif (n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="playerSkillMonitor" or n.compound=="playerOtherMonitor" or n.compound=="cooldownMonitor" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="experienceBar") and field=="scale" then M:SetCompositeScaleFromCenter(n,value,M:ScaleInputValue(n,M.Clamp(value,.1,2)))
     elseif n.compound=="experienceBar" and field=="experienceHeight" then
         n.experienceHeight=M.Clamp(math.floor(value+.5),1,100);n.height=n.experienceHeight
         if M.byID.experienceBarDisplay then M.byID.experienceBarDisplay.height=n.height end

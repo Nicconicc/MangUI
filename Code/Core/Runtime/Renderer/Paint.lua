@@ -105,6 +105,7 @@ local function Paint(view,o,animateOnly,visibleHint)
         if shown then M.ChatButtons.Refresh(view,o) end
         return
     end
+    if n.kind=="othermonitor" then M.PlayerOtherMonitor.Paint(view,o,animateOnly);return end
     if n.kind=="skillmonitor" then M.PlayerSkillMonitor.Paint(view,o,animateOnly);return end
     if n.kind=="cooldowns" then
         local visible=n.enabled~=false and not (view.hidden and view.hidden[n.id])

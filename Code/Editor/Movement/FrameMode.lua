@@ -13,6 +13,7 @@ local MainCompositeRoots=private.MainCompositeRoots
 
 local function FrameMoveBounds(group)
     if group.id=="playerSkillMonitor" then return M.PlayerSkillMonitor.MoveBounds(group) end
+    if group.id=="playerOtherMonitor" then return M.PlayerOtherMonitor.MoveBounds(group) end
     local geometry=M:Geometry();local origin=geometry[group.id]
     if not origin or not origin.s or origin.s==0 then return 0,0,280,280 end
     if group.id=="bossFrames" then
@@ -65,8 +66,8 @@ local function MainCompositeMoveBounds(geometry)
 end
 
 function M:SetCompositeScaleFromCenter(group,relativeScale,actualScale)
-    if not group or (not IsUnitComposite(group) and not IsCastGroup(group) and group.compound~="partyFrames" and group.compound~="bossFrames" and group.compound~="playerSkillMonitor" and group.compound~="cooldownMonitor" and group.compound~="chatButtons" and group.compound~="combatNotices" and group.compound~="experienceBar") then return end
-    if group.compound=="partyFrames" or group.compound=="bossFrames" or group.compound=="playerSkillMonitor" or group.compound=="cooldownMonitor" or group.compound=="chatButtons" or group.compound=="combatNotices" or group.compound=="experienceBar" then relativeScale=M.Clamp(relativeScale,.1,2) end
+    if not group or (not IsUnitComposite(group) and not IsCastGroup(group) and group.compound~="partyFrames" and group.compound~="bossFrames" and group.compound~="playerSkillMonitor" and group.compound~="playerOtherMonitor" and group.compound~="cooldownMonitor" and group.compound~="chatButtons" and group.compound~="combatNotices" and group.compound~="experienceBar") then return end
+    if group.compound=="partyFrames" or group.compound=="bossFrames" or group.compound=="playerSkillMonitor" or group.compound=="playerOtherMonitor" or group.compound=="cooldownMonitor" or group.compound=="chatButtons" or group.compound=="combatNotices" or group.compound=="experienceBar" then relativeScale=M.Clamp(relativeScale,.1,2) end
     local oldScale=group.scale or 1
     local newScale=actualScale or (group.baseScale or 1)*relativeScale
     if group.castOriginRevision==1 then group.scale=newScale;return end

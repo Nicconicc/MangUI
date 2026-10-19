@@ -34,6 +34,7 @@ local function CleanNodes(nodes)
     end end
     for _,node in ipairs(nodes) do
         if node.monitors~=nil and not M.PlayerSkillMonitor.ValidEntries(node.monitors) then return end
+        if node.otherMonitors~=nil and not M.PlayerOtherMonitor.ValidEntries(node.otherMonitors)then return end
     end
     M:NormalizeAssetPaths(nodes)
     M:NormalizeRetiredFonts(nodes)
@@ -42,6 +43,7 @@ local function CleanNodes(nodes)
     if M.EnsurePetBuffs then M:EnsurePetBuffs({nodes=nodes}) end
     if M.EnsureCooldownModule then M:EnsureCooldownModule({nodes=nodes}) end
     if M.EnsurePlayerSkillMonitor then M:EnsurePlayerSkillMonitor({nodes=nodes}) end
+    if M.EnsurePlayerOtherMonitor then M:EnsurePlayerOtherMonitor({nodes=nodes})end
     if M.EnsureChatButtonsModule then M:EnsureChatButtonsModule({nodes=nodes}) end
     if M.EnsureCombatNoticesModule then M:EnsureCombatNoticesModule({nodes=nodes}) end
     if M.EnsureSystemMenuModule then M:EnsureSystemMenuModule({nodes=nodes}) end
@@ -141,6 +143,9 @@ local function CleanConfig(config)
     if config.useGlobalFont~=nil and type(config.useGlobalFont)~="boolean" then return end
     if config.playerSkillMonitorsByClass~=nil and (not M.PlayerSkillMonitor.ValidClassProfiles(config.playerSkillMonitorsByClass)
         or not M.PlayerSkillMonitor.ValidClass(config.playerSkillMonitorClass))then return end
+    if config.playerOtherMonitorsByClass~=nil and (not M.PlayerOtherMonitor.ValidProfiles(config.playerOtherMonitorsByClass)
+        or not M.PlayerSkillMonitor.ValidClass(config.playerOtherMonitorClass))then return end
+    if config.otherMonitorEquipmentOverrides~=nil and not M.PlayerOtherMonitor.ValidOverrides(config.otherMonitorEquipmentOverrides)then return end
     for _,key in ipairs({"globalFontPath","globalFontName"})do
         if config[key]~=nil and (type(config[key])~="string"or #config[key]>512)then return end
     end
@@ -159,6 +164,9 @@ local function CleanConfig(config)
         minimap={hide=config.minimap.hide,angle=config.minimap.angle},
         playerSkillMonitorsByClass=config.playerSkillMonitorsByClass and M.Copy(config.playerSkillMonitorsByClass),
         playerSkillMonitorClass=config.playerSkillMonitorsByClass and config.playerSkillMonitorClass,
+        playerOtherMonitorsByClass=config.playerOtherMonitorsByClass and M.Copy(config.playerOtherMonitorsByClass),
+        playerOtherMonitorClass=config.playerOtherMonitorClass,
+        otherMonitorEquipmentOverrides=config.otherMonitorEquipmentOverrides and M.Copy(config.otherMonitorEquipmentOverrides),
         design={nodes=nodes},moduleDefaults={nodes=defaults}}
 end
 local function CleanSkillConfig(config)
@@ -226,6 +234,7 @@ function M:ApplyPlayerSkillMonitorString(input)
 end
 function M:ExportConfigString()
     self:SavePlayerSkillMonitorClass()
+    self:SavePlayerOtherMonitorClass()
     local ok,result=pcall(function()
         local serializer,deflate=Libraries()
         local config=CleanConfig({format=1,schema=self.db.schema,language=self.db.language,
@@ -234,6 +243,8 @@ function M:ExportConfigString()
             adapt4KUIScale=self.db.adapt4KUIScale,
             useGlobalFont=self.db.useGlobalFont,globalFontPath=self.db.globalFontPath,globalFontName=self.db.globalFontName,
             playerSkillMonitorsByClass=self.db.playerSkillMonitorsByClass,playerSkillMonitorClass=self.db.playerSkillMonitorClass,
+            playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass,playerOtherMonitorClass=self.db.playerOtherMonitorClass,
+            otherMonitorEquipmentOverrides=self.db.otherMonitorEquipmentOverrides,
             design=self.db.design,moduleDefaults=self.db.moduleDefaults})
         if not config then return end
         local payload=serializer:Serialize(config)
@@ -269,15 +280,19 @@ function M:ImportConfigString(input)
 end
 function M:ApplyConfigString(input)
     if not self:CanEdit() then return false,"战斗中暂不能修改布局，脱战后即可编辑。" end
+    if type(input)=="string"and #input<=400000 and input:gsub("%s+",""):sub(1,6)=="!MUO1:"then return self:ApplyPlayerOtherMonitorString(input)end
     if type(input)=="string"and #input<=MAX_TEXT*2 and input:gsub("%s+",""):sub(1,#SKILL_PREFIX)==SKILL_PREFIX then
         return self:ApplyPlayerSkillMonitorString(input)
     end
     local config=self:ImportConfigString(input)
     if not config then return false,INVALID end
+    if self.PlayerOtherMonitor.FlushEditor then self.PlayerOtherMonitor.FlushEditor()end
     if self.moveMode and self.StopFrameMoveMode then self:StopFrameMoveMode(false) end
     self:SavePlayerSkillMonitorClass()
+    self:SavePlayerOtherMonitorClass()
     self.db.design=config.design;self.db.moduleDefaults=config.moduleDefaults
     self:ImportPlayerSkillMonitorClasses(config)
+    self:ImportPlayerOtherMonitorClasses(config)
     self.db.language=config.language;self.db.minimap=config.minimap;self.db.hideBlizzard=config.hideBlizzard
     self.db.hideWithoutTarget=config.hideWithoutTarget
     self.db.portrait3D=config.portrait3D

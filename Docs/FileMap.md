@@ -40,3 +40,5 @@
 | `OtherSettings.lua` | `Code/Editor/General.lua` |
 
 新增接口文件：`Code/Interfaces/Registry.lua` 与 `Code/Interfaces/Default/Register.lua`。
+
+玩家其他监控：`Code/Modules/Cooldowns/PlayerOther.lua`（配置与装备／音效来源）、`OtherRuntime.lua`（实际显示与计时）、`OtherEditor.lua`（控制面板）、`OtherSharing.lua`（独立分享格式）、`EquipmentData.lua`（装备效果对应表）。使用与限制见 [EquipmentEffects.md](EquipmentEffects.md)。
