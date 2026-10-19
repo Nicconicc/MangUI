@@ -89,7 +89,7 @@ function M:StartLive()
         "UNIT_SPELLCAST_CHANNEL_START","UNIT_SPELLCAST_CHANNEL_STOP","UNIT_SPELLCAST_CHANNEL_UPDATE","UNIT_ENTERED_VEHICLE","UNIT_EXITED_VEHICLE"}) do
         pcall(f.RegisterEvent,f,event)
     end
-    if type(GetPetHappiness)=="function" then
+    if M.Compat.PetHappinessSupported() then
         pcall(f.RegisterEvent,f,"UNIT_HAPPINESS")
         pcall(f.RegisterEvent,f,"PET_UI_UPDATE")
     end

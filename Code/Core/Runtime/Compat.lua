@@ -75,14 +75,19 @@ local function Clear(out)
 end
 local previewNames={player="玩家",target="Ravenwood",pet="Shadowfang",targettarget="Cedric",focus="Seraphine"}
 local happinessNames={[1]="不高兴",[2]="满足",[3]="快乐"}
+function C.PetHappinessSupported()
+    -- Classic through Wrath, plus Forever as requested. Later expansion
+    -- clients can retain API stubs even though their pets have no happiness.
+    if C.interface~=16001 and C.interface>=40000 then return false end
+    return type(GetPetHappiness)=="function"
+        or (C_PetInfo~=nil and type(C_PetInfo.GetPetHappiness)=="function")
+end
 function C.PetHappiness(preview)
-    if type(GetPetHappiness)~="function" then return end
-    -- The later clients can retain an API stub after removing happiness.
-    if preview then
-        if C.interface~=16001 and C.interface<40000 then return 3 end
-        return
-    end
-    local ok,happy=pcall(GetPetHappiness)
+    if not C.PetHappinessSupported() then return end
+    if preview then return 3 end
+    local query=C_PetInfo and C_PetInfo.GetPetHappiness
+    if type(query)~="function" then query=GetPetHappiness end
+    local ok,happy=pcall(query)
     if not ok then return end
     happy=C.Number(happy)
     if not happinessNames[happy] then return end
