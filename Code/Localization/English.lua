@@ -553,4 +553,5 @@ english["目标Debuff"]="Target debuff"
 english["添加监控"]="Add monitor"
 english["删除"]="Remove"
 english["输入需要监控的技能或Debuff名称或ID"]="Enter the spell or debuff name or ID to track"
+english["显示快捷键"]="Show shortcut"
 M:RebuildLocaleKeys()

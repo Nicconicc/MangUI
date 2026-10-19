@@ -10,13 +10,28 @@ function S.Input(value)
     if type(value)~="string" then return "" end
     return value:gsub("[%c]",""):match("^%s*(.-)%s*$")
 end
+function S.NewEntry()
+    return {type="cooldown",value="",showShortcut=true,shortcut="",shortcutColor={1,1,1,1}}
+end
 function S.ValidEntries(entries)
     if type(entries)~="table" then return false end
     for key,entry in pairs(entries) do
         if type(key)~="number" or key%1~=0 or key<1 or key>#entries or type(entry)~="table" then return false end
         if entry.type~="cooldown" and entry.type~="debuff" then return false end
         if type(entry.value)~="string" or #entry.value>384 then return false end
-        for field in pairs(entry)do if field~="type" and field~="value" then return false end end
+        if entry.showShortcut~=nil and type(entry.showShortcut)~="boolean" then return false end
+        if entry.shortcut~=nil and (type(entry.shortcut)~="string" or #entry.shortcut>128) then return false end
+        if entry.shortcutColor~=nil then
+            if type(entry.shortcutColor)~="table" then return false end
+            for i=1,4 do
+                local v=entry.shortcutColor[i]
+                if type(v)~="number" or v~=v or v<0 or v>1 then return false end
+            end
+            for k in pairs(entry.shortcutColor)do if type(k)~="number" or k%1~=0 or k<1 or k>4 then return false end end
+        end
+        for field in pairs(entry)do
+            if field~="type" and field~="value" and field~="showShortcut" and field~="shortcut" and field~="shortcutColor" then return false end
+        end
     end
     for i=1,#entries do if type(entries[i])~="table" then return false end end
     return true
@@ -29,11 +44,15 @@ function M:EnsurePlayerSkillMonitor(design)
         local cd=seen.cooldownMonitor
         group={id="playerSkillMonitor",label="玩家技能监控",kind="group",compound="playerSkillMonitor",scope="player",unit="player",
             x=0,y=-295,width=2,height=2,scale=cd and cd.scale or 1,scaleReference=cd and (cd.scaleReference or cd.scale) or 1,
-            point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=340,monitors={{type="cooldown",value=""}},rules={},conditions={}}
+            point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=340,monitors={S.NewEntry()},rules={},conditions={}}
         design.nodes[#design.nodes+1]=group
     end
-    if not S.ValidEntries(group.monitors) then group.monitors={{type="cooldown",value=""}} end
-    for _,entry in ipairs(group.monitors)do entry.value=S.Input(entry.value)end
+    if not S.ValidEntries(group.monitors) then group.monitors={S.NewEntry()} end
+    for _,entry in ipairs(group.monitors)do
+        entry.value=S.Input(entry.value);entry.shortcut=S.Input(entry.shortcut)
+        if entry.showShortcut==nil then entry.showShortcut=true end
+        if entry.shortcutColor==nil then entry.shortcutColor={1,1,1,1} end
+    end
     if not seen.playerSkillMonitorIcons then
         design.nodes[#design.nodes+1]={id="playerSkillMonitorIcons",label="玩家技能监控",kind="skillmonitor",parent=group.id,
             internal=true,locked=true,scope="player",unit="player",x=0,y=0,width=216,height=66,autoWidth=true,
@@ -91,7 +110,7 @@ local function NativeAura(slot)
     local container=CreateFrame("AuraContainer",nil,slot,"CustomAuraContainerTemplate")
     container:SetEnabled(false);container:SetUnit("target");container:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0)
     slot.nativeFrames={};slot.nativeAuras=container
-    container:AddAuraGroup("monitor","HARMFUL",{maxFrameCount=0,initializeFrame=function(frame)StyleNativeAura(slot,frame)end})
+    container:AddAuraGroup("monitor","HARMFUL|PLAYER",{maxFrameCount=0,initializeFrame=function(frame)StyleNativeAura(slot,frame)end})
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
     container:SetFlowLayoutMaximumLineSize(40.001)
@@ -109,6 +128,10 @@ local function Icon(o,i)
         slot.nativeTime=slot.cooldown:GetCountdownFontString()
         if slot.nativeTime then Font(slot.nativeTime);slot.nativeTime:ClearAllPoints();slot.nativeTime:SetPoint("BOTTOM",slot,"TOP",0,7)end
     end
+    -- Keep the annotation above the native aura overlay and cooldown children.
+    slot.shortcutFrame=CreateFrame("Frame",nil,slot);slot.shortcutFrame:SetAllPoints();slot.shortcutFrame:EnableMouse(false)
+    slot.shortcutFrame:SetFrameLevel(slot:GetFrameLevel()+30)
+    slot.shortcut=slot.shortcutFrame:CreateFontString(nil,"OVERLAY");slot.shortcut:SetPoint("CENTER",slot,"BOTTOM",0,0)
     slot:SetScript("OnEnter",function(self)
         if not self.entry then return end
         GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
@@ -118,6 +141,12 @@ local function Icon(o,i)
     end)
     slot:SetScript("OnLeave",function()GameTooltip:Hide()end)
     o.skillIcons[i]=slot;return slot
+end
+local function Shortcut(slot,entry)
+    Font(slot.shortcut);slot.shortcut:SetFont(M:EffectiveFontPath(M.MYRIAD),20,"OUTLINE")
+    slot.shortcut:SetTextColor(unpack(entry.shortcutColor or {1,1,1,1}))
+    slot.shortcut:SetText((entry.shortcut or ""):gsub("|","||"))
+    slot.shortcut:SetShown(entry.showShortcut~=false and entry.shortcut~=nil and entry.shortcut~="")
 end
 local function Resolve(slot,entry)
     local name,id,icon=M.PetBuffs.SpellInfo(entry.value)
@@ -144,6 +173,7 @@ function S.Configure(view,o)
         local slot=Icon(o,i);Resolve(slot,entry);slot.duration=nil;slot.expires=nil;slot.active=false
         slot.text:SetText("");ClearCooldown(slot.cooldown);slot.texture:SetDesaturated(false)
         Font(slot.text)
+        Shortcut(slot,entry)
         if slot.nativeTime then Font(slot.nativeTime)end
         for _,frame in ipairs(slot.nativeFrames or {})do Font(frame.monitorTime)end
         if o.usesNativeAuras then BindAura(slot,view.byID[o.spec.parent].enabled~=false)end
@@ -206,7 +236,10 @@ local function TargetAuras(o)
             if entry and entry.type=="debuff" then
                 local requested=tonumber(entry.value)
                 local match=requested and Readable(id) and id==requested or (not requested and Readable(aura.name) and aura.name==entry.value)
-                if match then
+                local source=aura.sourceUnit
+                local own=Readable(source) and (source=="player" or
+                    (source~=nil and UnitIsUnit and M.Compat.Bool(Safe(UnitIsUnit,source,"player"))))
+                if match and own then
                     slot.active=true
                     local expires=Number(aura.expirationTime)
                     if expires and expires>0 and (not slot.expires or expires>slot.expires)then slot.expires=expires end
@@ -231,6 +264,7 @@ function S.Paint(view,o,animateOnly)
         for i,entry in ipairs(entries)do
             local slot=Icon(o,i)
             if slot.entry~=entry then Resolve(slot,entry)end
+            if view.preview and o.entries and #o.entries==0 then Shortcut(slot,entry)end
             if not view.preview and slot.needsInfo and now>=(slot.nextInfo or 0) then
                 Resolve(slot,entry)
                 if o.usesNativeAuras and not InCombatLockdown() then BindAura(slot,group.enabled~=false)end
@@ -287,14 +321,35 @@ end
 
 function S.BuildControls(e,parent,Row)
     local W=M.Widgets
+    local choices={{name="玩家技能冷却",path="cooldown"},{name="目标Debuff",path="debuff"}}
     local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);e.skillMonitorPanel=panel
     local property={height=30,controls={{panel,0,0}},kinds={},key="skillMonitorItems"}
     e.propRows[#e.propRows+1]=property;panel.propertyRow=property;panel.rows={}
     local function Current()local n=M.byID[M.selection];return n and n.compound=="playerSkillMonitor" and n end
+    local function Editable(group,entry)
+        return group and M.byID[group.id]==group and S.EntryIndex(group,entry) and M:CanEdit()
+    end
+    local function Flush()
+        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
+    end
+    local function BindInput(row,edit,field)
+        local function Save(self,owner,item)
+            owner=owner or self.monitorOwner or row.group;item=item or self.monitorEntry or row.entry
+            if not Editable(owner,item)then return end
+            local value=S.Input(self:GetText())
+            if item[field]~=value then item[field]=value;M:Commit()end
+        end
+        edit:SetScript("OnEditFocusGained",function(self)self.monitorOwner=row.group;self.monitorEntry=row.entry end)
+        edit:SetScript("OnEditFocusLost",function(self)
+            local owner,item=self.monitorOwner,self.monitorEntry;self.monitorOwner=nil;self.monitorEntry=nil;Save(self,owner,item)
+        end)
+        edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
+        edit:SetScript("OnEscapePressed",function(self)self:SetText((self.monitorEntry or row.entry)[field] or "");self:ClearFocus()end)
+        edit:HookScript("OnHide",function(self)self:ClearFocus()end)
+    end
     panel.add=W.Button(panel,"添加监控",130,function()
         local group=Current();if not group or not M:CanEdit()then return end
-        for _,row in ipairs(panel.rows)do row.edit:ClearFocus()end
-        group.monitors[#group.monitors+1]={type="cooldown",value=""};M:Commit()
+        Flush();group.monitors[#group.monitors+1]=S.NewEntry();M:Commit()
     end)
     function panel:Refresh(group)
         local monitors=group and group.monitors or {};local width=e.props:GetWidth()
@@ -305,41 +360,60 @@ function S.BuildControls(e,parent,Row)
             local row=self.rows[i]
             if not row then
                 row=CreateFrame("Frame",nil,self);row:SetHeight(84);self.rows[i]=row
-                row.caption=W.Label(row,"监控类型",12);row.caption:SetPoint("TOPLEFT",0,0)
-                row.drop=W.Drop(row,340,{{"cooldown","玩家技能冷却"},{"debuff","目标Debuff"}},function(value)
-                    if row.group and S.EntryIndex(row.group,row.entry)and M:CanEdit()then
-                        row.entry.type=value;M:Commit()
-                    end
+                -- Reuse the font selector's skin, arrow, menu rows and single check mark.
+                row.drop=W.MediaSelect(row,"监控类型",160,"choice",function()
+                    if row.drop.menu then row.drop.menu:Hide();return end
+                    local owner,item=row.group,row.entry
+                    W.MediaMenu(row.drop,choices,"choice",item.type,function(choice)
+                        Flush()
+                        if Editable(owner,item)then item.type=choice.path;M:Commit()end
+                    end)
                 end)
-                row.drop:SetPoint("TOPLEFT",0,-21)
+                row.drop:SetPoint("TOPLEFT",0,0);row.caption=row.drop.caption
+                function row.drop:SetValue(value)
+                    self.value=value
+                    self:SetMedia(value=="debuff" and "目标Debuff" or "玩家技能冷却",value)
+                end
+                row.showShortcut=W.Check(row,"显示快捷键",function(enabled)
+                    local owner,item=row.group,row.entry;Flush()
+                    if Editable(owner,item)then item.showShortcut=enabled==true;M:Commit()end
+                end)
+                row.showShortcut.label:SetWordWrap(false)
+                row.shortcutEdit=W.Edit(row,100);row.shortcutEdit:SetMaxLetters(32);row.shortcutEdit:SetTextInsets(6,6,0,0)
+                BindInput(row,row.shortcutEdit,"shortcut")
+                row.shortcutColor=W.ColorSwatch(row,function(color)
+                    local owner,item=row.colorOwner,row.colorEntry
+                    if Editable(owner,item)then item.shortcutColor=M.Copy(color);M:Commit()end
+                end)
+                local openColor=row.shortcutColor:GetScript("OnClick")
+                row.shortcutColor:SetScript("OnClick",function(button)
+                    Flush();row.colorOwner,row.colorEntry=row.group,row.entry;openColor(button)
+                end)
                 row.edit=W.Edit(row,width-4);row.edit:SetMaxLetters(128);row.edit:SetTextInsets(6,6,0,0);row.edit:SetPoint("TOPLEFT",2,-53)
                 row.placeholder=W.Label(row.edit,"输入需要监控的技能或Debuff名称或ID",11)
                 row.placeholder:SetPoint("LEFT",row.edit,"LEFT",6,0);row.placeholder:SetPoint("RIGHT",row.edit,"RIGHT",-6,0)
                 row.placeholder:SetTextColor(.5,.5,.5);row.placeholder:SetWordWrap(false)
                 row.edit:HookScript("OnTextChanged",function(self)row.placeholder:SetShown(self:GetText()=="")end)
-                local function Save(self,owner,item)
-                    owner=owner or self.monitorOwner or row.group;item=item or self.monitorEntry or row.entry
-                    if not owner or M.byID[owner.id]~=owner or not S.EntryIndex(owner,item)or not M:CanEdit()then return end
-                    local value=S.Input(self:GetText());if item.value~=value then item.value=value;M:Commit()end
-                end
-                row.edit:SetScript("OnEditFocusGained",function(self)self.monitorOwner=row.group;self.monitorEntry=row.entry end)
-                row.edit:SetScript("OnEditFocusLost",function(self)
-                    local owner,item=self.monitorOwner,self.monitorEntry;self.monitorOwner=nil;self.monitorEntry=nil;Save(self,owner,item)
-                end)
-                row.edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
-                row.edit:SetScript("OnEscapePressed",function(self)self:SetText((self.monitorEntry or row.entry).value);self:ClearFocus()end)
-                row.edit:HookScript("OnHide",function(self)self:ClearFocus()end)
+                BindInput(row,row.edit,"value")
                 row.remove=W.Button(row,"删除",72,function()
-                    local group,item=row.group,row.entry
-                    for _,current in ipairs(panel.rows)do current.edit:ClearFocus()end
-                    local index=group and S.EntryIndex(group,item)
-                    if index and M:CanEdit()then table.remove(group.monitors,index);M:Commit()end
+                    local owner,item=row.group,row.entry;Flush()
+                    local index=owner and S.EntryIndex(owner,item)
+                    if index and Editable(owner,item)then table.remove(owner.monitors,index);M:Commit()end
                 end)
-                row.remove:SetPoint("TOPRIGHT",row,"TOPRIGHT",0,-21)
+                row.remove:SetPoint("TOPRIGHT",row,"TOPRIGHT",0,-53)
             end
             row.group,row.entry=group,entry;row:SetWidth(width);row:SetPoint("TOPLEFT",self,"TOPLEFT",0,-(i-1)*88)
-            row.drop:SetWidth(width-86);row.edit:SetWidth(width-4);row.drop:SetValue(entry.type)
+            local dropWidth=math.max(140,width*.34)
+            row.drop:SetWidth(dropWidth);row.drop:SetValue(entry.type)
+            row.showShortcut:ClearAllPoints();row.showShortcut:SetPoint("TOPLEFT",row,"TOPLEFT",dropWidth+10,-20)
+            local keyX=dropWidth+10+24+math.max(72,row.showShortcut.label:GetStringWidth())+8
+            row.shortcutEdit:ClearAllPoints();row.shortcutEdit:SetPoint("TOPLEFT",row,"TOPLEFT",keyX,-21)
+            row.shortcutEdit:SetWidth(math.max(50,width-keyX-30))
+            row.shortcutColor:ClearAllPoints();row.shortcutColor:SetPoint("TOPRIGHT",row,"TOPRIGHT",0,-23)
+            row.edit:SetWidth((width-4)*2/3)
             if not row.edit:HasFocus()then row.edit:SetText(entry.value)end
+            if not row.shortcutEdit:HasFocus()then row.shortcutEdit:SetText(entry.shortcut or "")end
+            row.showShortcut:SetChecked(entry.showShortcut~=false);row.shortcutColor:SetColor(entry.shortcutColor or {1,1,1,1})
             row.placeholder:SetShown(row.edit:GetText()=="");row:Show()
         end
         for i=#monitors+1,#self.rows do self.rows[i]:Hide()end
