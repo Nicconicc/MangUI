@@ -65,6 +65,10 @@ function M:EnsurePlayerOtherMonitor(design)
         for _,n in ipairs(M.defaults.nodes)do if n.id=="playerSkillMonitor"then source=n end end
         group=M.Copy(source);group.id="playerOtherMonitor";group.label="玩家其他监控";group.compound="playerOtherMonitor"
         group.monitors=nil;group.otherMonitors={O.NewEntry()};group.layer=345
+        for _,n in ipairs(design.nodes)do
+            if n.id=="playerSkillMonitor"then group.scale=n.scale;group.scaleReference=n.scale;break end
+        end
+        S.RestorePosition(group)
         design.nodes[#design.nodes+1]=group
     end
     if not O.ValidEntries(group.otherMonitors)then group.otherMonitors={O.NewEntry()}end
@@ -121,6 +125,25 @@ function O.RestorePosition(group,reference)
     local x,y=0,-120
     if reference then local cx,cy=O.MoveBounds(reference);local scale=M:NodeScale(reference);x,y=((reference.x or 0)+cx)*scale,((reference.y or 0)+cy)*scale end
     local cx,cy=O.MoveBounds(group);local scale=math.max(.001,M:NodeScale(group));group.x,group.y=x/scale-cx,y/scale-cy
+end
+function M:UpgradePlayerOtherMonitorDefaults(db)
+    if db.playerOtherMonitorSizeRevision==1 then return end
+    local skill
+    for _,n in ipairs(db.design.nodes)do if n.id=="playerSkillMonitor"then skill=n;break end end
+    local baseline=O.Group(self.defaults)
+    if skill and baseline then
+        -- Correct the untouched 1.0.529 size; keep a user's custom size intact.
+        for _,design in ipairs({db.design,db.moduleDefaults})do
+            local group=O.Group(design)
+            if group and group.scale==baseline.scale and group.scaleReference==baseline.scaleReference then
+                local cx,cy=O.MoveBounds(group);local previous=self:NodeScale(group)
+                local x,y=((group.x or 0)+cx)*previous,((group.y or 0)+cy)*previous
+                group.scale=skill.scale;group.scaleReference=skill.scale
+                local scale=math.max(.001,self:NodeScale(group));group.x,group.y=x/scale-cx,y/scale-cy
+            end
+        end
+    end
+    db.playerOtherMonitorSizeRevision=1
 end
 function O.Item(slot)
     local id=O.Number(O.Safe(GetInventoryItemID,"player",slot));local link=O.Safe(GetInventoryItemLink,"player",slot)

@@ -211,7 +211,7 @@ local function Equipment(slot,auras,now)
         if finish and (not cdExpires or finish>cdExpires)then cdExpires=finish end
     end
     slot.active=active;slot.expires=active and expires or cdExpires;slot.stacks=active and stacks or nil
-    slot.faded=hasFixed and (active or (cdExpires~=nil and cdExpires>now))or false
+    slot.faded=not active and hasFixed and cdExpires~=nil and cdExpires>now or false
     slot.fixedCooldown=hasFixed;slot.condition=active;slot.show=true
 end
 local function Refresh(view,o,now)
@@ -275,7 +275,7 @@ function O.Paint(view,o,animateOnly)
         local visible=view.preview or (native and eligible)or slot.show==true
         slot:SetShown(visible);slot.base:SetAlpha(1);slot.annotations:SetAlpha(1)
         if view.preview then
-            slot.texture:SetDesaturated(entry.type=="equipment");slot.texture:SetAlpha(entry.type=="equipment"and .5 or 1)
+            slot.texture:SetDesaturated(false);slot.texture:SetAlpha(1)
             slot.time:SetText(IsMissing(entry)and ""or tostring(30-i));slot.count:SetText(IsMissing(entry)and ""or "2")
             SetGlow(slot.glow,entry.glow,entry.glowColor,now)
         else
@@ -292,8 +292,9 @@ function O.Paint(view,o,animateOnly)
                         local present=frame:IsShown()
                         if Readable(present)then frame.baseGate:SetAlpha(present and 0 or 1);frame.timeGate:SetAlpha(present and 0 or 1)end
                     end
-                    local fade=entry.type=="equipment"and slot.fixedCooldown
-                    frame.icon:SetDesaturated(fade==true);frame.icon:SetAlpha(fade and .5 or 1)
+                    -- Native aura frames only render while the effect is active.
+                    -- Keep them colored even when the underlying item has a CD.
+                    frame.icon:SetDesaturated(false);frame.icon:SetAlpha(1)
                     if entry.type=="equipment"then frame.icon:SetTexture(slot.item.icon or 134400)end
                     SetGlow(frame.glow,not IsMissing(entry)and entry.glow,entry.glowColor,now)
                     if IsMissing(entry)then SetGlow(slot.glow,entry.glow,entry.glowColor,now)end

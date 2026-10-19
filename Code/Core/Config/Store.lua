@@ -238,6 +238,7 @@ function M:InitStore()
     self.db=db
     if self.BindPlayerSkillMonitorClass then self:BindPlayerSkillMonitorClass()end
     if self.BindPlayerOtherMonitorClass then self:BindPlayerOtherMonitorClass()end
+    if self.UpgradePlayerOtherMonitorDefaults then self:UpgradePlayerOtherMonitorDefaults(db)end
     self:Index()
 end
 function M:Index(editing)
