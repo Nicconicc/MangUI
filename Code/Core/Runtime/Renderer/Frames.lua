@@ -246,6 +246,7 @@ local function Build(view,n)
     elseif n.kind=="experiencebar" then M.ExperienceBar.Build(view,o)
     elseif n.kind=="targetthreat" then M.TargetThreat.Build(view,o)
     elseif n.kind=="targetdistance" then M.TargetDistance.Build(view,o)
+    elseif n.kind=="commonitems"then o.itemIcons={}
     elseif n.kind=="othermonitor" then o.otherIcons={}
     elseif n.kind=="skillmonitor" then o.skillIcons={}
     elseif n.kind=="cooldowns" then
@@ -515,6 +516,7 @@ function R.Apply(view,design,unchanged)
             if not o.removed then sweepChanged=true end
             if o.spec.kind=="hitbox" and not view.preview then UnregisterUnitWatch(o.frame) end
             o.frame:Hide();o.frame:SetScript("OnUpdate",nil);o.removed=true
+            if o.spec.kind=="commonitems"then M.CommonItems.Remove(view,o)end
             if o.portraitAnchor then
                 local anchor=o.portraitAnchor
                 if anchor.manguiVisibility then
@@ -590,6 +592,7 @@ function R.Apply(view,design,unchanged)
             if f:GetFrameLevel()~=level then f:SetFrameLevel(level);levelsChanged=true end
             f:SetAlpha(n.alpha or 1)
             if o.chatButtons then M.ChatButtons.Configure(view,o)
+            elseif n.kind=="commonitems"then M.CommonItems.Configure(view,o)
             elseif n.kind=="othermonitor" then M.PlayerOtherMonitor.Configure(view,o)
             elseif n.kind=="skillmonitor" then M.PlayerSkillMonitor.Configure(view,o)
             elseif o.menuButtons then M.SystemMenu.Configure(view,o)

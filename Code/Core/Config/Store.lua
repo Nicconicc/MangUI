@@ -139,6 +139,7 @@ function M:InitStore()
     if self.EnsureCooldownModule then self:EnsureCooldownModule(db.design) end
     if self.EnsurePlayerSkillMonitor then self:EnsurePlayerSkillMonitor(db.design) end
     if self.EnsurePlayerOtherMonitor then self:EnsurePlayerOtherMonitor(db.design) end
+    if self.EnsureCommonItems then self:EnsureCommonItems(db.design)end
     if self.EnsureChatButtonsModule then self:EnsureChatButtonsModule(db.design) end
     if self.EnsureCombatNoticesModule then self:EnsureCombatNoticesModule(db.design) end
     if self.EnsureSystemMenuModule then self:EnsureSystemMenuModule(db.design) end
@@ -200,6 +201,7 @@ function M:InitStore()
     if self.EnsureCooldownModule then self:EnsureCooldownModule(db.moduleDefaults) end
     if self.EnsurePlayerSkillMonitor then self:EnsurePlayerSkillMonitor(db.moduleDefaults) end
     if self.EnsurePlayerOtherMonitor then self:EnsurePlayerOtherMonitor(db.moduleDefaults) end
+    if self.EnsureCommonItems then self:EnsureCommonItems(db.moduleDefaults)end
     if self.UpgradePlayerSkillMonitorDefaults then self:UpgradePlayerSkillMonitorDefaults(db) end
     if self.EnsureChatButtonsModule then self:EnsureChatButtonsModule(db.moduleDefaults) end
     if self.EnsureCombatNoticesModule then self:EnsureCombatNoticesModule(db.moduleDefaults) end
@@ -238,6 +240,7 @@ function M:InitStore()
     self.db=db
     if self.BindPlayerSkillMonitorClass then self:BindPlayerSkillMonitorClass()end
     if self.BindPlayerOtherMonitorClass then self:BindPlayerOtherMonitorClass()end
+    if self.BindCommonItemsClass then self:BindCommonItemsClass()end
     if self.UpgradePlayerOtherMonitorDefaults then self:UpgradePlayerOtherMonitorDefaults(db)end
     self:Index()
 end
@@ -388,6 +391,7 @@ end
 function M:Commit()
     if self.SavePlayerSkillMonitorClass then self:SavePlayerSkillMonitorClass()end
     if self.SavePlayerOtherMonitorClass then self:SavePlayerOtherMonitorClass()end
+    if self.SaveCommonItemsClass then self:SaveCommonItemsClass()end
     local session=self.EditorUndo and self.EditorUndo.session
     if C_Timer and C_Timer.After and session and session.transaction then
         if not self.commitRefreshToken then

@@ -137,6 +137,7 @@ function M:StartLive()
         if M.CooldownMonitor and cooldownEvents[event] and (event~="UNIT_SPELLCAST_SUCCEEDED" or unit=="player") then Dispatch("cooldownMonitor",M.CooldownMonitor.Event,M.CooldownMonitor,event,unit,...) end
         if M.PlayerSkillMonitor then Dispatch("playerSkillMonitor",M.PlayerSkillMonitor.Event,M.live,event,unit) end
         if M.PlayerOtherMonitor then Dispatch("playerOtherMonitor",M.PlayerOtherMonitor.Event,M.live,event,unit) end
+        if M.CommonItems then Dispatch("commonItems",M.CommonItems.Event,M.live,event,unit)end
         if M.ChatButtons and chatEvents[event] then Dispatch("chatButtons",M.ChatButtons.Event,M.live,event) end
         local combatEvent=event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_REGEN_ENABLED"
         if M.CombatNotices and combatEvent then Dispatch("combatNotices",M.CombatNotices.Event,M.live,event) end

@@ -621,4 +621,12 @@ english["相同效果按Buff实例显示，不代表实际主副手。"]="Matchi
 english["装备监控设置"]="Equipment tracking settings"
 english["添加装备监控"]="Add equipment monitor"
 english["粘贴其他监控配置字符串；单职业仅更新该职业，全职业包含共用装备监控与补充。"]="Paste other tracking settings. A single class updates only that class; all classes also include shared equipment monitors and overrides."
+english["常用物品监控"]="Common item tracking"
+english["通用物品设置"]="Shared item settings"
+english["职业物品设置"]="Class item settings"
+english["输入物品名称或ID"]="Enter item name or ID"
+english["在此输入制造技能名。"]="Enter creation spell name."
+english["如果左侧是制造物，可在此输入制造技能名以便右键制造"]="For a conjured item on the left, enter its creation spell here to create it with a right click."
+english["添加物品"]="Add item"
+english["右键制造："]="Right-click to create: "
 M:RebuildLocaleKeys()
