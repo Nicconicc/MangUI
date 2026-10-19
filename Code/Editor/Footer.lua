@@ -7,7 +7,7 @@ local ROOT = "Interface\\AddOns\\MangUI\\Assets\\Footer\\"
 local ENTRIES = {
     { id = "kook", zh = "KOOK", en = "KOOK", chinese = true, activeTexture = "kook_color.tga", url = "https://kook.vip/DqQ5U4" },
     { id = "discord", zh = "Discord", en = "Discord", chinese = false, activeTexture = "discord_color.tga", pending = true },
-    { id = "afdian", zh = "爱发电", en = "爱发电", chinese = true, activeTexture = "afdian_color.tga", url = "https://ifdian.net/a/cardmaster" },
+    { id = "afdian", zh = "爱发电", en = "Afdian", chinese = true, activeTexture = "afdian_color.tga", url = "https://ifdian.net/a/cardmaster" },
     { id = "patreon", zh = "Patreon", en = "Patreon", chinese = false, activeTexture = "patreon_color.tga", pending = true },
     { id = "cardmaster", zh = "CardMaster 卡牌大师", en = "CardMaster", fullColor = true, copyText = "CardMaster" },
     { id = "github", zh = "GitHub", en = "GitHub", url = "https://github.com/Nicconicc/CardMaster" },
@@ -54,9 +54,9 @@ local function highlight(button, active)
     local entry = button.entry
     button.icon:SetTexture(entry.fullColor and (ROOT .. "CardMaster.png") or
         (ROOT .. (active and entry.activeTexture or (entry.id .. (active and "_white" or "") .. ".tga"))))
-    button.icon:SetDesaturated(not (entry.fullColor or active))
+    button.icon:SetDesaturated(not active)
     button.icon:SetVertexColor(1, 1, 1, 1)
-    button.icon:SetAlpha(entry.fullColor and 1 or (active and 1 or 0.65))
+    button.icon:SetAlpha(active and 1 or 0.65)
     button.glow:SetShown(active)
     if button.shine then button.shine:SetShown(active) end
 end
@@ -71,7 +71,7 @@ function F.Attach(editor)
     bar.label = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     bar.label:SetJustifyV("MIDDLE")
     bar.label:SetPoint("RIGHT", bar, "LEFT", -12, 0)
-    bar.label:SetText(chineseClient() and "在这里找到作者" or "Community & Support")
+    bar.label:SetText(text("在这里找到作者", "Community & Support"))
     bar.label:SetTextColor(0.7, 0.75, 0.8)
 
     local popup = panel(bar)
@@ -197,7 +197,10 @@ function F.Attach(editor)
         button.glow:SetVertexColor(1, 1, 1, 0.25)
         button.glow:SetAllPoints()
         button.icon = button:CreateTexture(nil, "ARTWORK")
-        button.icon:SetSize(30, 30)
+        -- Other footer marks have 12px transparent margins in a 128px image.
+        -- Match their visible size with this full-canvas brand image.
+        local iconSize=entry.fullColor and 30*104/128 or 30
+        button.icon:SetSize(iconSize, iconSize)
         button.icon:SetPoint("CENTER")
         if entry.fullColor then
             button.shine = button:CreateTexture(nil, "OVERLAY")
@@ -211,7 +214,7 @@ function F.Attach(editor)
             showPopup(owner, false)
         end)
         button:SetScript("OnLeave", function(owner)
-            highlight(owner, popup:IsShown() and popup.owner == owner)
+            highlight(owner, not entry.fullColor and popup:IsShown() and popup.owner == owner)
             scheduleHide()
         end)
         button:SetScript("OnClick", function(owner)
@@ -228,7 +231,7 @@ end
 function F.Refresh(editor)
     local bar = editor and editor.footerLinks
     if not bar then return end
-    bar.label:SetText(chineseClient() and "在这里找到作者" or "Community & Support")
+    bar.label:SetText(text("在这里找到作者", "Community & Support"))
     bar.popup:Hide()
     local chinese = chineseClient()
     local visible = 0
