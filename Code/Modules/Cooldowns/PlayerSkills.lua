@@ -168,6 +168,47 @@ local function CountText(label,value,showSingle)
     local count=Number(value)
     label:SetText(count and count>=0 and (showSingle or count>1)and tostring(count)or "")
 end
+-- Summon abilities use their live guardian count in the same place as spell
+-- charges. Register only verified client mechanics; other spells keep charges.
+-- Hawk Shot's player aura is the server-maintained guardian census, including
+-- staggered expiry, replacement and reloads. Never infer it from the spell CD
+-- or refresh both guardians' lifetimes when another hawk is summoned.
+S.summonCountRules={
+    {interfaces={[38001]=true,[38002]=true},spellIDs={[1284199]=true},
+        referenceSpell=1284199,unit="player",auraIDs={[1284379]=true}},
+}
+function S.SummonCount(slot)
+    local interface=M.Compat.interface or 0
+    for _,rule in ipairs(S.summonCountRules)do
+        if rule.interfaces[interface]then
+            local matches=slot.spellID and rule.spellIDs[slot.spellID]
+            if not matches then
+                local name=M.PetBuffs.SpellInfo(tostring(rule.referenceSpell))
+                matches=name and slot.spellName==name
+            end
+            if matches then
+                for index=1,255 do
+                    local aura=M.Compat.Aura(rule.unit,index,"HELPFUL");if not aura then break end
+                    local id=aura.spellId;if type(id)=="nil"then id=aura.spellID end
+                    if Readable(id)and rule.auraIDs[id]then
+                        local source=aura.sourceUnit
+                        local own=Readable(source)and (source==nil or source=="player"or
+                            (UnitIsUnit and M.Compat.Bool(Safe(UnitIsUnit,source,"player"))))
+                        if own then
+                            local expires=Number(aura.expirationTime)
+                            if not expires or expires==0 or expires>GetTime()then
+                                local count=aura.applications
+                                if not Readable(count)then return count end
+                                return math.max(1,Number(count)or 1)
+                            end
+                        end
+                    end
+                end
+                return 0
+            end
+        end
+    end
+end
 local function StyleNativeAura(slot,frame)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
@@ -280,7 +321,9 @@ local function Cooldown(entry,slot)
         local info=Safe(C_Spell.GetSpellCharges,key)
         if info then charges,maximum,chargeStart,chargeDuration,chargeRate=info.currentCharges,info.maxCharges,info.cooldownStartTime,info.cooldownDuration,info.chargeModRate end
     else charges,maximum,chargeStart,chargeDuration,chargeRate=Safe(GetSpellCharges,key)end
-    if Number(maximum)and maximum<=1 then slot.count:SetText("")else CountText(slot.count,charges,true)end
+    local summons=S.SummonCount(slot)
+    if summons~=nil then CountText(slot.count,summons,true)
+    elseif Number(maximum)and maximum<=1 then slot.count:SetText("")else CountText(slot.count,charges,true)end
     if C_Spell and C_Spell.GetSpellCooldownDuration then
         local duration=Safe(C_Spell.GetSpellChargeDuration,key) or Safe(C_Spell.GetSpellCooldownDuration,key,true)
         if duration and slot.cooldown.SetCooldownFromDurationObject then
@@ -419,7 +462,7 @@ end
 local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,
     SPELLS_CHANGED=true,LEARNED_SPELL_IN_TAB=true,PLAYER_ENTERING_WORLD=true,PLAYER_REGEN_ENABLED=true,UNIT_SPELLCAST_SUCCEEDED=true}
 function S.Event(view,event,unit)
-    if not events[event] or (event=="UNIT_AURA" and unit~="target") or (event=="UNIT_SPELLCAST_SUCCEEDED" and unit~="player")then return end
+    if not events[event] or (event=="UNIT_AURA" and unit~="target"and unit~="player") or (event=="UNIT_SPELLCAST_SUCCEEDED" and unit~="player")then return end
     local o=view.nodes.playerSkillMonitorIcons
     if o then
         o.nextScan=0
