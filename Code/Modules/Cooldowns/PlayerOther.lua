@@ -95,7 +95,7 @@ function M:EnsurePlayerOtherMonitor(design)
         for _,n in ipairs(design.nodes)do
             if n.id=="playerSkillMonitor"then group.scale=n.scale;group.scaleReference=n.scale;break end
         end
-        S.RestorePosition(group)
+        O.RestorePosition(group)
         design.nodes[#design.nodes+1]=group
     end
     if not O.ValidEntries(group.otherMonitors)then group.otherMonitors={O.NewEntry()}end
@@ -111,7 +111,6 @@ function M:EnsurePlayerOtherMonitor(design)
         scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=346}
 end
 M.moduleIDs.playerOtherMonitor=true
-M:EnsurePlayerOtherMonitor(M.defaults);M:EnsurePlayerOtherMonitor(M.recordedDefaults)
 local function CurrentClass()local _,class=O.Safe(UnitClass,"player");return S.ValidClass(class)and class end
 function M:SavePlayerOtherMonitorClass()
     local db=self.db;local class=CurrentClass();local group=db and O.Group(db.design)
@@ -158,11 +157,16 @@ function O.MoveBounds(group)
     return S.RowOffset(group,count),20,math.max(180,count*44+20),112
 end
 function O.RestorePosition(group,reference)
-    local x,y=0,-120
+    local x,y=-310,-190
     if reference then local cx,cy=O.MoveBounds(reference);local scale=M:NodeScale(reference);x,y=((reference.x or 0)+cx)*scale,((reference.y or 0)+cy)*scale end
     local cx,cy=O.MoveBounds(group);local scale=math.max(.001,M:NodeScale(group));group.x,group.y=x/scale-cx,y/scale-cy
 end
 function M:UpgradePlayerOtherMonitorDefaults(db)
+    if db.playerOtherMonitorPositionRevision~=1 then
+        local defaults=O.Group(db.moduleDefaults)
+        if defaults then O.RestorePosition(defaults)end
+        db.playerOtherMonitorPositionRevision=1
+    end
     if db.playerOtherMonitorSizeRevision==1 then return end
     local skill
     for _,n in ipairs(db.design.nodes)do if n.id=="playerSkillMonitor"then skill=n;break end end
@@ -244,3 +248,4 @@ function O.Play(entry)
         if path then O.Safe(PlaySoundFile,path,"Master")end
     end
 end
+M:EnsurePlayerOtherMonitor(M.defaults);M:EnsurePlayerOtherMonitor(M.recordedDefaults)
