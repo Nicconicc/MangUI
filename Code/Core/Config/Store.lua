@@ -135,6 +135,7 @@ function M:InitStore()
         local id=db.design.nodes[i].id
         if id=="playerHPFlash1" or id=="targetHPFlash" then table.remove(db.design.nodes,i) end
     end
+    if self.EnsurePetBuffs then self:EnsurePetBuffs(db.design) end
     if self.EnsureCooldownModule then self:EnsureCooldownModule(db.design) end
     if self.EnsureChatButtonsModule then self:EnsureChatButtonsModule(db.design) end
     if self.EnsureCombatNoticesModule then self:EnsureCombatNoticesModule(db.design) end
@@ -194,6 +195,7 @@ function M:InitStore()
         db.moduleDefaults=self.Copy(self.recordedDefaults or db.design)
         db.moduleDefaultsRevision=self.defaultsRevision
     end
+    if self.EnsurePetBuffs then self:EnsurePetBuffs(db.moduleDefaults) end
     if self.EnsureCooldownModule then self:EnsureCooldownModule(db.moduleDefaults) end
     if self.EnsureChatButtonsModule then self:EnsureChatButtonsModule(db.moduleDefaults) end
     if self.EnsureCombatNoticesModule then self:EnsureCombatNoticesModule(db.moduleDefaults) end

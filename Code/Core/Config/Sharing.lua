@@ -27,9 +27,14 @@ local function CleanNodes(nodes)
     if type(nodes)~="table" or #nodes<5 or #nodes>1000 then return end
     for _,node in ipairs(nodes) do if type(node)~="table" or type(node.id)~="string" then return end end
     nodes=M.Copy(nodes)
+    for _,node in ipairs(nodes) do for i=1,5 do
+        local value=node["petBuff"..i]
+        if value~=nil and (type(value)~="string" or #value>384) then return end
+    end end
     M:NormalizeAssetPaths(nodes)
     M:NormalizeCenterDecoration({nodes=nodes})
     M:EnsureCenterClassification({nodes=nodes})
+    if M.EnsurePetBuffs then M:EnsurePetBuffs({nodes=nodes}) end
     if M.EnsureCooldownModule then M:EnsureCooldownModule({nodes=nodes}) end
     if M.EnsureChatButtonsModule then M:EnsureChatButtonsModule({nodes=nodes}) end
     if M.EnsureCombatNoticesModule then M:EnsureCombatNoticesModule({nodes=nodes}) end

@@ -620,6 +620,37 @@ local function BuildProperties(e)
     end)
     e.petNameEnabled:SetPoint("TOPLEFT",-4,y);e.petNameEnabled.label:SetTextColor(1,1,1)
     Row(30,{{e.petNameEnabled,-4,0}},{},"petNameEnabled");y=y-30
+    local petBuffTitle=W.Label(content,"宠物Buff监控",13)
+    Row(28,{{petBuffTitle,0,-3}},{},"petBuffTitle");y=y-28
+    e.petBuffInputs={}
+    for i=1,5 do
+        local key="petBuff"..i
+        local edit=W.Edit(content,propertyWidth-4)
+        edit:SetMaxLetters(128);edit:SetTextInsets(6,6,0,0)
+        local placeholder=W.Label(edit,"输入需要监控的Buff名称或ID",11)
+        placeholder:SetPoint("LEFT",edit,"LEFT",6,0);placeholder:SetPoint("RIGHT",edit,"RIGHT",-6,0)
+        placeholder:SetTextColor(.5,.5,.5);placeholder:SetWordWrap(false)
+        edit.petBuffPlaceholder=placeholder;e.petBuffInputs[i]=edit
+        local function UpdatePlaceholder(self)placeholder:SetShown(self:GetText()=="")end
+        edit:HookScript("OnTextChanged",UpdatePlaceholder);UpdatePlaceholder(edit)
+        local function Save(self)
+            local selected=Selected()
+            local group=self.petBuffOwner or (selected and selected.compound=="petComposite" and selected)
+            if not group or M.byID[group.id]~=group or not M:CanEdit() then return end
+            local value=M.PetBuffs.Input(self:GetText())
+            if group[key]~=value then group[key]=value;M:Commit() end
+        end
+        edit:SetScript("OnEditFocusGained",function(self)
+            local group=Selected();self.petBuffOwner=group and group.compound=="petComposite" and group or nil
+        end)
+        edit:SetScript("OnEditFocusLost",function(self)Save(self);self.petBuffOwner=nil end)
+        edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
+        edit:SetScript("OnEscapePressed",function(self)
+            local group=self.petBuffOwner or Selected()
+            self:SetText(group and group[key] or "");self:ClearFocus()
+        end)
+        Row(34,{{edit,2,-3}},{},key);y=y-34
+    end
     e.nameXSlider,e.nameXLabel=NameSlider("焦点名称X偏移","nameX","x",100,400,1)
     e.nameYSlider,e.nameYLabel=NameSlider("焦点名称Y偏移","nameY","y",-100,100,1)
     e.nameFontButton=W.MediaSelect(content,"字体",propertyWidth,"font",function()M:OpenFocusFontPicker()end)

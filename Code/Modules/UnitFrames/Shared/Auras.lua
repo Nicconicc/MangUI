@@ -44,6 +44,7 @@ local function Auras(view,o,s)
     if M.NativeDisplays.Auras(view,o,s) then return end
     local n=o.spec;local data
     local parent=view.nodes[n.parent] and view.nodes[n.parent].spec
+    local pet=M.PetBuffs and n.id==M.PetBuffs.nodeID
     local debuff=parent and parent.id=="wa026b04c50e"
     local buff=parent and parent.id=="wa88e7259b1c"
     local hideUntimed=buff and parent.hideUntimedBuffs==true or false
@@ -52,11 +53,18 @@ local function Auras(view,o,s)
     local perRow=math.max(1,math.floor(((debuff and parent.debuffPerRow) or (buff and parent.buffPerRow) or n.perRow) or count))
     local filter=n.filter or "HELPFUL";local now=GetTime()
     local version=view.auraVersions and view.auraVersions[s.unit] or 0
+    local petKey
+    if pet then
+        local keys={};for i=1,5 do keys[i]=parent["petBuff"..i] or "" end
+        petKey=table.concat(keys,"\031")
+    end
     local scan=not o.auraData or o.auraUnit~=s.unit or o.auraFilter~=filter or o.auraLimit~=count
         or o.auraHideUntimed~=hideUntimed
         or o.auraOnlyPlayer~=onlyPlayer
+        or o.petBuffKey~=petKey
         or o.auraVersion~=version or now>=(o.nextAuraScan or 0)
     if not scan then data=o.auraData
+    elseif pet then data=view.preview and M.PetBuffs.Preview(parent) or M.PetBuffs.Read(parent,o.auraData)
     elseif view.preview then
         data={}
         local previewCount=(debuff or buff) and count or math.min(4,count)
@@ -68,7 +76,7 @@ local function Auras(view,o,s)
         end
     else data=C.Auras(s.unit,filter,count,o.auraData,hideUntimed,onlyPlayer) end
     if scan then
-        o.auraData=data;o.auraUnit=s.unit;o.auraFilter=filter;o.auraLimit=count;o.auraHideUntimed=hideUntimed;o.auraOnlyPlayer=onlyPlayer;o.auraVersion=version;o.nextAuraScan=now+.2
+        o.auraData=data;o.auraUnit=s.unit;o.auraFilter=filter;o.auraLimit=count;o.auraHideUntimed=hideUntimed;o.auraOnlyPlayer=onlyPlayer;o.auraVersion=version;o.nextAuraScan=now+.2;o.petBuffKey=petKey
     end
     for i=1,math.max(#data,#o.icons) do
         local icon=o.icons[i]

@@ -2,6 +2,8 @@ local _,M=...
 -- Reviewed against the Simplified Chinese UI. Columns: source, en, de, fr, es, it, pt, ru, ko, zhTW.
 local codes={"enUS","deDE","frFR","esES","itIT","ptBR","ruRU","koKR","zhTW"}
 local rows=[[
+宠物Buff监控|Pet buff tracking|Begleiterbuffs verfolgen|Suivi des améliorations du familier|Seguimiento de beneficios de mascota|Monitoraggio benefici del famiglio|Monitoramento de bônus do ajudante|Отслеживание усилений питомца|소환수 강화 효과 추적|寵物Buff監控
+输入需要监控的Buff名称或ID|Enter a buff name or spell ID to track|Buffname oder Zauber-ID eingeben|Saisissez le nom ou l’ID du sort à suivre|Introduce el nombre o ID del beneficio|Inserisci il nome o l’ID del beneficio|Digite o nome ou ID do bônus|Введите название или ID усиления|추적할 강화 효과 이름 또는 ID 입력|輸入需要監控的Buff名稱或ID
 玩家生命值百分比|Player health percentage|Spielerleben in Prozent|Pourcentage de vie du joueur|Porcentaje de salud del jugador|Percentuale salute giocatore|Porcentagem de vida do jogador|Процент здоровья игрока|플레이어 생명력 백분율|玩家生命值百分比
 仅在副本中显示|Only show in dungeons and raids|Nur in Dungeons und Schlachtzügen anzeigen|Afficher uniquement en donjons et raids|Mostrar solo en mazmorras y bandas|Mostra solo in spedizioni e incursioni|Mostrar apenas em masmorras e raides|Показывать только в подземельях и рейдах|던전과 공격대에서만 표시|僅在副本中顯示
 世界|World|Welt|Monde|Mundo|Mondo|Mundo|Мир|세계|世界

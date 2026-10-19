@@ -133,7 +133,8 @@ local function Selected()return M.selection and M.byID[M.selection]end
 local propertyCategories={
     unit={{"overallScale","avatarScale","avatarX"},{"hpMaterial","healthColors","totHPY"},
         {"nameX","nameY","nameFont","nameSize"},{"castX","castY","castWidth","castHeight"},
-        {"focusPortraitOnly","petPowerHidden","petNameEnabled"}},
+        {"focusPortraitOnly","petPowerHidden","petNameEnabled"},
+        {"petBuffTitle","petBuff1","petBuff2","petBuff3","petBuff4","petBuff5"}},
     bossFrames={{"scale"},{"bossHPMaterial","bossHPColor"},
         {"bossPercentX","bossPercentY","bossFont","bossPercentSize"},{"bossCastY","bossCastColor"},{"bossHideAvatar","combatSound"}},
     partyFrames={{"scale","partySpacing","partyPlayerX"},{"partyMaterial","partyHealthColor","partyHealthEndColor"},

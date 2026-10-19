@@ -22,7 +22,7 @@
 ## Notes-ruRU: Настраиваемые рамки персонажей, группы и боссов с предпросмотром и общим режимом перемещения.
 ## Notes-koKR: 미리보기와 전체 이동 모드를 제공하는 사용자 지정 유닛, 파티 및 우두머리 프레임.
 ## Author: Nc
-## Version: 1.0.507
+## Version: 1.0.508
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\Logo.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB
@@ -68,6 +68,7 @@ Code\Modules\Target\Threat.lua
 Code\Modules\Target\Distance.lua
 Code\Modules\UnitFrames\Boss\Frames.lua
 Code\Modules\UnitFrames\Party\Frames.lua
+Code\Modules\UnitFrames\Shared\PetBuffs.lua
 Code\Core\Config\Sharing.lua
 Code\Core\Runtime\Compat.lua
 Code\Modules\UnitFrames\Player\AttackProgress.lua

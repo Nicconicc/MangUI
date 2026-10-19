@@ -1,5 +1,7 @@
 local _,M=...
 local english={
+    ["宠物Buff监控"]="Pet buff tracking",
+    ["输入需要监控的Buff名称或ID"]="Enter a buff name or spell ID to track",
     ["打开选项"]="Open options",
     ["输入 /mui 打开选项"]="Type /mui to open options",
     ["版本："]="Version: ",

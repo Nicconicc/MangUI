@@ -70,13 +70,14 @@ local function StyleAura(view,o,frame)
 end
 function N.ConfigureAuras(view,o)
     local n=o.spec
-    if view.preview or n.unit~="target" or not AuraSupport() then return end
+    local pet=M.PetBuffs and n.id==M.PetBuffs.nodeID
+    if view.preview or (n.unit~="target" and not pet) or not AuraSupport() then return end
     local parent=view.nodes[n.parent] and view.nodes[n.parent].spec
     local debuff=parent and parent.id=="wa026b04c50e"
     local buff=parent and parent.id=="wa88e7259b1c"
-    if not debuff and not buff then return end
+    if not debuff and not buff and not pet then return end
     N.RefreshAuraFonts(view,o,false)
-    local count=math.max(1,(debuff and parent.debuffCount or parent.buffCount) or n.count or 8)
+    local count=pet and 5 or math.max(1,(debuff and parent.debuffCount or parent.buffCount) or n.count or 8)
     local perRow=math.max(1,(debuff and parent.debuffPerRow or parent.buffPerRow) or count)
     local gap=n.spacing or 4
     local container=o.nativeAuras
@@ -84,7 +85,7 @@ function N.ConfigureAuras(view,o)
         container=CreateFrame("AuraContainer",nil,o.frame,"CustomAuraContainerTemplate")
         o.nativeAuras=container;o.nativeAuraFrames={}
         container:SetEnabled(false)
-        container:SetUnit("target")
+        container:SetUnit(n.unit)
         container:AddAuraGroup("main",n.filter or "HARMFUL",{maxFrameCount=0,initializeFrame=function(frame)
             o.nativeAuraFrames[#o.nativeAuraFrames+1]=frame;StyleAura(view,o,frame)
         end})
@@ -100,7 +101,12 @@ function N.ConfigureAuras(view,o)
     container:SetFlowLayoutMaximumLineSize(perRow*n.width+(perRow-1)*gap+.001)
     container:SetAuraGroupLayout("main",{elementSpacing=gap,lineSpacing=gap,elementWidth=n.width,elementHeight=n.height})
     container:SetAuraGroupFilterString("main",(n.filter or "HARMFUL")..(debuff and parent.onlyPlayerDebuffs==true and "|PLAYER" or ""))
-    container:SetAuraGroupCandidateFilters("main",buff and parent.hideUntimedBuffs==true and {maxDuration=math.huge} or {})
+    local candidates=buff and parent.hideUntimedBuffs==true and {maxDuration=math.huge} or {}
+    if pet then
+        candidates,o.nativePetFilterKey=M.PetBuffs.NativeFilters(parent,CanStyleAuras())
+        o.nativePetFilterAt=GetTime()+1
+    end
+    container:SetAuraGroupCandidateFilters("main",candidates)
     container:SetAuraGroupMaxFrameCount("main",count)
     o.nativeAuraStylePending=true
     if CanStyleAuras() then
@@ -118,9 +124,20 @@ function N.Auras(view,o,s)
         for _,frame in ipairs(o.nativeAuraFrames) do StyleAura(view,o,frame) end
         o.nativeAuraStylePending=nil
     end
+    if M.PetBuffs and o.spec.id==M.PetBuffs.nodeID and CanStyleAuras() and GetTime()>=(o.nativePetFilterAt or 0) then
+        -- Resolve a newly seen rank/name outside restricted execution. The
+        -- configured native ID whitelist continues updating throughout combat.
+        o.nativePetFilterAt=GetTime()+1
+        local group=view.nodes[o.spec.parent].spec
+        local filters,key=M.PetBuffs.NativeFilters(group,true)
+        if key~=o.nativePetFilterKey then
+            container:SetAuraGroupCandidateFilters("main",filters);o.nativePetFilterKey=key;o.nativeAuraVersion=nil
+        end
+    end
     -- UNIT_AURA is consumed by the native container. Only a target-token change
     -- needs an explicit refresh; no full native rescan on the regular .2s poll.
-    local version=view.targetRefreshGeneration or 0
+    local pet=M.PetBuffs and o.spec.id==M.PetBuffs.nodeID
+    local version=pet and (view.auraVersions and view.auraVersions.pet or 0) or (view.targetRefreshGeneration or 0)
     if o.nativeAuraVersion~=version then
         container:UpdateAllAuras();o.nativeAuraVersion=version
     end

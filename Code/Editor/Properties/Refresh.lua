@@ -253,6 +253,9 @@ function M:RefreshProperties()
         end
         local name=CompositeName(n)
         if n.compound=="petComposite" then
+            for i,edit in ipairs(e.petBuffInputs) do
+                if not edit:HasFocus() then edit:SetText(n["petBuff"..i] or "") end
+            end
             e.petNameEnabled:SetChecked(name and name.enabled==false or false)
             local power=CompositePart(n,"petMP")
             e.petPowerHidden:SetChecked(power and power.enabled==false or false)
@@ -370,7 +373,8 @@ function M:RefreshProperties()
             if IsUnitComposite(n) then
                 visible=row.key=="overallScale" or row.key=="avatarScale" or row.key=="avatarX" or row.key=="hpMaterial"
                     or row.key=="nameX" or row.key=="nameY" or row.key=="nameFont" or row.key=="nameSize"
-                    or (n.compound=="petComposite" and (row.key=="petNameEnabled" or row.key=="petPowerHidden"))
+                    or (n.compound=="petComposite" and (row.key=="petNameEnabled" or row.key=="petPowerHidden"
+                        or row.key=="petBuffTitle" or (row.key and row.key:match("^petBuff%d$"))))
                     or (n.compound=="totComposite" and row.key=="totHPY")
                     or (n.compound=="focusComposite" and (row.key=="castX" or row.key=="castY"
                         or row.key=="castWidth" or row.key=="castHeight" or row.key=="focusPortraitOnly"))
