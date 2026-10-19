@@ -236,7 +236,6 @@ function B.RefreshFonts(view,o,force)
     local font=M:EffectiveFontPath(group.fontPath or M.MYRIAD)
     local full=group.textLabels==true
     local language=M:EffectiveLanguage()
-    if full and font==M.MYRIAD and (language=="ruRU" or language=="koKR") then font=M:NotoFontPath(true,language) end
     local applied=o.appliedFont
     if not force and applied and not o.fontFailed and applied.path==font and applied.size==size
         and applied.textLabels==full and applied.language==language then return end

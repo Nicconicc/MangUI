@@ -371,7 +371,7 @@ function P.Report()
     local row=P.Snapshot(o,C.Unit(o.spec.unit),"manual")
     if M.db then M.db.portraitSnapshot=row end
     M:Print("头像状态已记录；调用无报错不代表图像已经绘制。")
-    M:Print(string.format("%s · 2D=%s · 战斗=%s · 单位可见=%s · 框体可见=%s · 贴图可见=%s · 贴图透明度=%s",
+    M:Print(string.format(M:T("%s · 2D=%s · 战斗=%s · 单位可见=%s · 框体可见=%s · 贴图可见=%s · 贴图透明度=%s"),
         row.unit,tostring(not o.portrait3D),tostring(row.combat),tostring(row.unitVisible),tostring(row.frameVisible),tostring(row.textureVisible),tostring(row.textureAlpha)))
     M:Print("框体透明度="..tostring(row.frameAlpha).." · 顶点透明度="..tostring(row.vertexAlpha).." · 纹理标识="..tostring(row.textureReference))
     M:Print("头像调用错误："..(row.error or "无").." · 已记录 "..#rows.." 次战斗绘制调用。")

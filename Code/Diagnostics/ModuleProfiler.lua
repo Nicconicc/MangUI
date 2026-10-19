@@ -28,7 +28,7 @@ end
 function P.Report()
     local report=P.last
     if not report then M:Print("尚无模块耗时数据。输入 /muf profile 开始一分钟采样。");return end
-    M:Print(string.format("模块耗时采样：%.1f 秒（ms/s；括号为本次采样内占比）",report.seconds))
+    M:Print(string.format(M:T("模块耗时采样：%.1f 秒（ms/s；括号为本次采样内占比）"),report.seconds))
     for i,row in ipairs(report.rows) do
         M:Print(string.format("%d. %s：%.3f ms/s（%.1f%%）",i,Label(row.id),row.ms/report.seconds,row.ms/report.total*100))
     end
@@ -38,7 +38,7 @@ function P.Report()
         for kind,ms in pairs(main.kinds) do details[#details+1]={kind=kind,ms=ms} end
         table.sort(details,function(a,b)return a.ms>b.ms end)
         for _,row in ipairs(details) do
-            M:Print(string.format("  主框体 · %s：%.3f ms/s",kinds[row.kind] or row.kind,row.ms/report.seconds))
+            M:Print(string.format(M:T("  主框体 · %s：%.3f ms/s"),kinds[row.kind] or row.kind,row.ms/report.seconds))
         end
     end
     M:Print("采样自动关闭；结果包含计时开销，用于定位模块，与 Addon Usage 总值不完全相同。/muf profile report 可重看。")
@@ -73,8 +73,8 @@ function P.ReportSettings()
     M:Print("设置耗时（毫秒）：每项包含其内部调用，不能相加。")
     for _,row in ipairs(rows) do
         if row.calls>0 then
-            M:Print(string.format("%s：%d 次，平均 %.2f，最高 %.2f",row.label,row.calls,row.ms/row.calls,row.peak))
-            if row.configured then M:Print(string.format("  每次平均配置 %.1f 个、绘制 %.1f 个元素",row.configured/row.calls,row.painted/row.calls)) end
+            M:Print(string.format(M:T("%s：%d 次，平均 %.2f，最高 %.2f"),row.label,row.calls,row.ms/row.calls,row.peak))
+            if row.configured then M:Print(string.format(M:T("  每次平均配置 %.1f 个、绘制 %.1f 个元素"),row.configured/row.calls,row.painted/row.calls)) end
         end
     end
 end

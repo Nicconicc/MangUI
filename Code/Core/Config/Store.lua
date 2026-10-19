@@ -176,9 +176,8 @@ function M:InitStore()
     db.minimap=type(db.minimap)=="table" and db.minimap or {angle=220,hide=false}
     if db.minimap.angle==nil then db.minimap.angle=220 end
     if db.minimap.hide==nil then db.minimap.hide=false end
-    -- Adopt the requested client-language default once; later manual choices persist.
-    if db.languageOptionsRevision~=1 then db.language="auto";db.languageOptionsRevision=1 end
-    if not self:IsLanguageSupported(db.language) then db.language="auto" end
+    -- Re-detect the client on every addon load. Manual selection is session-local.
+    db.language=self:ClientLanguage()
     db.hideWithoutTarget=db.hideWithoutTarget==true
     db.portrait3D=db.portrait3D==true
     db.healthClassColor=db.healthClassColor==true
@@ -249,6 +248,9 @@ function M:Index(editing)
     self:NormalizeAssetPaths(self.defaults)
     self:NormalizeAssetPaths(self.recordedDefaults)
     self:NormalizeAssetPaths(self.db)
+    self:NormalizeRetiredFonts(self.defaults)
+    self:NormalizeRetiredFonts(self.recordedDefaults)
+    self:NormalizeRetiredFonts(self.db)
     self:NormalizeTargetCastOrigin(self.defaults)
     self:NormalizeTargetCastOrigin(self.db.design)
     self:NormalizeTargetCastOrigin(self.db.moduleDefaults)

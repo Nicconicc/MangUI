@@ -21,12 +21,8 @@ end
 function M:RefreshOtherSettings()
     local panel=self.general
     if not panel then return end
-    local selected,caption="auto",self:T("自动（客户端）")
-    for _,option in ipairs(self.languageOptions) do
-        if option.code==self.db.language then
-            selected=option.code;caption=option.code=="auto" and self:T(option.label) or option.label;break
-        end
-    end
+    local selected=self:EffectiveLanguage()
+    local caption=selected=="zhCN" and "中文 (zhCN)" or "English (enUS)"
     UIDropDownMenu_SetSelectedValue(panel.language,selected)
     UIDropDownMenu_SetText(panel.language,caption)
     local dropdownText=panel.language.Text or _G[panel.language:GetName().."Text"]
@@ -62,15 +58,15 @@ function M:OpenGeneral()
         content:SetPoint("TOPLEFT",35,-28);content:SetPoint("BOTTOMRIGHT",-35,20)
         content:SetFrameLevel(panel:GetFrameLevel()+2)
         Section(content,"系统",0,104)
-        local caption=Label(content,"语言版本");caption:SetTextColor(1,.82,0);caption:SetPoint("TOPLEFT",16,-30)
-        local dropdown=CreateFrame("Frame","MangUIUFLanguageDropdown",content,"UIDropDownMenuTemplate")
-        dropdown:SetPoint("TOPLEFT",1,-54);dropdown:SetSize(214,32)
-        UIDropDownMenu_SetWidth(dropdown,184);UIDropDownMenu_JustifyText(dropdown,"RIGHT")
+        local row=CreateFrame("Frame",nil,content);row:SetSize(560,62);row:SetPoint("TOPLEFT",16,-30)
+        local caption=Label(row,"语言版本");caption:SetTextColor(1,.82,0);caption:SetPoint("TOPLEFT",0,0)
+        local dropdown=CreateFrame("Frame","MangUIUFLanguageDropdown",row,"UIDropDownMenuTemplate")
+        dropdown:SetPoint("TOPLEFT",-15,-24);dropdown:SetSize(390,32)
+        UIDropDownMenu_SetWidth(dropdown,360);UIDropDownMenu_JustifyText(dropdown,"RIGHT")
         UIDropDownMenu_Initialize(dropdown,function()
             for _,option in ipairs(M.languageOptions) do
                 local code=option.code
-                local info=UIDropDownMenu_CreateInfo();info.text=code=="auto" and M:T(option.label) or option.label
-                info.fontObject=code=="auto"and GameFontHighlightSmall or M:LanguageMenuFont()
+                local info=UIDropDownMenu_CreateInfo();info.text=option.label
                 info.value=code;info.checked=M.db.language==code
                 info.func=function()M:SetLanguage(code);CloseDropDownMenus()end
                 UIDropDownMenu_AddButton(info)

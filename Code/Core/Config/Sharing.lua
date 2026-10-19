@@ -32,6 +32,7 @@ local function CleanNodes(nodes)
         if value~=nil and (type(value)~="string" or #value>384) then return end
     end end
     M:NormalizeAssetPaths(nodes)
+    M:NormalizeRetiredFonts(nodes)
     M:NormalizeCenterDecoration({nodes=nodes})
     M:EnsureCenterClassification({nodes=nodes})
     if M.EnsurePetBuffs then M:EnsurePetBuffs({nodes=nodes}) end
@@ -123,7 +124,11 @@ end
 local function CleanConfig(config)
     if type(config)~="table" or not ValidTree(config,{},0,{count=0}) then return end
     if config.format~=1 or config.schema~=82 then return end
-    if not M:IsLanguageSupported(config.language) then return end
+    if not M:IsLanguageSupported(config.language) then
+        local legacy={auto=true,enGB=true,zhTW=true,deDE=true,frFR=true,esES=true,esMX=true,itIT=true,ptBR=true,ruRU=true,koKR=true}
+        if not legacy[config.language] then return end
+        config.language=config.language=="zhTW" and "zhCN" or (config.language=="auto" and M:ClientLanguage() or "enUS")
+    end
     if config.hideWithoutTarget~=nil and type(config.hideWithoutTarget)~="boolean" then return end
     if config.portrait3D~=nil and type(config.portrait3D)~="boolean" then return end
     if config.healthClassColor~=nil and type(config.healthClassColor)~="boolean" then return end
@@ -142,8 +147,8 @@ local function CleanConfig(config)
         healthClassColor=config.healthClassColor==true,
         adapt4KUIScale=config.adapt4KUIScale==true,
         useGlobalFont=config.useGlobalFont==true,
-        globalFontPath=M:ResolveAssetPath(config.globalFontPath and config.globalFontPath~="" and config.globalFontPath or M:DefaultFontPath()),
-        globalFontName=config.globalFontName and config.globalFontName~="" and config.globalFontName or "默认",
+        globalFontPath=M:ResolveFontPath(config.globalFontPath and config.globalFontPath~="" and config.globalFontPath or M:DefaultFontPath()),
+        globalFontName=not M:IsRetiredFont(config.globalFontName) and config.globalFontName and config.globalFontName~="" and config.globalFontName or "默认",
         minimap={hide=config.minimap.hide,angle=config.minimap.angle},
         design={nodes=nodes},moduleDefaults={nodes=defaults}}
 end

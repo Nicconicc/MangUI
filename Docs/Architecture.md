@@ -84,7 +84,7 @@ Core/Bootstrap → Media、Localization、Libs
 | 配置字符串与导入导出窗口 | `Core/Config/Sharing.lua` |
 | 设置数值边界 | `Core/Config/SettingRanges.lua` |
 | 素材路径、独立贴图与素材列表 | `Media/AssetPaths.lua`、`ModuleTextures.lua`、`Catalog.lua` |
-| 字体菜单与多语言字体 | `Localization/Locale.lua` |
+| 字体菜单、中英切换与默认界面字体 | `Localization/Locale.lua` |
 | 未来 UI 方案登记 | `Interfaces/Registry.lua` |
 
 ## 后续多套 UI 方案需要处理的依赖

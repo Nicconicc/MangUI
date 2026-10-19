@@ -2,27 +2,11 @@
 ## Title: MangUI |cffffcc66Unit Frames|r
 ## Title-zhCN: MangUI |cffffcc66单位框体|r
 ## Title-zhTW: MangUI |cffffcc66單位框體|r
-## Title-deDE: MangUI |cffffcc66Einheitenfenster|r
-## Title-frFR: MangUI |cffffcc66Cadres d’unités|r
-## Title-esES: MangUI |cffffcc66Marcos de unidad|r
-## Title-esMX: MangUI |cffffcc66Marcos de unidad|r
-## Title-itIT: MangUI |cffffcc66Riquadri unità|r
-## Title-ptBR: MangUI |cffffcc66Quadros de unidades|r
-## Title-ruRU: MangUI |cffffcc66Рамки персонажей|r
-## Title-koKR: MangUI |cffffcc66유닛 프레임|r
 ## Notes: Customizable unit, party and boss frames with previews and a unified movement mode. Author: Nc.
 ## Notes-zhCN: 可自定义的单位、队伍和首领框体，提供预览设置和统一移动模式。作者：Nc。
 ## Notes-zhTW: 可自訂的單位、隊伍與首領框體，提供預覽設定及統一移動模式。作者：Nc。
-## Notes-deDE: Anpassbare Einheiten-, Gruppen- und Bossfenster mit Vorschau und gemeinsamem Verschiebemodus.
-## Notes-frFR: Cadres d’unités, de groupe et de boss personnalisables, avec aperçu et mode de déplacement commun.
-## Notes-esES: Marcos de unidad, grupo y jefe personalizables, con vista previa y modo de movimiento conjunto.
-## Notes-esMX: Marcos de unidad, grupo y jefe personalizables, con vista previa y modo de movimiento conjunto.
-## Notes-itIT: Riquadri di unità, gruppo e boss personalizzabili, con anteprima e modalità di spostamento comune.
-## Notes-ptBR: Quadros de unidades, grupo e chefes personalizáveis, com prévia e modo de movimentação conjunto.
-## Notes-ruRU: Настраиваемые рамки персонажей, группы и боссов с предпросмотром и общим режимом перемещения.
-## Notes-koKR: 미리보기와 전체 이동 모드를 제공하는 사용자 지정 유닛, 파티 및 우두머리 프레임.
 ## Author: Nc
-## Version: 1.0.510
+## Version: 1.0.511
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\Logo.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB
@@ -32,8 +16,7 @@ Code\Media\AssetPaths.lua
 Code\Media\ModuleTextures.lua
 Code\Interfaces\Registry.lua
 Code\Localization\Locale.lua
-Code\Localization\Languages.lua
-Code\Localization\ReviewedTranslations.lua
+Code\Localization\English.lua
 Code\Diagnostics\CPUUsage.lua
 Code\Diagnostics\ModuleProfiler.lua
 Libs\LibStub\LibStub.lua

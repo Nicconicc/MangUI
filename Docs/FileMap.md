@@ -8,8 +8,7 @@
 | `AssetPaths.lua` | `Code/Media/AssetPaths.lua` |
 | `ModuleTextures.lua` | `Code/Media/ModuleTextures.lua` |
 | `Locale.lua` | `Code/Localization/Locale.lua` |
-| `LocaleLanguages.lua` | `Code/Localization/Languages.lua` |
-| `LocaleReview.lua` | `Code/Localization/ReviewedTranslations.lua` |
+| `LocaleLanguages.lua`、`LocaleReview.lua` | `Code/Localization/English.lua`（已合并为英文词库） |
 | `CPUUsage.lua` | `Code/Diagnostics/CPUUsage.lua` |
 | `ModuleProfiler.lua` | `Code/Diagnostics/ModuleProfiler.lua` |
 | `Defaults.lua` | `Code/Interfaces/Default/Defaults.lua`<br>`Code/Media/Catalog.lua` |
