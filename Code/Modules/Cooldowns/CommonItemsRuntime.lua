@@ -28,7 +28,7 @@ local function Icon(parent,secure)
             if item.slot and GameTooltip.SetInventoryItem then GameTooltip:SetInventoryItem("player",item.slot)
             elseif item.id and GameTooltip.SetHyperlink then GameTooltip:SetHyperlink("item:"..item.id)
             else GameTooltip:SetText(item.name or "",1,1,1)end
-            if self.entry and self.entry.createSpell~=""then GameTooltip:AddLine(M:T("右键制造：")..self.entry.createSpell,1,.82,0,true)end
+            if self.entry and I.Kind(self.entry)=="item"and self.entry.createSpell~=""then GameTooltip:AddLine(M:T("右键制造：")..self.entry.createSpell,1,.82,0,true)end
             GameTooltip:Show()
         end)
         button:SetScript("OnLeave",function()GameTooltip:Hide()end)
@@ -79,7 +79,7 @@ function I.Configure(view,o)
             button:SetAttribute("item1",button.item.use)
             -- The user specifies the manufacturing spell; item-use spell IDs
             -- never imply a recipe. A real right click executes the spell.
-            local spell=S.Input(entry.createSpell)
+            local spell=I.Kind(entry)=="item"and S.Input(entry.createSpell)or ""
             button:SetAttribute("type2",spell~=""and "spell"or nil)
             button:SetAttribute("spell2",spell~=""and (tonumber(spell)or spell)or nil)
         end
@@ -152,6 +152,16 @@ local events={PLAYER_ENTERING_WORLD=true,PLAYER_EQUIPMENT_CHANGED=true,UNIT_INVE
 function I.Event(view,event,unit)
     if not events[event]or (event=="UNIT_INVENTORY_CHANGED"and unit~="player")then return end
     local o=view.nodes.commonItemsIcons;if not o then return end
+    if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED"then
+        -- Equipment actions stay on a fixed slot, so refreshing their artwork
+        -- during combat needs no changes to protected click attributes.
+        for _,button in ipairs(o.itemIcons or {})do
+            if button.entry and I.Kind(button.entry)=="equipment"then
+                button.item=I.Resolve(button.entry);button.texture:SetTexture(button.item.icon or 134400)
+                button.grayTexture:SetTexture(button.item.icon or 134400)
+            end
+        end
+    end
     if event~="BAG_UPDATE_COOLDOWN"and event~="SPELL_UPDATE_COOLDOWN"then
         if InCombatLockdown()then o.pending=true else I.Configure(view,o)end
     end

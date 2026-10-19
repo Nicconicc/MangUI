@@ -2,13 +2,17 @@ local _,M=...
 local I={};M.CommonItems=I
 local S,O=M.PlayerSkillMonitor,M.PlayerOtherMonitor
 I.Safe,I.Number,I.Readable=O.Safe,O.Number,O.Readable
-function I.NewEntry()return {value="",createSpell=""}end
+I.types={{name="物品",path="item"},{name="装备",path="equipment"}}
+function I.Kind(entry)return entry.type=="equipment"and "equipment"or "item"end
+function I.NewEntry()return {type="item",slot=13,value="",createSpell=""}end
 function I.ValidEntries(entries)
     if type(entries)~="table"or #entries>256 then return false end
     for k,entry in pairs(entries)do
         if type(k)~="number"or k%1~=0 or k<1 or k>#entries or type(entry)~="table"then return false end
         if type(entry.value)~="string"or #entry.value>384 or type(entry.createSpell)~="string"or #entry.createSpell>384 then return false end
-        for field in pairs(entry)do if field~="value"and field~="createSpell"then return false end end
+        if entry.type~=nil and entry.type~="item"and entry.type~="equipment"then return false end
+        if entry.slot~=nil and (type(entry.slot)~="number"or entry.slot%1~=0 or entry.slot<1 or entry.slot>19)then return false end
+        for field in pairs(entry)do if field~="value"and field~="createSpell"and field~="type"and field~="slot"then return false end end
     end
     for index=1,#entries do if type(entries[index])~="table"then return false end end
     return true
@@ -24,7 +28,7 @@ end
 function I.Entries(group)
     local entries={}
     for _,list in ipairs({group.commonItems or {},group.classItems or {}})do
-        for _,entry in ipairs(list)do if entry.value~=""then entries[#entries+1]=entry end end
+        for _,entry in ipairs(list)do if I.Kind(entry)=="equipment"or entry.value~=""then entries[#entries+1]=entry end end
     end
     return entries
 end
@@ -93,6 +97,11 @@ local function ItemID(value)
     return id and id>0 and id%1==0 and id<=1000000000 and id or nil
 end
 function I.Resolve(entry)
+    if I.Kind(entry)=="equipment"then
+        local slot=entry.slot or 13;local id,name,icon=O.Item(slot)
+        return {id=id,name=name or (id and tostring(id)or M:T("未装备")),icon=I.Readable(icon)and icon or nil,
+            equippable=true,slot=slot,use=tostring(slot)}
+    end
     local value=S.Input(entry.value);local input=ItemID(value)or value
     local name,link,_,_,_,_,_,_,equip,icon=I.Safe(C_Item and C_Item.GetItemInfo or GetItemInfo,input)
     local id=ItemID(link)or ItemID(value)

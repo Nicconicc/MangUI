@@ -629,4 +629,7 @@ english["在此输入制造技能名。"]="Enter creation spell name."
 english["如果左侧是制造物，可在此输入制造技能名以便右键制造"]="For a conjured item on the left, enter its creation spell here to create it with a right click."
 english["添加物品"]="Add item"
 english["右键制造："]="Right-click to create: "
+english["监控分类"]="Monitor category"
+english["物品"]="Item"
+english["装备"]="Equipment"
 M:RebuildLocaleKeys()

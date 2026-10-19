@@ -13,7 +13,19 @@ function I.BuildControls(e,parent)
     end
     local function Editable(row)return row.owner and M.byID[row.owner.id]==row.owner and Index(row.owner[row.listKey],row.entry)and M:CanEdit()end
     local function PreviewIcon(row)
-        local item=I.Resolve({value=row.item:GetText(),createSpell=""});row.icon.texture:SetTexture(item.icon or 134400)
+        local item=I.Resolve(row.entry and I.Kind(row.entry)=="equipment"and row.entry or {value=row.item:GetText(),createSpell=""})
+        row.icon.texture:SetTexture(item.icon or 134400)
+    end
+    local function Drop(row,label,choices,selected,apply)
+        local drop
+        drop=W.MediaSelect(row,label,215,"choice",function()
+            if drop.menu then drop.menu:Hide();return end
+            W.MediaMenu(drop,choices,"choice",selected(),function(choice)Flush();if Editable(row)then apply(choice.path);M:Commit()end end)
+        end)
+        function drop:SetValue(value)
+            for _,choice in ipairs(choices)do if choice.path==value then self:SetMedia(choice.name,value);self.value=value;return end end
+        end
+        return drop
     end
     for _,definition in ipairs({{"commonItems","通用物品设置","commonItemsSharedRows"},{"classItems","职业物品设置","commonItemsClassRows"}})do
         local key,title,property=unpack(definition)
@@ -50,16 +62,17 @@ function I.BuildControls(e,parent)
                 local direction=y>top-22 and -1 or (y<bottom+22 and 1 or 0)
                 if direction~=0 then scroll:SetVerticalScroll(M.Clamp(scroll:GetVerticalScroll()+direction*(elapsed or 0)*260,0,math.max(0,e.props:GetHeight()-scroll:GetHeight())))end
                 local offset=self:GetTop()-y;local insertion=1
-                for index=1,#drag.entries do if offset>self.rows[index].offset+32 then insertion=index+1 end end
+                for index=1,#drag.entries do if offset>self.rows[index].offset+52 then insertion=index+1 end end
                 local from=Index(drag.entries,drag.entry);drag.target=insertion-(insertion>from and 1 or 0)
-                self.marker:ClearAllPoints();self.marker:SetPoint("TOPLEFT",0,-(insertion-1)*68+3);self.marker:SetWidth(self:GetWidth());self.marker:Show()
+                self.marker:ClearAllPoints();self.marker:SetPoint("TOPLEFT",0,-(insertion-1)*108+3);self.marker:SetWidth(self:GetWidth());self.marker:Show()
             else self.marker:Hide()end
             self.ghost:ClearAllPoints();self.ghost:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",cx/self.ghost:GetEffectiveScale()+14,cy/self.ghost:GetEffectiveScale()+12)
         end
         function panel:BeginDrag(row)
             if self.drag or not Editable(row)or #row.owner[self.key]<2 then return end
             Flush();self.drag={owner=row.owner,entry=row.entry,entries=row.owner[self.key],target=Index(row.owner[self.key],row.entry),valid=false}
-            row.tint:Show();self.ghostText:SetText(row.entry.value:gsub("|","||"));self.ghost:Show()
+            local name=I.Kind(row.entry)=="equipment"and I.Resolve(row.entry).name or row.entry.value
+            row.tint:Show();self.ghostText:SetText(name:gsub("|","||"));self.ghost:Show()
             self:EnableKeyboard(true);self:SetPropagateKeyboardInput(true);self:UpdateDrag(0)
         end
         local function Drag(surface,row)
@@ -84,7 +97,14 @@ function I.BuildControls(e,parent)
                     row.tint=row:CreateTexture(nil,"BACKGROUND");row.tint:SetAllPoints();row.tint:SetColorTexture(.2,.6,.9,.2);row.tint:Hide();Drag(row,row)
                     row.line=row:CreateTexture(nil,"ARTWORK");row.line:SetHeight(1);row.line:SetColorTexture(.45,.45,.45,.22)
                     row.line:SetPoint("TOPLEFT",0,4);row.line:SetPoint("TOPRIGHT",0,4)
-                    row.icon=CreateFrame("Button",nil,row);row.icon:SetSize(26,26);row.icon:SetPoint("TOPLEFT",0,-28)
+                    row.type=Drop(row,"监控分类",I.types,function()return I.Kind(row.entry)end,function(value)
+                        if value=="equipment"and I.Kind(row.entry)=="item"then
+                            local item=I.Resolve(row.entry);if item.slot then row.entry.slot=item.slot end
+                        end
+                        row.entry.type=value;row.entry.slot=row.entry.slot or 13
+                    end)
+                    row.slot=Drop(row,"装备位置",M.PlayerOtherMonitor.slots,function()return tostring(row.entry.slot or 13)end,function(value)row.entry.slot=tonumber(value)end)
+                    row.icon=CreateFrame("Button",nil,row);row.icon:SetSize(26,26);row.icon:SetPoint("TOPLEFT",0,-57)
                     row.icon.texture=row.icon:CreateTexture(nil,"ARTWORK");row.icon.texture:SetAllPoints();Drag(row.icon,row)
                     for _,field in ipairs({"value","createSpell"})do
                         local edit=W.Edit(row,170);edit:SetMaxLetters(128);edit:SetAutoFocus(false);edit:SetTextInsets(6,6,0,0)
@@ -94,7 +114,7 @@ function I.BuildControls(e,parent)
                         edit.placeholder:SetTextColor(.5,.5,.5);edit.placeholder:SetPoint("LEFT",6,0);edit.placeholder:SetPoint("RIGHT",-6,0);edit.placeholder:SetWordWrap(false)
                         local function Save(self)
                             local current=self.editEntry
-                            if current and self.editOwner==row.owner and current==row.entry and Editable(row)then
+                            if current and I.Kind(current)=="item"and self.editOwner==row.owner and current==row.entry and Editable(row)then
                                 local value=S.Input(self:GetText());if current[field]~=value then current[field]=value;M:Commit()end
                             end
                         end
@@ -112,20 +132,30 @@ function I.BuildControls(e,parent)
                     row.remove=W.Button(row,"删除",72,function()
                         Flush();if Editable(row)then table.remove(row.owner[row.listKey],Index(row.owner[row.listKey],row.entry));M:Commit()end
                     end)
-                    row.remove:SetPoint("TOPRIGHT",0,-30)
-                    row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(100,18);row.handle:SetPoint("TOP",row.remove,"TOP",0,28)
+                    row.remove:SetPoint("TOPRIGHT",0,-58)
+                    row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(100,18);row.handle:SetPoint("TOP",row.remove,"TOP",0,58)
                     row.dragLabel=W.Label(row.handle,"拖拽排序",12);row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetPoint("CENTER");Drag(row.handle,row)
                 end
-                row.owner,row.entry=group,entry;row.offset=(index-1)*68;row:SetSize(width,64);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-row.offset)
+                row.owner,row.entry=group,entry;row.offset=(index-1)*108;row:SetSize(width,104);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-row.offset)
+                local equipment=I.Kind(entry)=="equipment";local dropWidth=(width-16)/2
+                row.type:ClearAllPoints();row.type:SetPoint("TOPLEFT",0,0);row.type:SetWidth(dropWidth);row.type:SetValue(I.Kind(entry))
+                row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT",0,0);row.slot:SetWidth(dropWidth);row.slot:SetValue(tostring(entry.slot or 13));row.slot:SetShown(equipment)
                 local inputWidth=(width-128)/2
-                row.item:ClearAllPoints();row.item:SetPoint("LEFT",row.icon,"RIGHT",8,0);row.item:SetWidth(inputWidth)
+                row.item:ClearAllPoints();row.item:SetPoint("LEFT",row.icon,"RIGHT",8,0);row.item:SetWidth(equipment and width-128 or inputWidth)
                 row.create:ClearAllPoints();row.create:SetPoint("LEFT",row.item,"RIGHT",8,0);row.create:SetWidth(inputWidth)
-                if not row.item:HasFocus()then row.item:SetText(entry.value)end
-                if not row.create:HasFocus()then row.create:SetText(entry.createSpell)end
+                row.create:SetShown(not equipment)
+                if equipment then
+                    row.item:ClearFocus();row.item:Disable();row.item:EnableMouse(false);row.item:SetText(I.Resolve(entry).name)
+                else
+                    row.item:Enable();row.item:EnableMouse(true)
+                    if not row.item:HasFocus()then row.item:SetText(entry.value)end
+                    if not row.create:HasFocus()then row.create:SetText(entry.createSpell)end
+                end
+                row.item.placeholder:SetShown(not equipment and row.item:GetText()=="")
                 PreviewIcon(row);row.line:SetShown(index>1);row:Show()
             end
             for index=#entries+1,#self.rows do self.rows[index]:Hide()end
-            local height=#entries*68+32;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-#entries*68)
+            local height=#entries*108+32;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-#entries*108)
             if self:GetHeight()~=height then e.propertyLayoutSignature=nil end
             self:SetHeight(height);self.propertyRow.height=height
         end
