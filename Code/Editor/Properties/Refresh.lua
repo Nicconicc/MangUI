@@ -394,7 +394,7 @@ function M:RefreshProperties()
                     or (n.compound=="targetCast" and (row.key=="x" or row.key=="y" or row.key=="hideCastName"))
                     or (n.compound=="playerCast" and (row.key=="castColor" or row.key=="showRangedProgress" or row.key=="showMeleeProgress"))
             elseif n.compound=="playerOtherMonitor" then
-                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="otherMonitorSharing"or row.key=="otherMonitorItems"or row.key=="otherMonitorEquipment"
+                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="otherMonitorSharing"or row.key=="otherMonitorEquipmentItems"or row.key=="otherMonitorItems"or row.key=="otherMonitorEquipment"
             elseif n.compound=="playerSkillMonitor" then
                 visible=row.key=="scale" or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"
             elseif n.compound=="cooldownMonitor" then
@@ -508,7 +508,7 @@ function M:RefreshProperties()
         if visible and previousSection and previousSection~=entry.section then
             height=PropertyDivider(e,height)
             if (n.compound=="playerSkillMonitor"and (row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"))
-                or (n.compound=="playerOtherMonitor"and (row.key=="otherMonitorSharing"or row.key=="otherMonitorItems"or row.key=="otherMonitorEquipment"))then
+                or (n.compound=="playerOtherMonitor"and (row.key=="otherMonitorSharing"or row.key=="otherMonitorEquipmentItems"or row.key=="otherMonitorItems"or row.key=="otherMonitorEquipment"))then
                 e.propertyDividers[e.propertyDividerCount]:Hide()
             end
         end

@@ -141,7 +141,7 @@ local propertyCategories={
         {"partyFont","partyNameSize"},{"partyHideInRaid","partyHideNumbers","partyHidePlayer"}},
     cast={{"overallScale","castIconSize","castColor"},{"nameFont","castFontSize"},{"showRangedProgress","showMeleeProgress"}},
     playerSkillMonitor={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"skillMonitorSharing"},{"skillMonitorItems"}},
-    playerOtherMonitor={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"otherMonitorSharing"},{"otherMonitorItems"},{"otherMonitorEquipment"}},
+    playerOtherMonitor={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"otherMonitorSharing"},{"otherMonitorEquipmentItems"},{"otherMonitorItems"},{"otherMonitorEquipment"}},
     cooldownMonitor={{"scale"},{"minCooldown","maxCooldown"},{"blacklist"}},
     chatButtons={{"iconSize","buttonSpacing"},{"nameFont","fontSize","fontYOffset","chatTextLabels"},{"customChannelName","pullSeconds"}},
     targetThreat={{"nameFont","fontSize"},{"threatInstanceOnly"}},

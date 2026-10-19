@@ -618,4 +618,7 @@ english["任务提示"]="Tutorial alert"
 english["装备修理"]="Repair"
 english["成就提示"]="Achievement alert"
 english["相同效果按Buff实例显示，不代表实际主副手。"]="Matching effects use separate buff instances; positions do not identify the triggering weapon hand."
+english["装备监控设置"]="Equipment tracking settings"
+english["添加装备监控"]="Add equipment monitor"
+english["粘贴其他监控配置字符串；单职业仅更新该职业，全职业包含共用装备监控与补充。"]="Paste other tracking settings. A single class updates only that class; all classes also include shared equipment monitors and overrides."
 M:RebuildLocaleKeys()

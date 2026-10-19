@@ -2,7 +2,7 @@ local _,M=...
 local O={};M.PlayerOtherMonitor=O
 local S=M.PlayerSkillMonitor
 O.types={{name="玩家Buff已找到",path="buffFound"},{name="玩家Buff未找到",path="buffMissing"},
-    {name="目标Debuff已找到",path="debuffFound"},{name="目标Debuff未找到",path="debuffMissing"},{name="装备触发",path="equipment"}}
+    {name="目标Debuff已找到",path="debuffFound"},{name="目标Debuff未找到",path="debuffMissing"}}
 O.slots={{name="头部",path="1"},{name="颈部",path="2"},{name="肩部",path="3"},{name="衬衣",path="4"},
     {name="胸部",path="5"},{name="腰部",path="6"},{name="腿部",path="7"},{name="脚部",path="8"},{name="手腕",path="9"},
     {name="手套",path="10"},{name="戒指1",path="11"},{name="戒指2",path="12"},{name="饰品1",path="13"},{name="饰品2",path="14"},
@@ -16,6 +16,7 @@ end
 function O.NewEntry()
     return {type="buffFound",value="",slot=13,glow=false,glowColor={1,.82,0,1},soundEnabled=false,sound="kit:8960",soundPath="",soundID=""}
 end
+function O.NewEquipmentEntry()local e=O.NewEntry();e.type="equipment";return e end
 local function Color(c)
     if type(c)~="table"then return false end
     for i=1,4 do if type(c[i])~="number"or c[i]~=c[i]or c[i]<0 or c[i]>1 then return false end end
@@ -43,6 +44,41 @@ function O.ValidProfiles(profiles)
     if type(profiles)~="table"then return false end
     for class,entries in pairs(profiles)do if not S.ValidClass(class)or not O.ValidEntries(entries)then return false end end
     return true
+end
+function O.ValidEquipmentEntries(entries)
+    if not O.ValidEntries(entries)then return false end
+    for _,entry in ipairs(entries)do if entry.type~="equipment"then return false end end
+    return true
+end
+function O.WithoutEquipment(entries)
+    local result={};for _,entry in ipairs(entries or {})do if entry.type~="equipment"then result[#result+1]=M.Copy(entry)end end;return result
+end
+function O.MigrateEquipment(db)
+    local created=db.otherMonitorEquipmentEntries==nil
+    if not O.ValidEquipmentEntries(db.otherMonitorEquipmentEntries)then db.otherMonitorEquipmentEntries={}end
+    local equipment=db.otherMonitorEquipmentEntries;local slots={}
+    for _,entry in ipairs(equipment)do slots[entry.slot or 13]=true end
+    local function Extract(entries)
+        for _,entry in ipairs(entries or {})do
+            if entry.type=="equipment"and not slots[entry.slot or 13]then
+                equipment[#equipment+1]=M.Copy(entry);slots[entry.slot or 13]=true
+            end
+        end
+        return O.WithoutEquipment(entries)
+    end
+    local active=O.Group(db.design)
+    if active then
+        local found=false;for _,entry in ipairs(active.otherMonitors or {})do if entry.type=="equipment"then found=true;break end end
+        if found then active.otherMonitors=Extract(active.otherMonitors)end
+    end
+    local profiles=db.playerOtherMonitorsByClass or {};local classes={};for class in pairs(profiles)do classes[#classes+1]=class end;table.sort(classes)
+    for _,class in ipairs(classes)do
+        local found=false;for _,entry in ipairs(profiles[class])do if entry.type=="equipment"then found=true;break end end
+        if found then profiles[class]=Extract(profiles[class])end
+    end
+    local defaults=O.Group(db.moduleDefaults)
+    if defaults then defaults.otherMonitors=O.WithoutEquipment(defaults.otherMonitors)end
+    if created and #equipment==0 then equipment[1]=O.NewEquipmentEntry()end
 end
 function O.NewOverride()return {itemID="",spellID="",cooldown=""}end
 function O.ValidOverrides(rows)
@@ -95,6 +131,7 @@ end
 function M:BindPlayerOtherMonitorClass()
     local db=self.db;local class=CurrentClass();local group=O.Group(db.design);if not class or not group then return end
     if not O.ValidProfiles(db.playerOtherMonitorsByClass)then db.playerOtherMonitorsByClass={}end
+    O.MigrateEquipment(db)
     local profiles=db.playerOtherMonitorsByClass;local previous=db.playerOtherMonitorClass
     if S.ValidClass(previous)and O.ValidEntries(group.otherMonitors)then profiles[previous]=M.Copy(group.otherMonitors)
     elseif profiles[class]==nil then profiles[class]=M.Copy(group.otherMonitors)end
@@ -106,15 +143,22 @@ function M:BindPlayerOtherMonitorClass()
     if clock then for key,stamp in pairs(db.otherMonitorEquipmentTimers)do if type(key)~="string"or not O.Number(stamp)or stamp<=clock then db.otherMonitorEquipmentTimers[key]=nil end end end
 end
 function M:ImportPlayerOtherMonitorClasses(config)
+    if config.otherMonitorEquipmentEntries then self.db.otherMonitorEquipmentEntries=M.Copy(config.otherMonitorEquipmentEntries)end
     if config.playerOtherMonitorsByClass then
         self.db.playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass or {}
         for class,entries in pairs(config.playerOtherMonitorsByClass)do self.db.playerOtherMonitorsByClass[class]=M.Copy(entries)end
         self.db.playerOtherMonitorClass=config.playerOtherMonitorClass;self:BindPlayerOtherMonitorClass()
     else self.db.playerOtherMonitorClass=CurrentClass();self:SavePlayerOtherMonitorClass()end
     if config.otherMonitorEquipmentOverrides then self.db.otherMonitorEquipmentOverrides=M.Copy(config.otherMonitorEquipmentOverrides)end
+    O.MigrateEquipment(self.db)
 end
 function O.Entries(group)
-    local entries={};for _,e in ipairs(group.otherMonitors or {})do if e.type=="equipment"or e.value~=""then entries[#entries+1]=e end end
+    local entries={}
+    for _,e in ipairs(M.db and M.db.otherMonitorEquipmentEntries or {})do
+        local item=O.Effects(e.slot or 13)
+        if item.id and next(item.effects)then entries[#entries+1]=e end
+    end
+    for _,e in ipairs(group.otherMonitors or {})do if e.type~="equipment"and e.value~=""then entries[#entries+1]=e end end
     return entries
 end
 function O.MoveBounds(group)
@@ -172,7 +216,9 @@ function O.Effects(slot)
     local data=M.EquipmentEffectData
     local function Add(value)
         if type(value)=="table"then for _,spell in ipairs(value)do Add(spell)end
-        elseif type(value)=="number"then result.effects[value]={cooldown=data.noCooldown[value]and 0 or data.cooldowns[value]}end
+        elseif type(value)=="number"and value>0 and value%1==0 and value<=1000000000 then
+            result.effects[value]={cooldown=data.noCooldown[value]and 0 or data.cooldowns[value]}
+        end
     end
     Add(data.Item(id,M.Compat.interface));Add(data.enchants[enchant]);Add(data.gems[gem]);Add(data.extra[id])
     if next(result.effects)==nil then

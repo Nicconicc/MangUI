@@ -222,7 +222,7 @@ function M:ShowConfigStringDialog(mode,scope)
         if not value then dialog.status:SetText("当前配置无法导出，请检查配置数据。") end
     else
         dialog.title:SetText("导入配置")
-        dialog.hint:SetText(scope and (scope:sub(1,5)=="other"and "粘贴其他监控配置字符串；单职业仅更新该职业，全职业包含装备监控补充。"or "粘贴技能监控配置字符串；仅更新字符串包含的职业配置。")or "粘贴配置字符串；技能监控配置仅更新对应职业，整体配置更新全部设置。")
+        dialog.hint:SetText(scope and (scope:sub(1,5)=="other"and "粘贴其他监控配置字符串；单职业仅更新该职业，全职业包含共用装备监控与补充。"or "粘贴技能监控配置字符串；仅更新字符串包含的职业配置。")or "粘贴配置字符串；技能监控配置仅更新对应职业，整体配置更新全部设置。")
         dialog.action:SetText("确认导入");dialog.edit:SetText("")
     end
     dialog.scroll:SetVerticalScroll(0);dialog.edit:SetFocus();dialog.edit:HighlightText()

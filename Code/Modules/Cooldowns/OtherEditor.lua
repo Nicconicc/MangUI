@@ -8,7 +8,7 @@ local function Index(entries,entry)for i,current in ipairs(entries or {})do if c
 function O.BuildControls(e,parent)
     local W=M.Widgets
     local function Current()local n=M.byID[M.selection];return n and n.compound=="playerOtherMonitor"and n end
-    local function Editable(owner,entry)return owner and M.byID[owner.id]==owner and Index(owner.otherMonitors,entry)and M:CanEdit()end
+    local function Editable(owner,entry)return owner and M.byID[owner.id]==owner and (Index(owner.otherMonitors,entry)or Index(M.db.otherMonitorEquipmentEntries,entry))and M:CanEdit()end
     local function Property(frame,key,height)
         local row={height=height,controls={{frame,0,0}},kinds={},key=key};e.propRows[#e.propRows+1]=row;frame.propertyRow=row
     end
@@ -23,14 +23,15 @@ function O.BuildControls(e,parent)
     end
     local sharing=CreateFrame("Frame",nil,parent);sharing:SetSize(470,56);sharing.title=Section(sharing,"配置分享")
     local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);panel.rows={};panel.title=Section(panel,"监控设置")
+    local equipment=CreateFrame("Frame",nil,parent);equipment:SetSize(470,30);equipment.rows={};equipment.equipment=true;equipment.title=Section(equipment,"装备监控设置")
     local supplement=CreateFrame("Frame",nil,parent);supplement:SetSize(470,96);supplement.rows={};supplement.title=Section(supplement,"装备监控补充")
-    e.otherMonitorPanel=panel;e.otherMonitorSharing=sharing;e.otherMonitorSupplement=supplement
-    Property(sharing,"otherMonitorSharing",56);Property(panel,"otherMonitorItems",30);Property(supplement,"otherMonitorEquipment",96)
+    e.otherMonitorEquipmentPanel=equipment;e.otherMonitorPanel=panel;e.otherMonitorSharing=sharing;e.otherMonitorSupplement=supplement
+    Property(sharing,"otherMonitorSharing",56);Property(equipment,"otherMonitorEquipmentItems",30);Property(panel,"otherMonitorItems",30);Property(supplement,"otherMonitorEquipment",96)
     local function Flush()
-        for _,row in ipairs(panel.rows)do for _,edit in ipairs(row.inputs or {})do edit:ClearFocus()end end
+        for _,list in ipairs({equipment,panel})do for _,row in ipairs(list.rows)do for _,edit in ipairs(row.inputs or {})do edit:ClearFocus()end end end
         for _,row in ipairs(supplement.rows)do for _,edit in ipairs(row.inputs or {})do edit:ClearFocus()end end
     end
-    function O.FlushEditor()panel:FinishDrag(false);Flush()end
+    function O.FlushEditor()panel:FinishDrag(false);equipment:FinishDrag(false);Flush()end
     sharing.exportAll=W.Button(sharing,"导出全职业配置",150,function()Flush();M:ShowConfigStringDialog("export","otherAll")end)
     sharing.exportClass=W.Button(sharing,"导出当前职业配置",150,function()Flush();M:ShowConfigStringDialog("export","otherClass")end)
     sharing.import=W.Button(sharing,"导入配置",150,function()Flush();M:ShowConfigStringDialog("import","other")end)
@@ -68,59 +69,6 @@ function O.BuildControls(e,parent)
         end
         return drop
     end
-    panel.marker=CreateFrame("Frame",nil,panel);panel.marker:SetHeight(2);panel.marker:SetFrameLevel(panel:GetFrameLevel()+40);panel.marker:Hide()
-    local line=panel.marker:CreateTexture(nil,"OVERLAY");line:SetAllPoints();line:SetColorTexture(1,.82,0,1)
-    panel.ghost=W.Panel(e.window);panel.ghost:SetSize(220,32);panel.ghost:SetFrameStrata("TOOLTIP");panel.ghost:SetFrameLevel(9200);panel.ghost:Hide()
-    panel.ghostText=W.Label(panel.ghost,"",12);panel.ghostText:SetPoint("LEFT",10,0);panel.ghostText:SetWidth(200);panel.ghostText:SetWordWrap(false)
-    function panel:FinishDrag(apply)
-        self:EnableKeyboard(false);self:SetPropagateKeyboardInput(true)
-        local drag=self.drag;if not drag then return end
-        self.drag=nil;self.marker:Hide();self.ghost:Hide()
-        for _,row in ipairs(self.rows)do row.dragTint:Hide()end
-        if apply and drag.valid and Current()==drag.owner and drag.entries==drag.owner.otherMonitors and Editable(drag.owner,drag.entry)then
-            local from=Index(drag.entries,drag.entry)
-            if from~=drag.target then table.remove(drag.entries,from);table.insert(drag.entries,drag.target,drag.entry);M:Commit()end
-        end
-    end
-    function panel:UpdateDrag(elapsed)
-        local drag=self.drag;if not drag then return end
-        if not self:IsVisible()or Current()~=drag.owner or drag.entries~=drag.owner.otherMonitors or not Editable(drag.owner,drag.entry)then self:FinishDrag(false);return end
-        local cx,cy=GetCursorPosition();local scale=self:GetEffectiveScale();local x,y=cx/scale,cy/scale
-        local scroll=e.propScroll;local top,bottom,left,right=scroll:GetTop(),scroll:GetBottom(),scroll:GetLeft(),scroll:GetRight()
-        if not top or not bottom or not self:GetTop()then self:FinishDrag(false);return end
-        drag.valid=x>=left and x<=right and y>=bottom and y<=top
-        if drag.valid then
-            local direction=y>top-22 and -1 or (y<bottom+22 and 1 or 0)
-            if direction~=0 then scroll:SetVerticalScroll(M.Clamp(scroll:GetVerticalScroll()+direction*(elapsed or 0)*260,0,math.max(0,e.props:GetHeight()-scroll:GetHeight())))end
-            local offset=self:GetTop()-y;local insertion=1
-            for i=1,#drag.entries do local row=self.rows[i];if offset>row.offset+row.height/2 then insertion=i+1 end end
-            local from=Index(drag.entries,drag.entry);drag.target=insertion-(insertion>from and 1 or 0)
-            local at=self.rows[insertion];local position=at and at.offset or self.contentHeight
-            self.marker:ClearAllPoints();self.marker:SetPoint("TOPLEFT",self,"TOPLEFT",0,-position+3);self.marker:SetWidth(self:GetWidth());self.marker:Show()
-        else self.marker:Hide()end
-        self.ghost:ClearAllPoints();self.ghost:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",cx/self.ghost:GetEffectiveScale()+14,cy/self.ghost:GetEffectiveScale()+12)
-    end
-    function panel:BeginDrag(row)
-        if self.drag or not Editable(row.owner,row.entry)or #row.owner.otherMonitors<2 then return end
-        Flush();local owner,entry=row.owner,row.entry
-        self.drag={owner=owner,entry=entry,entries=owner.otherMonitors,target=Index(owner.otherMonitors,entry),valid=false}
-        row.dragTint:Show();self.ghostText:SetText((entry.value~=""and entry.value or ChoiceName(O.types,entry.type)):gsub("|","||"))
-        self.ghost:Show();self:EnableKeyboard(true);self:SetPropagateKeyboardInput(true);self:UpdateDrag(0)
-    end
-    local function Drag(surface,row)
-        surface:EnableMouse(true);surface:RegisterForDrag("LeftButton")
-        surface:SetScript("OnDragStart",function()panel:BeginDrag(row)end)
-        surface:SetScript("OnDragStop",function()panel:UpdateDrag(0);panel:FinishDrag(true)end)
-        surface:SetScript("OnMouseUp",function(_,button)if button=="RightButton"then panel:FinishDrag(false)end end)
-    end
-    panel:EnableKeyboard(false);panel:SetPropagateKeyboardInput(true)
-    panel:SetScript("OnKeyDown",function(self,key)if self.drag and key=="ESCAPE"then self:SetPropagateKeyboardInput(false);self:FinishDrag(false)else self:SetPropagateKeyboardInput(true)end end)
-    panel:SetScript("OnUpdate",function(self,elapsed)if self.drag then self:UpdateDrag(elapsed)end end)
-    panel:SetScript("OnHide",function(self)self:FinishDrag(false);Flush()end)
-    supplement:SetScript("OnHide",Flush)
-    panel.add=W.Button(panel,"添加监控",130,function()
-        Flush();local group=Current();if group and M:CanEdit()then group.otherMonitors[#group.otherMonitors+1]=O.NewEntry();M:Commit()end
-    end)
     supplement.add=W.Button(supplement,"添加补充",130,function()
         Flush();if Current()and M:CanEdit()then M.db.otherMonitorEquipmentOverrides[#M.db.otherMonitorEquipmentOverrides+1]=O.NewOverride();M:Commit()end
     end)
@@ -163,9 +111,64 @@ function O.BuildControls(e,parent)
         for i=#rows+1,#self.rows do self.rows[i]:Hide()end
         self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-#rows*64)
     end
+    for _,panel in ipairs({equipment,panel})do
+    local function MonitorEntries(owner)return panel.equipment and M.db.otherMonitorEquipmentEntries or owner.otherMonitors end
+    panel.marker=CreateFrame("Frame",nil,panel);panel.marker:SetHeight(2);panel.marker:SetFrameLevel(panel:GetFrameLevel()+40);panel.marker:Hide()
+    local line=panel.marker:CreateTexture(nil,"OVERLAY");line:SetAllPoints();line:SetColorTexture(1,.82,0,1)
+    panel.ghost=W.Panel(e.window);panel.ghost:SetSize(220,32);panel.ghost:SetFrameStrata("TOOLTIP");panel.ghost:SetFrameLevel(9200);panel.ghost:Hide()
+    panel.ghostText=W.Label(panel.ghost,"",12);panel.ghostText:SetPoint("LEFT",10,0);panel.ghostText:SetWidth(200);panel.ghostText:SetWordWrap(false)
+    function panel:FinishDrag(apply)
+        self:EnableKeyboard(false);self:SetPropagateKeyboardInput(true)
+        local drag=self.drag;if not drag then return end
+        self.drag=nil;self.marker:Hide();self.ghost:Hide()
+        for _,row in ipairs(self.rows)do row.dragTint:Hide()end
+        if apply and drag.valid and Current()==drag.owner and drag.entries==MonitorEntries(drag.owner) and Editable(drag.owner,drag.entry)then
+            local from=Index(drag.entries,drag.entry)
+            if from~=drag.target then table.remove(drag.entries,from);table.insert(drag.entries,drag.target,drag.entry);M:Commit()end
+        end
+    end
+    function panel:UpdateDrag(elapsed)
+        local drag=self.drag;if not drag then return end
+        if not self:IsVisible()or Current()~=drag.owner or drag.entries~=MonitorEntries(drag.owner) or not Editable(drag.owner,drag.entry)then self:FinishDrag(false);return end
+        local cx,cy=GetCursorPosition();local scale=self:GetEffectiveScale();local x,y=cx/scale,cy/scale
+        local scroll=e.propScroll;local top,bottom,left,right=scroll:GetTop(),scroll:GetBottom(),scroll:GetLeft(),scroll:GetRight()
+        if not top or not bottom or not self:GetTop()then self:FinishDrag(false);return end
+        drag.valid=x>=left and x<=right and y>=bottom and y<=top
+        if drag.valid then
+            local direction=y>top-22 and -1 or (y<bottom+22 and 1 or 0)
+            if direction~=0 then scroll:SetVerticalScroll(M.Clamp(scroll:GetVerticalScroll()+direction*(elapsed or 0)*260,0,math.max(0,e.props:GetHeight()-scroll:GetHeight())))end
+            local offset=self:GetTop()-y;local insertion=1
+            for i=1,#drag.entries do local row=self.rows[i];if offset>row.offset+row.height/2 then insertion=i+1 end end
+            local from=Index(drag.entries,drag.entry);drag.target=insertion-(insertion>from and 1 or 0)
+            local at=self.rows[insertion];local position=at and at.offset or self.contentHeight
+            self.marker:ClearAllPoints();self.marker:SetPoint("TOPLEFT",self,"TOPLEFT",0,-position+3);self.marker:SetWidth(self:GetWidth());self.marker:Show()
+        else self.marker:Hide()end
+        self.ghost:ClearAllPoints();self.ghost:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",cx/self.ghost:GetEffectiveScale()+14,cy/self.ghost:GetEffectiveScale()+12)
+    end
+    function panel:BeginDrag(row)
+        if self.drag or not Editable(row.owner,row.entry)or #MonitorEntries(row.owner)<2 then return end
+        Flush();local owner,entry=row.owner,row.entry
+        self.drag={owner=owner,entry=entry,entries=MonitorEntries(owner),target=Index(MonitorEntries(owner),entry),valid=false}
+        row.dragTint:Show();self.ghostText:SetText((entry.value~=""and entry.value or ChoiceName(O.types,entry.type)):gsub("|","||"))
+        self.ghost:Show();self:EnableKeyboard(true);self:SetPropagateKeyboardInput(true);self:UpdateDrag(0)
+    end
+    local function Drag(surface,row)
+        surface:EnableMouse(true);surface:RegisterForDrag("LeftButton")
+        surface:SetScript("OnDragStart",function()panel:BeginDrag(row)end)
+        surface:SetScript("OnDragStop",function()panel:UpdateDrag(0);panel:FinishDrag(true)end)
+        surface:SetScript("OnMouseUp",function(_,button)if button=="RightButton"then panel:FinishDrag(false)end end)
+    end
+    panel:EnableKeyboard(false);panel:SetPropagateKeyboardInput(true)
+    panel:SetScript("OnKeyDown",function(self,key)if self.drag and key=="ESCAPE"then self:SetPropagateKeyboardInput(false);self:FinishDrag(false)else self:SetPropagateKeyboardInput(true)end end)
+    panel:SetScript("OnUpdate",function(self,elapsed)if self.drag then self:UpdateDrag(elapsed)end end)
+    panel:SetScript("OnHide",function(self)self:FinishDrag(false);Flush()end)
+    supplement:SetScript("OnHide",Flush)
+    panel.add=W.Button(panel,panel.equipment and "添加装备监控"or "添加监控",130,function()
+        Flush();local group=Current();if group and M:CanEdit()then local entries=MonitorEntries(group);entries[#entries+1]=panel.equipment and O.NewEquipmentEntry()or O.NewEntry();M:Commit()end
+    end)
     function panel:Refresh(group)
-        if self.drag and (self.drag.owner~=group or self.drag.entries~=group.otherMonitors)then self:FinishDrag(false)end
-        local width=e.props:GetWidth();local entries=group.otherMonitors or {};self:SetWidth(width);sharing:SetWidth(width)
+        if self.drag and (self.drag.owner~=group or self.drag.entries~=MonitorEntries(group))then self:FinishDrag(false)end
+        local width=e.props:GetWidth();local entries=MonitorEntries(group) or {};self:SetWidth(width);sharing:SetWidth(width)
         for i,button in ipairs({sharing.exportAll,sharing.exportClass,sharing.import})do
             local w=(width-16)/3;button:SetWidth(w);button:ClearAllPoints();button:SetPoint("TOPLEFT",(i-1)*(w+8),-24)
         end
@@ -214,8 +217,8 @@ function O.BuildControls(e,parent)
                 row.soundID=W.Edit(row,180);row.soundID:SetMaxLetters(12);row.soundID:SetTextInsets(6,6,0,0);row.soundID:SetPoint("TOPLEFT",0,-206)
                 BindInput(row,row.soundID,"soundID")
                 row.remove=W.Button(row,"删除",72,function()
-                    Flush();local index=Index(row.owner and row.owner.otherMonitors,row.entry)
-                    if index and Editable(row.owner,row.entry)then table.remove(row.owner.otherMonitors,index);M:Commit()end
+                    Flush();local index=Index(row.owner and MonitorEntries(row.owner),row.entry)
+                    if index and Editable(row.owner,row.entry)then table.remove(MonitorEntries(row.owner),index);M:Commit()end
                 end)
                 row.remove:SetPoint("TOPRIGHT",0,-58);row.handle:SetPoint("TOP",row.remove,"TOP",0,58)
             end
@@ -224,8 +227,8 @@ function O.BuildControls(e,parent)
             row.height=entry.soundEnabled and (extended and 246 or 192)or 132
             row:SetSize(width,row.height-4);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-offset);offset=offset+row.height
             local dropWidth=(width-16)/2
-            row.type:SetWidth(dropWidth);row.type:SetPoint("TOPLEFT",0,0);row.type:SetValue(entry.type)
-            row.slot:SetWidth(dropWidth);row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT",0,0);row.slot:SetValue(tostring(entry.slot or 13));row.slot:SetShown(entry.type=="equipment")
+            row.type:SetShown(not self.equipment);row.type:SetWidth(dropWidth);row.type:SetPoint("TOPLEFT",0,0);row.type:SetValue(entry.type)
+            row.slot:SetWidth(dropWidth);row.slot:ClearAllPoints();row.slot:SetPoint(self.equipment and "TOPLEFT"or "TOPRIGHT",0,0);row.slot:SetValue(tostring(entry.slot or 13));row.slot:SetShown(entry.type=="equipment")
             row.edit:SetWidth(width/3)
             if entry.type=="equipment"then row.edit:ClearFocus();row.edit:Disable()else row.edit:Enable()end
             row.edit:EnableMouse(entry.type~="equipment");row.edit:SetTextColor(1,1,1)
@@ -245,6 +248,8 @@ function O.BuildControls(e,parent)
         for i=#entries+1,#self.rows do self.rows[i]:Hide()end
         self.contentHeight=offset;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-offset)
         if self:GetHeight()~=offset+32 then e.propertyLayoutSignature=nil end
-        self:SetHeight(offset+32);self.propertyRow.height=offset+32;supplement:Refresh(width)
+        self:SetHeight(offset+32);self.propertyRow.height=offset+32
+        if not self.equipment then equipment:Refresh(group);supplement:Refresh(width)end
+    end
     end
 end

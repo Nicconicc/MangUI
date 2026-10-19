@@ -2,7 +2,7 @@ local _,M=...
 local O,S=M.PlayerOtherMonitor,M.PlayerSkillMonitor
 local Safe,Number,Readable=O.Safe,O.Number,O.Readable
 local samples={{type="buffFound",value="139",glow=true,glowColor={1,.82,0,1}},
-    {type="buffMissing",value="21562"},{type="equipment",slot=13,value=""}}
+    {type="buffMissing",value="21562"},{type="debuffFound",value="172"}}
 local function Font(text,count)
     text:SetFont(M:EffectiveFontPath(M.MYRIAD),16,"OUTLINE");text:SetTextColor(1,1,1,1);text:SetJustifyH("CENTER")
     text:SetShadowColor(0,0,0,count and 0 or 1);text:SetShadowOffset(count and 0 or 1,count and 0 or -1)
@@ -31,11 +31,16 @@ local function CanRead(unit)
     end
     return true
 end
+local repeatedAuraIDs={player={},target={}}
 local function Auras(unit,filter)
     if not CanRead(unit)then return nil end
     local result={byID={},byName={},instancesByID={}}
     for index=1,255 do
-        local aura=M.Compat.Aura(unit,index,filter);if not aura then break end
+        local raw=M.Compat.Aura(unit,index,filter);if not raw then break end
+        -- Own the record: compatibility APIs may reuse a temporary result table.
+        local aura={name=raw.name,spellId=raw.spellId,spellID=raw.spellID,sourceUnit=raw.sourceUnit,
+            expirationTime=raw.expirationTime,duration=raw.duration,applications=raw.applications,
+            icon=raw.icon,auraInstanceID=raw.auraInstanceID}
         local id=aura.spellId;if type(id)=="nil"then id=aura.spellID end
         if Readable(aura.name)and Readable(id)then
             if unit~="target"or (Readable(aura.sourceUnit)and (aura.sourceUnit=="player"or
@@ -46,16 +51,22 @@ local function Auras(unit,filter)
                     result.byID[key]=aura
                     local instances=result.instancesByID[key]or {};result.instancesByID[key]=instances
                     instances[#instances+1]=aura
-                    local instanceID=Number(aura.auraInstanceID)
-                    -- Legacy clients have no instance IDs. A refresh changes the
-                    -- time key but does not displace another surviving instance.
-                    local identity=instanceID and "id:"..instanceID or "time:"..tostring(Number(aura.expirationTime))..":"..tostring(Number(aura.duration))
-                    local ordinal=1
-                    for i=1,#instances-1 do if instances[i].monitorIdentity==identity then ordinal=ordinal+1 end end
-                    aura.monitorIdentity=identity;aura.monitorKey=identity..":"..ordinal;aura.monitorLegacy=not instanceID
                 end
                 if type(aura.name)=="string"then result.byName[aura.name]=aura end
             end
+        end
+    end
+    for _,instances in pairs(result.instancesByID)do
+        local ids,ordinals={},{}
+        for _,aura in ipairs(instances)do local id=Number(aura.auraInstanceID);if id and id>0 then ids[id]=(ids[id]or 0)+1 end end
+        local rejected=repeatedAuraIDs[unit]or {}
+        for id,count in pairs(ids)do if count>1 then rejected[id]=true end end
+        for _,aura in ipairs(instances)do
+            local id=Number(aura.auraInstanceID);local unique=id and id>0 and ids[id]==1 and not rejected[id]
+            local identity="time:"..tostring(Number(aura.expirationTime))..":"..tostring(Number(aura.duration))
+            ordinals[identity]=(ordinals[identity]or 0)+1
+            aura.monitorTimeKey=identity..":"..ordinals[identity]
+            aura.monitorKey=unique and "id:"..id or aura.monitorTimeKey;aura.monitorLegacy=not unique
         end
     end
     return result
@@ -185,13 +196,15 @@ local function WeaponAuras(o,auras)
             end
             if auras then
                 local prior=o.weaponAuraBindings[spell]or {hands={},bindings={}}
-                local current=auras.instancesByID[spell]or {};local available={};local used={};local selected={}
-                for _,aura in ipairs(current)do available[aura.monitorKey]=aura end
+                local current=auras.instancesByID[spell]or {};local available,times={},{};local used={};local selected={}
+                for _,aura in ipairs(current)do available[aura.monitorKey]=aura;times[aura.monitorTimeKey]=aura end
                 -- Match existing instance IDs before assigning newly seen ones.
                 -- Never move the remaining buff into the other empty position.
                 for _,hand in ipairs({16,17})do
                     local key=prior.hands[hand]==hands[hand]and prior.bindings[hand]
-                    if key and available[key]and not used[key]then selected[hand]=available[key];used[key]=true end
+                    local match=key and available[key]
+                    if not match and prior.hands[hand]==hands[hand]and prior.times then match=times[prior.times[hand]]end
+                    if match and not used[match.monitorKey]then selected[hand]=match;used[match.monitorKey]=true end
                 end
                 for _,aura in ipairs(current)do
                     if not used[aura.monitorKey]then
@@ -209,9 +222,9 @@ local function WeaponAuras(o,auras)
                         end
                     end
                 end
-                local bindings={}
-                for hand,aura in pairs(selected)do bindings[hand]=aura.monitorKey end
-                retained[spell]={hands=hands,bindings=bindings};assignments[spell]=selected
+                local bindings,previousTimes={},{}
+                for hand,aura in pairs(selected)do bindings[hand]=aura.monitorKey;previousTimes[hand]=aura.monitorTimeKey end
+                retained[spell]={hands=hands,bindings=bindings,times=previousTimes};assignments[spell]=selected
             else retained[spell]=o.weaponAuraBindings[spell]end
         end
     end
@@ -220,7 +233,7 @@ local function WeaponAuras(o,auras)
 end
 function O.Configure(view,o)
     o.otherIcons=o.otherIcons or {};o.entries=O.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
-    o.nextScan=0;o.nextEquipment=0
+    o.nextScan=0;o.nextEquipment=0;o.nextDiscovery=GetTime()+1
     for i,entry in ipairs(o.entries)do
         local slot=Icon(o,i)
         if slot.entry~=entry then slot.wasCondition=nil end
@@ -335,8 +348,16 @@ function O.Paint(view,o,animateOnly)
     if not view.preview and group.hideWithoutTarget and not M.Compat.Bool(Safe(UnitExists,"target"))then shown=false end
     if o.frame:IsShown()~=shown then o.frame:SetShown(shown)end
     if not enabled and not view.preview then return end
-    local entries=o.entries or {};if view.preview and #entries==0 then entries=samples end
-    local now=GetTime();o.rowCount=#entries;local width=math.max(1,#entries*44-4)
+    local now=GetTime()
+    if now>=(o.nextDiscovery or 0)then
+        local current=O.Entries(group);local changed=#current~=#(o.entries or {})
+        if not changed then for i,entry in ipairs(current)do if entry~=o.entries[i]then changed=true;break end end end
+        if changed then O.Configure(view,o)end
+        o.nextDiscovery=now+1
+    end
+    local entries=o.entries or {}
+    if view.preview and #entries==0 and #(M.db.otherMonitorEquipmentEntries or {})==0 then entries=samples end
+    o.rowCount=#entries;local width=math.max(1,#entries*44-4)
     if width~=o.rowWidth then o.frame:SetSize(width,66);o.rowWidth=width end
     if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then Refresh(view,o,now);o.nextScan=now+.2 end
     for i,entry in ipairs(entries)do
@@ -390,6 +411,7 @@ function O.Event(view,event,unit)
     local o=view.nodes.playerOtherMonitorIcons;if not o then return end
     o.nextScan=0
     if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED"then o.nextEquipment=0 end
+    if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED"then o.nextDiscovery=0 end
     if event=="PLAYER_TARGET_CHANGED"then for _,slot in ipairs(o.otherIcons or {})do if slot.entry and slot.container and IsTarget(slot.entry)then slot.container:UpdateAllAuras()end end end
     if event=="SPELLS_CHANGED"or event=="PLAYER_REGEN_ENABLED"or event=="PLAYER_ENTERING_WORLD"then
         for _,slot in ipairs(o.otherIcons or {})do

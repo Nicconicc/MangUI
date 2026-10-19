@@ -4,19 +4,21 @@ local PREFIX="!MUO1:"
 local function Clean(config)
     if type(config)~="table"or config.format~=1 or config.module~="playerOtherMonitor"or not O.ValidProfiles(config.profiles)then return end
     if config.scope=="class"then
-        if not S.ValidClass(config.class)or config.profiles[config.class]==nil or config.overrides~=nil then return end
+        if not S.ValidClass(config.class)or config.profiles[config.class]==nil or config.overrides~=nil or config.equipment~=nil then return end
         for class in pairs(config.profiles)do if class~=config.class then return end end
-    elseif config.scope~="all"or config.class~=nil or (config.overrides~=nil and not O.ValidOverrides(config.overrides))then return end
+    elseif config.scope~="all"or config.class~=nil or (config.overrides~=nil and not O.ValidOverrides(config.overrides))
+        or (config.equipment~=nil and not O.ValidEquipmentEntries(config.equipment))then return end
     if next(config.profiles)==nil then return end
     return {format=1,module="playerOtherMonitor",scope=config.scope,class=config.class,
-        profiles=M.Copy(config.profiles),overrides=config.overrides and M.Copy(config.overrides)}
+        profiles=M.Copy(config.profiles),overrides=config.overrides and M.Copy(config.overrides),equipment=config.equipment and M.Copy(config.equipment)}
 end
 function M:ExportPlayerOtherMonitorString(all)
     self:SavePlayerOtherMonitorClass()
     local ok,result=pcall(function()
         local class=self.db.playerOtherMonitorClass;local profiles=self.db.playerOtherMonitorsByClass or {}
         local config=Clean({format=1,module="playerOtherMonitor",scope=all and "all"or "class",class=not all and class or nil,
-            profiles=all and profiles or {[class]=profiles[class]},overrides=all and self.db.otherMonitorEquipmentOverrides or nil})
+            profiles=all and profiles or {[class]=profiles[class]},overrides=all and self.db.otherMonitorEquipmentOverrides or nil,
+            equipment=all and self.db.otherMonitorEquipmentEntries or nil})
         if not config then return end
         local serializer,deflate=LibStub("LibSerialize"),LibStub("LibDeflate");local payload=serializer:Serialize(config)
         if #payload>2000000 then return end
@@ -45,10 +47,14 @@ function M:ApplyPlayerOtherMonitorString(input)
     if O.FlushEditor then O.FlushEditor()end
     self:SavePlayerOtherMonitorClass();local current=self.db.playerOtherMonitorClass
     self.db.playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass or {}
-    for class,entries in pairs(config.profiles)do self.db.playerOtherMonitorsByClass[class]=M.Copy(entries)end
+    for class,entries in pairs(config.profiles)do
+        self.db.playerOtherMonitorsByClass[class]=config.scope=="class"and O.WithoutEquipment(entries)or M.Copy(entries)
+    end
     if config.profiles[current]then
-        self.byID.playerOtherMonitor.otherMonitors=M.Copy(config.profiles[current]);self:EnsurePlayerOtherMonitor(self.db.design)
+        self.byID.playerOtherMonitor.otherMonitors=M.Copy(self.db.playerOtherMonitorsByClass[current]);self:EnsurePlayerOtherMonitor(self.db.design)
     end
     if config.scope=="all"and config.overrides then self.db.otherMonitorEquipmentOverrides=M.Copy(config.overrides)end
+    if config.scope=="all"and config.equipment then self.db.otherMonitorEquipmentEntries=M.Copy(config.equipment)end
+    if config.scope=="all"then O.MigrateEquipment(self.db)end
     self:Commit();return true
 end

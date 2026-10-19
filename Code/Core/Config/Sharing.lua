@@ -146,6 +146,7 @@ local function CleanConfig(config)
     if config.playerOtherMonitorsByClass~=nil and (not M.PlayerOtherMonitor.ValidProfiles(config.playerOtherMonitorsByClass)
         or not M.PlayerSkillMonitor.ValidClass(config.playerOtherMonitorClass))then return end
     if config.otherMonitorEquipmentOverrides~=nil and not M.PlayerOtherMonitor.ValidOverrides(config.otherMonitorEquipmentOverrides)then return end
+    if config.otherMonitorEquipmentEntries~=nil and not M.PlayerOtherMonitor.ValidEquipmentEntries(config.otherMonitorEquipmentEntries)then return end
     for _,key in ipairs({"globalFontPath","globalFontName"})do
         if config[key]~=nil and (type(config[key])~="string"or #config[key]>512)then return end
     end
@@ -167,6 +168,7 @@ local function CleanConfig(config)
         playerOtherMonitorsByClass=config.playerOtherMonitorsByClass and M.Copy(config.playerOtherMonitorsByClass),
         playerOtherMonitorClass=config.playerOtherMonitorClass,
         otherMonitorEquipmentOverrides=config.otherMonitorEquipmentOverrides and M.Copy(config.otherMonitorEquipmentOverrides),
+        otherMonitorEquipmentEntries=config.otherMonitorEquipmentEntries and M.Copy(config.otherMonitorEquipmentEntries),
         design={nodes=nodes},moduleDefaults={nodes=defaults}}
 end
 local function CleanSkillConfig(config)
@@ -245,6 +247,7 @@ function M:ExportConfigString()
             playerSkillMonitorsByClass=self.db.playerSkillMonitorsByClass,playerSkillMonitorClass=self.db.playerSkillMonitorClass,
             playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass,playerOtherMonitorClass=self.db.playerOtherMonitorClass,
             otherMonitorEquipmentOverrides=self.db.otherMonitorEquipmentOverrides,
+            otherMonitorEquipmentEntries=self.db.otherMonitorEquipmentEntries,
             design=self.db.design,moduleDefaults=self.db.moduleDefaults})
         if not config then return end
         local payload=serializer:Serialize(config)
