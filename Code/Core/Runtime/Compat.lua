@@ -75,6 +75,23 @@ local function Clear(out)
 end
 local previewNames={player="玩家",target="Ravenwood",pet="Shadowfang",targettarget="Cedric",focus="Seraphine"}
 local happinessNames={[1]="不高兴",[2]="满足",[3]="快乐"}
+function C.PetHappiness(preview)
+    if type(GetPetHappiness)~="function" then return end
+    -- The later clients can retain an API stub after removing happiness.
+    if preview then
+        if C.interface~=16001 and C.interface<40000 then return 3 end
+        return
+    end
+    local ok,happy=pcall(GetPetHappiness)
+    if not ok then return end
+    happy=C.Number(happy)
+    if not happinessNames[happy] then return end
+    if type(HasPetUI)=="function" then
+        local success,_,hunterPet=pcall(HasPetUI)
+        if not success or not C.Bool(hunterPet) then return end
+    end
+    return happy
+end
 function C.GetCast(unit,out)
     out=Clear(out or {});out.active=false
     local name,_,icon,startMS,endMS,_,_,uninterruptible=UnitCastingInfo(unit)
@@ -138,6 +155,7 @@ function C.State(unit,preview,scene,out,fields)
         out.reaction,out.classification,out.raid=unit=="target" and 4 or 5,scene=="elite" and "elite" or "normal",scene=="elite" and 8 or nil
         out.leader,out.afk,out.connected=scene=="leader",scene=="afk",true
         out.powerColor,out.nameColor,out.petStatus=pc,nc,"快乐"
+        if unit=="pet" then out.petHappiness=C.PetHappiness(true) end
         Clear(cast);cast.active=scene=="cast" or unit=="focus" or unit=="target"
         cast.name,cast.icon,cast.start,cast.finish,cast.channel=M:T("施法预览"),136048,GetTime()-1.5,GetTime()+1.5,false
         return out
@@ -158,10 +176,8 @@ function C.State(unit,preview,scene,out,fields)
         local col=FACTION_BAR_COLORS and FACTION_BAR_COLORS[reaction]
         if col then nc[1],nc[2],nc[3]=col.r,col.g,col.b end
     end
-    local petStatus
-    if unit=="pet" and GetPetHappiness then
-        local happy=GetPetHappiness();petStatus=happinessNames[happy]
-    end
+    local petHappiness=unit=="pet" and C.PetHappiness(false) or nil
+    local petStatus=happinessNames[petHappiness]
     local classification=UnitClassification and UnitClassification(unit)
     if not C.Readable(classification) then classification="normal" end
     if powerColor then pc[1],pc[2],pc[3]=powerColor.r,powerColor.g,powerColor.b
@@ -175,6 +191,7 @@ function C.State(unit,preview,scene,out,fields)
     out.leader,out.afk=UnitIsGroupLeader and C.Bool(UnitIsGroupLeader(unit)),UnitIsAFK and C.Bool(UnitIsAFK(unit))
     out.tapped=UnitIsTapDenied and C.Bool(UnitIsTapDenied(unit)) and not C.Bool(UnitPlayerControlled(unit))
     out.cast,out.petStatus=C.GetCast(unit,cast),petStatus
+    out.petHappiness=petHappiness
     return out
 end
 -- Restricted clients can reject the query itself, before returning any values.

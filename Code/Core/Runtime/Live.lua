@@ -89,6 +89,10 @@ function M:StartLive()
         "UNIT_SPELLCAST_CHANNEL_START","UNIT_SPELLCAST_CHANNEL_STOP","UNIT_SPELLCAST_CHANNEL_UPDATE","UNIT_ENTERED_VEHICLE","UNIT_EXITED_VEHICLE"}) do
         pcall(f.RegisterEvent,f,event)
     end
+    if type(GetPetHappiness)=="function" then
+        pcall(f.RegisterEvent,f,"UNIT_HAPPINESS")
+        pcall(f.RegisterEvent,f,"PET_UI_UPDATE")
+    end
     local dirty=true;local pending=false;local polled=0
     local dirtyUnits,dirtyModules={},{}
     local dirtyFields={health={},power={},all={}}
@@ -157,6 +161,7 @@ function M:StartLive()
             dirtyUnits.target=nil;dirtyUnits.targettarget=nil
         elseif event=="PLAYER_FOCUS_CHANGED" then Unit("focus")
         elseif event=="UNIT_PET" then if unit=="player" then Unit("pet") end
+        elseif event=="UNIT_HAPPINESS" or event=="PET_UI_UPDATE" then Unit("pet")
         elseif event=="UNIT_TARGET" then
             if unit=="target" then Unit("targettarget")
             elseif unit=="player" then Unit("target");Unit("targettarget") end

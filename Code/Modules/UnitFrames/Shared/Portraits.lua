@@ -4,6 +4,7 @@ local P={};M.Portraits=P
 local CIRCLE="Interface\\AddOns\\MangUI\\Assets\\Library\\MainSweepPortraitMask.tga"
 local LOGO="Interface\\AddOns\\MangUI\\Assets\\UI\\Logo.png"
 local DEAD="Interface\\AddOns\\MangUI\\Assets\\Library\\Dead.blp"
+local happinessColors={[1]={1,0,0},[2]={1,1,0},[3]={0,1,0}}
 local function Inspect(object,method,...)
     if not object or not object[method] then return "unavailable" end
     local ok,value=pcall(object[method],object,...)
@@ -190,6 +191,17 @@ local function Load(view,o,force)
     if model.portraitAlpha then model:SetAlpha(model.portraitAlpha) end
 end
 function P.Configure(view,o)
+    if o.spec.unit=="pet" then
+        local icon=o.petHappinessIndicator
+        if not icon then
+            icon=o.frame:CreateTexture(nil,"OVERLAY");o.petHappinessIndicator=icon
+            icon:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
+            icon:SetDesaturated(true);icon:Hide()
+        end
+        local size=math.min(o.spec.width,o.spec.height)/3
+        icon:SetSize(size,size);icon:ClearAllPoints()
+        icon:SetPoint("RIGHT",o.frame,"LEFT",-size*.75,0)
+    end
     if not view.preview and not o.staticPortraitShowHook
         and (o.spec.id=="wa88b1376baa" or o.spec.id=="wa0b0b0540c7") then
         o.staticPortraitShowHook=true
@@ -291,6 +303,15 @@ function P.Configure(view,o)
     end
 end
 function P.Paint(view,o,state,color,animateOnly)
+    if o.petHappinessIndicator and not animateOnly then
+        local happy=state.petHappiness;local tint=happinessColors[happy]
+        local shown=state.exists and not state.dead and state.connected~=false and tint~=nil
+        o.petHappinessIndicator:SetShown(shown)
+        if shown and o.petHappinessColor~=happy then
+            o.petHappinessIndicator:SetVertexColor(tint[1],tint[2],tint[3],1)
+            o.petHappinessColor=happy
+        end
+    end
     if view.preview then
         o.texture:SetVertexColor(1,1,1,color[4] or 1)
         o.portraitRefresh=nil
