@@ -231,7 +231,9 @@ local function WeaponAuras(o,auras)
     o.weaponAuraBindings=retained
     return assignments
 end
+local TrackEquipment
 function O.Configure(view,o)
+    if not view.preview then TrackEquipment(false)end
     o.otherIcons=o.otherIcons or {};o.entries=O.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
     o.nextScan=0;o.nextEquipment=0;o.nextDiscovery=GetTime()+1
     for i,entry in ipairs(o.entries)do
@@ -244,15 +246,38 @@ function O.Configure(view,o)
     for i=#o.entries+1,#o.otherIcons do local slot=o.otherIcons[i];slot:Hide();slot.entry=nil;ResetNative(slot)end
 end
 O.timers={}
-local function Timer(slot,spell,cooldown,aura,now)
-    if not cooldown or cooldown<=0 then return end
+local function SaveTimer(key,record,now)
+    local clock=Number(Safe(time))
+    if clock then
+        M.db.otherMonitorEquipmentTimers=M.db.otherMonitorEquipmentTimers or {}
+        M.db.otherMonitorEquipmentTimers[key]=clock+math.max(0,record.expires-now)
+    end
+end
+local function TimerRecord(item,spell,cooldown,now)
     local guid=Safe(UnitGUID,"player");if not Readable(guid)or not guid then return end
-    local key=guid..":"..tostring(slot.item.slot)..":"..tostring(slot.item.id)..":"..tostring(slot.item.enchant)..":"..spell
+    -- Trinkets keep their ICD when moved between the two slots or into a bag.
+    local trinket=item.slot==13 or item.slot==14
+    local key=guid..":"..(trinket and "trinket"or tostring(item.slot))..":"..tostring(item.id)..":"..tostring(item.enchant)..":"..spell
     local record=O.timers[key]
     if not record then
-        local saved=M.db.otherMonitorEquipmentTimers or {};local stamp=Number(saved[key]);local clock=Safe(time)
+        local saved=M.db.otherMonitorEquipmentTimers or {};local stamp=Number(saved[key]);local clock=Number(Safe(time))
+        if trinket then
+            for _,position in ipairs({13,14})do
+                local legacy=guid..":"..position..":"..tostring(item.id)..":"..tostring(item.enchant)..":"..spell
+                local old=O.timers[legacy];local prior=Number(saved[legacy])
+                if old and old.expires>now and clock then prior=math.max(prior or 0,clock+old.expires-now)end
+                if prior then stamp=math.max(stamp or 0,prior)end
+                saved[legacy]=nil;O.timers[legacy]=nil
+            end
+        end
         record={expires=stamp and clock and stamp>clock and now+math.min(cooldown,stamp-clock)or 0};O.timers[key]=record
+        if record.expires>now then SaveTimer(key,record,now)end
     end
+    return record,key
+end
+local function Timer(slot,spell,cooldown,aura,now)
+    if not cooldown or cooldown<=0 then return end
+    local record,key=TimerRecord(slot.item,spell,cooldown,now);if not record then return end
     if aura then
         local expires,duration=Number(aura.expirationTime),Number(aura.duration)
         if expires and duration and expires>0 and duration>0 then
@@ -262,21 +287,87 @@ local function Timer(slot,spell,cooldown,aura,now)
                 record.start=start
             elseif not record.start or (start>record.start+.1 and record.expires<=now)then
                 record.start=start;record.expires=start+cooldown
-                local clock=Safe(time)
-                if clock then
-                    M.db.otherMonitorEquipmentTimers=M.db.otherMonitorEquipmentTimers or {}
-                    M.db.otherMonitorEquipmentTimers[key]=clock+math.max(0,record.expires-now)
-                end
+                SaveTimer(key,record,now)
             end
         end
     end
     return record.expires
 end
+local function PublicCooldown(item,now)
+    local finish
+    local function Include(start,duration)
+        start,duration=Number(start),Number(duration)
+        if start and duration and start>0 and duration>1.5 and start+duration>now then
+            finish=math.max(finish or 0,start+duration)
+        end
+    end
+    local enabled
+    if Number(Safe(GetInventoryItemID,"player",item.slot))==item.id then
+        local start,duration;start,duration,enabled=Safe(GetInventoryItemCooldown,"player",item.slot)
+        Include(start,duration)
+    end
+    if item.id then
+        Include(Safe(GetItemCooldown,item.id))
+        if C_Item and C_Item.GetItemCooldown~=GetItemCooldown then Include(Safe(C_Item.GetItemCooldown,item.id))end
+    end
+    return finish,Number(enabled)
+end
+local function EquipCooldown(item,now)
+    if not item or not item.id then return end
+    local public,enabled=PublicCooldown(item,now)
+    if next(item.effects)==nil then return end
+    local cooldown
+    for _,effect in pairs(item.effects)do
+        if effect.cooldown and effect.cooldown>0 then cooldown=math.max(cooldown or 0,effect.cooldown)end
+    end
+    local _,useSpell=Safe(C_Item and C_Item.GetItemSpell or GetItemSpell,item.id)
+    if enabled==nil then enabled=item.cooldownEnabled end
+    local usable=enabled~=0 and ((Number(useSpell)and useSpell>0)or
+        ((item.slot==13 or item.slot==14)and enabled==1))
+    -- Known passive effects restart their own ICD; active equipment uses the
+    -- equip lock instead of its full use cooldown. Prefer a public timer.
+    -- Keep this separate from proc timers so a later buff can start its ICD.
+    if usable then cooldown=30 end
+    if not cooldown and not public then return end
+    local record,key=TimerRecord(item,"equip",604800,now)
+    if record then
+        record.expires=math.max(record.expires,public or now+cooldown)
+        SaveTimer(key,record,now)
+    end
+end
+TrackEquipment=function(changed)
+    local current={}
+    for position=1,19 do
+        local item=O.Effects(position);current[position]=item
+        local _,enabled=PublicCooldown(item,GetTime());item.cooldownEnabled=enabled
+    end
+    if not O.equipped then O.equipped=current;return end
+    if not changed then return end
+    local now=GetTime();local pending={}
+    for position=1,19 do
+        local before,after=O.equipped[position],current[position]
+        -- Effect metadata may arrive later; it does not mean a new equip.
+        if before.id~=after.id or before.enchant~=after.enchant or before.gem~=after.gem then
+            if before.id then pending[position..":old"]=before end
+            if after.id then pending[position..":new"]=after end
+        end
+    end
+    O.equipped=current
+    for _,item in pairs(pending)do
+        -- Prefer the new slot when the same item moved: its public API now
+        -- describes the correct item. Unequipped items retain their own ICD.
+        if item.slot==13 or item.slot==14 then
+            for _,position in ipairs({13,14})do if current[position].id==item.id then item=current[position];break end end
+        end
+        EquipCooldown(item,now)
+    end
+end
 local function Equipment(slot,auras,now,weaponAuras)
     local active,expires,stacks,cdExpires,hasFixed=false,nil,nil,nil,false
-    local start,duration=Safe(GetInventoryItemCooldown,"player",slot.entry.slot)
-    start,duration=Number(start),Number(duration)
-    if start and duration and duration>1.5 then cdExpires=start+duration;hasFixed=true end
+    cdExpires=PublicCooldown(slot.item,now)
+    local swap=TimerRecord(slot.item,"equip",604800,now)
+    if swap and swap.expires>now then cdExpires=math.max(cdExpires or 0,swap.expires)end
+    if cdExpires then hasFixed=true end
     for spell,effect in pairs(slot.item.effects)do
         local aura=auras and auras.byID[spell]
         if (slot.entry.slot==16 or slot.entry.slot==17)and weaponAuras[spell]then aura=weaponAuras[spell][slot.entry.slot]end
@@ -297,6 +388,7 @@ local function Refresh(view,o,now)
     local player=Auras("player","HELPFUL")
     local targetExists=M.Compat.Bool(Safe(UnitExists,"target"));local target=targetExists and Auras("target","HARMFUL|PLAYER")or nil
     local equipmentDue=now>=(o.nextEquipment or 0)
+    if equipmentDue then TrackEquipment(true)end
     for _,slot in ipairs(o.otherIcons)do
         local entry=slot.entry
         if entry then
@@ -405,9 +497,12 @@ function O.Paint(view,o,animateOnly)
     end
 end
 local events={UNIT_AURA=true,PLAYER_TARGET_CHANGED=true,PLAYER_ENTERING_WORLD=true,PLAYER_EQUIPMENT_CHANGED=true,
-    UNIT_INVENTORY_CHANGED=true,BAG_UPDATE_COOLDOWN=true,GET_ITEM_INFO_RECEIVED=true,PLAYER_REGEN_ENABLED=true,SPELLS_CHANGED=true}
+    UNIT_INVENTORY_CHANGED=true,BAG_UPDATE_COOLDOWN=true,BAG_UPDATE_DELAYED=true,SPELL_UPDATE_COOLDOWN=true,
+    GET_ITEM_INFO_RECEIVED=true,PLAYER_REGEN_ENABLED=true,SPELLS_CHANGED=true}
 function O.Event(view,event,unit)
     if not events[event]or (event=="UNIT_AURA"and unit~="player"and unit~="target")then return end
+    if event=="UNIT_INVENTORY_CHANGED"and unit~="player"then return end
+    if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="BAG_UPDATE_DELAYED"then TrackEquipment(true)end
     local o=view.nodes.playerOtherMonitorIcons;if not o then return end
     o.nextScan=0
     if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED"then o.nextEquipment=0 end
