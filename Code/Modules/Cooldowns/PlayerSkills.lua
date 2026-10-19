@@ -156,17 +156,18 @@ end
 local function ClearCooldown(cooldown)
     if cooldown.Clear then cooldown:Clear() else cooldown:SetCooldown(0,0) end
 end
+local countdownFontSize=16 -- Shared by countdowns and count labels.
 local function Font(label)
-    label:SetFont(M:EffectiveFontPath(M.MYRIAD),16,"OUTLINE");label:SetTextColor(1,1,1,1)
+    label:SetFont(M:EffectiveFontPath(M.MYRIAD),countdownFontSize,"OUTLINE");label:SetTextColor(1,1,1,1)
     label:SetJustifyH("CENTER");label:SetShadowColor(0,0,0,1);label:SetShadowOffset(1,-1)
 end
 local function CountFont(label)
     Font(label);label:SetShadowColor(0,0,0,0);label:SetShadowOffset(0,0)
 end
-local function CountText(label,value,showSingle)
+local function CountText(label,value,showSingle,hideZero)
     if not Readable(value)then label:SetFormattedText("%d",value);return end
     local count=Number(value)
-    label:SetText(count and count>=0 and (showSingle or count>1)and tostring(count)or "")
+    label:SetText(count and count>=(hideZero and 1 or 0)and (showSingle or count>1)and tostring(count)or "")
 end
 -- Summon abilities use their live guardian count in the same place as spell
 -- charges. Register only verified client mechanics; other spells keep charges.
@@ -322,7 +323,7 @@ local function Cooldown(entry,slot)
         if info then charges,maximum,chargeStart,chargeDuration,chargeRate=info.currentCharges,info.maxCharges,info.cooldownStartTime,info.cooldownDuration,info.chargeModRate end
     else charges,maximum,chargeStart,chargeDuration,chargeRate=Safe(GetSpellCharges,key)end
     local summons=S.SummonCount(slot)
-    if summons~=nil then CountText(slot.count,summons,true)
+    if summons~=nil then CountText(slot.count,summons,true,true)
     elseif Number(maximum)and maximum<=1 then slot.count:SetText("")else CountText(slot.count,charges,true)end
     if C_Spell and C_Spell.GetSpellCooldownDuration then
         local duration=Safe(C_Spell.GetSpellChargeDuration,key) or Safe(C_Spell.GetSpellCooldownDuration,key,true)
