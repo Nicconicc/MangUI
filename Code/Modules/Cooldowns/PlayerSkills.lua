@@ -118,7 +118,7 @@ function S.Entries(group)
     return result
 end
 function S.MoveBounds(group)
-    return 0,10,math.max(180,#S.Entries(group)*44+20),90
+    return 0,20,math.max(180,#S.Entries(group)*44+20),112
 end
 function S.EntryIndex(group,entry)
     for i,current in ipairs(group.monitors or {})do if current==entry then return i end end
@@ -160,6 +160,14 @@ local function Font(label)
     label:SetFont(M:EffectiveFontPath(M.MYRIAD),16,"OUTLINE");label:SetTextColor(1,1,1,1)
     label:SetJustifyH("CENTER");label:SetShadowColor(0,0,0,1);label:SetShadowOffset(1,-1)
 end
+local function CountFont(label)
+    Font(label);label:SetShadowColor(0,0,0,0);label:SetShadowOffset(0,0)
+end
+local function CountText(label,value,showSingle)
+    if not Readable(value)then label:SetFormattedText("%d",value);return end
+    local count=Number(value)
+    label:SetText(count and count>=0 and (showSingle or count>1)and tostring(count)or "")
+end
 local function StyleNativeAura(slot,frame)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
@@ -168,6 +176,8 @@ local function StyleNativeAura(slot,frame)
     frame.monitorTime=frame:CreateFontString(nil,"OVERLAY");Font(frame.monitorTime)
     frame.monitorTime:SetPoint("BOTTOM",frame,"TOP",0,7)
     frame:SetIcon(frame.monitorIcon);frame:SetDurationText(frame.monitorTime,{})
+    frame.monitorCount=frame:CreateFontString(nil,"OVERLAY");CountFont(frame.monitorCount)
+    frame.monitorCount:SetPoint("BOTTOM",frame,"TOP",0,29);frame:SetApplicationCount(frame.monitorCount,{})
     -- Each native aura frame gates the annotation through engine alpha. This
     -- also handles private visibility without testing secret booleans in Lua.
     frame.shortcutGate=CreateFrame("Frame",nil,slot.shortcutGate or slot.shortcutFrame)
@@ -196,6 +206,7 @@ local function Icon(o,i)
     slot.baseIconFrame=CreateFrame("Frame",nil,slot);slot.baseIconFrame:SetAllPoints();slot.baseIconFrame:EnableMouse(false)
     slot.texture=slot.baseIconFrame:CreateTexture(nil,"ARTWORK");slot.texture:SetAllPoints()
     slot.text=slot:CreateFontString(nil,"OVERLAY");Font(slot.text);slot.text:SetPoint("BOTTOM",slot,"TOP",0,7)
+    slot.count=slot:CreateFontString(nil,"OVERLAY");CountFont(slot.count);slot.count:SetPoint("BOTTOM",slot,"TOP",0,29)
     slot.cooldown=CreateFrame("Cooldown",nil,slot,"CooldownFrameTemplate");slot.cooldown:SetAllPoints();slot.cooldown:EnableMouse(false)
     slot.cooldown:SetDrawEdge(false);slot.cooldown:SetDrawBling(false);slot.cooldown:SetDrawSwipe(false)
     slot.cooldown:SetHideCountdownNumbers(false);slot.cooldown.noCooldownCount=true
@@ -245,12 +256,13 @@ function S.Configure(view,o)
     o.skillIcons=o.skillIcons or {};o.nextScan=0;o.nativeTargetGeneration=nil
     o.entries=S.Entries(view.byID[o.spec.parent]);o.usesNativeAuras=not view.preview and NativeAurasAvailable()
     for i,entry in ipairs(o.entries)do
-        local slot=Icon(o,i);Resolve(slot,entry);slot.duration=nil;slot.expires=nil;slot.active=false
+        local slot=Icon(o,i);Resolve(slot,entry);slot.duration=nil;slot.expires=nil;slot.active=false;slot.stacks=nil
+        CountFont(slot.count);slot.count:SetText("")
         slot.text:SetText("");ClearCooldown(slot.cooldown);slot.texture:SetDesaturated(false)
         Font(slot.text)
         Shortcut(slot,entry)
         if slot.nativeTime then Font(slot.nativeTime)end
-        for _,frame in ipairs(slot.nativeFrames or {})do Font(frame.monitorTime)end
+        for _,frame in ipairs(slot.nativeFrames or {})do Font(frame.monitorTime);CountFont(frame.monitorCount)end
         if o.usesNativeAuras then BindAura(slot,view.byID[o.spec.parent].enabled~=false)end
     end
     for i=#o.entries+1,#o.skillIcons do
@@ -263,6 +275,12 @@ local function Remaining(slot,seconds)
 end
 local function Cooldown(entry,slot)
     local key=slot.spellID or entry.value
+    local charges,maximum,chargeStart,chargeDuration,chargeRate
+    if C_Spell and C_Spell.GetSpellCharges then
+        local info=Safe(C_Spell.GetSpellCharges,key)
+        if info then charges,maximum,chargeStart,chargeDuration,chargeRate=info.currentCharges,info.maxCharges,info.cooldownStartTime,info.cooldownDuration,info.chargeModRate end
+    else charges,maximum,chargeStart,chargeDuration,chargeRate=Safe(GetSpellCharges,key)end
+    if Number(maximum)and maximum<=1 then slot.count:SetText("")else CountText(slot.count,charges,true)end
     if C_Spell and C_Spell.GetSpellCooldownDuration then
         local duration=Safe(C_Spell.GetSpellChargeDuration,key) or Safe(C_Spell.GetSpellCooldownDuration,key,true)
         if duration and slot.cooldown.SetCooldownFromDurationObject then
@@ -279,11 +297,6 @@ local function Cooldown(entry,slot)
             start,duration,enabled,rate=info.startTime,info.duration,info.isEnabled,info.modRate
         end
     else start,duration,enabled,rate=Safe(GetSpellCooldown,key)end
-    local charges,maximum,chargeStart,chargeDuration,chargeRate
-    if C_Spell and C_Spell.GetSpellCharges then
-        local info=Safe(C_Spell.GetSpellCharges,key)
-        if info then charges,maximum,chargeStart,chargeDuration,chargeRate=info.currentCharges,info.maxCharges,info.cooldownStartTime,info.cooldownDuration,info.chargeModRate end
-    else charges,maximum,chargeStart,chargeDuration,chargeRate=Safe(GetSpellCharges,key)end
     if Number(charges) and Number(maximum) and charges<maximum and Number(chargeStart) and Number(chargeDuration) then
         start,duration,rate=chargeStart,chargeDuration,chargeRate
     end
@@ -300,7 +313,7 @@ end
 local function TargetAuras(o)
     local needed=false
     for _,slot in ipairs(o.skillIcons)do
-        if slot.entry and slot.entry.type=="debuff" then slot.active=false;slot.expires=nil;needed=true end
+        if slot.entry and slot.entry.type=="debuff" then slot.active=false;slot.expires=nil;slot.stacks=nil;needed=true end
     end
     if not needed or o.usesNativeAuras then return end
     for index=1,255 do
@@ -316,6 +329,8 @@ local function TargetAuras(o)
                     (source~=nil and UnitIsUnit and M.Compat.Bool(Safe(UnitIsUnit,source,"player"))))
                 if match and own then
                     slot.active=true
+                    local stacks=Number(aura.applications)
+                    if stacks and (not slot.stacks or stacks>slot.stacks)then slot.stacks=stacks end
                     local expires=Number(aura.expirationTime)
                     if expires and expires>0 and (not slot.expires or expires>slot.expires)then slot.expires=expires end
                     if Readable(aura.icon) and aura.icon~=nil then slot.texture:SetTexture(aura.icon)end
@@ -372,6 +387,7 @@ function S.Paint(view,o,animateOnly)
         end
         if view.preview then
             ClearCooldown(slot.cooldown);slot.texture:SetDesaturated(i%2==1);slot.texture:SetAlpha(i%2==1 and .5 or 1);slot.text:SetText(tostring(30-i))
+            slot.count:SetText(slot.entry.type=="debuff"and "3"or "2")
         elseif slot.duration then
             local desat=DesaturationCurve()
             if desat and slot.duration.EvaluateRemainingDuration and slot.texture.SetDesaturation then
@@ -388,7 +404,7 @@ function S.Paint(view,o,animateOnly)
                 end
             end
         elseif slot.entry.type=="debuff" and o.usesNativeAuras then
-            slot.texture:SetDesaturated(false);slot.text:SetText("")
+            slot.texture:SetDesaturated(false);slot.text:SetText("");slot.count:SetText("")
             -- Native aura frames draw a gray overlay and countdown only while
             -- present. The colored base icon remains visible when absent.
         else
@@ -396,6 +412,7 @@ function S.Paint(view,o,animateOnly)
             slot.texture:SetDesaturated(active==true);Remaining(slot,active and slot.expires and slot.expires-now or nil)
             slot.texture:SetAlpha(active and .5 or 1)
             slot.shortcutFrame:SetAlpha(active and 0 or 1)
+            if slot.entry.type=="debuff"then CountText(slot.count,active and slot.stacks or nil,false)end
         end
     end
 end
