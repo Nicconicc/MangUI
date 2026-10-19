@@ -12,7 +12,7 @@ local function Icon(parent,secure)
     button.texture=button:CreateTexture(nil,"ARTWORK");button.texture:SetAllPoints()
     button.grayTexture=button:CreateTexture(nil,"OVERLAY");button.grayTexture:SetAllPoints();button.grayTexture:SetDesaturated(true);button.grayTexture:SetAlpha(0)
     button.time=button:CreateFontString(nil,"OVERLAY");Font(button.time);button.time:SetPoint("BOTTOM",button,"TOP",0,7)
-    button.count=button:CreateFontString(nil,"OVERLAY");Font(button.count);button.count:SetPoint("CENTER",button,"BOTTOM",0,0)
+    button.count=button:CreateFontString(nil,"OVERLAY");Font(button.count);button.count:SetPoint("CENTER",button,"BOTTOM",2,6)
     button.cooldown=CreateFrame("Cooldown",nil,button,"CooldownFrameTemplate");button.cooldown:SetAllPoints();button.cooldown:EnableMouse(false)
     button.cooldown:SetDrawEdge(false);button.cooldown:SetDrawBling(false);button.cooldown:SetDrawSwipe(false)
     button.cooldown:SetHideCountdownNumbers(false);button.cooldown.noCooldownCount=true
@@ -121,8 +121,9 @@ local function MissingItem(button)
         end
     end
     -- Native text supports secret counts; only readable counts affect artwork.
-    if type(count)=="nil"then button.count:SetText("")else button.count:SetText(count)end
-    return Number(count)==0
+    local missing=Number(count)==0
+    if type(count)=="nil"or missing then button.count:SetText("")else button.count:SetText(count)end
+    return missing
 end
 function I.Paint(view,o,animateOnly)
     local group=view.byID[o.spec.parent]
