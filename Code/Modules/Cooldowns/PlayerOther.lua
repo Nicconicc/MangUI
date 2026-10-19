@@ -204,24 +204,32 @@ end
 function O.Effects(slot)
     local id,name,icon,enchant,gem=O.Item(slot);local result={id=id,name=name,icon=icon,slot=slot,enchant=enchant,gem=gem,effects={}}
     if not id then return result end
+    local function Cooldown(value,listed)
+        -- Only listed trinkets with unspecified ICDs default to 45s.
+        -- Unlisted items and explicit zero keep their existing behavior.
+        if value==nil and listed and (slot==13 or slot==14)then return 45 end
+        return value
+    end
     for i=#(M.db.otherMonitorEquipmentOverrides or {}),1,-1 do
         local row=M.db.otherMonitorEquipmentOverrides[i]
         if tonumber(row.itemID)==id then
             result.overridden=true
             for value in row.spellID:gmatch("%d+")do
-                local spell=tonumber(value);if spell>0 and spell%1==0 then result.effects[spell]={cooldown=(tonumber(row.cooldown)and tonumber(row.cooldown)>=0 and tonumber(row.cooldown)<=604800)and tonumber(row.cooldown)or nil}end
+                local spell=tonumber(value);if spell>0 and spell%1==0 then result.effects[spell]={cooldown=Cooldown((tonumber(row.cooldown)and tonumber(row.cooldown)>=0 and tonumber(row.cooldown)<=604800)and tonumber(row.cooldown)or nil,true)}end
             end
             return result
         end
     end
     local data=M.EquipmentEffectData
+    local itemEffect=data.Item(id,M.Compat.interface)
+    local listed=itemEffect~=nil or data.extra[id]~=nil
     local function Add(value)
         if type(value)=="table"then for _,spell in ipairs(value)do Add(spell)end
         elseif type(value)=="number"and value>0 and value%1==0 and value<=1000000000 then
-            result.effects[value]={cooldown=data.noCooldown[value]and 0 or data.cooldowns[value]}
+            result.effects[value]={cooldown=Cooldown(data.noCooldown[value]and 0 or data.cooldowns[value],listed)}
         end
     end
-    Add(data.Item(id,M.Compat.interface));Add(data.enchants[enchant]);Add(data.gems[gem]);Add(data.extra[id])
+    Add(itemEffect);Add(data.enchants[enchant]);Add(data.gems[gem]);Add(data.extra[id])
     if next(result.effects)==nil then
         local _,spell=O.Safe(C_Item and C_Item.GetItemSpell or GetItemSpell,id)
         if O.Number(spell)then Add(spell)end
