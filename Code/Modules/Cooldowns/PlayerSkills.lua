@@ -419,7 +419,16 @@ function S.BuildControls(e,parent,Row)
     local choices={{name="玩家技能冷却",path="cooldown"},{name="目标Debuff",path="debuff"}}
     local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);e.skillMonitorPanel=panel
     local sharing=CreateFrame("Frame",nil,parent);sharing:SetSize(470,56);e.skillMonitorSharing=sharing
-    sharing.title=W.Label(sharing,"配置分享",12);sharing.title:SetPoint("TOPLEFT",0,0)
+    local function SectionTitle(frame,text)
+        local title=W.Label(frame,text,12);title:SetPoint("CENTER",frame,"TOP",0,12)
+        title:SetTextColor(1,.82,0);title:SetJustifyH("CENTER");M:SetLocaleLineHeight(title,18)
+        local left=frame:CreateTexture(nil,"ARTWORK");left:SetHeight(1);left:SetColorTexture(.5,.5,.5,.45)
+        left:SetPoint("LEFT",frame,"TOPLEFT",0,12);left:SetPoint("RIGHT",title,"LEFT",-8,0)
+        local right=frame:CreateTexture(nil,"ARTWORK");right:SetHeight(1);right:SetColorTexture(.5,.5,.5,.45)
+        right:SetPoint("LEFT",title,"RIGHT",8,0);right:SetPoint("RIGHT",frame,"TOPRIGHT",0,12)
+        return title
+    end
+    sharing.title=SectionTitle(sharing,"配置分享");panel.title=SectionTitle(panel,"监控设置")
     e.propRows[#e.propRows+1]={height=56,controls={{sharing,0,0}},kinds={},key="skillMonitorSharing"}
     local property={height=30,controls={{panel,0,0}},kinds={},key="skillMonitorItems"}
     e.propRows[#e.propRows+1]=property;panel.propertyRow=property;panel.rows={}
@@ -433,6 +442,7 @@ function S.BuildControls(e,parent,Row)
     sharing.exportAll=W.Button(sharing,"导出全职业配置",150,function()Flush();M:ShowConfigStringDialog("export","skillsAll")end)
     sharing.exportClass=W.Button(sharing,"导出当前职业配置",150,function()Flush();M:ShowConfigStringDialog("export","skillsClass")end)
     sharing.import=W.Button(sharing,"导入配置",150,function()Flush();M:ShowConfigStringDialog("import","skills")end)
+    for _,button in ipairs({sharing.exportAll,sharing.exportClass,sharing.import})do button:SetHoverTextColor(1,.82,0)end
     local function SkillIcon(row)
         local value=S.Input(row.edit:GetText())
         local name,_,icon

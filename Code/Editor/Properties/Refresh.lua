@@ -494,7 +494,12 @@ function M:RefreshProperties()
     local height=0;local previousSection
     for _,entry in ipairs(rows) do
         local row,visible=entry.row,entry.visible and not entry.fontPairHidden and not entry.inlineHidden
-        if visible and previousSection and previousSection~=entry.section then height=PropertyDivider(e,height)end
+        if visible and previousSection and previousSection~=entry.section then
+            height=PropertyDivider(e,height)
+            if n.compound=="playerSkillMonitor"and (row.key=="skillMonitorSharing"or row.key=="skillMonitorItems")then
+                e.propertyDividers[e.propertyDividerCount]:Hide()
+            end
+        end
         entry.layoutY=-height
         for i,control in ipairs(row.controls) do
             -- Inline controls still remain visible while skipping their own row.

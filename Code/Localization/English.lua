@@ -562,4 +562,5 @@ english["导出全职业配置"]="Export all classes"
 english["导出当前职业配置"]="Export current class"
 english["粘贴技能监控配置字符串；仅更新字符串包含的职业配置。"]="Paste skill tracking settings. Only classes included in the string will be updated."
 english["粘贴配置字符串；技能监控配置仅更新对应职业，整体配置更新全部设置。"]="Paste a settings string. Skill tracking strings update their included classes; full settings strings update all settings."
+english["监控设置"]="Tracking settings"
 M:RebuildLocaleKeys()
