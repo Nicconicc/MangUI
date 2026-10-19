@@ -12,6 +12,7 @@ local function Icon(parent,secure)
     button.texture=button:CreateTexture(nil,"ARTWORK");button.texture:SetAllPoints()
     button.grayTexture=button:CreateTexture(nil,"OVERLAY");button.grayTexture:SetAllPoints();button.grayTexture:SetDesaturated(true);button.grayTexture:SetAlpha(0)
     button.time=button:CreateFontString(nil,"OVERLAY");Font(button.time);button.time:SetPoint("BOTTOM",button,"TOP",0,7)
+    button.count=button:CreateFontString(nil,"OVERLAY");Font(button.count);button.count:SetPoint("CENTER",button,"BOTTOM",0,0)
     button.cooldown=CreateFrame("Cooldown",nil,button,"CooldownFrameTemplate");button.cooldown:SetAllPoints();button.cooldown:EnableMouse(false)
     button.cooldown:SetDrawEdge(false);button.cooldown:SetDrawBling(false);button.cooldown:SetDrawSwipe(false)
     button.cooldown:SetHideCountdownNumbers(false);button.cooldown.noCooldownCount=true
@@ -72,7 +73,7 @@ function I.Configure(view,o)
         local button=o.itemIcons[index]
         if not button then button=Icon(parent,not view.preview);o.itemIcons[index]=button end
         button.entry=entry;button.item=I.Resolve(entry);button.texture:SetTexture(button.item.icon or 134400)
-        button.grayTexture:SetTexture(button.item.icon or 134400);Font(button.time)
+        button.grayTexture:SetTexture(button.item.icon or 134400);Font(button.time);Font(button.count)
         button:ClearAllPoints();button:SetPoint("CENTER",parent,"CENTER",S.IconOffset(group,index,#entries),-7)
         if not view.preview then
             button:SetAttribute("type1",button.item.use and "item"or nil)
@@ -109,6 +110,20 @@ local function ItemCooldown(item,now)
     end
     return finish,secretStart,secretDuration
 end
+local function MissingItem(button)
+    local item=button.item;local count
+    if I.Kind(button.entry)=="item"and not item.equippable then
+        if not item.id then count=0
+        else
+            -- Count carried copies, not bank stock or remaining item charges.
+            count=Safe(C_Item and C_Item.GetItemCount,item.id,false,false,false,false)
+            if type(count)=="nil"then count=Safe(GetItemCount,item.id,false,false,false,false)end
+        end
+    end
+    -- Native text supports secret counts; only readable counts affect artwork.
+    if type(count)=="nil"then button.count:SetText("")else button.count:SetText(count)end
+    return Number(count)==0
+end
 function I.Paint(view,o,animateOnly)
     local group=view.byID[o.spec.parent]
     if view.preview then
@@ -116,7 +131,8 @@ function I.Paint(view,o,animateOnly)
         if not shown then return end
         for index,button in ipairs(o.itemIcons or {})do
             if button.entry then
-                button.texture:SetDesaturated(index%2==1);button.texture:SetAlpha(index%2==1 and .5 or 1)
+                local dim=MissingItem(button)or index%2==1
+                button.texture:SetDesaturated(dim);button.texture:SetAlpha(dim and .5 or 1)
                 button.grayTexture:SetAlpha(0)
                 button.time:SetText(tostring(30-index))
             end
@@ -128,13 +144,16 @@ function I.Paint(view,o,animateOnly)
     local now=GetTime();if animateOnly and now<(o.nextScan or 0)then return end;o.nextScan=now+.1
     for _,button in ipairs(o.itemIcons or {})do
         if button.entry then
+            local missing=MissingItem(button)
             local finish,start,duration=ItemCooldown(button.item,now)
             if type(start)~="nil"and type(duration)~="nil"and (not Readable(start)or not Readable(duration))then
                 -- The engine renders protected countdown values; Lua never
                 -- compares them or turns them into strings.
                 button.cooldown:SetCooldown(start,duration);button.time:SetText("")
                 local present=button.cooldown:IsShown()
-                if button.texture.SetAlphaFromBoolean and button.grayTexture.SetAlphaFromBoolean then
+                if missing then
+                    button.texture:SetDesaturated(true);button.texture:SetAlpha(.5);button.grayTexture:SetAlpha(0)
+                elseif button.texture.SetAlphaFromBoolean and button.grayTexture.SetAlphaFromBoolean then
                     button.texture:SetDesaturated(false);button.texture:SetAlphaFromBoolean(present,0,1)
                     button.grayTexture:SetAlphaFromBoolean(present,.5,0)
                 elseif Readable(present)then
@@ -143,7 +162,8 @@ function I.Paint(view,o,animateOnly)
             else
                 if button.cooldown.Clear then button.cooldown:Clear()else button.cooldown:SetCooldown(0,0)end
                 button.grayTexture:SetAlpha(0)
-                button.texture:SetDesaturated(finish~=nil);button.texture:SetAlpha(finish and .5 or 1)
+                local dim=missing or finish~=nil
+                button.texture:SetDesaturated(dim);button.texture:SetAlpha(dim and .5 or 1)
                 button.time:SetText(S.FormatCountdown(finish and finish-now or nil))
             end
         end
