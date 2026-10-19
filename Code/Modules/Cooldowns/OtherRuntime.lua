@@ -78,7 +78,7 @@ local function Find(auras,entry,spellID)
 end
 local function Time(text,expires,now)
     local remaining=expires and expires-now
-    text:SetText(remaining and remaining>0 and (remaining>=60 and math.ceil(remaining/60).."m"or tostring(math.ceil(remaining)))or "")
+    text:SetText(S.FormatCountdown(remaining))
 end
 local function Count(text,value)
     local count=Number(value);text:SetText(count and count>1 and tostring(count)or "")
@@ -101,7 +101,7 @@ local function NativeFrame(slot,frame)
     frame.icon:SetShown(not IsMissing(entry));frame.time:SetShown(not IsMissing(entry));frame.count:SetShown(not IsMissing(entry))
     if not IsMissing(entry)then
         if entry.type=="equipment"then frame.icon:SetTexture(slot.item.icon or 134400)else frame:SetIcon(frame.icon)end
-        frame:SetDurationText(frame.time,{});frame:SetApplicationCount(frame.count,{})
+        frame:SetDurationText(frame.time,S.DurationTextOptions());frame:SetApplicationCount(frame.count,{})
     end
 end
 local function BindNative(slot)
@@ -133,7 +133,7 @@ local function BindNative(slot)
         if not IsMissing(entry)then
             if entry.type=="equipment"then frame.icon:SetTexture(slot.item.icon or 134400)
             else frame:SetIcon(frame.icon)end
-            frame:SetDurationText(frame.time,{});frame:SetApplicationCount(frame.count,{})
+            frame:SetDurationText(frame.time,S.DurationTextOptions());frame:SetApplicationCount(frame.count,{})
         end
     end
 end

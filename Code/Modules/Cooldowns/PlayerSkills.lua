@@ -7,6 +7,31 @@ local function Safe(fn,...)
     if not fn then return end
     local ok,a,b,c,d,e=pcall(fn,...);if ok then return a,b,c,d,e end
 end
+function S.FormatCountdown(seconds)
+    seconds=Number(seconds)
+    if not seconds or seconds<=0 then return "" end
+    local whole=math.ceil(seconds)
+    if seconds>=60 then return string.format("%d:%02d",math.floor(whole/60),whole%60)end
+    return tostring(whole)
+end
+local countdownFormatter
+function S.CountdownFormatter()
+    if countdownFormatter then return countdownFormatter end
+    if not C_StringUtil or not C_StringUtil.CreateNumericRuleFormatter
+        or not Enum or not Enum.NumericRuleFormatRounding then return end
+    local formatter=Safe(C_StringUtil.CreateNumericRuleFormatter)
+    if not formatter then return end
+    local up=Enum.NumericRuleFormatRounding.Up
+    local ok=pcall(formatter.SetBreakpoints,formatter,{
+        {threshold=0,format="%d",rounding=up,step=1},
+        {threshold=60,format="%d:%02d",rounding=up,step=1,
+            components={{div=60},{mod=60}}},
+    })
+    if ok then countdownFormatter=formatter;return formatter end
+end
+function S.DurationTextOptions()
+    return {textFormatter=S.CountdownFormatter()}
+end
 function S.Input(value)
     if type(value)~="string" then return "" end
     return value:gsub("[%c]",""):match("^%s*(.-)%s*$")
@@ -258,7 +283,7 @@ local function StyleNativeAura(slot,frame)
     frame.monitorIcon:SetAlpha(.5)
     frame.monitorTime=frame:CreateFontString(nil,"OVERLAY");Font(frame.monitorTime)
     frame.monitorTime:SetPoint("BOTTOM",frame,"TOP",0,7)
-    frame:SetIcon(frame.monitorIcon);frame:SetDurationText(frame.monitorTime,{})
+    frame:SetIcon(frame.monitorIcon);frame:SetDurationText(frame.monitorTime,S.DurationTextOptions())
     frame.monitorCount=frame:CreateFontString(nil,"OVERLAY");CountFont(frame.monitorCount)
     frame.monitorCount:SetPoint("BOTTOM",frame,"TOP",0,29);frame:SetApplicationCount(frame.monitorCount,{})
     -- Each native aura frame gates the annotation through engine alpha. This
@@ -293,6 +318,9 @@ local function Icon(o,i)
     slot.cooldown=CreateFrame("Cooldown",nil,slot,"CooldownFrameTemplate");slot.cooldown:SetAllPoints();slot.cooldown:EnableMouse(false)
     slot.cooldown:SetDrawEdge(false);slot.cooldown:SetDrawBling(false);slot.cooldown:SetDrawSwipe(false)
     slot.cooldown:SetHideCountdownNumbers(false);slot.cooldown.noCooldownCount=true
+    local formatter=S.CountdownFormatter()
+    if formatter and slot.cooldown.SetCountdownFormatter then slot.cooldown:SetCountdownFormatter(formatter)
+    elseif slot.cooldown.SetCountdownAbbrevThreshold then slot.cooldown:SetCountdownAbbrevThreshold(3600)end
     if slot.cooldown.GetCountdownFontString then
         slot.nativeTime=slot.cooldown:GetCountdownFontString()
         if slot.nativeTime then Font(slot.nativeTime);slot.nativeTime:ClearAllPoints();slot.nativeTime:SetPoint("BOTTOM",slot,"TOP",0,7)end
@@ -354,7 +382,7 @@ function S.Configure(view,o)
     end
 end
 local function Remaining(slot,seconds)
-    slot.text:SetText(seconds and seconds>0 and (seconds>=60 and math.ceil(seconds/60).."m" or tostring(math.ceil(seconds))) or "")
+    slot.text:SetText(S.FormatCountdown(seconds))
 end
 local function Cooldown(entry,slot)
     local key=slot.spellID or entry.value
