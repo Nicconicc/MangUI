@@ -101,7 +101,13 @@ local function Decoration(o)
     if frame.CreateLine then
         frame.connector={}
         for _,name in ipairs({"row","link"})do
-            local line=frame:CreateLine(nil,"OVERLAY");line:SetColorTexture(1,1,1,.6)
+            local line=frame:CreateLine(nil,"OVERLAY")
+            if name=="link"then
+                line:SetTexture(M.ART.."UI\\RaidBuffSoftLine.tga","CLAMP","CLAMP","LINEAR")
+                line:SetVertexColor(1,1,1,.6);line:SetBlendMode("BLEND")
+                if line.SetSnapToPixelGrid then line:SetSnapToPixelGrid(false)end
+                if line.SetTexelSnappingBias then line:SetTexelSnappingBias(0)end
+            else line:SetColorTexture(1,1,1,.6)end
             line:Hide();frame.connector[name]=line
         end
         if frame.CreateMaskTexture then
@@ -168,7 +174,9 @@ local function UpdateConnector(view,o)
         local distance=math.sqrt(vx*vx/(rx*rx)+vy*vy/(ry*ry))
         connector.outside=distance>1
         if connector.outside then
-            connector.row:SetThickness(2*pixel);connector.link:SetThickness(2*pixel)
+            -- The texture's 4px footprint has a 2px solid core and a 1px alpha
+            -- shoulder on each side, so the quad boundary stays transparent.
+            connector.row:SetThickness(2*pixel);connector.link:SetThickness(4*pixel)
             connector.row:SetStartPoint("CENTER",frame,innerX,y)
             connector.row:SetEndPoint("CENTER",frame,iconEdge,y)
             local edgeX,edgeY=tx+vx/distance,ty+vy/distance
