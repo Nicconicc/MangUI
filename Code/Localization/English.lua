@@ -698,6 +698,8 @@ english["粘贴此模块配置字符串；单职业仅更新对应职业，全�
 english["职业"]="Classes"
 english["职业加载"]="Class loading"
 english["隐藏辅助线"]="Hide guide lines"
-english["辅助线长度"]="Guide line length"
+english["辅助线"]="Guide lines"
+english["辅助斜线长度"]="Diagonal guide length"
+english["辅助平线长度"]="Horizontal guide length"
 english["显示文字"]="Show text"
 M:RebuildLocaleKeys()

@@ -13,25 +13,42 @@ function I.BuildControls(e,parent)
         Flush()
     end
     M.MonitorSharing.BuildControls(e,parent,"raidBuffs",Flush)
-    guide=CreateFrame("Frame",nil,parent);guide:SetSize(470,108);e.raidBuffsGuidePanel=guide
+    guide=CreateFrame("Frame",nil,parent);guide:SetSize(470,144);e.raidBuffsGuidePanel=guide
+    guide.title=W.Label(guide,"辅助线",12);guide.title:SetPoint("CENTER",guide,"TOP",0,12);guide.title:SetTextColor(1,.82,0)
+    M:SetLocaleLineHeight(guide.title,18);guide.title:SetJustifyH("CENTER")
+    guide.left=guide:CreateTexture(nil,"ARTWORK");guide.left:SetHeight(1);guide.left:SetColorTexture(.5,.5,.5,.45)
+    guide.left:SetPoint("LEFT",guide,"TOPLEFT",0,12);guide.left:SetPoint("RIGHT",guide.title,"LEFT",-8,0)
+    guide.right=guide:CreateTexture(nil,"ARTWORK");guide.right:SetHeight(1);guide.right:SetColorTexture(.5,.5,.5,.45)
+    guide.right:SetPoint("LEFT",guide.title,"RIGHT",8,0);guide.right:SetPoint("RIGHT",guide,"TOPRIGHT",0,12)
+    guide.rows={}
+    for index=1,4 do
+        local row=CreateFrame("Frame",nil,guide);row:SetSize(470,24)
+        row:SetPoint("TOPLEFT",guide,"TOPLEFT",0,-(index-1)*36);guide.rows[index]=row
+    end
     local function ChangeGuide(field,value)
         local owner=guide.owner
         if not owner or Current()~=owner or M.byID[owner.id]~=owner or not M:CanEdit()then M:RefreshProperties();return end
         Flush()
         if owner[field]~=value then owner[field]=value;M:Commit()end
     end
-    guide.hide=W.Check(guide,"隐藏辅助线",function(value)ChangeGuide("hideGuideLines",value==true)end)
-    guide.hide:SetPoint("TOPLEFT",-4,0)
-    guide.lengthLabel=W.Label(guide,"辅助线长度",12);guide.lengthLabel:SetPoint("TOPLEFT",0,-37)
-    guide.length=W.SpinBox(guide,225,0,1,.01);guide.length:SetIsPercent(true)
-    guide.length:SetPoint("TOPRIGHT",guide,"TOPRIGHT",-2,-35)
+    guide.hide=W.Check(guide.rows[1],"隐藏辅助线",function(value)ChangeGuide("hideGuideLines",value==true)end)
+    guide.hide:SetPoint("LEFT",guide.rows[1],"LEFT",-4,0)
+    guide.lengthLabel=W.Label(guide.rows[2],"辅助斜线长度",12);guide.lengthLabel:SetPoint("LEFT",guide.rows[2],"LEFT",0,0)
+    guide.length=W.SpinBox(guide.rows[2],225,0,1,.01);guide.length:SetIsPercent(true)
+    guide.length:SetPoint("RIGHT",guide.rows[2],"RIGHT",-2,0)
     guide.length:SetScript("OnValueChanged",function(self,value)
         if not self.updating then ChangeGuide("guideLineLength",M.Clamp(value,0,1))end
     end)
-    guide.showText=W.Check(guide,"显示文字",function(value)ChangeGuide("showGuideText",value==true)end)
-    guide.showText:SetPoint("TOPLEFT",-4,-72)
-    guide.text=W.Edit(guide,225);guide.text:SetMaxLetters(128);guide.text:SetTextInsets(6,6,0,0)
-    guide.text:SetPoint("TOPRIGHT",guide,"TOPRIGHT",-2,-74)
+    guide.flatLengthLabel=W.Label(guide.rows[3],"辅助平线长度",12);guide.flatLengthLabel:SetPoint("LEFT",guide.rows[3],"LEFT",0,0)
+    guide.flatLength=W.SpinBox(guide.rows[3],225,0,1,.01);guide.flatLength:SetIsPercent(true)
+    guide.flatLength:SetPoint("RIGHT",guide.rows[3],"RIGHT",-2,0)
+    guide.flatLength:SetScript("OnValueChanged",function(self,value)
+        if not self.updating then ChangeGuide("guideHorizontalLength",M.Clamp(value,0,1))end
+    end)
+    guide.showText=W.Check(guide.rows[4],"显示文字",function(value)ChangeGuide("showGuideText",value==true)end)
+    guide.showText:SetPoint("LEFT",guide.rows[4],"LEFT",-4,0)
+    guide.text=W.Edit(guide.rows[4],225);guide.text:SetMaxLetters(128);guide.text:SetTextInsets(6,6,0,0)
+    guide.text:SetPoint("RIGHT",guide.rows[4],"RIGHT",-2,0)
     guide.text:SetScript("OnEditFocusLost",function(self)
         if not self.updating then ChangeGuide("guideText",W.InputValue(self))end
     end)
@@ -44,12 +61,14 @@ function I.BuildControls(e,parent)
     function guide:Refresh(owner)
         self.owner=owner;self:SetWidth(e.props:GetWidth())
         local width=(self:GetWidth()-20)/2
-        self.length:SetWidth(width);self.text:SetWidth(width)
+        for _,row in ipairs(self.rows)do row:SetWidth(self:GetWidth())end
+        self.length:SetWidth(width);self.flatLength:SetWidth(width);self.text:SetWidth(width)
         self.hide:SetChecked(owner.hideGuideLines==true);self.showText:SetChecked(owner.showGuideText~=false)
         self.length.updating=true;self.length:SetValue(I.GuideLength(owner));self.length.updating=false
+        self.flatLength.updating=true;self.flatLength:SetValue(I.GuideHorizontalLength(owner));self.flatLength.updating=false
         if not self.text:HasFocus()then W.SetInputValue(self.text,I.GuideText(owner))end
     end
-    e.propRows[#e.propRows+1]={height=108,controls={{guide,0,0}},kinds={},key="raidBuffsGuideSettings"}
+    e.propRows[#e.propRows+1]={height=144,controls={{guide,0,0}},kinds={},key="raidBuffsGuideSettings"}
     local function Editable(row)return row.owner and M.byID[row.owner.id]==row.owner and Index(row.owner[row.listKey],row.entry)and M:CanEdit()end
     local function PreviewIcon(row)
         local alternative=row.alternative and W.InputValue(row.alternative)or ""
@@ -233,7 +252,7 @@ function I.BuildControls(e,parent)
                         button.iconLight=button:CreateTexture(nil,"OVERLAY")
                         button.iconLight:SetAllPoints(button.icon)
                         button.iconLight:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
-                        button.iconLight:SetDesaturated(true);button.iconLight:SetBlendMode("ADD");button.iconLight:SetAlpha(.75)
+                        button.iconLight:SetDesaturated(true);button.iconLight:SetBlendMode("ADD");button.iconLight:SetAlpha(.30)
                         button:SetScript("OnClick",function(self)
                             Flush();if Editable(row)then
                                 local enabled=I.ForClass(row.entry,self.classToken)

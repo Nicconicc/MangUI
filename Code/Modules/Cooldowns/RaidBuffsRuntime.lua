@@ -167,13 +167,15 @@ local function UpdateConnector(view,o)
     local rx,ry=target.frame:GetWidth()*ratio/2,target.frame:GetHeight()*ratio/2
     local width,height,pixel,rowWidth=frame:GetWidth(),frame:GetHeight(),frame.layoutPixel,frame.layoutRowWidth
     local length=I.GuideLength(group)
+    local horizontalLength=I.GuideHorizontalLength(group)
     if rx<=0 or ry<=0 or not pixel then HideConnector(connector);return end
     if connector.tx~=tx or connector.ty~=ty or connector.rx~=rx or connector.ry~=ry
         or connector.width~=width or connector.height~=height or connector.pixel~=pixel
-        or connector.rowWidth~=rowWidth or connector.length~=length then
+        or connector.rowWidth~=rowWidth or connector.length~=length or connector.horizontalLength~=horizontalLength then
         local side=tx<0 and -1 or 1
         local innerX,y=side*width/2,height/2
         local iconEdge=side*(rowWidth/2+8)
+        innerX=iconEdge+(innerX-iconEdge)*horizontalLength
         local vx,vy=innerX-tx,y-ty
         local distance=math.sqrt(vx*vx/(rx*rx)+vy*vy/(ry*ry))
         connector.outside=distance>1
@@ -181,8 +183,10 @@ local function UpdateConnector(view,o)
             -- The texture's 4px footprint has a 2px solid core and a 1px alpha
             -- shoulder on each side, so the quad boundary stays transparent.
             connector.row:SetThickness(2*pixel);connector.link:SetThickness(4*pixel)
-            connector.row:SetStartPoint("CENTER",frame,innerX,y)
-            connector.row:SetEndPoint("CENTER",frame,iconEdge,y)
+            if horizontalLength>0 then
+                connector.row:SetStartPoint("CENTER",frame,innerX,y)
+                connector.row:SetEndPoint("CENTER",frame,iconEdge,y)
+            end
             local edgeX,edgeY=tx+vx/distance,ty+vy/distance
             local startX,startY=innerX+(edgeX-innerX)*length,y+(edgeY-y)*length
             if length>0 then
@@ -198,8 +202,9 @@ local function UpdateConnector(view,o)
         connector.tx,connector.ty,connector.rx,connector.ry=tx,ty,rx,ry
         connector.width,connector.height,connector.pixel,connector.rowWidth=width,height,pixel,rowWidth
         connector.length=length
+        connector.horizontalLength=horizontalLength
     end
-    connector.row:SetShown(connector.outside);connector.link:SetShown(connector.outside and length>0)
+    connector.row:SetShown(connector.outside and horizontalLength>0);connector.link:SetShown(connector.outside and length>0)
     if connector.joint then connector.joint:SetShown(connector.outside)end
 end
 function I.Configure(view,o)

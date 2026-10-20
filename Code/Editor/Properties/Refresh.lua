@@ -539,7 +539,7 @@ function M:RefreshProperties()
         local row,visible=entry.row,entry.visible and not entry.fontPairHidden and not entry.inlineHidden
         if visible and previousSection and previousSection~=entry.section then
             height=PropertyDivider(e,height)
-            if (n.compound=="raidBuffs"and (row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"))
+            if (n.compound=="raidBuffs"and (row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsGuideSettings"))
                 or (n.compound=="receivedBuffs"and (row.key=="receivedBuffSharing"or row.key=="receivedBuffItems"))
                 or (n.compound=="raidVulnerability"and (row.key=="raidVulnerabilitySharing"or row.key=="raidVulnerabilitySharedRows"or row.key=="raidVulnerabilityClassRows"))
                 or (n.compound=="commonItems"and (row.key=="commonItemsSharing"or row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"))
