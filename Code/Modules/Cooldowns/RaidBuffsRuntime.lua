@@ -3,7 +3,7 @@ local I,S,W=M.RaidBuffMonitor,M.PlayerSkillMonitor,M.WeaponEnhancements
 local Safe,Number,Readable=I.Safe,I.Number,I.Readable
 local expiryCurve
 local function HideConnector(connector)
-    connector.lead:Hide();connector.row:Hide();connector.link:Hide()
+    connector.row:Hide();connector.link:Hide()
     if connector.joint then connector.joint:Hide()end
 end
 local function ExpiryCurve()
@@ -97,16 +97,10 @@ end
 local function Decoration(o)
     if o.decoration then return o.decoration end
     local frame=CreateFrame("Frame",nil,o.frame);frame:EnableMouse(false)
-    frame:SetFrameLevel(o.frame:GetFrameLevel());frame.lines={}
-    for _,name in ipairs({"topRight","bottomLeft","bottomRight"})do
-        local line=frame:CreateTexture(nil,"ARTWORK");line:SetColorTexture(1,1,1,.6);frame.lines[name]=line
-        if line.SetSnapToPixelGrid then line:SetSnapToPixelGrid(true)end
-        if line.SetTexelSnappingBias then line:SetTexelSnappingBias(0)end
-        if line.SetRoundLayoutToNearestPixel then line:SetRoundLayoutToNearestPixel(true)end
-    end
+    frame:SetFrameLevel(o.frame:GetFrameLevel())
     if frame.CreateLine then
         frame.connector={}
-        for _,name in ipairs({"lead","row","link"})do
+        for _,name in ipairs({"row","link"})do
             local line=frame:CreateLine(nil,"OVERLAY");line:SetColorTexture(1,1,1,.6)
             line:Hide();frame.connector[name]=line
         end
@@ -139,13 +133,7 @@ local function LayoutDecoration(o,group,count)
     if frame.layoutWidth~=width or frame.layoutRowWidth~=rowWidth or frame.layoutCenter~=center
         or frame.layoutPixel~=pixel or frame.layoutTextWidth~=textWidth then
         local thickness,height=pixel,math.ceil(50/pixel)*pixel
-        local arm=math.floor(((width-rowWidth)/2-8)/pixel)*pixel
-        local bottomArm=math.floor((width-textWidth-16)/2/pixel)*pixel
         frame:ClearAllPoints();frame:SetPoint("TOP",o.frame,"CENTER",center,-7);frame:SetSize(width,height)
-        local lines=frame.lines
-        lines.topRight:SetPoint("TOPRIGHT",frame,"TOPRIGHT",0,0);lines.topRight:SetSize(arm,thickness)
-        lines.bottomLeft:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",0,0);lines.bottomLeft:SetSize(bottomArm,thickness)
-        lines.bottomRight:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",0,0);lines.bottomRight:SetSize(bottomArm,thickness)
         frame.title:ClearAllPoints();frame.title:SetPoint("CENTER",frame,"BOTTOM",0,thickness/2)
         frame.title:SetWidth(textWidth)
         frame.layoutWidth,frame.layoutRowWidth,frame.layoutCenter=width,rowWidth,center
@@ -180,25 +168,23 @@ local function UpdateConnector(view,o)
         local distance=math.sqrt(vx*vx/(rx*rx)+vy*vy/(ry*ry))
         connector.outside=distance>1
         if connector.outside then
-            connector.lead:SetThickness(pixel);connector.row:SetThickness(pixel);connector.link:SetThickness(pixel)
-            connector.lead:SetStartPoint("CENTER",frame,innerX,y)
-            connector.lead:SetEndPoint("CENTER",frame,outerX,y)
+            connector.row:SetThickness(pixel);connector.link:SetThickness(pixel)
             connector.row:SetStartPoint("CENTER",frame,innerX,y)
             connector.row:SetEndPoint("CENTER",frame,iconEdge,y)
             local edgeX,edgeY=tx+vx/distance,ty+vy/distance
             local startX,startY=edgeX+(outerX-edgeX)*.62,edgeY+(y-edgeY)*.62
             connector.link:SetStartPoint("CENTER",frame,startX,startY)
-            connector.link:SetEndPoint("CENTER",frame,outerX,y)
+            connector.link:SetEndPoint("CENTER",frame,innerX,y)
             if connector.joint then
                 connector.joint:SetSize(8*pixel,8*pixel)
-                connector.joint:ClearAllPoints();connector.joint:SetPoint("CENTER",frame,outerX,y)
+                connector.joint:ClearAllPoints();connector.joint:SetPoint("CENTER",frame,startX,startY)
                 connector.jointMask:SetAllPoints(connector.joint)
             end
         end
         connector.tx,connector.ty,connector.rx,connector.ry=tx,ty,rx,ry
         connector.width,connector.height,connector.pixel,connector.rowWidth=width,height,pixel,rowWidth
     end
-    connector.lead:SetShown(connector.outside);connector.row:SetShown(connector.outside);connector.link:SetShown(connector.outside)
+    connector.row:SetShown(connector.outside);connector.link:SetShown(connector.outside)
     if connector.joint then connector.joint:SetShown(connector.outside)end
 end
 function I.Configure(view,o)
