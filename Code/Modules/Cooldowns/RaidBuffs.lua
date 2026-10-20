@@ -53,7 +53,7 @@ function I.Entries(group)
 end
 function I.MoveBounds(group)
     local count=math.max(1,#I.Entries(group))
-    return S.RowOffset(group,count),20,math.max(180,count*44+20),112
+    return S.RowOffset(group,count),-25,math.max(320,count*44+160),156
 end
 function I.RestorePosition(group,reference)
     local x,y=320,-380
