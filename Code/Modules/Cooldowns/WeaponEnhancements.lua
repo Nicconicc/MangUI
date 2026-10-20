@@ -29,6 +29,7 @@ function W.ItemInfo(id)
     return Text(name),Text(link),Number(ilevel),Number(level),Text(equip),Readable(icon)and icon or nil
 end
 function W.ItemAvailable(d)
+    if d.interfaces then return d.interfaces[M.Compat.interface]==true end
     local family=W.Family()
     if family>=9 then return d.era==family end
     if d.items[1]==211848 or d.items[1]==211845 then
@@ -88,7 +89,8 @@ function W.Resolve(entry)
     local d,id=W.FindItem(entry.value)
     if not d then return {supported=false,name=entry.value or "",error=M:T("暂不支持此物品")}end
     local name,link,_,level,_,icon=W.ItemInfo(id)
-    return {supported=d.era<=W.Family(),definition=d,itemID=id,name=name or W.Name(d),link=link,icon=icon or 134400,requiredLevel=level}
+    local supported=d.interfaces and d.interfaces[M.Compat.interface]==true or not d.interfaces and d.era<=W.Family()
+    return {supported=supported,definition=d,itemID=id,name=name or W.Name(d),link=link,icon=icon or d.icon or 134400,requiredLevel=level}
 end
 function W.ItemChoices(query)
     local choices={};query=S.Input(query or ""):lower()
@@ -222,17 +224,17 @@ function W.Present(slot,info,snapshot,lines)
     local state=snapshot[slot];if not state then return nil end
     if not state.present or (state.remaining and state.remaining<=0)then return false end
     local d=info.definition
-    if state.id and Contains(d.enchants,state.id)then return true end
+    if state.id and Contains(d.enchants,state.id)then return true,state.remaining and state.remaining/1000 end
     -- Some custom clients use different enchant IDs or allow stacked imbues.
     -- Match the actual timed inventory-tooltip line, never a proc aura or a
     -- permanent enchant in the item link. Oil is not a substitute for poison.
     lines[slot]=lines[slot]or TooltipLines(slot)
     local labels={info.name,d.zh,d.en}
     for _,line in ipairs(lines[slot])do for _,label in ipairs(labels)do
-        if MatchesLine(line,label)then return true end
+        if MatchesLine(line,label)then return true,state.remaining and state.remaining/1000 end
         if d.class and label~=""then
             local start=line:find(label,1,true)
-            if start and MatchesLine(line:sub(start),label)then return true end
+            if start and MatchesLine(line:sub(start),label)then return true,state.remaining and state.remaining/1000 end
         end
     end end
     return false
@@ -242,15 +244,21 @@ function W.Missing(entry,info,snapshot,lines)
     local level=Number(Safe(UnitLevel,"player"))
     if info.requiredLevel and level and level<info.requiredLevel then return false end
     local slots=entry.slot=="off"and {17}or entry.slot=="any"and {16,17}or {16}
-    local eligible,unknown=false,false
+    local eligible,unknown,presentAny,longest=false,false,false,nil
     for _,slot in ipairs(slots)do
         local applicable=W.Applicable(slot,info.definition)
         if applicable==true then
-            eligible=true;local present=W.Present(slot,info,snapshot,lines)
-            if present==true then return false elseif present==nil then unknown=true end
+            eligible=true;local present,remaining=W.Present(slot,info,snapshot,lines)
+            if present==true then
+                presentAny=true
+                if not remaining then return false end
+                longest=math.max(longest or 0,remaining)
+            elseif present==nil then unknown=true end
         elseif applicable==nil then unknown=true end
     end
-    return eligible and not unknown
+    if unknown then return false end
+    if presentAny then return longest>0 and longest<180,longest end
+    return eligible
 end
 function W.SlotName(entry)
     for _,choice in ipairs(W.slots)do if choice.path==(entry.slot or "main")then return M:T(choice.name)end end

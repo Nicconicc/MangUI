@@ -672,6 +672,7 @@ english["暂不支持此物品"]="This item is not supported yet"
 english["暂不支持此物品，请从列表选择"]="Unsupported item. Choose one from the list."
 english["只检查已学会且适用于当前武器的强化"]="Checks learned enhancements for eligible weapons only"
 english["缺少武器强化："]="Missing weapon enhancement: "
+english["武器强化即将到期："]="Weapon enhancement expiring: "
 english["选择"]="Choose"
 english["缺少已配置的团队、职业增益或武器强化时显示提醒图标，补齐后自动隐藏。"]="Show a reminder when a configured raid buff, class buff or weapon enhancement is missing. Hide it when applied."
 M:RebuildLocaleKeys()
