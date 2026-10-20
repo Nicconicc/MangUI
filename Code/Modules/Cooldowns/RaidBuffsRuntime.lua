@@ -1,5 +1,5 @@
 local _,M=...
-local I,S=M.RaidBuffMonitor,M.PlayerSkillMonitor
+local I,S,W=M.RaidBuffMonitor,M.PlayerSkillMonitor,M.WeaponEnhancements
 local Safe,Number,Readable=I.Safe,I.Number,I.Readable
 local function NativeAvailable()
     local interface=M.Compat.interface or 0
@@ -11,13 +11,14 @@ end
 local function ResolveSlot(slot,entry)
     local ids,keys={},{}
     slot.spells=I.Options(entry);slot.spell=I.Resolve(entry)
+    slot.weapon=I.Kind(entry)~="buff"and entry.type~="weaponAura"
     for _,spell in ipairs(slot.spells)do
         if spell.ids then for id in pairs(spell.ids)do ids[id]=true end
         elseif spell.id then ids[spell.id]=true end
         keys[#keys+1]=spell.value..":"..tostring(spell.id)..":"..tostring(spell.revision)
         if not spell.id then I.RequestBuffName(spell.value)end
     end
-    local key=table.concat(keys,"|");local changed=key~=slot.lookupKey
+    local key=table.concat(keys,"|")..I.Kind(entry)..":"..entry.value;local changed=key~=slot.lookupKey
     slot.ids,slot.lookupKey=ids,key;slot.texture:SetTexture(slot.spell.icon or 134400)
     return changed
 end
@@ -46,16 +47,21 @@ local function Bind(slot)
     slot.container:SetAuraGroupCandidateFilters("missing",{includeSpellIDs=slot.ids})
     slot.container:SetAuraGroupMaxFrameCount("missing",1)
     slot.container:SetEnabled(true);slot.container:UpdateAllAuras();slot.bound=true
+    slot.texture:SetParent(slot.lastGate or slot.base)
 end
 local function Icon(o,index)
     local slot=o.buffIcons[index];if slot then return slot end
     slot=CreateFrame("Frame",nil,o.frame);slot:SetSize(40,40);slot:EnableMouse(false);slot:EnableMouseMotion(true)
     slot.base=CreateFrame("Frame",nil,slot);slot.base:SetAllPoints();slot.base:EnableMouse(false)
     slot.texture=slot.base:CreateTexture(nil,"ARTWORK");slot.texture:SetAllPoints()
+    slot.hand=slot.base:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall");M:BindText(slot.hand)
+    slot.hand:SetPoint("BOTTOM",slot.base,"BOTTOM",0,1);slot.hand:SetTextColor(1,1,1);slot.hand:SetWidth(40);slot.hand:SetWordWrap(false)
     slot:SetScript("OnEnter",function(self)
         GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
-        if self.spell.id and GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(self.spell.id)
+        if self.spell.itemID and GameTooltip.SetHyperlink then GameTooltip:SetHyperlink("item:"..self.spell.itemID)
+        elseif self.spell.id and GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(self.spell.id)
         else GameTooltip:SetText(self.spell.name or "",1,1,1,1,true)end
+        if self.weapon then GameTooltip:AddLine(M:T("缺少武器强化：")..W.SlotName(self.entry),1,.82,0,true)end
         GameTooltip:Show()
     end)
     slot:SetScript("OnLeave",function()GameTooltip:Hide()end)
@@ -65,10 +71,15 @@ function I.Configure(view,o)
     o.buffIcons=o.buffIcons or {};o.entries=I.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
     for index,entry in ipairs(o.entries)do
         local slot=Icon(o,index);slot.entry=entry;ResolveSlot(slot,entry)
+        slot.hand:SetText(slot.weapon and W.SlotLabel(entry)or "")
         if not view.preview then
             if InCombatLockdown()then slot.pending=true
-            elseif o.native then Bind(slot)
+            elseif o.native and not slot.weapon then Bind(slot)
             elseif slot.container then slot.container:SetEnabled(false);slot.bound=false end
+        end
+        if slot.weapon then
+            slot.texture:SetParent(slot.base)
+            for _,frame in ipairs(slot.nativeFrames or {})do frame.gate:SetAlpha(1)end
         end
     end
     for index=#o.entries+1,#o.buffIcons do
@@ -101,21 +112,29 @@ function I.Paint(view,o,animateOnly)
     o.frame:SetShown(shown);if not shown then return end
     local now=GetTime();if animateOnly and now<(o.nextScan or 0)then return end;o.nextScan=now+.1
     local byID,byName;if not view.preview then byID,byName=Auras()end
-    local displayed={}
+    local displayed={};local snapshot,lines=W.Snapshot(),{}
     for _,slot in ipairs(o.buffIcons or {})do
         if slot.entry then
             if now>=(o.nextInfo or 0)then
                 local changed=ResolveSlot(slot,slot.entry)
-                if o.native and (changed or not slot.bound)then slot.pending=true end
+                if o.native and not slot.weapon and (changed or not slot.bound)then slot.pending=true end
             end
-            if slot.pending and o.native and not InCombatLockdown()then Bind(slot)end
+            if slot.pending and o.native and not slot.weapon and not InCombatLockdown()then Bind(slot)end
             local active
             if byID then
                 for _,spell in ipairs(slot.spells)do
                     if (spell.id and byID[spell.id])or (not tonumber(spell.value)and byName[spell.value])then active=true;break end
                 end
             end
-            local visible=view.preview or (o.native and slot.bound)or not active
+            local visible
+            if slot.weapon then visible=view.preview or W.Missing(slot.entry,slot.spell,snapshot,lines)
+            else
+                visible=view.preview or (o.native and slot.bound)or not active
+                if slot.entry.type=="weaponAura"and not view.preview then
+                    local d=slot.spell.definition
+                    visible=visible and d and (W.Applicable(16,d)==true or W.Applicable(17,d)==true)
+                end
+            end
             slot:SetShown(visible)
             if visible then displayed[#displayed+1]=slot end
             slot.texture:SetDesaturated(false);slot.texture:SetAlpha(1)
@@ -137,10 +156,12 @@ function I.Paint(view,o,animateOnly)
     end
 end
 function I.Event(view,event,unit)
-    if event=="UNIT_AURA"and unit~="player"then return end
+    if (event=="UNIT_AURA"or event=="UNIT_INVENTORY_CHANGED")and unit~="player"then return end
     if event~="UNIT_AURA"and event~="GROUP_ROSTER_UPDATE"and event~="PLAYER_ENTERING_WORLD"and event~="PLAYER_TARGET_CHANGED"
-        and event~="PLAYER_REGEN_ENABLED"and event~="SPELLS_CHANGED"then return end
+        and event~="PLAYER_REGEN_ENABLED"and event~="SPELLS_CHANGED"and event~="UNIT_INVENTORY_CHANGED"
+        and event~="PLAYER_EQUIPMENT_CHANGED"and event~="GET_ITEM_INFO_RECEIVED"and event~="BAG_UPDATE_DELAYED"then return end
     local o=view.nodes.raidBuffsIcons;if not o then return end
+    if event=="SPELLS_CHANGED"or event=="PLAYER_REGEN_ENABLED"or event=="PLAYER_ENTERING_WORLD"then I.Configure(view,o)end
     o.nextScan=0;if event~="UNIT_AURA"then o.nextInfo=0 end
     I.Paint(view,o,false)
 end

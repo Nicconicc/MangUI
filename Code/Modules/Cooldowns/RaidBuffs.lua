@@ -3,13 +3,16 @@ local I={};M.RaidBuffMonitor=I
 local S,O=M.PlayerSkillMonitor,M.PlayerOtherMonitor
 I.Safe,I.Number,I.Readable=O.Safe,O.Number,O.Readable
 function I.NewEntry()return {value="",alternative=""}end
+function I.Kind(entry)return entry.type or "buff"end
 function I.ValidEntries(entries)
     if type(entries)~="table"or #entries>256 then return false end
     for k,entry in pairs(entries)do
         if type(k)~="number"or k%1~=0 or k<1 or k>#entries or type(entry)~="table"then return false end
         if type(entry.value)~="string"or #entry.value>384 then return false end
         if entry.alternative~=nil and (type(entry.alternative)~="string"or #entry.alternative>384)then return false end
-        for field in pairs(entry)do if field~="value"and field~="alternative"then return false end end
+        if entry.type~=nil and entry.type~="buff"and entry.type~="classWeapon"and entry.type~="consumable"then return false end
+        if entry.slot~=nil and entry.slot~="main"and entry.slot~="off"and entry.slot~="both"and entry.slot~="any"then return false end
+        for field in pairs(entry)do if field~="value"and field~="alternative"and field~="type"and field~="slot"then return false end end
     end
     for index=1,#entries do if type(entries[index])~="table"then return false end end
     return true
@@ -25,7 +28,13 @@ end
 function I.Entries(group)
     local entries={}
     for _,list in ipairs({group.raidBuffs or {},group.classBuffs or {}})do
-        for _,entry in ipairs(list)do if entry.value~=""or (entry.alternative or "")~=""then entries[#entries+1]=entry end end
+        for _,entry in ipairs(list)do
+            if I.Kind(entry)=="buff"then
+                if entry.value~=""or (entry.alternative or "")~=""then entries[#entries+1]=entry end
+            elseif M.WeaponEnhancements then
+                for _,rule in ipairs(M.WeaponEnhancements.Expand(entry))do entries[#entries+1]=rule end
+            end
+        end
     end
     return entries
 end
@@ -96,6 +105,8 @@ function I.ResolveValue(value)
     return {value=value,name=name or value,id=tonumber(value)or id,icon=I.Readable(icon)and icon or nil,ids=ids,revision=revision}
 end
 function I.Options(entry)
+    if entry.type=="weaponAura"then return M.WeaponEnhancements.AuraOptions(entry)end
+    if I.Kind(entry)~="buff"then return {}end
     local result={}
     for _,value in ipairs({entry.value,entry.alternative or ""})do
         if S.Input(value)~=""then result[#result+1]=I.ResolveValue(value)end
@@ -103,6 +114,7 @@ function I.Options(entry)
     return result
 end
 function I.Resolve(entry)
+    if I.Kind(entry)~="buff"then return M.WeaponEnhancements.Resolve(entry)end
     local first=I.ResolveValue(entry.value)
     if first.value~=""and first.icon then return first end
     local second=I.ResolveValue(entry.alternative or "")
