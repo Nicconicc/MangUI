@@ -9,6 +9,17 @@ local disabledModuleColor=private.disabledModuleColor
 local Selected=private.Selected
 local MainPreviewSelection=private.MainPreviewSelection
 local SetSelection=private.SetSelection
+local moduleNames={
+    playerSkillMonitor="职业技能监控",
+    playerOtherMonitor="装备触发与其他监控",
+    cooldownMonitor="冷却监控",
+    receivedBuffs="获取队友Buff监控",
+    raidBuffs="团队Buff缺失监控",
+    commonItems="常用物品监控",
+    targetDistance="距离监控",
+    targetThreat="仇恨监控",
+}
+local function ModuleName(node)return moduleNames[node.id]or node.label end
 local moduleTips={
     mainComposite="配置玩家与目标的头像、生命、资源、姓名和光环等主要界面元素。",
     wa8d650f8d3a="显示玩家施法与引导进度，可调整施法条的位置、文字和外观。",
@@ -150,7 +161,7 @@ function M:RefreshTree()
             row:SetScript("OnClick",function()SetSelection(row.node.id)end)
             row:SetScript("OnEnter",function(self)
                 self.hovered=true;self:RefreshHighlight()
-                if self.node then ShowModuleTip(self,self.node.id,self.node.label)end
+                if self.node then ShowModuleTip(self,self.node.id,ModuleName(self.node))end
             end)
             row:SetScript("OnLeave",function(self)self.hovered=false;self:RefreshHighlight();HideModuleTip(self)end)
             row:SetScript("OnHide",function(self)self.hovered=false;self.bg:Hide();self.statusFlash:SetAlpha(0);HideModuleTip(self)end)
@@ -168,10 +179,10 @@ function M:RefreshTree()
                 row.statusIcon:SetVertexColor(unpack(statusColor))
                 row.statusEnabled=enabled;row.statusColor=statusColor
             end
-            row.label:SetText(n.label);row.label:SetTextColor(n.enabled==false and .45 or .92,n.enabled==false and .45 or .92,n.enabled==false and .45 or .92)
+            row.label:SetText(ModuleName(n));row.label:SetTextColor(n.enabled==false and .45 or .92,n.enabled==false and .45 or .92,n.enabled==false and .45 or .92)
             M:FitLocaleText(row.label,row:GetWidth()-31,9.5)
             row.hovered=row:IsMouseOver();row:RefreshHighlight()
-            if tooltipOwner==row then ShowModuleTip(row,n.id,n.label)end
+            if tooltipOwner==row then ShowModuleTip(row,n.id,ModuleName(n))end
             offset=offset+26
             if moduleGroupBreaks[n.id] and i<#entries then
                 offset=offset+8;groupIndex=groupIndex+1
