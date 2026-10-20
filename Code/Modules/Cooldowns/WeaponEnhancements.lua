@@ -114,9 +114,9 @@ function W.ItemChoices(query)
     end end
     table.sort(choices,function(a,b)return a.name<b.name end);return choices
 end
-function W.ClassChoices()
+function W.ClassChoices(allClasses)
     local result={{name="自动（按当前职业推荐）",path="auto"}}
-    for key,d in pairs(W.classes)do if W.Known(d)then result[#result+1]={name=W.Name(d),path=key}end end
+    for key,d in pairs(W.classes)do if allClasses or W.Known(d)then result[#result+1]={name=W.Name(d),path=key}end end
     table.sort(result,function(a,b)if a.path=="auto"then return true elseif b.path=="auto"then return false else return a.name<b.name end end)
     return result
 end

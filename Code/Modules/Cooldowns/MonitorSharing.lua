@@ -35,6 +35,7 @@ function H.Decode(prefix,input)
     return ok and result or nil
 end
 local function Clean(config)
+    if type(config)=="table"and config.module=="raidBuffs"then return M.RaidBuffMonitor.CleanSharing(config)end
     if type(config)~="table"or config.format~=1 then return end
     local d=definitions[config.module];if not d or not d.api.ValidProfiles(config.profiles)then return end
     if config.scope=="class"then
@@ -45,6 +46,7 @@ local function Clean(config)
 end
 function M:ExportMonitorString(id,all)
     local d=definitions[id];if not d then return end
+    if id=="raidBuffs"then local config=self:ExportRaidBuffSharing(all);return config and H.Encode("!MUM1:",config)end
     self[d.save](self)
     local class=self.db[d.class];if not S.ValidClass(class)then return end
     local profiles=self.db[d.profiles]or {}
@@ -61,6 +63,7 @@ function M:ApplyMonitorString(input,id)
     local config=self:ImportMonitorString(input,id)
     if not config then return false,"配置字符串无效或已损坏，请检查是否完整复制。"end
     local d=definitions[config.module];if d.api.FlushEditor then d.api.FlushEditor()end
+    if config.module=="raidBuffs"then return self:ApplyRaidBuffSharing(config)end
     self[d.save](self)
     local group=self.byID[config.module];local current=self.db[d.class]
     self.db[d.profiles]=self.db[d.profiles]or {}

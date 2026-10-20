@@ -370,7 +370,7 @@ function M:RefreshProperties()
         e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
         e.raidBuffsOnlyRaid:SetChecked(n.raidOnly~=false)
         e.skillMonitorDirection:SetValue(M.PlayerSkillMonitor.Direction(n))
-        e.raidBuffsSharedPanel:Refresh(n);e.raidBuffsClassPanel:Refresh(n)
+        e.raidBuffsSharedPanel:Refresh(n)
     end
     if n.compound=="receivedBuffs"then
         e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
@@ -421,7 +421,7 @@ function M:RefreshProperties()
             elseif n.compound=="playerSkillMonitor" then
                 visible=row.key=="scale" or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"
             elseif n.compound=="raidBuffs"then
-                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsClassRows"
+                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"
             elseif n.compound=="receivedBuffs"then
                 visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="receivedBuffSharing"or row.key=="receivedBuffItems"
             elseif n.compound=="raidVulnerability"then
@@ -538,7 +538,7 @@ function M:RefreshProperties()
         local row,visible=entry.row,entry.visible and not entry.fontPairHidden and not entry.inlineHidden
         if visible and previousSection and previousSection~=entry.section then
             height=PropertyDivider(e,height)
-            if (n.compound=="raidBuffs"and (row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsClassRows"))
+            if (n.compound=="raidBuffs"and (row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"))
                 or (n.compound=="receivedBuffs"and (row.key=="receivedBuffSharing"or row.key=="receivedBuffItems"))
                 or (n.compound=="raidVulnerability"and (row.key=="raidVulnerabilitySharing"or row.key=="raidVulnerabilitySharedRows"or row.key=="raidVulnerabilityClassRows"))
                 or (n.compound=="commonItems"and (row.key=="commonItemsSharing"or row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"))

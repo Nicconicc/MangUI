@@ -44,7 +44,7 @@ function I.BuildControls(e,parent)
         end
         return drop
     end
-    for _,definition in ipairs({{"raidBuffs","通用Buff设置","raidBuffsSharedRows"},{"classBuffs","职业Buff设置","raidBuffsClassRows"}})do
+    for _,definition in ipairs({{"raidBuffs","通用Buff设置","raidBuffsSharedRows"}})do
         local key,title,property=unpack(definition)
         local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,32);panel.rows={};panel.key=key;panels[#panels+1]=panel
         panel.title=W.Label(panel,title,12);panel.title:SetPoint("CENTER",panel,"TOP",0,12);panel.title:SetTextColor(1,.82,0)
@@ -54,7 +54,7 @@ function I.BuildControls(e,parent)
         right:SetPoint("LEFT",panel.title,"RIGHT",8,0);right:SetPoint("RIGHT",panel,"TOPRIGHT",0,12)
         if key=="raidBuffs"then W.DragListHeader(panel,right)end
         local propertyRow={height=32,controls={{panel,0,0}},kinds={},key=property};panel.propertyRow=propertyRow;e.propRows[#e.propRows+1]=propertyRow
-        if key=="raidBuffs"then e.raidBuffsSharedPanel=panel else e.raidBuffsClassPanel=panel end
+        e.raidBuffsSharedPanel=panel
         panel.marker=CreateFrame("Frame",nil,panel);panel.marker:SetHeight(2);panel.marker:SetFrameLevel(panel:GetFrameLevel()+40);panel.marker:Hide()
         local marker=panel.marker:CreateTexture(nil,"OVERLAY");marker:SetAllPoints();marker:SetColorTexture(1,.82,0,1)
         panel.ghost=W.Panel(e.window);panel.ghost:SetSize(220,32);panel.ghost:SetFrameStrata("TOOLTIP");panel.ghost:SetFrameLevel(9200);panel.ghost:Hide()
@@ -80,9 +80,9 @@ function I.BuildControls(e,parent)
                 local direction=y>top-22 and -1 or (y<bottom+22 and 1 or 0)
                 if direction~=0 then scroll:SetVerticalScroll(M.Clamp(scroll:GetVerticalScroll()+direction*(elapsed or 0)*260,0,math.max(0,e.props:GetHeight()-scroll:GetHeight())))end
                 local offset=self:GetTop()-y;local insertion=1
-                for index=1,#drag.entries do if offset>self.rows[index].offset+60 then insertion=index+1 end end
+                for index=1,#drag.entries do if offset>self.rows[index].offset+76 then insertion=index+1 end end
                 local from=Index(drag.entries,drag.entry);drag.target=insertion-(insertion>from and 1 or 0)
-                self.marker:ClearAllPoints();self.marker:SetPoint("TOPLEFT",0,-(insertion-1)*128+3);self.marker:SetWidth(self:GetWidth());self.marker:Show()
+                self.marker:ClearAllPoints();self.marker:SetPoint("TOPLEFT",0,-(insertion-1)*156+3);self.marker:SetWidth(self:GetWidth());self.marker:Show()
             else self.marker:Hide()end
             self.ghost:ClearAllPoints();self.ghost:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",cx/self.ghost:GetEffectiveScale()+14,cy/self.ghost:GetEffectiveScale()+12)
         end
@@ -156,7 +156,7 @@ function I.BuildControls(e,parent)
                     row.status=W.Label(row,"",10);row.status:SetPoint("TOPLEFT",34,-94);row.status:SetPoint("TOPRIGHT",-108,-94);row.status:SetWordWrap(false)
                     row.pick=W.Button(row,"选择",52,function()
                         if row.item.menu then row.item.menu:Hide();return end
-                        local kind=I.Kind(row.entry);local choices=kind=="classWeapon"and Wep.ClassChoices()or Wep.ItemChoices(W.InputValue(row.item))
+                        local kind=I.Kind(row.entry);local choices=kind=="classWeapon"and Wep.ClassChoices(true)or Wep.ItemChoices(W.InputValue(row.item))
                         if #choices==0 then choices=Wep.ItemChoices()end
                         if #choices==0 then return end
                         W.MediaMenu(row.item,choices,"choice",row.entry.value,function(choice)
@@ -183,8 +183,29 @@ function I.BuildControls(e,parent)
                     row.remove:SetPoint("TOPRIGHT",0,-59)
                     row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(100,18);row.handle:SetPoint("TOPRIGHT",0,-96)
                     row.dragLabel=W.Label(row.handle,"",12);row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetPoint("CENTER");Drag(row.handle,row)
+                    row.handle:Hide()
+                    row.classLabel=W.Label(row,"职业",12);row.classLabel:SetPoint("TOPLEFT",0,-116);row.classLabel:SetWidth(52);row.classLabel:SetWordWrap(false)
+                    row.classButtons={}
+                    for classIndex,info in ipairs(I.classes)do
+                        local button=CreateFrame("Button",nil,row);button:SetSize(24,24);button:SetPoint("TOPLEFT",56+(classIndex-1)*28,-111)
+                        button.classToken=info[1];button.classInfo=info;row.classButtons[classIndex]=button
+                        button.icon=button:CreateTexture(nil,"ARTWORK");button.icon:SetSize(19.2,19.2);button.icon:SetPoint("CENTER")
+                        button.icon:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
+                        button:SetScript("OnClick",function(self)
+                            Flush();if Editable(row)then
+                                local enabled=I.ForClass(row.entry,self.classToken)
+                                row.entry.classes=I.ClassMask(row.entry);row.entry.classes[self.classToken]=not enabled;M:Commit()
+                            end
+                        end)
+                        button:SetScript("OnEnter",function(self)
+                            local info=self.classInfo;GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
+                            GameTooltip:SetText(M:EffectiveLanguage()=="zhCN"and info[2]or info[3],1,1,1)
+                            GameTooltip:Show()
+                        end)
+                        button:SetScript("OnLeave",function()GameTooltip:Hide()end)
+                    end
                 end
-                row.owner,row.entry=group,entry;row.offset=(index-1)*128;row:SetSize(width,124);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-row.offset)
+                row.owner,row.entry=group,entry;row.offset=(index-1)*156;row:SetSize(width,152);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-row.offset)
                 local kind=I.Kind(entry);local weapon=kind~="buff";local dw=(width-16)/2
                 row.type:ClearAllPoints();row.type:SetPoint("TOPLEFT");row.type:SetWidth(dw);row.type:SetValue(kind)
                 row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT");row.slot:SetWidth(dw);row.slot:SetValue(entry.slot or "main")
@@ -209,10 +230,20 @@ function I.BuildControls(e,parent)
                 if not row.alternative:HasFocus()then W.SetInputValue(row.alternative,entry.alternative or "")end
                 row.item.placeholder:SetShown(W.InputValue(row.item)=="")
                 row.alternative.placeholder:SetShown(W.InputValue(row.alternative)=="")
+                local classStep=math.min(28,math.max(18,(width-56)/#I.classes))
+                for classIndex,button in ipairs(row.classButtons)do
+                    button:ClearAllPoints();button:SetPoint("TOPLEFT",56+(classIndex-1)*classStep,-111);button:SetWidth(math.min(24,classStep))
+                    local info=button.classInfo;local color=RAID_CLASS_COLORS and RAID_CLASS_COLORS[button.classToken]
+                    local enabled=I.ForClass(entry,button.classToken)
+                    button.icon:SetDesaturated(not enabled);button.icon:SetAlpha(enabled and 1 or .5)
+                    if enabled then button.icon:SetVertexColor(color and color.r or info[4],color and color.g or info[5],color and color.b or info[6],1)
+                    else button.icon:SetVertexColor(.65,.65,.65,1)end
+                    button.selected=enabled
+                end
                 PreviewIcon(row);W.ShadeDragRow(row,index);row:Show()
             end
             for index=#entries+1,#self.rows do self.rows[index]:Hide()end
-            local height=#entries*128+32;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-#entries*128)
+            local height=#entries*156+32;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-#entries*156)
             if self:GetHeight()~=height then e.propertyLayoutSignature=nil end
             self:SetHeight(height);self.propertyRow.height=height
         end
