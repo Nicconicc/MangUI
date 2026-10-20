@@ -228,6 +228,38 @@ function W.Tab(parent,text,fn)
     b:SetActive(false)
     return b
 end
+function W.SpellInputDisplay(value)
+    value=tostring(value or "")
+    local id=tonumber(value)
+    if id and id>0 and id%1==0 then
+        local name=M.PetBuffs.SpellInfo(value)
+        if type(name)=="string"and name~=""then return name end
+    end
+    return value
+end
+function W.InputValue(edit)
+    local text=edit:GetText()
+    if edit.inputNameKind=="spell"and text==edit.inputDisplayText then return edit.inputRawValue end
+    return text
+end
+function W.SetInputValue(edit,value)
+    value=tostring(value or "")
+    local display=edit.inputNameKind=="spell"and W.SpellInputDisplay(value)or value
+    -- Keep exact IDs in saved data and matching rules, even for same-name ranks.
+    edit.inputRawValue,edit.inputDisplayText=value,display
+    if edit:GetText()~=display then edit:SetText(display)end
+end
+function W.NamedInput(edit,kind)
+    edit.inputNameKind=kind
+    if edit.namedInputHooked then return end
+    edit.namedInputHooked=true
+    edit:HookScript("OnTextChanged",function(self,userInput)
+        if userInput then self.inputRawValue,self.inputDisplayText=nil,nil end
+    end)
+    edit:HookScript("OnEditFocusLost",function(self)
+        if self.inputNameKind then W.SetInputValue(self,W.InputValue(self))end
+    end)
+end
 function W.Edit(parent,width)
     local e=CreateFrame("EditBox",nil,parent,"InputBoxTemplate");e:SetSize(width or 120,22);e:SetAutoFocus(false)
     M:BindInputFont(e)
@@ -443,7 +475,7 @@ function W.BlacklistEditor(parent,width,changed)
                 Tip(row.remove,"移除黑名单")
                 self.rows[i]=row
             end
-            row.index=i;row.label:SetText(value);row:SetPoint("TOPLEFT",0,-(i-1)*26);row:Show()
+            row.index=i;row.label:SetText(W.SpellInputDisplay(value));row:SetPoint("TOPLEFT",0,-(i-1)*26);row:Show()
         end
         for i=#self.entries+1,#self.rows do self.rows[i]:Hide() end
         self.empty:SetShown(#self.entries==0)

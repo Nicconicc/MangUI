@@ -39,7 +39,7 @@ function O.BuildControls(e,parent)
             local owner,item=self.editOwner,self.editEntry
             local valid=Editable(owner,item)
             if valid and M:CanEdit()then
-                local value=M.PlayerSkillMonitor.Input(self:GetText())
+                local value=M.PlayerSkillMonitor.Input(W.InputValue(self))
                 if item[field]~=value then item[field]=value;M:Commit()end
             end
         end
@@ -47,9 +47,10 @@ function O.BuildControls(e,parent)
         edit:SetScript("OnEditFocusLost",function(self)Save(self);self.editOwner,self.editEntry=nil,nil end)
         edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
         edit:SetScript("OnEscapePressed",function(self)
-            if self.editEntry then self:SetText(self.editEntry[field]or "")end
+            if self.editEntry then W.SetInputValue(self,self.editEntry[field]or "")end
             self:ClearFocus()
         end)
+        W.NamedInput(edit,field=="value"and "spell"or nil)
         edit:HookScript("OnHide",function(self)self:ClearFocus()end)
     end
     local function Drop(parent,label,width,choices,selected,apply)
@@ -66,9 +67,9 @@ function O.BuildControls(e,parent)
         return drop
     end
     local function RefreshIcon(row)
-        local spell=M.RaidBuffMonitor.ResolveValue(row.edit:GetText())
+        local spell=M.RaidBuffMonitor.ResolveValue(W.InputValue(row.edit))
         row.icon.texture:SetTexture(spell.icon or 134400)
-        if row.entry.value==row.edit:GetText()and not spell.id then M.RaidBuffMonitor.RequestBuffName(row.entry.value)end
+        if row.entry.value==W.InputValue(row.edit)and not spell.id then M.RaidBuffMonitor.RequestBuffName(row.entry.value)end
     end
     do
     local function MonitorEntries(owner)return owner.monitors end
@@ -173,7 +174,7 @@ function O.BuildControls(e,parent)
             row.height=entry.soundEnabled and (extended and 214 or 160)or 100
             row:SetSize(width,row.height-4);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-offset);offset=offset+row.height
             row.edit:SetWidth(width-128)
-            if not row.edit:HasFocus()then row.edit:SetText(entry.value)end
+            if not row.edit:HasFocus()then W.SetInputValue(row.edit,entry.value)end
             RefreshIcon(row);row.placeholder:SetShown(entry.value=="")
             row.play:SetChecked(entry.soundEnabled);row.sound:SetShown(entry.soundEnabled);row.sound:SetWidth(width*.65);row.sound:SetValue(entry.sound)
             row.preview:ClearAllPoints();row.preview:SetPoint("LEFT",row.sound,"RIGHT",12,-11);row.preview:SetShown(entry.soundEnabled)

@@ -254,7 +254,7 @@ function M:RefreshProperties()
         local name=CompositeName(n)
         if n.compound=="petComposite" then
             for i,edit in ipairs(e.petBuffInputs) do
-                if not edit:HasFocus() then edit:SetText(n["petBuff"..i] or "") end
+                if not edit:HasFocus() then W.SetInputValue(edit,n["petBuff"..i] or "") end
             end
             e.petNameEnabled:SetChecked(name and name.enabled==false or false)
             local power=CompositePart(n,"petMP")

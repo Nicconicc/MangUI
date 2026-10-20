@@ -581,7 +581,7 @@ function S.BuildControls(e,parent,Row)
     sharing.import=W.Button(sharing,"导入配置",150,function()Flush();M:ShowConfigStringDialog("import","skills")end)
     for _,button in ipairs({sharing.exportAll,sharing.exportClass,sharing.import})do button:SetHoverTextColor(1,.82,0)end
     local function SkillIcon(row)
-        local value=S.Input(row.edit:GetText())
+        local value=S.Input(W.InputValue(row.edit))
         local name,_,icon
         if value~="" then name,_,icon=M.PetBuffs.SpellInfo(value)end
         row.skillIcon.texture:SetTexture(name and icon or 134400)
@@ -665,7 +665,7 @@ function S.BuildControls(e,parent,Row)
         local function Save(self,owner,item)
             owner=owner or self.monitorOwner or row.group;item=item or self.monitorEntry or row.entry
             if not Editable(owner,item)then return end
-            local value=S.Input(self:GetText())
+            local value=S.Input(W.InputValue(self))
             if item[field]~=value then item[field]=value;M:Commit()end
         end
         edit:SetScript("OnEditFocusGained",function(self)self.monitorOwner=row.group;self.monitorEntry=row.entry end)
@@ -673,7 +673,8 @@ function S.BuildControls(e,parent,Row)
             local owner,item=self.monitorOwner,self.monitorEntry;self.monitorOwner=nil;self.monitorEntry=nil;Save(self,owner,item)
         end)
         edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
-        edit:SetScript("OnEscapePressed",function(self)self:SetText((self.monitorEntry or row.entry)[field] or "");self:ClearFocus()end)
+        edit:SetScript("OnEscapePressed",function(self)W.SetInputValue(self,(self.monitorEntry or row.entry)[field] or "");self:ClearFocus()end)
+        W.NamedInput(edit,field=="value"and "spell"or nil)
         edit:HookScript("OnHide",function(self)self:ClearFocus()end)
     end
     panel.add=W.Button(panel,"添加监控",130,function()
@@ -766,7 +767,7 @@ function S.BuildControls(e,parent,Row)
             row.shortcutEdit:SetWidth(70)
             row.shortcutColor:ClearAllPoints();row.shortcutColor:SetPoint("LEFT",row.shortcutEdit,"RIGHT",12,0)
             row.edit:SetWidth(width/3);row.separator:SetShown(i>1)
-            if not row.edit:HasFocus()then row.edit:SetText(entry.value)end
+            if not row.edit:HasFocus()then W.SetInputValue(row.edit,entry.value)end
             if not row.shortcutEdit:HasFocus()then row.shortcutEdit:SetText(entry.shortcut or "")end
             row.showShortcut:SetChecked(entry.showShortcut~=false);row.shortcutColor:SetColor(entry.shortcutColor or {1,1,1,1})
             local shortcutEnabled=entry.showShortcut~=false

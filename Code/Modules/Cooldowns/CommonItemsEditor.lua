@@ -116,14 +116,15 @@ function I.BuildControls(e,parent)
                         local function Save(self)
                             local current=self.editEntry
                             if current and I.Kind(current)=="item"and self.editOwner==row.owner and current==row.entry and Editable(row)then
-                                local value=S.Input(self:GetText());if current[field]~=value then current[field]=value;M:Commit()end
+                                local value=S.Input(W.InputValue(self));if current[field]~=value then current[field]=value;M:Commit()end
                             end
                         end
                         edit:SetScript("OnEditFocusGained",function(self)self.editOwner,self.editEntry=row.owner,row.entry end)
                         edit:SetScript("OnEditFocusLost",function(self)Save(self);self.editOwner,self.editEntry=nil,nil end)
                         edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
-                        edit:SetScript("OnEscapePressed",function(self)if self.editEntry then self:SetText(self.editEntry[field])end;self:ClearFocus()end)
+                        edit:SetScript("OnEscapePressed",function(self)if self.editEntry then W.SetInputValue(self,self.editEntry[field])end;self:ClearFocus()end)
                         edit:SetScript("OnTextChanged",function(self)self.placeholder:SetShown(self:GetText()=="");if field=="value"then PreviewIcon(row)end end)
+                        W.NamedInput(edit,field=="createSpell"and "spell"or nil)
                         edit:HookScript("OnHide",function(self)self:ClearFocus()end)
                     end
                     row.create:HookScript("OnEnter",function(self)
@@ -150,7 +151,7 @@ function I.BuildControls(e,parent)
                 else
                     row.item:Enable();row.item:EnableMouse(true)
                     if not row.item:HasFocus()then row.item:SetText(entry.value)end
-                    if not row.create:HasFocus()then row.create:SetText(entry.createSpell)end
+                    if not row.create:HasFocus()then W.SetInputValue(row.create,entry.createSpell)end
                 end
                 row.item.placeholder:SetShown(not equipment and row.item:GetText()=="")
                 PreviewIcon(row);row.line:SetShown(index>1);row:Show()

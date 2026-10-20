@@ -42,7 +42,7 @@ function O.BuildControls(e,parent)
             local owner,item=self.editOwner,self.editEntry
             local valid=override and Index(M.db.otherMonitorEquipmentOverrides,item)or (not override and Editable(owner,item))
             if valid and M:CanEdit()then
-                local value=M.PlayerSkillMonitor.Input(self:GetText())
+                local value=M.PlayerSkillMonitor.Input(W.InputValue(self))
                 if item[field]~=value then item[field]=value;M:Commit()end
             end
         end
@@ -50,9 +50,10 @@ function O.BuildControls(e,parent)
         edit:SetScript("OnEditFocusLost",function(self)Save(self);self.editOwner,self.editEntry=nil,nil end)
         edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
         edit:SetScript("OnEscapePressed",function(self)
-            if self.editEntry then self:SetText(self.editEntry[field]or "")end
+            if self.editEntry then W.SetInputValue(self,self.editEntry[field]or "")end
             self:ClearFocus()
         end)
+        W.NamedInput(edit,(field=="value"or (override and field=="spellID"))and "spell"or nil)
         edit:HookScript("OnHide",function(self)self:ClearFocus()end)
     end
     local function Drop(parent,label,width,choices,selected,apply)
@@ -74,7 +75,7 @@ function O.BuildControls(e,parent)
     local function RefreshIcon(row)
         local entry=row.entry;local name,_,icon
         if entry.type=="equipment"then _,name,icon=O.Item(entry.slot or 13)
-        else name,_,icon=M.PetBuffs.SpellInfo(row.edit:GetText())end
+        else name,_,icon=M.PetBuffs.SpellInfo(W.InputValue(row.edit))end
         row.icon.texture:SetTexture(icon or 134400)
         if entry.type=="equipment"then row.edit:SetText(name or M:T("未装备"))end
     end
@@ -119,7 +120,7 @@ function O.BuildControls(e,parent)
                 row.captions[index]:ClearAllPoints();row.captions[index]:SetPoint("TOPLEFT",x,0)
                 local inset=index==1 and 34 or 0
                 row.edits[index]:ClearAllPoints();row.edits[index]:SetPoint("TOPLEFT",x+inset,-22);row.edits[index]:SetWidth(fieldWidth-inset)
-                if not row.edits[index]:HasFocus()then row.edits[index]:SetText(record[field])end
+                if not row.edits[index]:HasFocus()then W.SetInputValue(row.edits[index],record[field])end
             end
             row.icon:ClearAllPoints();row.icon:SetPoint("RIGHT",row.edits[1],"LEFT",-8,0);RefreshSupplementIcon(row)
             row.remove:ClearAllPoints();row.remove:SetPoint("TOPRIGHT",0,-22);row:Show()
@@ -247,8 +248,9 @@ function O.BuildControls(e,parent)
             row.slot:SetWidth(dropWidth);row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT",0,0);row.slot:SetValue(tostring(entry.slot or 13));row.slot:SetShown(entry.type=="equipment")
             row.edit:SetWidth(width/3)
             if entry.type=="equipment"then row.edit:ClearFocus();row.edit:Disable()else row.edit:Enable()end
+            row.edit.inputNameKind=entry.type~="equipment"and "spell"or nil
             row.edit:EnableMouse(entry.type~="equipment");row.edit:SetTextColor(1,1,1)
-            if not row.edit:HasFocus()and entry.type~="equipment"then row.edit:SetText(entry.value)end
+            if not row.edit:HasFocus()and entry.type~="equipment"then W.SetInputValue(row.edit,entry.value)end
             RefreshIcon(row);row.placeholder:SetShown(entry.type~="equipment"and entry.value=="")
             row.glow:ClearAllPoints();row.glow:SetPoint("TOPLEFT",width/3+48,-58);row.glow:SetChecked(entry.glow)
             row.glowColor:ClearAllPoints();row.glowColor:SetPoint("LEFT",row.glow.label,"RIGHT",12,0);row.glowColor:SetColor(entry.glowColor)

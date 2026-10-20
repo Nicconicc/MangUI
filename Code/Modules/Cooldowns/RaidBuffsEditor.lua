@@ -14,18 +14,18 @@ function I.BuildControls(e,parent)
     M.MonitorSharing.BuildControls(e,parent,"raidBuffs",Flush)
     local function Editable(row)return row.owner and M.byID[row.owner.id]==row.owner and Index(row.owner[row.listKey],row.entry)and M:CanEdit()end
     local function PreviewIcon(row)
-        local alternative=row.alternative and row.alternative:GetText()or ""
+        local alternative=row.alternative and W.InputValue(row.alternative)or ""
         local kind=row.entry and I.Kind(row.entry)or "buff"
-        local item=kind=="buff"and I.ResolveValue(row.item:GetText())or I.Resolve({type=kind,value=kind=="classWeapon"and row.entry.value or row.item:GetText(),alternative=alternative})
+        local item=kind=="buff"and I.ResolveValue(W.InputValue(row.item))or I.Resolve({type=kind,value=kind=="classWeapon"and row.entry.value or W.InputValue(row.item),alternative=alternative})
         local other=I.ResolveValue(alternative)
-        if kind=="buff"and row.entry and row.entry.value==row.item:GetText()and (row.entry.alternative or "")==alternative then
+        if kind=="buff"and row.entry and row.entry.value==W.InputValue(row.item)and (row.entry.alternative or "")==alternative then
             for _,spell in ipairs(I.Options(row.entry))do if not spell.id then I.RequestBuffName(spell.value)end end
         end
         row.icon.texture:SetTexture(item.icon or 134400)
         row.alternativeIcon.texture:SetTexture(other.icon or 134400)
         if row.status then
             local message=""
-            if kind=="consumable"and row.item:GetText()~=""then
+            if kind=="consumable"and W.InputValue(row.item)~=""then
                 message=item.supported and item.name or M:T("暂不支持此物品，请从列表选择")
             elseif kind=="classWeapon"then message=M:T("只检查已学会且适用于当前武器的强化")end
             row.status:SetText(message);row.status:SetTextColor(item.supported and .65 or 1,item.supported and .85 or .65,.5)
@@ -139,7 +139,7 @@ function I.BuildControls(e,parent)
                         local function Save(self)
                             local current=self.editEntry
                             if current and I.Kind(current)~="classWeapon"and self.editOwner==row.owner and current==row.entry and Editable(row)then
-                                local value=S.Input(self:GetText())
+                                local value=S.Input(W.InputValue(self))
                                 if I.Kind(current)=="consumable"then
                                     local d,id=Wep.FindItem(value,true);if d then value=tostring(id)end
                                 end
@@ -149,14 +149,15 @@ function I.BuildControls(e,parent)
                         edit:SetScript("OnEditFocusGained",function(self)self.editOwner,self.editEntry=row.owner,row.entry end)
                         edit:SetScript("OnEditFocusLost",function(self)Save(self);self.editOwner,self.editEntry=nil,nil end)
                         edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
-                        edit:SetScript("OnEscapePressed",function(self)if self.editEntry then self:SetText(self.editEntry[field]or "")end;self:ClearFocus()end)
+                        edit:SetScript("OnEscapePressed",function(self)if self.editEntry then W.SetInputValue(self,self.editEntry[field]or "")end;self:ClearFocus()end)
                         edit:SetScript("OnTextChanged",function(self)self.placeholder:SetShown(self:GetText()=="");PreviewIcon(row)end)
+                        W.NamedInput(edit,"spell")
                         edit:HookScript("OnHide",function(self)self:ClearFocus()end)
                     end
                     row.status=W.Label(row,"",10);row.status:SetPoint("TOPLEFT",34,-94);row.status:SetPoint("TOPRIGHT",-108,-94);row.status:SetWordWrap(false)
                     row.pick=W.Button(row,"选择",52,function()
                         if row.item.menu then row.item.menu:Hide();return end
-                        local kind=I.Kind(row.entry);local choices=kind=="classWeapon"and Wep.ClassChoices()or Wep.ItemChoices(row.item:GetText())
+                        local kind=I.Kind(row.entry);local choices=kind=="classWeapon"and Wep.ClassChoices()or Wep.ItemChoices(W.InputValue(row.item))
                         if #choices==0 then choices=Wep.ItemChoices()end
                         if #choices==0 then return end
                         W.MediaMenu(row.item,choices,"choice",row.entry.value,function(choice)
@@ -190,6 +191,7 @@ function I.BuildControls(e,parent)
                 row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT");row.slot:SetWidth(dw);row.slot:SetValue(entry.slot or "main")
                 local d=kind=="classWeapon"and Wep.classes[entry.value]
                 row.slot:SetShown(weapon and not(kind=="classWeapon"and entry.value=="auto")and not(d and d.class=="ROGUE"and Wep.Family()>=5))
+                row.item.inputNameKind=not weapon and "spell"or nil
                 local inputWidth=(width-194)/2
                 row.item:ClearAllPoints();row.item:SetPoint("LEFT",row.icon,"RIGHT",8,0);row.item:SetWidth(weapon and width-194 or inputWidth)
                 row.orLabel:ClearAllPoints();row.orLabel:SetPoint("LEFT",row.item,"RIGHT",4,0)
@@ -203,11 +205,11 @@ function I.BuildControls(e,parent)
                     row.item:SetText(entry.value=="auto"and M:T("自动（按当前职业推荐）")or Wep.Resolve(entry).name)
                 else
                     row.item:Enable();row.item:EnableMouse(true)
-                    if not row.item:HasFocus()then row.item:SetText(entry.value)end
+                    if not row.item:HasFocus()then W.SetInputValue(row.item,entry.value)end
                 end
-                if not row.alternative:HasFocus()then row.alternative:SetText(entry.alternative or "")end
-                row.item.placeholder:SetShown(row.item:GetText()=="")
-                row.alternative.placeholder:SetShown(row.alternative:GetText()=="")
+                if not row.alternative:HasFocus()then W.SetInputValue(row.alternative,entry.alternative or "")end
+                row.item.placeholder:SetShown(W.InputValue(row.item)=="")
+                row.alternative.placeholder:SetShown(W.InputValue(row.alternative)=="")
                 PreviewIcon(row);row.line:SetShown(index>1);row:Show()
             end
             for index=#entries+1,#self.rows do self.rows[index]:Hide()end

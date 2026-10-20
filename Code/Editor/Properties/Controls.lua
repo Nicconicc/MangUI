@@ -667,7 +667,7 @@ local function BuildProperties(e)
             local selected=Selected()
             local group=self.petBuffOwner or (selected and selected.compound=="petComposite" and selected)
             if not group or M.byID[group.id]~=group or not M:CanEdit() then return end
-            local value=M.PetBuffs.Input(self:GetText())
+            local value=M.PetBuffs.Input(W.InputValue(self))
             if group[key]~=value then group[key]=value;M:Commit() end
         end
         edit:SetScript("OnEditFocusGained",function(self)
@@ -677,8 +677,9 @@ local function BuildProperties(e)
         edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
         edit:SetScript("OnEscapePressed",function(self)
             local group=self.petBuffOwner or Selected()
-            self:SetText(group and group[key] or "");self:ClearFocus()
+            W.SetInputValue(self,group and group[key] or "");self:ClearFocus()
         end)
+        W.NamedInput(edit,"spell")
         Row(34,{{edit,2,-3}},{},key);y=y-34
     end
     e.nameXSlider,e.nameXLabel=NameSlider("焦点名称X偏移","nameX","x",100,400,1)
