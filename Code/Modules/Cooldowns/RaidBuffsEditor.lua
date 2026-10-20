@@ -182,7 +182,7 @@ function I.BuildControls(e,parent)
                         Flush();if Editable(row)then table.remove(row.owner[row.listKey],Index(row.owner[row.listKey],row.entry));M:Commit()end
                     end)
                     row.remove:SetPoint("TOPRIGHT",0,-59)
-                    row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(100,18);row.handle:SetPoint("BOTTOM",row.remove,"TOP",0,18)
+                    row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(100,18);row.handle:SetPoint("TOPRIGHT",0,-96)
                     row.dragLabel=W.Label(row.handle,"拖拽排序",12);row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetPoint("CENTER");Drag(row.handle,row)
                 end
                 row.owner,row.entry=group,entry;row.offset=(index-1)*128;row:SetSize(width,124);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-row.offset)
@@ -192,9 +192,6 @@ function I.BuildControls(e,parent)
                 local d=kind=="classWeapon"and Wep.classes[entry.value]
                 row.slot:SetShown(weapon and not(kind=="classWeapon"and entry.value=="auto")and not(d and d.class=="ROGUE"and Wep.Family()>=5))
                 row.item.inputNameKind=not weapon and "spell"or nil
-                if row.slot:IsShown()then
-                    row.slot:SetWidth(math.max(100,dw-108));row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT",-108,0)
-                end
                 local inputWidth=(width-194)/2
                 row.item:ClearAllPoints();row.item:SetPoint("LEFT",row.icon,"RIGHT",8,0);row.item:SetWidth(weapon and width-194 or inputWidth)
                 row.orLabel:ClearAllPoints();row.orLabel:SetPoint("LEFT",row.item,"RIGHT",4,0)
