@@ -251,7 +251,7 @@ function I.BuildControls(e,parent)
                         button.iconBright=button:CreateTexture(nil,"OVERLAY")
                         button.iconBright:SetAllPoints(button.icon)
                         button.iconBright:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
-                        button.iconBright:SetDesaturated(true);button.iconBright:SetBlendMode("ADD");button.iconBright:SetAlpha(.3);button.iconBright:Hide()
+                        button.iconBright:SetDesaturated(true);button.iconBright:SetBlendMode("ADD");button.iconBright:SetAlpha(.1);button.iconBright:Hide()
                         -- Add the same class-tinted luminance instead of a white highlight.
                         button:SetScript("OnClick",function(self)
                             Flush();if Editable(row)then
