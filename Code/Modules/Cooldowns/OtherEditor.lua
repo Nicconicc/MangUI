@@ -19,10 +19,11 @@ function O.BuildControls(e,parent)
         left:SetPoint("LEFT",frame,"TOPLEFT",0,12);left:SetPoint("RIGHT",title,"LEFT",-8,0)
         local right=frame:CreateTexture(nil,"ARTWORK");right:SetHeight(1);right:SetColorTexture(.5,.5,.5,.45)
         right:SetPoint("LEFT",title,"RIGHT",8,0);right:SetPoint("RIGHT",frame,"TOPRIGHT",0,12)
+        frame.sectionRightLine=right
         return title
     end
     local sharing=CreateFrame("Frame",nil,parent);sharing:SetSize(470,56);sharing.title=Section(sharing,"配置分享")
-    local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);panel.rows={};panel.title=Section(panel,"监控设置")
+    local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);panel.rows={};panel.title=Section(panel,"监控设置");W.DragListHeader(panel)
     local supplement=CreateFrame("Frame",nil,parent);supplement:SetSize(470,96);supplement.rows={};supplement.title=Section(supplement,"装备监控补充")
     e.otherMonitorPanel=panel;e.otherMonitorSharing=sharing;e.otherMonitorSupplement=supplement
     Property(sharing,"otherMonitorSharing",56);Property(panel,"otherMonitorItems",30);Property(supplement,"otherMonitorEquipment",96)
@@ -198,7 +199,7 @@ function O.BuildControls(e,parent)
                 row.separator:SetPoint("TOPLEFT",0,6);row.separator:SetPoint("TOPRIGHT",0,6)
                 row.dragTint=row:CreateTexture(nil,"BACKGROUND");row.dragTint:SetAllPoints();row.dragTint:SetColorTexture(.2,.6,.9,.2);row.dragTint:Hide();Drag(row,row)
                 row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(110,18)
-                row.dragLabel=W.Label(row.handle,"拖拽排序",12);row.dragLabel:SetPoint("CENTER");row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetWordWrap(false);Drag(row.handle,row)
+                row.dragLabel=W.Label(row.handle,"",12);row.dragLabel:SetPoint("CENTER");row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetWordWrap(false);Drag(row.handle,row)
                 row.type=Drop(row,"监控类型",215,O.types,function()return row.entry.type end,function(value)
                     if Editable(row.owner,row.entry)then row.entry.type=value;M:Commit()end
                 end)
@@ -261,7 +262,7 @@ function O.BuildControls(e,parent)
             row.soundID:SetShown(entry.soundEnabled and entry.sound=="id")
             if not row.path:HasFocus()then row.path:SetText(entry.soundPath)end
             if not row.soundID:HasFocus()then row.soundID:SetText(entry.soundID)end
-            row.separator:SetShown(i>1);row:Show()
+            row.separator:SetShown(i>1);W.ShadeDragRow(row,i);row:Show()
         end
         for i=#entries+1,#self.rows do self.rows[i]:Hide()end
         self.contentHeight=offset;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-offset)

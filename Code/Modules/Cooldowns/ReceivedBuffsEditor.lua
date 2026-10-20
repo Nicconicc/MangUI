@@ -19,10 +19,11 @@ function O.BuildControls(e,parent)
         left:SetPoint("LEFT",frame,"TOPLEFT",0,12);left:SetPoint("RIGHT",title,"LEFT",-8,0)
         local right=frame:CreateTexture(nil,"ARTWORK");right:SetHeight(1);right:SetColorTexture(.5,.5,.5,.45)
         right:SetPoint("LEFT",title,"RIGHT",8,0);right:SetPoint("RIGHT",frame,"TOPRIGHT",0,12)
+        frame.sectionRightLine=right
         return title
     end
     local sharing=CreateFrame("Frame",nil,parent);sharing:SetSize(470,56);sharing.title=Section(sharing,"配置分享")
-    local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);panel.rows={};panel.title=Section(panel,"监控设置")
+    local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);panel.rows={};panel.title=Section(panel,"监控设置");W.DragListHeader(panel)
     e.receivedBuffPanel=panel;e.receivedBuffSharing=sharing
     Property(sharing,"receivedBuffSharing",56);Property(panel,"receivedBuffItems",30)
     local function Flush()
@@ -140,7 +141,7 @@ function O.BuildControls(e,parent)
                 row.separator:SetPoint("TOPLEFT",0,6);row.separator:SetPoint("TOPRIGHT",0,6)
                 row.dragTint=row:CreateTexture(nil,"BACKGROUND");row.dragTint:SetAllPoints();row.dragTint:SetColorTexture(.2,.6,.9,.2);row.dragTint:Hide();Drag(row,row)
                 row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(110,18)
-                row.dragLabel=W.Label(row.handle,"拖拽排序",12);row.dragLabel:SetPoint("CENTER");row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetWordWrap(false);Drag(row.handle,row)
+                row.dragLabel=W.Label(row.handle,"",12);row.dragLabel:SetPoint("CENTER");row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetWordWrap(false);Drag(row.handle,row)
                 row.icon=CreateFrame("Button",nil,row);row.icon:SetSize(26,26);row.icon:SetPoint("TOPLEFT",0,-25)
                 row.icon.texture=row.icon:CreateTexture(nil,"ARTWORK");row.icon.texture:SetAllPoints();Drag(row.icon,row)
                 row.edit=W.Edit(row,156);row.edit:SetMaxLetters(128);row.edit:SetTextInsets(6,6,0,0)
@@ -183,7 +184,7 @@ function O.BuildControls(e,parent)
             row.soundID:SetShown(entry.soundEnabled and entry.sound=="id")
             if not row.path:HasFocus()then row.path:SetText(entry.soundPath)end
             if not row.soundID:HasFocus()then row.soundID:SetText(entry.soundID)end
-            row.separator:SetShown(i>1);row:Show()
+            row.separator:SetShown(i>1);W.ShadeDragRow(row,i);row:Show()
         end
         for i=#entries+1,#self.rows do self.rows[i]:Hide()end
         self.contentHeight=offset;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-offset)

@@ -36,6 +36,7 @@ function I.BuildControls(e,parent)
         left:SetPoint("LEFT",panel,"TOPLEFT",0,12);left:SetPoint("RIGHT",panel.title,"LEFT",-8,0)
         local right=panel:CreateTexture(nil,"ARTWORK");right:SetColorTexture(.5,.5,.5,.45);right:SetHeight(1)
         right:SetPoint("LEFT",panel.title,"RIGHT",8,0);right:SetPoint("RIGHT",panel,"TOPRIGHT",0,12)
+        if key=="commonItems"then W.DragListHeader(panel,right)end
         local propertyRow={height=32,controls={{panel,0,0}},kinds={},key=property};panel.propertyRow=propertyRow;e.propRows[#e.propRows+1]=propertyRow
         if key=="commonItems"then e.commonItemsSharedPanel=panel else e.commonItemsClassPanel=panel end
         panel.marker=CreateFrame("Frame",nil,panel);panel.marker:SetHeight(2);panel.marker:SetFrameLevel(panel:GetFrameLevel()+40);panel.marker:Hide()
@@ -136,7 +137,7 @@ function I.BuildControls(e,parent)
                     end)
                     row.remove:SetPoint("TOPRIGHT",0,-58)
                     row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(100,18);row.handle:SetPoint("TOP",row.remove,"TOP",0,58)
-                    row.dragLabel=W.Label(row.handle,"拖拽排序",12);row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetPoint("CENTER");Drag(row.handle,row)
+                    row.dragLabel=W.Label(row.handle,"",12);row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetPoint("CENTER");Drag(row.handle,row)
                 end
                 row.owner,row.entry=group,entry;row.offset=(index-1)*108;row:SetSize(width,104);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-row.offset)
                 local equipment=I.Kind(entry)=="equipment";local dropWidth=(width-16)/2
@@ -154,7 +155,7 @@ function I.BuildControls(e,parent)
                     if not row.create:HasFocus()then W.SetInputValue(row.create,entry.createSpell)end
                 end
                 row.item.placeholder:SetShown(not equipment and row.item:GetText()=="")
-                PreviewIcon(row);row.line:SetShown(index>1);row:Show()
+                PreviewIcon(row);row.line:SetShown(index>1);W.ShadeDragRow(row,index);row:Show()
             end
             for index=#entries+1,#self.rows do self.rows[index]:Hide()end
             local height=#entries*108+32;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-#entries*108)

@@ -563,9 +563,10 @@ function S.BuildControls(e,parent,Row)
         left:SetPoint("LEFT",frame,"TOPLEFT",0,12);left:SetPoint("RIGHT",title,"LEFT",-8,0)
         local right=frame:CreateTexture(nil,"ARTWORK");right:SetHeight(1);right:SetColorTexture(.5,.5,.5,.45)
         right:SetPoint("LEFT",title,"RIGHT",8,0);right:SetPoint("RIGHT",frame,"TOPRIGHT",0,12)
+        frame.sectionRightLine=right
         return title
     end
-    sharing.title=SectionTitle(sharing,"配置分享");panel.title=SectionTitle(panel,"监控设置")
+    sharing.title=SectionTitle(sharing,"配置分享");panel.title=SectionTitle(panel,"监控设置");W.DragListHeader(panel)
     e.propRows[#e.propRows+1]={height=56,controls={{sharing,0,0}},kinds={},key="skillMonitorSharing"}
     local property={height=30,controls={{panel,0,0}},kinds={},key="skillMonitorItems"}
     e.propRows[#e.propRows+1]=property;panel.propertyRow=property;panel.rows={}
@@ -702,7 +703,7 @@ function S.BuildControls(e,parent,Row)
                 row.dragTint=row:CreateTexture(nil,"BACKGROUND");row.dragTint:SetAllPoints();row.dragTint:SetColorTexture(.2,.6,.9,.2);row.dragTint:Hide()
                 DragSurface(row,row)
                 row.dragHandle=CreateFrame("Button",nil,row);row.dragHandle:SetSize(100,18)
-                row.dragLabel=W.Label(row.dragHandle,"拖拽排序",12);row.dragLabel:SetPoint("CENTER");row.dragLabel:SetJustifyH("CENTER")
+                row.dragLabel=W.Label(row.dragHandle,"",12);row.dragLabel:SetPoint("CENTER");row.dragLabel:SetJustifyH("CENTER")
                 row.dragLabel:SetTextColor(.65,.65,.65)
                 M:SetLocaleLineHeight(row.dragLabel,18);row.dragLabel:SetWordWrap(false)
                 DragSurface(row.dragHandle,row)
@@ -775,7 +776,7 @@ function S.BuildControls(e,parent,Row)
             row.shortcutEdit:EnableMouse(shortcutEnabled);row.shortcutEdit:SetAlpha(shortcutEnabled and 1 or .55)
             row.shortcutEdit:SetTextColor(shortcutEnabled and 1 or .45,shortcutEnabled and 1 or .45,shortcutEnabled and 1 or .45)
             row.shortcutPlaceholder:SetShown(row.shortcutEdit:GetText()=="");SkillIcon(row)
-            row.placeholder:SetShown(row.edit:GetText()=="");row:Show()
+            row.placeholder:SetShown(row.edit:GetText()=="");W.ShadeDragRow(row,i);row:Show()
         end
         for i=#monitors+1,#self.rows do self.rows[i]:Hide()end
         self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",self,"TOPLEFT",0,-#monitors*88)

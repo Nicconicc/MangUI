@@ -30,6 +30,20 @@ function W.Label(parent,text,size)
     local t=parent:CreateFontString(nil,"OVERLAY");t:SetFont(M:DefaultFontPath(),size or 12,"")
     M:BindText(t);t:SetText(text or "");t:SetTextColor(1,1,1);t:SetJustifyH("LEFT");return t
 end
+function W.DragListHeader(panel,line)
+    local label=W.Label(panel,"拖拽排序",12);panel.dragHint=label
+    label:SetPoint("RIGHT",panel,"TOPRIGHT",0,12);label:SetTextColor(.65,.65,.65)
+    label:SetJustifyH("RIGHT");label:SetWordWrap(false);M:SetLocaleLineHeight(label,18)
+    line=line or panel.sectionRightLine
+    if line then line:SetPoint("RIGHT",label,"LEFT",-8,0)end
+end
+function W.ShadeDragRow(row,index)
+    if not row.alternateBackground then
+        local fill=row:CreateTexture(nil,"BACKGROUND",nil,-8);row.alternateBackground=fill
+        fill:SetAllPoints();fill:SetColorTexture(0,0,0,.22)
+    end
+    row.alternateBackground:SetShown(index%2==0)
+end
 function W.StyleButton(b)
     if b.panelButtonStyled then return b end
     b.panelButtonStyled=true;b.panelButtonHoverColor={1,1,1}
