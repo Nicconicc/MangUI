@@ -229,6 +229,11 @@ function I.BuildControls(e,parent)
                         button.classToken=info[1];button.classInfo=info;row.classButtons[classIndex]=button
                         button.icon=button:CreateTexture(nil,"ARTWORK");button.icon:SetSize(23.04,23.04);button.icon:SetPoint("CENTER")
                         button.icon:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
+                        -- Add the same class-tinted luminance instead of a white highlight.
+                        button.iconLight=button:CreateTexture(nil,"OVERLAY")
+                        button.iconLight:SetAllPoints(button.icon)
+                        button.iconLight:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
+                        button.iconLight:SetDesaturated(true);button.iconLight:SetBlendMode("ADD");button.iconLight:SetAlpha(.75)
                         button:SetScript("OnClick",function(self)
                             Flush();if Editable(row)then
                                 local enabled=I.ForClass(row.entry,self.classToken)
@@ -274,8 +279,11 @@ function I.BuildControls(e,parent)
                     local info=button.classInfo;local color=RAID_CLASS_COLORS and RAID_CLASS_COLORS[button.classToken]
                     local enabled=I.ForClass(entry,button.classToken)
                     button.icon:SetDesaturated(true);button.icon:SetAlpha(enabled and 1 or .5)
-                    if enabled then button.icon:SetVertexColor(color and color.r or info[4],color and color.g or info[5],color and color.b or info[6],1)
+                    if enabled then
+                        local r,g,b=color and color.r or info[4],color and color.g or info[5],color and color.b or info[6]
+                        button.icon:SetVertexColor(r,g,b,1);button.iconLight:SetVertexColor(r,g,b,1)
                     else button.icon:SetVertexColor(.65,.65,.65,1)end
+                    button.iconLight:SetShown(enabled)
                     button.selected=enabled
                 end
                 PreviewIcon(row);W.ShadeDragRow(row,index);row:Show()
