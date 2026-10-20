@@ -186,6 +186,7 @@ function M:InitStore()
     db.language=self:ClientLanguage()
     db.hideWithoutTarget=db.hideWithoutTarget==true
     db.portrait3D=db.portrait3D==true
+    db.targetNameplateLine=db.targetNameplateLine~=false
     db.healthClassColor=db.healthClassColor==true
     db.adapt4KUIScale=db.adapt4KUIScale==true
     db.useGlobalFont=db.useGlobalFont==true
@@ -363,6 +364,12 @@ end
 function M:SetPortrait3D(enabled)
     if not self:CanEdit() then return false end
     self.db.portrait3D=enabled==true;self:Commit();return true
+end
+function M:SetTargetNameplateLine(enabled)
+    if not self:CanEdit()then return false end
+    self.db.targetNameplateLine=enabled==true
+    if self.TargetNameplateLine then self.TargetNameplateLine.Update(self.live)end
+    self:Commit();return true
 end
 function M:SetAdapt4KUIScale(enabled)
     if not self:CanEdit() then return false end

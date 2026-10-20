@@ -151,6 +151,7 @@ local function CleanConfig(config)
     end
     if config.hideWithoutTarget~=nil and type(config.hideWithoutTarget)~="boolean" then return end
     if config.portrait3D~=nil and type(config.portrait3D)~="boolean" then return end
+    if config.targetNameplateLine~=nil and type(config.targetNameplateLine)~="boolean" then return end
     if config.healthClassColor~=nil and type(config.healthClassColor)~="boolean" then return end
     if config.adapt4KUIScale~=nil and type(config.adapt4KUIScale)~="boolean" then return end
     if config.useGlobalFont~=nil and type(config.useGlobalFont)~="boolean" then return end
@@ -179,6 +180,7 @@ local function CleanConfig(config)
     if not nodes or not defaults then return end
     return {format=1,schema=82,language=config.language,hideBlizzard=config.hideBlizzard,hideWithoutTarget=config.hideWithoutTarget==true,
         portrait3D=config.portrait3D==true,
+        targetNameplateLine=config.targetNameplateLine~=false,
         healthClassColor=config.healthClassColor==true,
         adapt4KUIScale=config.adapt4KUIScale==true,
         useGlobalFont=config.useGlobalFont==true,
@@ -276,6 +278,7 @@ function M:ExportConfigString()
         local serializer,deflate=Libraries()
         local config=CleanConfig({format=1,schema=self.db.schema,language=self.db.language,
             hideBlizzard=self.db.hideBlizzard,hideWithoutTarget=self.db.hideWithoutTarget,portrait3D=self.db.portrait3D,
+            targetNameplateLine=self.db.targetNameplateLine,
             healthClassColor=self.db.healthClassColor,minimap=self.db.minimap,
             adapt4KUIScale=self.db.adapt4KUIScale,
             useGlobalFont=self.db.useGlobalFont,globalFontPath=self.db.globalFontPath,globalFontName=self.db.globalFontName,
@@ -352,6 +355,7 @@ function M:ApplyConfigString(input)
     self.db.language=config.language;self.db.minimap=config.minimap;self.db.hideBlizzard=config.hideBlizzard
     self.db.hideWithoutTarget=config.hideWithoutTarget
     self.db.portrait3D=config.portrait3D
+    self.db.targetNameplateLine=config.targetNameplateLine
     self.db.healthClassColor=config.healthClassColor
     self.db.adapt4KUIScale=config.adapt4KUIScale
     self:ApplyUIScale()

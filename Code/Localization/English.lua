@@ -1,5 +1,6 @@
 local _,M=...
 local english=M.localeTables.enUS
+english["头像到目标姓名板连线"]="Portrait-to-target nameplate line"
 english[" · 双击 "]=" · Double-click "
 english[" · 小地图 "]=" · Minimap "
 english[" · 拖动绿色区域"]=" · Drag the green area"
