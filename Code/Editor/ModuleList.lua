@@ -9,6 +9,39 @@ local disabledModuleColor=private.disabledModuleColor
 local Selected=private.Selected
 local MainPreviewSelection=private.MainPreviewSelection
 local SetSelection=private.SetSelection
+local moduleTips={
+    mainComposite="配置玩家与目标的头像、生命、资源、姓名和光环等主要界面元素。",
+    wa8d650f8d3a="显示玩家施法与引导进度，可调整施法条的位置、文字和外观。",
+    petComposite="显示宠物头像、生命和资源，并可自定义追踪宠物增益。",
+    totComposite="显示当前目标正在选中的单位，帮助判断目标的攻击对象。",
+    focusComposite="显示焦点的头像、生命与资源信息，可调整各元素的位置和外观。",
+    partyFrames="显示自己与队伍成员的状态，可调整队伍框体的排列和外观。",
+    bossFrames="显示首领目标的生命与施法信息，可调整头像、文字和进度条样式。",
+    playerSkillMonitor="自定义追踪技能冷却和自己施加的目标减益，可设置快捷键标注。",
+    playerOtherMonitor="按条件追踪玩家增益、自己施加的目标减益和装备效果，可设置发光与音效。",
+    cooldownMonitor="自动显示符合冷却时长范围的技能和物品，可通过黑名单排除不需要的条目。",
+    raidBuffs="缺少已配置的团队或职业增益时显示提醒图标，获得增益后自动隐藏。",
+    commonItems="显示常用物品或装备的使用按钮、数量与冷却；左键使用物品，右键施放已配置的制造技能。",
+    targetDistance="显示与目标的距离范围，并按职业设置距离提示阈值。",
+    targetThreat="显示对当前目标的仇恨信息，可设置是否仅在副本中显示。",
+    chatButtons="提供聊天频道切换、掷骰、就位确认和开怪倒计时等快捷按钮。",
+    systemMenu="显示常用游戏菜单的快捷按钮，可调整位置与样式。",
+    experienceBar="显示当前等级的经验进度，可调整位置、文字与外观。",
+    mouseCircle="在鼠标周围显示光圈，便于定位鼠标，可调整大小与颜色。",
+    combatNotices="进入或离开战斗时显示文字提示，并可设置提示音效。",
+    unlockMove="同时显示可移动模块的位置区域，拖动调整布局；右键可选择重叠框体。",
+}
+local tooltipOwner
+local function HideModuleTip(owner)
+    if tooltipOwner==owner then GameTooltip:Hide();tooltipOwner=nil end
+end
+local function ShowModuleTip(owner,id,title)
+    local description=moduleTips[id];if not description then return end
+    GameTooltip:SetOwner(owner,"ANCHOR_RIGHT")
+    GameTooltip:SetText(M:T(title),1,.82,0)
+    GameTooltip:AddLine(M:T(description),1,1,1,true)
+    tooltipOwner=owner;GameTooltip:Show()
+end
 
 local function UpdateModuleColors(e,elapsed)
     e.groupColorClock=(e.groupColorClock or 0)+elapsed
@@ -52,6 +85,13 @@ end
 
 function M:RefreshTree()
     local e=self.editor;local entries={}
+    if not e.unlockMove.moduleTipBound then
+        e.unlockMove.moduleTipBound=true
+        e.unlockMove:HookScript("OnEnter",function(self)ShowModuleTip(self,"unlockMove","解锁移动模式")end)
+        e.unlockMove:HookScript("OnLeave",HideModuleTip)
+        e.unlockMove:HookScript("OnHide",HideModuleTip)
+    end
+    if tooltipOwner==e.unlockMove then ShowModuleTip(e.unlockMove,"unlockMove","解锁移动模式")end
     for _,id in ipairs(topLevelFrames) do
         local n=self.byID[id]
         if n and private.ModuleAvailable(id) then entries[#entries+1]=n end
@@ -106,9 +146,12 @@ function M:RefreshTree()
             row.statusFlash:SetDesaturated(true);row.statusFlash:SetBlendMode("ADD");row.statusFlash:SetAlpha(0)
             row.label=row:CreateFontString(nil,"OVERLAY","GameFontNormal");M:BindText(row.label);row.label:SetText("");row.label:SetTextColor(1,1,1);row.label:SetJustifyH("LEFT");row.label:SetJustifyV("MIDDLE");row.label:SetHeight(24);row.label:SetPoint("LEFT",28,0);row.label:SetPoint("RIGHT",-3,0);row.label:SetWordWrap(false)
             row:SetScript("OnClick",function()SetSelection(row.node.id)end)
-            row:SetScript("OnEnter",function(self)self.hovered=true;self:RefreshHighlight()end)
-            row:SetScript("OnLeave",function(self)self.hovered=false;self:RefreshHighlight();GameTooltip:Hide()end)
-            row:SetScript("OnHide",function(self)self.hovered=false;self.bg:Hide();self.statusFlash:SetAlpha(0)end)
+            row:SetScript("OnEnter",function(self)
+                self.hovered=true;self:RefreshHighlight()
+                if self.node then ShowModuleTip(self,self.node.id,self.node.label)end
+            end)
+            row:SetScript("OnLeave",function(self)self.hovered=false;self:RefreshHighlight();HideModuleTip(self)end)
+            row:SetScript("OnHide",function(self)self.hovered=false;self.bg:Hide();self.statusFlash:SetAlpha(0);HideModuleTip(self)end)
             e.rows[i]=row
         end
         local n=entries[i];row:SetShown(n~=nil)
@@ -126,6 +169,7 @@ function M:RefreshTree()
             row.label:SetText(n.label);row.label:SetTextColor(n.enabled==false and .45 or .92,n.enabled==false and .45 or .92,n.enabled==false and .45 or .92)
             M:FitLocaleText(row.label,row:GetWidth()-31,9.5)
             row.hovered=row:IsMouseOver();row:RefreshHighlight()
+            if tooltipOwner==row then ShowModuleTip(row,n.id,n.label)end
             offset=offset+26
             if moduleGroupBreaks[n.id] and i<#entries then
                 offset=offset+8;groupIndex=groupIndex+1
