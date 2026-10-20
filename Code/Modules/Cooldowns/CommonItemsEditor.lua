@@ -11,6 +11,7 @@ function I.BuildControls(e,parent)
         for _,panel in ipairs(panels)do panel:FinishDrag(false)end
         Flush()
     end
+    M.MonitorSharing.BuildControls(e,parent,"commonItems",Flush)
     local function Editable(row)return row.owner and M.byID[row.owner.id]==row.owner and Index(row.owner[row.listKey],row.entry)and M:CanEdit()end
     local function PreviewIcon(row)
         local item=I.Resolve(row.entry and I.Kind(row.entry)=="equipment"and row.entry or {value=row.item:GetText(),createSpell=""})

@@ -61,28 +61,21 @@ function M:EnsureReceivedBuffs(design)
         internal=true,locked=true,scope="player",unit="player",x=0,y=0,width=40,height=66,autoWidth=true,
         scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=349}
 end
-local function Class()local _,class=I.Safe(UnitClass,"player");return S.ValidClass(class)and class end
-function M:SaveReceivedBuffsClass()
-    local db=self.db;local group=db and I.Group(db.design);local class=Class()
-    if not group or not class or db.receivedBuffsClass~=class then return end
-    if I.ValidEntries(group.monitors)then db.receivedBuffsByClass=db.receivedBuffsByClass or {};db.receivedBuffsByClass[class]=M.Copy(group.monitors)end
+function M:SaveReceivedBuffs()
+    local db=self.db;local group=db and I.Group(db.design)
+    if group and I.ValidEntries(group.monitors)then db.receivedBuffsShared=M.Copy(group.monitors)end
 end
-function M:BindReceivedBuffsClass()
-    local db=self.db;local group=db and I.Group(db.design);local class=Class();if not group or not class then return end
-    if not I.ValidProfiles(db.receivedBuffsByClass)then db.receivedBuffsByClass={}end
-    local previous=db.receivedBuffsClass
-    if S.ValidClass(previous)then db.receivedBuffsByClass[previous]=M.Copy(group.monitors)
-    elseif db.receivedBuffsByClass[class]==nil then db.receivedBuffsByClass[class]=M.Copy(group.monitors)end
-    group.monitors=M.Copy(db.receivedBuffsByClass[class]or {I.NewEntry()})
-    db.receivedBuffsClass=class;db.receivedBuffsByClass[class]=M.Copy(group.monitors)
+function M:BindReceivedBuffs()
+    local db=self.db;local group=db and I.Group(db.design);if not group then return end
+    -- Upgrade the last displayed list to shared storage. Keep legacy class
+    -- lists in saved variables for recovery without switching to them.
+    if not I.ValidEntries(db.receivedBuffsShared)then db.receivedBuffsShared=M.Copy(group.monitors)end
+    group.monitors=M.Copy(db.receivedBuffsShared)
 end
 function M:ImportReceivedBuffs(config)
     local group=I.Group(self.db.design)
-    if config.receivedBuffsByClass then
-        self.db.receivedBuffsByClass=self.db.receivedBuffsByClass or {}
-        for class,entries in pairs(config.receivedBuffsByClass)do self.db.receivedBuffsByClass[class]=M.Copy(entries)end
-        self.db.receivedBuffsClass=config.receivedBuffsClass;self:BindReceivedBuffsClass()
-    else self.db.receivedBuffsClass=Class();self:SaveReceivedBuffsClass()end
+    self.db.receivedBuffsShared=M.Copy(config.receivedBuffsShared or group.monitors)
+    self:BindReceivedBuffs()
 end
 M.moduleIDs.receivedBuffs=true
 M:EnsureReceivedBuffs(M.defaults);M:EnsureReceivedBuffs(M.recordedDefaults)

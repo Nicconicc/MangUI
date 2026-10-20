@@ -253,7 +253,7 @@ function M:InitStore()
     if self.BindPlayerOtherMonitorClass then self:BindPlayerOtherMonitorClass()end
     if self.BindCommonItemsClass then self:BindCommonItemsClass()end
     if self.BindRaidVulnerabilityClass then self:BindRaidVulnerabilityClass()end
-    if self.BindReceivedBuffsClass then self:BindReceivedBuffsClass()end
+    if self.BindReceivedBuffs then self:BindReceivedBuffs()end
     if self.BindRaidBuffMonitorClass then self:BindRaidBuffMonitorClass()end
     if self.UpgradePlayerOtherMonitorDefaults then self:UpgradePlayerOtherMonitorDefaults(db)end
     self:Index()
@@ -407,7 +407,7 @@ function M:Commit()
     if self.SavePlayerOtherMonitorClass then self:SavePlayerOtherMonitorClass()end
     if self.SaveCommonItemsClass then self:SaveCommonItemsClass()end
     if self.SaveRaidVulnerabilityClass then self:SaveRaidVulnerabilityClass()end
-    if self.SaveReceivedBuffsClass then self:SaveReceivedBuffsClass()end
+    if self.SaveReceivedBuffs then self:SaveReceivedBuffs()end
     if self.SaveRaidBuffMonitorClass then self:SaveRaidBuffMonitorClass()end
     local session=self.EditorUndo and self.EditorUndo.session
     if C_Timer and C_Timer.After and session and session.transaction then

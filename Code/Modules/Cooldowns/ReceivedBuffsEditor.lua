@@ -29,10 +29,9 @@ function O.BuildControls(e,parent)
         for _,row in ipairs(panel.rows)do for _,edit in ipairs(row.inputs or {})do edit:ClearFocus()end end
     end
     function O.FlushEditor()panel:FinishDrag(false);Flush()end
-    sharing.exportAll=W.Button(sharing,"导出全职业配置",150,function()Flush();M:ShowConfigStringDialog("export","receivedAll")end)
-    sharing.exportClass=W.Button(sharing,"导出当前职业配置",150,function()Flush();M:ShowConfigStringDialog("export","receivedClass")end)
+    sharing.export=W.Button(sharing,"导出配置",150,function()Flush();M:ShowConfigStringDialog("export","received")end)
     sharing.import=W.Button(sharing,"导入配置",150,function()Flush();M:ShowConfigStringDialog("import","received")end)
-    for _,button in ipairs({sharing.exportAll,sharing.exportClass,sharing.import})do button:SetHoverTextColor(1,.82,0)end
+    for _,button in ipairs({sharing.export,sharing.import})do button:SetHoverTextColor(1,.82,0)end
     local function BindInput(row,edit,field)
         row.inputs=row.inputs or {};row.inputs[#row.inputs+1]=edit
         edit:SetAutoFocus(false)
@@ -128,8 +127,8 @@ function O.BuildControls(e,parent)
     function panel:Refresh(group)
         if self.drag and (self.drag.owner~=group or self.drag.entries~=MonitorEntries(group))then self:FinishDrag(false)end
         local width=e.props:GetWidth();local entries=MonitorEntries(group) or {};self:SetWidth(width);sharing:SetWidth(width)
-        for i,button in ipairs({sharing.exportAll,sharing.exportClass,sharing.import})do
-            local w=(width-16)/3;button:SetWidth(w);button:ClearAllPoints();button:SetPoint("TOPLEFT",(i-1)*(w+8),-24)
+        for i,button in ipairs({sharing.export,sharing.import})do
+            local w=(width-8)/2;button:SetWidth(w);button:ClearAllPoints();button:SetPoint("TOPLEFT",(i-1)*(w+8),-24)
         end
         local offset=0
         for i,entry in ipairs(entries)do

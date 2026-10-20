@@ -162,6 +162,7 @@ local function CleanConfig(config)
     if config.raidBuffsShared~=nil and not M.RaidBuffMonitor.ValidEntries(config.raidBuffsShared)then return end
     if config.raidVulnerabilityShared~=nil and not M.RaidVulnerability.ValidEntries(config.raidVulnerabilityShared)then return end
     if config.commonItemsByClass~=nil and (not M.CommonItems.ValidProfiles(config.commonItemsByClass)or not M.PlayerSkillMonitor.ValidClass(config.commonItemsClass))then return end
+    if config.receivedBuffsShared~=nil and not M.ReceivedBuffs.ValidEntries(config.receivedBuffsShared)then return end
     if config.receivedBuffsByClass~=nil and (not M.ReceivedBuffs.ValidProfiles(config.receivedBuffsByClass)or not M.PlayerSkillMonitor.ValidClass(config.receivedBuffsClass))then return end
     if config.raidBuffsByClass~=nil and (not M.RaidBuffMonitor.ValidProfiles(config.raidBuffsByClass)or not M.PlayerSkillMonitor.ValidClass(config.raidBuffsClass))then return end
     if config.raidVulnerabilityByClass~=nil and (not M.RaidVulnerability.ValidProfiles(config.raidVulnerabilityByClass)or not M.PlayerSkillMonitor.ValidClass(config.raidVulnerabilityClass))then return end
@@ -191,6 +192,7 @@ local function CleanConfig(config)
         raidBuffsShared=config.raidBuffsShared and M.Copy(config.raidBuffsShared),
         raidVulnerabilityShared=config.raidVulnerabilityShared and M.Copy(config.raidVulnerabilityShared),
         commonItemsByClass=config.commonItemsByClass and M.Copy(config.commonItemsByClass),commonItemsClass=config.commonItemsClass,
+        receivedBuffsShared=config.receivedBuffsShared and M.Copy(config.receivedBuffsShared),
         receivedBuffsByClass=config.receivedBuffsByClass and M.Copy(config.receivedBuffsByClass),receivedBuffsClass=config.receivedBuffsClass,
         raidBuffsByClass=config.raidBuffsByClass and M.Copy(config.raidBuffsByClass),raidBuffsClass=config.raidBuffsClass,
         raidVulnerabilityByClass=config.raidVulnerabilityByClass and M.Copy(config.raidVulnerabilityByClass),raidVulnerabilityClass=config.raidVulnerabilityClass,
@@ -265,7 +267,7 @@ function M:ExportConfigString()
     self:SavePlayerSkillMonitorClass()
     self:SavePlayerOtherMonitorClass()
     self:SaveCommonItemsClass()
-    self:SaveReceivedBuffsClass()
+    self:SaveReceivedBuffs()
     self:SaveRaidBuffMonitorClass()
     self:SaveRaidVulnerabilityClass()
     local ok,result=pcall(function()
@@ -278,7 +280,7 @@ function M:ExportConfigString()
             playerSkillMonitorsByClass=self.db.playerSkillMonitorsByClass,playerSkillMonitorClass=self.db.playerSkillMonitorClass,
             playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass,playerOtherMonitorClass=self.db.playerOtherMonitorClass,
             commonItemsShared=self.db.commonItemsShared,commonItemsByClass=self.db.commonItemsByClass,commonItemsClass=self.db.commonItemsClass,
-            receivedBuffsByClass=self.db.receivedBuffsByClass,receivedBuffsClass=self.db.receivedBuffsClass,
+            receivedBuffsShared=self.db.receivedBuffsShared,
             raidBuffsShared=self.db.raidBuffsShared,raidBuffsByClass=self.db.raidBuffsByClass,raidBuffsClass=self.db.raidBuffsClass,
             raidVulnerabilityShared=self.db.raidVulnerabilityShared,raidVulnerabilityByClass=self.db.raidVulnerabilityByClass,raidVulnerabilityClass=self.db.raidVulnerabilityClass,
             otherMonitorEquipmentOverrides=self.db.otherMonitorEquipmentOverrides,
@@ -317,6 +319,7 @@ function M:ImportConfigString(input)
 end
 function M:ApplyConfigString(input)
     if not self:CanEdit() then return false,"战斗中暂不能修改布局，脱战后即可编辑。" end
+    if type(input)=="string"and #input<=400000 and input:gsub("%s+",""):sub(1,6)=="!MUM1:"then return self:ApplyMonitorString(input)end
     if type(input)=="string"and #input<=400000 and input:gsub("%s+",""):sub(1,6)=="!MUG1:"then return self:ApplyReceivedBuffsString(input)end
     if type(input)=="string"and #input<=400000 and input:gsub("%s+",""):sub(1,6)=="!MUO1:"then return self:ApplyPlayerOtherMonitorString(input)end
     if type(input)=="string"and #input<=MAX_TEXT*2 and input:gsub("%s+",""):sub(1,#SKILL_PREFIX)==SKILL_PREFIX then
@@ -333,7 +336,7 @@ function M:ApplyConfigString(input)
     self:SavePlayerSkillMonitorClass()
     self:SavePlayerOtherMonitorClass()
     self:SaveCommonItemsClass()
-    self:SaveReceivedBuffsClass()
+    self:SaveReceivedBuffs()
     self:SaveRaidBuffMonitorClass()
     self:SaveRaidVulnerabilityClass()
     self.db.design=config.design;self.db.moduleDefaults=config.moduleDefaults

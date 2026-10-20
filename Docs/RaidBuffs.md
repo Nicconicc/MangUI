@@ -41,3 +41,7 @@
 - https://www.wowhead.com/wotlk/spell=45397/righteous-weapon-coating
 - https://www.wowhead.com/spell=433568/rite-of-sanctification
 - https://www.wowhead.com/spell=433583/rite-of-adjuration
+
+## 模块配置分享
+
+设置面板新增黄色“配置分享”分段，提供“导出全职业配置”“导出当前职业配置”“导入配置”。按钮悬浮时文字变黄。全职业配置包含通用分组及所有已保存职业列表；当前职业配置只包含该职业列表。单职业导入仅更新该职业，保留通用分组与其他职业；全职业导入同时更新通用分组及字符串中包含的职业。各模块字符串独立校验，不能导入到其他模块。“其他”中的整体配置分享继续包含全部列表与布局。

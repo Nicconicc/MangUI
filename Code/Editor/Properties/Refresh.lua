@@ -365,6 +365,7 @@ function M:RefreshProperties()
     local rules={}
     for _,rule in ipairs(n.rules or {}) do rules[#rules+1]=(rule.invert and "非 " or "")..(rule.unit or "player").." · "..({casting="施法中",exists="单位存在",classification="分类",isPlayer="玩家",friendly="友方",leader="队长",afk="暂离",dead="死亡",hearth="炉石",raid="团队标记"})[rule.test] end
     e.ruleText:SetText(#rules>0 and table.concat(rules,"\n") or "跟随所属单位显示")
+    M.MonitorSharing.RefreshControls(e,n)
     if n.compound=="raidBuffs"then
         e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
         e.raidBuffsOnlyRaid:SetChecked(n.raidOnly~=false)
@@ -420,13 +421,13 @@ function M:RefreshProperties()
             elseif n.compound=="playerSkillMonitor" then
                 visible=row.key=="scale" or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"
             elseif n.compound=="raidBuffs"then
-                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsClassRows"
+                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsClassRows"
             elseif n.compound=="receivedBuffs"then
                 visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="receivedBuffSharing"or row.key=="receivedBuffItems"
             elseif n.compound=="raidVulnerability"then
-                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidVulnerabilitySharedRows"or row.key=="raidVulnerabilityClassRows"
+                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidVulnerabilitySharing"or row.key=="raidVulnerabilitySharedRows"or row.key=="raidVulnerabilityClassRows"
             elseif n.compound=="commonItems"then
-                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"
+                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="commonItemsSharing"or row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"
             elseif n.compound=="cooldownMonitor" then
                 visible=row.key=="scale" or row.key=="minCooldown" or row.key=="maxCooldown" or row.key=="blacklist"
             elseif n.compound=="chatButtons" then
@@ -537,10 +538,10 @@ function M:RefreshProperties()
         local row,visible=entry.row,entry.visible and not entry.fontPairHidden and not entry.inlineHidden
         if visible and previousSection and previousSection~=entry.section then
             height=PropertyDivider(e,height)
-            if (n.compound=="raidBuffs"and (row.key=="raidBuffsSharedRows"or row.key=="raidBuffsClassRows"))
+            if (n.compound=="raidBuffs"and (row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsClassRows"))
                 or (n.compound=="receivedBuffs"and (row.key=="receivedBuffSharing"or row.key=="receivedBuffItems"))
-                or (n.compound=="raidVulnerability"and (row.key=="raidVulnerabilitySharedRows"or row.key=="raidVulnerabilityClassRows"))
-                or (n.compound=="commonItems"and (row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"))
+                or (n.compound=="raidVulnerability"and (row.key=="raidVulnerabilitySharing"or row.key=="raidVulnerabilitySharedRows"or row.key=="raidVulnerabilityClassRows"))
+                or (n.compound=="commonItems"and (row.key=="commonItemsSharing"or row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"))
                 or (n.compound=="playerSkillMonitor"and (row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"))
                 or (n.compound=="playerOtherMonitor"and (row.key=="otherMonitorSharing"or row.key=="otherMonitorItems"or row.key=="otherMonitorEquipment"))then
                 e.propertyDividers[e.propertyDividerCount]:Hide()
