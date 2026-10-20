@@ -100,6 +100,13 @@ local function Decoration(o)
         if line.SetTexelSnappingBias then line:SetTexelSnappingBias(0)end
         if line.SetRoundLayoutToNearestPixel then line:SetRoundLayoutToNearestPixel(true)end
     end
+    if frame.CreateLine then
+        frame.connector={}
+        for _,name in ipairs({"lead","link"})do
+            local line=frame:CreateLine(nil,"OVERLAY");line:SetColorTexture(1,.25,.25,.6)
+            line:Hide();frame.connector[name]=line
+        end
+    end
     local title=frame:CreateFontString(nil,"OVERLAY");frame.title=title
     title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"")
     title:SetHeight(24)
@@ -137,6 +144,42 @@ local function LayoutDecoration(o,group,count)
         frame.layoutPixel,frame.layoutTextWidth=pixel,textWidth
     end
     frame:Show()
+end
+local function UpdateConnector(view,o)
+    local frame=o.decoration;local connector=frame and frame.connector
+    if not connector then return end
+    local target=view.nodes[M.MainBarLayout.tokenID]
+    if not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
+        connector.lead:Hide();connector.link:Hide();return
+    end
+    -- Read only our own artwork frames. The external secure portrait anchor and
+    -- Blizzard aura frames must never become layout dependencies of these lines.
+    local cx,cy=frame:GetCenter();local tx,ty=target.frame:GetCenter()
+    if not cx or not cy or not tx or not ty then connector.lead:Hide();connector.link:Hide();return end
+    local ratio=target.frame:GetEffectiveScale()/frame:GetEffectiveScale()
+    tx,ty=tx*ratio-cx,ty*ratio-cy
+    local rx,ry=target.frame:GetWidth()*ratio/2,target.frame:GetHeight()*ratio/2
+    local width,height,pixel=frame:GetWidth(),frame:GetHeight(),frame.layoutPixel
+    if rx<=0 or ry<=0 or not pixel then connector.lead:Hide();connector.link:Hide();return end
+    if connector.tx~=tx or connector.ty~=ty or connector.rx~=rx or connector.ry~=ry
+        or connector.width~=width or connector.height~=height or connector.pixel~=pixel then
+        local side=tx<0 and -1 or 1
+        local innerX,y=side*width/2,height/2
+        local outerX=innerX+side*84
+        local vx,vy=outerX-tx,y-ty
+        local distance=math.sqrt(vx*vx/(rx*rx)+vy*vy/(ry*ry))
+        connector.outside=distance>1
+        if connector.outside then
+            connector.lead:SetThickness(pixel);connector.link:SetThickness(pixel)
+            connector.lead:SetStartPoint("CENTER",frame,innerX,y)
+            connector.lead:SetEndPoint("CENTER",frame,outerX,y)
+            connector.link:SetStartPoint("CENTER",frame,outerX,y)
+            connector.link:SetEndPoint("CENTER",frame,tx+vx/distance,ty+vy/distance)
+        end
+        connector.tx,connector.ty,connector.rx,connector.ry=tx,ty,rx,ry
+        connector.width,connector.height,connector.pixel=width,height,pixel
+    end
+    connector.lead:SetShown(connector.outside);connector.link:SetShown(connector.outside)
 end
 function I.Configure(view,o)
     o.buffIcons=o.buffIcons or {};o.entries=I.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
@@ -210,7 +253,9 @@ function I.Paint(view,o,animateOnly)
         (group.enabled~=false and o.spec.enabled~=false and (not group.raidOnly or raid)
         and (not group.hideWithoutTarget or M.Compat.Bool(Safe(UnitExists,"target")))))
     o.frame:SetShown(shown);if not shown then return end
-    local now=GetTime();if animateOnly and now<(o.nextScan or 0)then return end;o.nextScan=now+.1
+    local now=GetTime()
+    if animateOnly and now<(o.nextScan or 0)then UpdateConnector(view,o);return end
+    o.nextScan=now+.1
     local byID,byName;if not view.preview then byID,byName=Auras()end
     local displayed={};local snapshot,lines=W.Snapshot(),{}
     for _,slot in ipairs(o.buffIcons or {})do
@@ -264,6 +309,7 @@ function I.Paint(view,o,animateOnly)
         if slot.rowX~=x then slot.rowX=x;slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7)end
     end
     LayoutDecoration(o,group,#displayed)
+    UpdateConnector(view,o)
 end
 function I.Event(view,event,unit)
     if (event=="UNIT_AURA"or event=="UNIT_INVENTORY_CHANGED")and unit~="player"then return end
