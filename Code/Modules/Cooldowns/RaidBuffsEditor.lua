@@ -246,13 +246,13 @@ function I.BuildControls(e,parent)
                     for classIndex,info in ipairs(availableClasses)do
                         local button=CreateFrame("Button",nil,row);button:SetSize(24,24);button:SetPoint("TOPLEFT",96+(classIndex-1)*28,-102)
                         button.classToken=info[1];button.classInfo=info;row.classButtons[classIndex]=button
-                        button.icon=button:CreateTexture(nil,"ARTWORK");button.icon:SetSize(23.04,23.04);button.icon:SetPoint("CENTER")
+                        button.icon=button:CreateTexture(nil,"ARTWORK");button.icon:SetSize(19.2,19.2);button.icon:SetPoint("CENTER")
                         button.icon:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
                         -- Add the same class-tinted luminance instead of a white highlight.
                         button.iconLight=button:CreateTexture(nil,"OVERLAY")
                         button.iconLight:SetAllPoints(button.icon)
                         button.iconLight:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
-                        button.iconLight:SetDesaturated(true);button.iconLight:SetBlendMode("ADD");button.iconLight:SetAlpha(.30)
+                        button.iconLight:SetDesaturated(true);button.iconLight:SetBlendMode("ADD");button.iconLight:SetAlpha(.15)
                         button:SetScript("OnClick",function(self)
                             Flush();if Editable(row)then
                                 local enabled=I.ForClass(row.entry,self.classToken)
