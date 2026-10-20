@@ -2,7 +2,7 @@ local _,M=...
 local I,S,Wep=M.RaidBuffMonitor,M.PlayerSkillMonitor,M.WeaponEnhancements
 local function Index(entries,entry)for index,item in ipairs(entries or {})do if item==entry then return index end end end
 function I.BuildControls(e,parent)
-    local W=M.Widgets;local panels={}
+    local W=M.Widgets;local panels={};local availableClasses=I.AvailableClasses()
     local function Current()local group=M.byID[M.selection];return group and group.compound=="raidBuffs"and group end
     local function Flush()
         for _,panel in ipairs(panels)do for _,row in ipairs(panel.rows)do for _,edit in ipairs(row.inputs)do edit:ClearFocus()end end end
@@ -80,9 +80,9 @@ function I.BuildControls(e,parent)
                 local direction=y>top-22 and -1 or (y<bottom+22 and 1 or 0)
                 if direction~=0 then scroll:SetVerticalScroll(M.Clamp(scroll:GetVerticalScroll()+direction*(elapsed or 0)*260,0,math.max(0,e.props:GetHeight()-scroll:GetHeight())))end
                 local offset=self:GetTop()-y;local insertion=1
-                for index=1,#drag.entries do if offset>self.rows[index].offset+76 then insertion=index+1 end end
+                for index=1,#drag.entries do if offset>self.rows[index].offset+68 then insertion=index+1 end end
                 local from=Index(drag.entries,drag.entry);drag.target=insertion-(insertion>from and 1 or 0)
-                self.marker:ClearAllPoints();self.marker:SetPoint("TOPLEFT",0,-(insertion-1)*156+3);self.marker:SetWidth(self:GetWidth());self.marker:Show()
+                self.marker:ClearAllPoints();self.marker:SetPoint("TOPLEFT",0,-(insertion-1)*140+3);self.marker:SetWidth(self:GetWidth());self.marker:Show()
             else self.marker:Hide()end
             self.ghost:ClearAllPoints();self.ghost:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",cx/self.ghost:GetEffectiveScale()+14,cy/self.ghost:GetEffectiveScale()+12)
         end
@@ -124,7 +124,7 @@ function I.BuildControls(e,parent)
                         row.entry.type=value;row.entry.value=value=="classWeapon"and "auto"or "";row.entry.alternative="";row.entry.slot="main"
                     end)
                     row.slot=Drop(row,"检查位置",Wep.slots,function()return row.entry.slot or "main"end,function(value)row.entry.slot=value end)
-                    row.icon=CreateFrame("Button",nil,row);row.icon:SetSize(26,26);row.icon:SetPoint("TOPLEFT",0,-58)
+                    row.icon=CreateFrame("Button",nil,row);row.icon:SetSize(26,26);row.icon:SetPoint("TOPLEFT",0,-62)
                     row.icon.texture=row.icon:CreateTexture(nil,"ARTWORK");row.icon.texture:SetAllPoints();Drag(row.icon,row)
                     row.alternativeIcon=CreateFrame("Button",nil,row);row.alternativeIcon:SetSize(26,26)
                     row.alternativeIcon.texture=row.alternativeIcon:CreateTexture(nil,"ARTWORK");row.alternativeIcon.texture:SetAllPoints();Drag(row.alternativeIcon,row)
@@ -153,7 +153,7 @@ function I.BuildControls(e,parent)
                         W.NamedInput(edit,"spell")
                         edit:HookScript("OnHide",function(self)self:ClearFocus()end)
                     end
-                    row.status=W.Label(row,"",10);row.status:SetPoint("TOPLEFT",34,-94);row.status:SetPoint("TOPRIGHT",-108,-94);row.status:SetWordWrap(false)
+                    row.status=W.Label(row,"",10);row.status:SetPoint("TOPLEFT",34,-90);row.status:SetPoint("TOPRIGHT",-108,-90);row.status:SetWordWrap(false)
                     row.pick=W.Button(row,"选择",52,function()
                         if row.item.menu then row.item.menu:Hide();return end
                         local kind=I.Kind(row.entry);local choices=kind=="classWeapon"and Wep.ClassChoices(true)or Wep.ItemChoices(W.InputValue(row.item))
@@ -180,14 +180,14 @@ function I.BuildControls(e,parent)
                     row.remove=W.Button(row,"删除",72,function()
                         Flush();if Editable(row)then table.remove(row.owner[row.listKey],Index(row.owner[row.listKey],row.entry));M:Commit()end
                     end)
-                    row.remove:SetPoint("TOPRIGHT",0,-59)
+                    row.remove:SetPoint("TOPRIGHT",0,-63)
                     row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(100,18);row.handle:SetPoint("TOPRIGHT",0,-96)
                     row.dragLabel=W.Label(row.handle,"",12);row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetPoint("CENTER");Drag(row.handle,row)
                     row.handle:Hide()
-                    row.classLabel=W.Label(row,"职业",12);row.classLabel:SetPoint("TOPLEFT",0,-116);row.classLabel:SetWidth(52);row.classLabel:SetWordWrap(false)
+                    row.classLabel=W.Label(row,"职业加载",12);row.classLabel:SetPoint("TOPLEFT",0,-105);row.classLabel:SetWidth(92);row.classLabel:SetHeight(18);row.classLabel:SetWordWrap(false)
                     row.classButtons={}
-                    for classIndex,info in ipairs(I.classes)do
-                        local button=CreateFrame("Button",nil,row);button:SetSize(24,24);button:SetPoint("TOPLEFT",56+(classIndex-1)*28,-111)
+                    for classIndex,info in ipairs(availableClasses)do
+                        local button=CreateFrame("Button",nil,row);button:SetSize(24,24);button:SetPoint("TOPLEFT",96+(classIndex-1)*28,-102)
                         button.classToken=info[1];button.classInfo=info;row.classButtons[classIndex]=button
                         button.icon=button:CreateTexture(nil,"ARTWORK");button.icon:SetSize(19.2,19.2);button.icon:SetPoint("CENTER")
                         button.icon:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
@@ -205,10 +205,10 @@ function I.BuildControls(e,parent)
                         button:SetScript("OnLeave",function()GameTooltip:Hide()end)
                     end
                 end
-                row.owner,row.entry=group,entry;row.offset=(index-1)*156;row:SetSize(width,152);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-row.offset)
+                row.owner,row.entry=group,entry;row.offset=(index-1)*140;row:SetSize(width,136);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-row.offset)
                 local kind=I.Kind(entry);local weapon=kind~="buff";local dw=(width-16)/2
-                row.type:ClearAllPoints();row.type:SetPoint("TOPLEFT");row.type:SetWidth(dw);row.type:SetValue(kind)
-                row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT");row.slot:SetWidth(dw);row.slot:SetValue(entry.slot or "main")
+                row.type:ClearAllPoints();row.type:SetPoint("TOPLEFT",0,-10);row.type:SetWidth(dw);row.type:SetValue(kind)
+                row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT",0,-10);row.slot:SetWidth(dw);row.slot:SetValue(entry.slot or "main")
                 local d=kind=="classWeapon"and Wep.classes[entry.value]
                 row.slot:SetShown(weapon and not(kind=="classWeapon"and entry.value=="auto")and not(d and d.class=="ROGUE"and Wep.Family()>=5))
                 row.item.inputNameKind=not weapon and "spell"or nil
@@ -230,12 +230,12 @@ function I.BuildControls(e,parent)
                 if not row.alternative:HasFocus()then W.SetInputValue(row.alternative,entry.alternative or "")end
                 row.item.placeholder:SetShown(W.InputValue(row.item)=="")
                 row.alternative.placeholder:SetShown(W.InputValue(row.alternative)=="")
-                local classStep=math.min(28,math.max(18,(width-56)/#I.classes))
+                local classStep=math.min(28,math.max(18,(width-96)/#availableClasses))
                 for classIndex,button in ipairs(row.classButtons)do
-                    button:ClearAllPoints();button:SetPoint("TOPLEFT",56+(classIndex-1)*classStep,-111);button:SetWidth(math.min(24,classStep))
+                    button:ClearAllPoints();button:SetPoint("TOPLEFT",96+(classIndex-1)*classStep,-102);button:SetWidth(math.min(24,classStep))
                     local info=button.classInfo;local color=RAID_CLASS_COLORS and RAID_CLASS_COLORS[button.classToken]
                     local enabled=I.ForClass(entry,button.classToken)
-                    button.icon:SetDesaturated(not enabled);button.icon:SetAlpha(enabled and 1 or .5)
+                    button.icon:SetDesaturated(true);button.icon:SetAlpha(enabled and 1 or .5)
                     if enabled then button.icon:SetVertexColor(color and color.r or info[4],color and color.g or info[5],color and color.b or info[6],1)
                     else button.icon:SetVertexColor(.65,.65,.65,1)end
                     button.selected=enabled
@@ -243,7 +243,7 @@ function I.BuildControls(e,parent)
                 PreviewIcon(row);W.ShadeDragRow(row,index);row:Show()
             end
             for index=#entries+1,#self.rows do self.rows[index]:Hide()end
-            local height=#entries*156+32;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-#entries*156)
+            local height=#entries*140+32;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-#entries*140)
             if self:GetHeight()~=height then e.propertyLayoutSignature=nil end
             self:SetHeight(height);self.propertyRow.height=height
         end

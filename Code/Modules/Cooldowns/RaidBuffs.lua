@@ -11,6 +11,14 @@ I.classes={
     {"DRUID","德鲁伊","Druid",1,.49,.04},{"DEMONHUNTER","恶魔猎手","Demon Hunter",.64,.19,.79},
     {"EVOKER","唤魔师","Evoker",.20,.58,.50},
 }
+function I.AvailableClasses()
+    local interface=M.Compat.interface or 0
+    local family=interface==16001 and 1 or math.floor(interface/10000)
+    local introduced={DEATHKNIGHT=3,MONK=5,DEMONHUNTER=7,EVOKER=10}
+    local result={}
+    for _,info in ipairs(I.classes)do if family>=(introduced[info[1]]or 1)then result[#result+1]=info end end
+    return result
+end
 local function Class()local _,class=I.Safe(UnitClass,"player");return S.ValidClass(class)and class end
 function I.AllClasses()
     local result={};for _,class in ipairs(I.classes)do result[class[1]]=true end;return result
