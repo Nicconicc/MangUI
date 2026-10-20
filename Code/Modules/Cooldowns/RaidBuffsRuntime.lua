@@ -121,13 +121,16 @@ local function Decoration(o)
     local title=frame:CreateFontString(nil,"OVERLAY");frame.title=title
     title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"")
     title:SetHeight(24)
-    title:SetText("Missing raid buff");title:SetTextColor(1,1,1,1);title:SetJustifyH("CENTER");title:SetWordWrap(false)
+    title:SetText(I.DefaultGuideText());title:SetTextColor(1,1,1,1);title:SetJustifyH("CENTER");title:SetWordWrap(false)
     title:SetShadowColor(0,0,0,.8);title:SetShadowOffset(1,-1)
     frame:Hide();o.decoration=frame;return frame
 end
 local function LayoutDecoration(o,group,count)
     local frame=Decoration(o)
     if count==0 then frame:Hide();return end
+    local text=I.GuideText(group)
+    if frame.title:GetText()~=text then frame.title:SetText(text)end
+    frame.title:SetShown(group.showGuideText~=false)
     local rowWidth=count*44-4
     local scale=math.max(.001,frame:GetEffectiveScale())
     local _,screenHeight=Safe(GetPhysicalScreenSize)
@@ -150,8 +153,9 @@ end
 local function UpdateConnector(view,o)
     local frame=o.decoration;local connector=frame and frame.connector
     if not connector then return end
+    local group=view.byID[o.spec.parent]
     local target=view.nodes[M.MainBarLayout.tokenID]
-    if not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
+    if group.hideGuideLines or not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
         HideConnector(connector);return
     end
     -- Read only our own artwork frames. The external secure portrait anchor and
@@ -162,15 +166,15 @@ local function UpdateConnector(view,o)
     tx,ty=tx*ratio-cx,ty*ratio-cy
     local rx,ry=target.frame:GetWidth()*ratio/2,target.frame:GetHeight()*ratio/2
     local width,height,pixel,rowWidth=frame:GetWidth(),frame:GetHeight(),frame.layoutPixel,frame.layoutRowWidth
+    local length=I.GuideLength(group)
     if rx<=0 or ry<=0 or not pixel then HideConnector(connector);return end
     if connector.tx~=tx or connector.ty~=ty or connector.rx~=rx or connector.ry~=ry
         or connector.width~=width or connector.height~=height or connector.pixel~=pixel
-        or connector.rowWidth~=rowWidth then
+        or connector.rowWidth~=rowWidth or connector.length~=length then
         local side=tx<0 and -1 or 1
         local innerX,y=side*width/2,height/2
-        local outerX=innerX+side*84
         local iconEdge=side*(rowWidth/2+8)
-        local vx,vy=outerX-tx,y-ty
+        local vx,vy=innerX-tx,y-ty
         local distance=math.sqrt(vx*vx/(rx*rx)+vy*vy/(ry*ry))
         connector.outside=distance>1
         if connector.outside then
@@ -180,9 +184,11 @@ local function UpdateConnector(view,o)
             connector.row:SetStartPoint("CENTER",frame,innerX,y)
             connector.row:SetEndPoint("CENTER",frame,iconEdge,y)
             local edgeX,edgeY=tx+vx/distance,ty+vy/distance
-            local startX,startY=edgeX+(outerX-edgeX)*.62,edgeY+(y-edgeY)*.62
-            connector.link:SetStartPoint("CENTER",frame,startX,startY)
-            connector.link:SetEndPoint("CENTER",frame,innerX,y)
+            local startX,startY=innerX+(edgeX-innerX)*length,y+(edgeY-y)*length
+            if length>0 then
+                connector.link:SetStartPoint("CENTER",frame,startX,startY)
+                connector.link:SetEndPoint("CENTER",frame,innerX,y)
+            end
             if connector.joint then
                 connector.joint:SetSize(8*pixel,8*pixel)
                 connector.joint:ClearAllPoints();connector.joint:SetPoint("CENTER",frame,startX,startY)
@@ -191,8 +197,9 @@ local function UpdateConnector(view,o)
         end
         connector.tx,connector.ty,connector.rx,connector.ry=tx,ty,rx,ry
         connector.width,connector.height,connector.pixel,connector.rowWidth=width,height,pixel,rowWidth
+        connector.length=length
     end
-    connector.row:SetShown(connector.outside);connector.link:SetShown(connector.outside)
+    connector.row:SetShown(connector.outside);connector.link:SetShown(connector.outside and length>0)
     if connector.joint then connector.joint:SetShown(connector.outside)end
 end
 function I.Configure(view,o)

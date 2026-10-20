@@ -371,6 +371,7 @@ function M:RefreshProperties()
         e.raidBuffsOnlyRaid:SetChecked(n.raidOnly~=false)
         e.skillMonitorDirection:SetValue(M.PlayerSkillMonitor.Direction(n))
         e.raidBuffsSharedPanel:Refresh(n)
+        e.raidBuffsGuidePanel:Refresh(n)
     end
     if n.compound=="receivedBuffs"then
         e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
@@ -421,7 +422,7 @@ function M:RefreshProperties()
             elseif n.compound=="playerSkillMonitor" then
                 visible=row.key=="scale" or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"
             elseif n.compound=="raidBuffs"then
-                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"
+                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsGuideSettings"
             elseif n.compound=="receivedBuffs"then
                 visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="receivedBuffSharing"or row.key=="receivedBuffItems"
             elseif n.compound=="raidVulnerability"then

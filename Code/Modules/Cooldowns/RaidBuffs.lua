@@ -2,6 +2,17 @@ local _,M=...
 local I={};M.RaidBuffMonitor=I
 local S,O=M.PlayerSkillMonitor,M.PlayerOtherMonitor
 I.Safe,I.Number,I.Readable=O.Safe,O.Number,O.Readable
+function I.DefaultGuideText()
+    local english=M.localeTables and M.localeTables.enUS
+    local text=english and english["团队Buff缺失监控"]or "Missing raid buff tracking"
+    return (text:gsub("[Tt][Rr][Aa][Cc][Kk][Ii][Nn][Gg]",""):gsub("%s+"," "):match("^%s*(.-)%s*$"))
+end
+function I.GuideText(group)
+    return type(group.guideText)=="string"and group.guideText or I.DefaultGuideText()
+end
+function I.GuideLength(group)
+    return M.Clamp(I.Number(group.guideLineLength)or 1,0,1)
+end
 I.classes={
     {"WARRIOR","战士","Warrior",.78,.61,.43},{"PALADIN","圣骑士","Paladin",.96,.55,.73},
     {"HUNTER","猎人","Hunter",.67,.83,.45},{"ROGUE","潜行者","Rogue",1,.96,.41},
@@ -105,6 +116,10 @@ function M:EnsureRaidBuffMonitor(design)
     I.NormalizeEntries(group.raidBuffs);I.NormalizeEntries(group.classBuffs)
     if group.hideWithoutTarget==nil then group.hideWithoutTarget=false end
     if group.raidOnly==nil then group.raidOnly=true end
+    if type(group.hideGuideLines)~="boolean"then group.hideGuideLines=false end
+    if type(group.showGuideText)~="boolean"then group.showGuideText=true end
+    group.guideLineLength=I.GuideLength(group)
+    if type(group.guideText)~="string"or #group.guideText>384 then group.guideText=I.DefaultGuideText()end
     group.growthDirection=S.Direction(group)
     for _,node in ipairs(design.nodes)do if node.id=="raidBuffsIcons"then return end end
     design.nodes[#design.nodes+1]={id="raidBuffsIcons",label="玩家常驻团队增益监控",kind="raidbuffs",parent="raidBuffs",

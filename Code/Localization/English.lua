@@ -696,4 +696,7 @@ english["粘贴队友Buff监控配置字符串；所有职业共用。"]="Paste 
 english["粘贴此模块配置字符串；单职业仅更新对应职业，全职业包含通用设置。"]="Paste settings for this module. Single-class imports update only that class; all-class imports also include shared settings."
 english["职业"]="Classes"
 english["职业加载"]="Class loading"
+english["隐藏辅助线"]="Hide guide lines"
+english["辅助线长度"]="Guide line length"
+english["显示文字"]="Show text"
 M:RebuildLocaleKeys()

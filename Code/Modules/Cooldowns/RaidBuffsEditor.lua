@@ -2,16 +2,54 @@ local _,M=...
 local I,S,Wep=M.RaidBuffMonitor,M.PlayerSkillMonitor,M.WeaponEnhancements
 local function Index(entries,entry)for index,item in ipairs(entries or {})do if item==entry then return index end end end
 function I.BuildControls(e,parent)
-    local W=M.Widgets;local panels={};local availableClasses=I.AvailableClasses()
+    local W=M.Widgets;local panels={};local availableClasses=I.AvailableClasses();local guide
     local function Current()local group=M.byID[M.selection];return group and group.compound=="raidBuffs"and group end
     local function Flush()
         for _,panel in ipairs(panels)do for _,row in ipairs(panel.rows)do for _,edit in ipairs(row.inputs)do edit:ClearFocus()end end end
+        if guide and guide.text then guide.text:ClearFocus()end
     end
     function I.FlushEditor()
         for _,panel in ipairs(panels)do panel:FinishDrag(false)end
         Flush()
     end
     M.MonitorSharing.BuildControls(e,parent,"raidBuffs",Flush)
+    guide=CreateFrame("Frame",nil,parent);guide:SetSize(470,108);e.raidBuffsGuidePanel=guide
+    local function ChangeGuide(field,value)
+        local owner=guide.owner
+        if not owner or Current()~=owner or M.byID[owner.id]~=owner or not M:CanEdit()then M:RefreshProperties();return end
+        Flush()
+        if owner[field]~=value then owner[field]=value;M:Commit()end
+    end
+    guide.hide=W.Check(guide,"隐藏辅助线",function(value)ChangeGuide("hideGuideLines",value==true)end)
+    guide.hide:SetPoint("TOPLEFT",-4,0)
+    guide.lengthLabel=W.Label(guide,"辅助线长度",12);guide.lengthLabel:SetPoint("TOPLEFT",0,-37)
+    guide.length=W.SpinBox(guide,225,0,1,.01);guide.length:SetIsPercent(true)
+    guide.length:SetPoint("TOPRIGHT",guide,"TOPRIGHT",-2,-35)
+    guide.length:SetScript("OnValueChanged",function(self,value)
+        if not self.updating then ChangeGuide("guideLineLength",M.Clamp(value,0,1))end
+    end)
+    guide.showText=W.Check(guide,"显示文字",function(value)ChangeGuide("showGuideText",value==true)end)
+    guide.showText:SetPoint("TOPLEFT",-4,-72)
+    guide.text=W.Edit(guide,225);guide.text:SetMaxLetters(128);guide.text:SetTextInsets(6,6,0,0)
+    guide.text:SetPoint("TOPRIGHT",guide,"TOPRIGHT",-2,-74)
+    guide.text:SetScript("OnEditFocusLost",function(self)
+        if not self.updating then ChangeGuide("guideText",W.InputValue(self))end
+    end)
+    guide.text:SetScript("OnEnterPressed",function(self)
+        ChangeGuide("guideText",W.InputValue(self));self:ClearFocus()
+    end)
+    guide.text:SetScript("OnEscapePressed",function(self)
+        W.SetInputValue(self,guide.owner and I.GuideText(guide.owner)or "");self:ClearFocus()
+    end)
+    function guide:Refresh(owner)
+        self.owner=owner;self:SetWidth(e.props:GetWidth())
+        local width=(self:GetWidth()-20)/2
+        self.length:SetWidth(width);self.text:SetWidth(width)
+        self.hide:SetChecked(owner.hideGuideLines==true);self.showText:SetChecked(owner.showGuideText~=false)
+        self.length.updating=true;self.length:SetValue(I.GuideLength(owner));self.length.updating=false
+        if not self.text:HasFocus()then W.SetInputValue(self.text,I.GuideText(owner))end
+    end
+    e.propRows[#e.propRows+1]={height=108,controls={{guide,0,0}},kinds={},key="raidBuffsGuideSettings"}
     local function Editable(row)return row.owner and M.byID[row.owner.id]==row.owner and Index(row.owner[row.listKey],row.entry)and M:CanEdit()end
     local function PreviewIcon(row)
         local alternative=row.alternative and W.InputValue(row.alternative)or ""
