@@ -140,6 +140,7 @@ function M:InitStore()
     if self.EnsurePlayerSkillMonitor then self:EnsurePlayerSkillMonitor(db.design) end
     if self.EnsurePlayerOtherMonitor then self:EnsurePlayerOtherMonitor(db.design) end
     if self.EnsureCommonItems then self:EnsureCommonItems(db.design)end
+    if self.EnsureReceivedBuffs then self:EnsureReceivedBuffs(db.design)end
     if self.EnsureRaidBuffMonitor then self:EnsureRaidBuffMonitor(db.design)end
     if self.EnsureChatButtonsModule then self:EnsureChatButtonsModule(db.design) end
     if self.EnsureCombatNoticesModule then self:EnsureCombatNoticesModule(db.design) end
@@ -203,6 +204,7 @@ function M:InitStore()
     if self.EnsurePlayerSkillMonitor then self:EnsurePlayerSkillMonitor(db.moduleDefaults) end
     if self.EnsurePlayerOtherMonitor then self:EnsurePlayerOtherMonitor(db.moduleDefaults) end
     if self.EnsureCommonItems then self:EnsureCommonItems(db.moduleDefaults)end
+    if self.EnsureReceivedBuffs then self:EnsureReceivedBuffs(db.moduleDefaults)end
     if self.EnsureRaidBuffMonitor then self:EnsureRaidBuffMonitor(db.moduleDefaults)end
     if self.UpgradePlayerSkillMonitorDefaults then self:UpgradePlayerSkillMonitorDefaults(db) end
     if self.EnsureChatButtonsModule then self:EnsureChatButtonsModule(db.moduleDefaults) end
@@ -243,6 +245,7 @@ function M:InitStore()
     if self.BindPlayerSkillMonitorClass then self:BindPlayerSkillMonitorClass()end
     if self.BindPlayerOtherMonitorClass then self:BindPlayerOtherMonitorClass()end
     if self.BindCommonItemsClass then self:BindCommonItemsClass()end
+    if self.BindReceivedBuffsClass then self:BindReceivedBuffsClass()end
     if self.BindRaidBuffMonitorClass then self:BindRaidBuffMonitorClass()end
     if self.UpgradePlayerOtherMonitorDefaults then self:UpgradePlayerOtherMonitorDefaults(db)end
     self:Index()
@@ -395,6 +398,7 @@ function M:Commit()
     if self.SavePlayerSkillMonitorClass then self:SavePlayerSkillMonitorClass()end
     if self.SavePlayerOtherMonitorClass then self:SavePlayerOtherMonitorClass()end
     if self.SaveCommonItemsClass then self:SaveCommonItemsClass()end
+    if self.SaveReceivedBuffsClass then self:SaveReceivedBuffsClass()end
     if self.SaveRaidBuffMonitorClass then self:SaveRaidBuffMonitorClass()end
     local session=self.EditorUndo and self.EditorUndo.session
     if C_Timer and C_Timer.After and session and session.transaction then

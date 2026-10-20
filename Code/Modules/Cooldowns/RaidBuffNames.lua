@@ -77,11 +77,13 @@ end
 local function Refresh()
     local view=M.live;local o=view and view.nodes.raidBuffsIcons
     if o then o.nextInfo=0;I.Paint(view,o,false)end
-    if M.editor and M.editor.window:IsShown()and M.selection=="raidBuffs"then M:RefreshProperties()end
+    local received=view and view.nodes.receivedBuffsIcons
+    if received and M.ReceivedBuffs then received.nextInfo=0;M.ReceivedBuffs.Paint(view,received,false)end
+    if M.editor and M.editor.window:IsShown()and (M.selection=="raidBuffs"or M.selection=="receivedBuffs")then M:RefreshProperties()end
 end
 local function Scan()
     if InCombatLockdown()then return end
-    if not M.editor or not M.editor.window:IsShown()or M.selection~="raidBuffs"then worker:SetScript("OnUpdate",nil);return end
+    if not M.editor or not M.editor.window:IsShown()or (M.selection~="raidBuffs"and M.selection~="receivedBuffs")then worker:SetScript("OnUpdate",nil);return end
     local start=Safe(debugprofilestop)
     local changed=false
     for index=1,200 do

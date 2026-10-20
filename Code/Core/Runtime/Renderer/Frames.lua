@@ -247,6 +247,7 @@ local function Build(view,n)
     elseif n.kind=="targetthreat" then M.TargetThreat.Build(view,o)
     elseif n.kind=="targetdistance" then M.TargetDistance.Build(view,o)
     elseif n.kind=="raidbuffs"then o.buffIcons={}
+    elseif n.kind=="receivedbuffs"then o.buffIcons={}
     elseif n.kind=="commonitems"then o.itemIcons={}
     elseif n.kind=="othermonitor" then o.otherIcons={}
     elseif n.kind=="skillmonitor" then o.skillIcons={}
@@ -517,6 +518,7 @@ function R.Apply(view,design,unchanged)
             if not o.removed then sweepChanged=true end
             if o.spec.kind=="hitbox" and not view.preview then UnregisterUnitWatch(o.frame) end
             o.frame:Hide();o.frame:SetScript("OnUpdate",nil);o.removed=true
+            if o.spec.kind=="receivedbuffs"then M.ReceivedBuffs.Remove(view,o)end
             if o.spec.kind=="commonitems"then M.CommonItems.Remove(view,o)end
             if o.spec.kind=="raidbuffs"then M.RaidBuffMonitor.Remove(view,o)end
             if o.portraitAnchor then
@@ -595,6 +597,7 @@ function R.Apply(view,design,unchanged)
             f:SetAlpha(n.alpha or 1)
             if o.chatButtons then M.ChatButtons.Configure(view,o)
             elseif n.kind=="raidbuffs"then M.RaidBuffMonitor.Configure(view,o)
+            elseif n.kind=="receivedbuffs"then M.ReceivedBuffs.Configure(view,o)
             elseif n.kind=="commonitems"then M.CommonItems.Configure(view,o)
             elseif n.kind=="othermonitor" then M.PlayerOtherMonitor.Configure(view,o)
             elseif n.kind=="skillmonitor" then M.PlayerSkillMonitor.Configure(view,o)

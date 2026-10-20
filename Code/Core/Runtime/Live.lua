@@ -138,6 +138,7 @@ function M:StartLive()
         if M.PlayerSkillMonitor then Dispatch("playerSkillMonitor",M.PlayerSkillMonitor.Event,M.live,event,unit) end
         if M.PlayerOtherMonitor then Dispatch("playerOtherMonitor",M.PlayerOtherMonitor.Event,M.live,event,unit) end
         if M.CommonItems then Dispatch("commonItems",M.CommonItems.Event,M.live,event,unit)end
+        if M.ReceivedBuffs then Dispatch("receivedBuffs",M.ReceivedBuffs.Event,M.live,event,unit)end
         if M.RaidBuffMonitor then Dispatch("raidBuffs",M.RaidBuffMonitor.Event,M.live,event,unit)end
         if M.ChatButtons and chatEvents[event] then Dispatch("chatButtons",M.ChatButtons.Event,M.live,event) end
         local combatEvent=event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_REGEN_ENABLED"

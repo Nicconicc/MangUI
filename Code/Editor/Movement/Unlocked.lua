@@ -77,6 +77,7 @@ function M:ResetUnlockedModulePositions()
                 if node.id=="playerSkillMonitor"then M.PlayerSkillMonitor.RestorePosition(node,ref)
                 elseif node.id=="playerOtherMonitor"then M.PlayerOtherMonitor.RestorePosition(node,ref)
                 elseif node.id=="raidBuffs"then M.RaidBuffMonitor.RestorePosition(node,ref)
+                elseif node.id=="receivedBuffs"then M.ReceivedBuffs.RestorePosition(node,ref)
                 elseif node.id=="commonItems"then M.CommonItems.RestorePosition(node,ref)end
                 if node.id=="mainComposite"then node.moveX=ref.moveX or 0;node.moveY=ref.moveY or 0 end
             end

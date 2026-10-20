@@ -85,7 +85,7 @@ local function BuildProperties(e)
     Field("宽度","width",true,1,4000);Field("高度","height",true,1,4000)
     Field("缩放","scale",true,.05,10,.05)
     e.skillMonitorHideWithoutTarget=W.Check(content,"无目标时隐藏",function(hidden)
-        if Selected() and (Selected().compound=="playerSkillMonitor"or Selected().compound=="playerOtherMonitor"or Selected().compound=="raidBuffs"or Selected().compound=="commonItems")then Change("hideWithoutTarget",hidden==true)end
+        if Selected() and (Selected().compound=="playerSkillMonitor"or Selected().compound=="playerOtherMonitor"or Selected().compound=="raidBuffs"or Selected().compound=="receivedBuffs"or Selected().compound=="commonItems")then Change("hideWithoutTarget",hidden==true)end
     end)
     Row(32,{{e.skillMonitorHideWithoutTarget,-4,0}},{},"skillMonitorHideWithoutTarget");y=y-32
     e.raidBuffsOnlyRaid=W.Check(content,"仅团队时显示",function(checked)
@@ -93,7 +93,7 @@ local function BuildProperties(e)
     end)
     Row(32,{{e.raidBuffsOnlyRaid,235,0}},{},"raidBuffsOnlyRaid");y=y-32
     e.skillMonitorDirection=W.MediaSelect(content,"排列方向",(propertyWidth-4)/2,"choice",function()
-        local owner=Selected();if not owner or (owner.compound~="playerSkillMonitor"and owner.compound~="playerOtherMonitor"and owner.compound~="raidBuffs"and owner.compound~="commonItems")then return end
+        local owner=Selected();if not owner or (owner.compound~="playerSkillMonitor"and owner.compound~="playerOtherMonitor"and owner.compound~="raidBuffs"and owner.compound~="receivedBuffs"and owner.compound~="commonItems")then return end
         local drop=e.skillMonitorDirection
         if drop.menu then drop.menu:Hide();return end
         W.MediaMenu(drop,M.PlayerSkillMonitor.directionChoices,"choice",M.PlayerSkillMonitor.Direction(owner),function(choice)
@@ -646,6 +646,7 @@ local function BuildProperties(e)
     M.PlayerSkillMonitor.BuildControls(e,content,Row)
     M.PlayerOtherMonitor.BuildControls(e,content)
     M.CommonItems.BuildControls(e,content)
+    M.ReceivedBuffs.BuildControls(e,content)
     M.RaidBuffMonitor.BuildControls(e,content)
     local petBuffTitle=W.Label(content,"宠物Buff监控",13)
     Row(28,{{petBuffTitle,0,-3}},{},"petBuffTitle");y=y-28

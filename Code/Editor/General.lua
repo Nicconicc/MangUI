@@ -198,7 +198,8 @@ function M:ShowConfigStringDialog(mode,scope)
         dialog.action=Button(dialog,"",120,26,function()
             if dialog.mode=="export" then edit:SetFocus();edit:HighlightText();return end
             local ok,errorText
-            if dialog.scope and dialog.scope:sub(1,5)=="other"then ok,errorText=M:ApplyPlayerOtherMonitorString(edit:GetText())
+            if dialog.scope and dialog.scope:sub(1,8)=="received"then ok,errorText=M:ApplyReceivedBuffsString(edit:GetText())
+            elseif dialog.scope and dialog.scope:sub(1,5)=="other"then ok,errorText=M:ApplyPlayerOtherMonitorString(edit:GetText())
             elseif dialog.scope then ok,errorText=M:ApplyPlayerSkillMonitorString(edit:GetText())
             else ok,errorText=M:ApplyConfigString(edit:GetText())end
             if not ok then dialog.status:SetText(errorText);return end
@@ -212,17 +213,19 @@ function M:ShowConfigStringDialog(mode,scope)
     end
     dialog.mode,dialog.scope=mode,scope;dialog.status:SetText("");dialog:Show()
     if mode=="export" then
-        dialog.title:SetText((scope=="skillsAll"or scope=="otherAll")and "导出全职业配置"or (scope=="skillsClass"or scope=="otherClass")and "导出当前职业配置"or "导出配置")
+        dialog.title:SetText((scope=="skillsAll"or scope=="otherAll"or scope=="receivedAll")and "导出全职业配置"or (scope=="skillsClass"or scope=="otherClass"or scope=="receivedClass")and "导出当前职业配置"or "导出配置")
         dialog.hint:SetText("按 Ctrl+C 复制下方字符串，分享给其他用户。")
         dialog.action:SetText("全选")
         local value
-        if scope and scope:sub(1,5)=="other"then value=self:ExportPlayerOtherMonitorString(scope=="otherAll")
+        if scope and scope:sub(1,8)=="received"then value=self:ExportReceivedBuffsString(scope=="receivedAll")
+        elseif scope and scope:sub(1,5)=="other"then value=self:ExportPlayerOtherMonitorString(scope=="otherAll")
         elseif scope then value=self:ExportPlayerSkillMonitorString(scope=="skillsAll")else value=self:ExportConfigString()end
         dialog.edit:SetText(value and WrapString(value,dialog.edit,dialog.measure) or "")
         if not value then dialog.status:SetText("当前配置无法导出，请检查配置数据。") end
     else
         dialog.title:SetText("导入配置")
         dialog.hint:SetText(scope and (scope:sub(1,5)=="other"and "粘贴其他监控配置字符串；单职业仅更新该职业，全职业包含共用装备监控与补充。"or "粘贴技能监控配置字符串；仅更新字符串包含的职业配置。")or "粘贴配置字符串；技能监控配置仅更新对应职业，整体配置更新全部设置。")
+        if scope and scope:sub(1,8)=="received"then dialog.hint:SetText("粘贴他人增益监控配置字符串；仅更新字符串包含的职业配置。")end
         dialog.action:SetText("确认导入");dialog.edit:SetText("")
     end
     dialog.scroll:SetVerticalScroll(0);dialog.edit:SetFocus();dialog.edit:HighlightText()

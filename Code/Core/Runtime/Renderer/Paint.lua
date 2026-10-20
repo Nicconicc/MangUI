@@ -106,6 +106,7 @@ local function Paint(view,o,animateOnly,visibleHint)
         return
     end
     if n.kind=="raidbuffs"then M.RaidBuffMonitor.Paint(view,o,animateOnly);return end
+    if n.kind=="receivedbuffs"then M.ReceivedBuffs.Paint(view,o,animateOnly);return end
     if n.kind=="commonitems"then M.CommonItems.Paint(view,o,animateOnly);return end
     if n.kind=="othermonitor" then M.PlayerOtherMonitor.Paint(view,o,animateOnly);return end
     if n.kind=="skillmonitor" then M.PlayerSkillMonitor.Paint(view,o,animateOnly);return end

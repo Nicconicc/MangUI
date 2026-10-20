@@ -33,7 +33,10 @@ local function CleanNodes(nodes)
         if value~=nil and (type(value)~="string" or #value>384) then return end
     end end
     for _,node in ipairs(nodes) do
-        if node.monitors~=nil and not M.PlayerSkillMonitor.ValidEntries(node.monitors) then return end
+        if node.monitors~=nil then
+            local valid=node.id=="receivedBuffs"and M.ReceivedBuffs.ValidEntries or M.PlayerSkillMonitor.ValidEntries
+            if not valid(node.monitors)then return end
+        end
         if node.otherMonitors~=nil and not M.PlayerOtherMonitor.ValidEntries(node.otherMonitors)then return end
         if node.commonItems~=nil and not M.CommonItems.ValidEntries(node.commonItems)then return end
         if node.raidBuffs~=nil and not M.RaidBuffMonitor.ValidEntries(node.raidBuffs)then return end
@@ -49,6 +52,7 @@ local function CleanNodes(nodes)
     if M.EnsurePlayerSkillMonitor then M:EnsurePlayerSkillMonitor({nodes=nodes}) end
     if M.EnsurePlayerOtherMonitor then M:EnsurePlayerOtherMonitor({nodes=nodes})end
     if M.EnsureCommonItems then M:EnsureCommonItems({nodes=nodes})end
+    if M.EnsureReceivedBuffs then M:EnsureReceivedBuffs({nodes=nodes})end
     if M.EnsureRaidBuffMonitor then M:EnsureRaidBuffMonitor({nodes=nodes})end
     if M.EnsureChatButtonsModule then M:EnsureChatButtonsModule({nodes=nodes}) end
     if M.EnsureCombatNoticesModule then M:EnsureCombatNoticesModule({nodes=nodes}) end
@@ -154,6 +158,7 @@ local function CleanConfig(config)
     if config.commonItemsShared~=nil and not M.CommonItems.ValidEntries(config.commonItemsShared)then return end
     if config.raidBuffsShared~=nil and not M.RaidBuffMonitor.ValidEntries(config.raidBuffsShared)then return end
     if config.commonItemsByClass~=nil and (not M.CommonItems.ValidProfiles(config.commonItemsByClass)or not M.PlayerSkillMonitor.ValidClass(config.commonItemsClass))then return end
+    if config.receivedBuffsByClass~=nil and (not M.ReceivedBuffs.ValidProfiles(config.receivedBuffsByClass)or not M.PlayerSkillMonitor.ValidClass(config.receivedBuffsClass))then return end
     if config.raidBuffsByClass~=nil and (not M.RaidBuffMonitor.ValidProfiles(config.raidBuffsByClass)or not M.PlayerSkillMonitor.ValidClass(config.raidBuffsClass))then return end
     if config.otherMonitorEquipmentOverrides~=nil and not M.PlayerOtherMonitor.ValidOverrides(config.otherMonitorEquipmentOverrides)then return end
     if config.otherMonitorEquipmentEntries~=nil and not M.PlayerOtherMonitor.ValidEquipmentEntries(config.otherMonitorEquipmentEntries)then return end
@@ -180,6 +185,7 @@ local function CleanConfig(config)
         commonItemsShared=config.commonItemsShared and M.Copy(config.commonItemsShared),
         raidBuffsShared=config.raidBuffsShared and M.Copy(config.raidBuffsShared),
         commonItemsByClass=config.commonItemsByClass and M.Copy(config.commonItemsByClass),commonItemsClass=config.commonItemsClass,
+        receivedBuffsByClass=config.receivedBuffsByClass and M.Copy(config.receivedBuffsByClass),receivedBuffsClass=config.receivedBuffsClass,
         raidBuffsByClass=config.raidBuffsByClass and M.Copy(config.raidBuffsByClass),raidBuffsClass=config.raidBuffsClass,
         otherMonitorEquipmentOverrides=config.otherMonitorEquipmentOverrides and M.Copy(config.otherMonitorEquipmentOverrides),
         otherMonitorEquipmentEntries=config.otherMonitorEquipmentEntries and M.Copy(config.otherMonitorEquipmentEntries),
@@ -252,6 +258,7 @@ function M:ExportConfigString()
     self:SavePlayerSkillMonitorClass()
     self:SavePlayerOtherMonitorClass()
     self:SaveCommonItemsClass()
+    self:SaveReceivedBuffsClass()
     self:SaveRaidBuffMonitorClass()
     local ok,result=pcall(function()
         local serializer,deflate=Libraries()
@@ -263,6 +270,7 @@ function M:ExportConfigString()
             playerSkillMonitorsByClass=self.db.playerSkillMonitorsByClass,playerSkillMonitorClass=self.db.playerSkillMonitorClass,
             playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass,playerOtherMonitorClass=self.db.playerOtherMonitorClass,
             commonItemsShared=self.db.commonItemsShared,commonItemsByClass=self.db.commonItemsByClass,commonItemsClass=self.db.commonItemsClass,
+            receivedBuffsByClass=self.db.receivedBuffsByClass,receivedBuffsClass=self.db.receivedBuffsClass,
             raidBuffsShared=self.db.raidBuffsShared,raidBuffsByClass=self.db.raidBuffsByClass,raidBuffsClass=self.db.raidBuffsClass,
             otherMonitorEquipmentOverrides=self.db.otherMonitorEquipmentOverrides,
             design=self.db.design,moduleDefaults=self.db.moduleDefaults})
@@ -300,6 +308,7 @@ function M:ImportConfigString(input)
 end
 function M:ApplyConfigString(input)
     if not self:CanEdit() then return false,"战斗中暂不能修改布局，脱战后即可编辑。" end
+    if type(input)=="string"and #input<=400000 and input:gsub("%s+",""):sub(1,6)=="!MUG1:"then return self:ApplyReceivedBuffsString(input)end
     if type(input)=="string"and #input<=400000 and input:gsub("%s+",""):sub(1,6)=="!MUO1:"then return self:ApplyPlayerOtherMonitorString(input)end
     if type(input)=="string"and #input<=MAX_TEXT*2 and input:gsub("%s+",""):sub(1,#SKILL_PREFIX)==SKILL_PREFIX then
         return self:ApplyPlayerSkillMonitorString(input)
@@ -308,16 +317,19 @@ function M:ApplyConfigString(input)
     if not config then return false,INVALID end
     if self.PlayerOtherMonitor.FlushEditor then self.PlayerOtherMonitor.FlushEditor()end
     if self.CommonItems.FlushEditor then self.CommonItems.FlushEditor()end
+    if self.ReceivedBuffs.FlushEditor then self.ReceivedBuffs.FlushEditor()end
     if self.RaidBuffMonitor.FlushEditor then self.RaidBuffMonitor.FlushEditor()end
     if self.moveMode and self.StopFrameMoveMode then self:StopFrameMoveMode(false) end
     self:SavePlayerSkillMonitorClass()
     self:SavePlayerOtherMonitorClass()
     self:SaveCommonItemsClass()
+    self:SaveReceivedBuffsClass()
     self:SaveRaidBuffMonitorClass()
     self.db.design=config.design;self.db.moduleDefaults=config.moduleDefaults
     self:ImportPlayerSkillMonitorClasses(config)
     self:ImportPlayerOtherMonitorClasses(config)
     self:ImportCommonItems(config)
+    self:ImportReceivedBuffs(config)
     self:ImportRaidBuffMonitor(config)
     self.db.language=config.language;self.db.minimap=config.minimap;self.db.hideBlizzard=config.hideBlizzard
     self.db.hideWithoutTarget=config.hideWithoutTarget

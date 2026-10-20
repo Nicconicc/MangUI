@@ -675,4 +675,8 @@ english["缺少武器强化："]="Missing weapon enhancement: "
 english["武器强化即将到期："]="Weapon enhancement expiring: "
 english["选择"]="Choose"
 english["缺少已配置的团队、职业增益或武器强化时显示提醒图标，补齐后自动隐藏。"]="Show a reminder when a configured raid buff, class buff or weapon enhancement is missing. Hide it when applied."
+english["玩家获取他人增益监控"]="Buffs received from others"
+english["输入队友给你的技能名或ID"]="Enter teammate Buff name or ID"
+english["粘贴他人增益监控配置字符串；仅更新字符串包含的职业配置。"]="Paste received Buff settings. Only included class profiles will be updated."
+english["获得其他玩家施放的指定增益时显示图标、层数和倒计时，并可播放一次声音提示。"]="Shows icons, stacks and remaining time for tracked Buffs cast by other players, with an optional sound on receipt."
 M:RebuildLocaleKeys()
