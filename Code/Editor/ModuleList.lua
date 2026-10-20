@@ -20,6 +20,7 @@ local moduleNames={
     targetThreat="仇恨监控",
 }
 local function ModuleName(node)return moduleNames[node.id]or node.label end
+private.ModuleName=ModuleName
 local moduleTips={
     mainComposite="配置玩家与目标的头像、生命、资源、姓名和光环等主要界面元素。",
     wa8d650f8d3a="显示玩家施法与引导进度，可调整施法条的位置、文字和外观。",

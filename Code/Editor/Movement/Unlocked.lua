@@ -133,7 +133,7 @@ local function UnlockedOverlapMenu(mode)
     for i,mover in ipairs(candidates)do
         local button=menu.buttons[i]
         if not button then button=W.Button(menu,"",228,function()end);menu.buttons[i]=button end
-        button:SetPoint("TOPLEFT",6,-6-(i-1)*30);button:SetText(mover.node.label)
+        button:SetPoint("TOPLEFT",6,-6-(i-1)*30);button:SetText(private.ModuleName(mover.node))
         button:SetScript("OnClick",function()
             SelectUnlockedMover(mode,mover);mode.pickSelected=mover;menu:Hide()
         end)
@@ -256,7 +256,7 @@ function M:StartUnlockedMoveMode()
                 mode.movers[count]=mover
             end
             mover.node=group;mover.groupColor=unlockModuleColors[id]
-            mover.drag=nil;mover.label:SetText(group.label);mover:EnableMouse(false)
+            mover.drag=nil;mover.label:SetText(private.ModuleName(group));mover:EnableMouse(false)
             PositionUnlockedMover(mode,mover,geometry);mover:Show()
         end
     end

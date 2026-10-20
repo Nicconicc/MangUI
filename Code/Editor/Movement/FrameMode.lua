@@ -184,7 +184,7 @@ function M:StartFrameMoveMode()
     overlay:SetParent(main and UIParent or live.frame);overlay:SetFrameStrata("FULLSCREEN")
     overlay:SetFrameLevel(live.frame:GetFrameLevel()+500)
     overlay:ClearAllPoints();overlay:SetPoint("CENTER",main and UIParent or live.frame,"CENTER",x,y)
-    overlay:SetSize(width,height);overlay.label:SetText(group.label.." · 拖动绿色区域")
+    overlay:SetSize(width,height);overlay.label:SetText(private.ModuleName(group).." · 拖动绿色区域")
     overlay:SetScript("OnMouseDown",function(self,button)
         if button~="LeftButton" or InCombatLockdown() then return end
         local cursorX,cursorY=GetCursorPosition()
@@ -245,7 +245,7 @@ function M:StartFrameMoveMode()
         panel:SetScript("OnEvent",function()M:StopFrameMoveMode(false)end)
         panel:SetScript("OnHide",function()if M.moveMode then M:StopFrameMoveMode(true) end end)
     end
-    panel.label:SetText("拖动绿色区域移动"..group.label)
+    panel.label:SetText("拖动绿色区域移动"..private.ModuleName(group))
     self.moveMode={overlay=overlay,panel=panel,bossPreview=group.id=="bossFrames",partyPreview=group.id=="partyFrames"}
     self.editor.window:Hide()
     overlay:Show();panel:Show()
