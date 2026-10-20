@@ -21,6 +21,8 @@ local function ResolveSlot(slot,entry)
     slot.spells=I.Options(entry);slot.spell=I.Resolve(entry)
     slot.weapon=I.Kind(entry)~="buff"and entry.type~="weaponAura"
     for _,spell in ipairs(slot.spells)do
+        if I.Kind(entry)=="buff"then I.ExpandBuffRanks(spell)end
+        if spell.id then ids[spell.id]=true end
         if spell.ids then for id in pairs(spell.ids)do ids[id]=true end
         elseif spell.id then ids[spell.id]=true end
         keys[#keys+1]=spell.value..":"..tostring(spell.id)..":"..tostring(spell.revision)
@@ -123,20 +125,30 @@ local function Auras()
         I.RememberBuffAura(aura)
         local id=aura.spellId;if type(id)=="nil"then id=aura.spellID end
         if Readable(id)and type(id)=="number"then byID[id]=aura end
-        if Readable(aura.name)and type(aura.name)=="string"then byName[aura.name]=aura end
+        if Readable(aura.name)and type(aura.name)=="string"then
+            local matches=byName[aura.name]or {};byName[aura.name]=matches;matches[#matches+1]=aura
+        end
     end
     return byID,byName
 end
 local function BuffRemaining(slot,byID,byName,now)
     if not byID then return false end
-    local active,longest=false,nil
+    local active,longest,permanent=false,nil,false
+    local function Include(aura)
+        if not aura then return end
+        local expires=Number(aura.expirationTime)
+        if not expires or expires==0 then permanent=true
+        elseif expires>now then active=true;longest=math.max(longest or 0,expires-now)end
+    end
     for _,spell in ipairs(slot.spells)do
-        local aura=spell.id and byID[spell.id]or not tonumber(spell.value)and byName[spell.value]
-        if aura then
-            local expires=Number(aura.expirationTime)
-            if not expires or expires==0 then return true end
-            if expires>now then active=true;longest=math.max(longest or 0,expires-now)end
+        local name=spell.matchName or (not tonumber(spell.value)and spell.value)
+        if name then
+            for _,aura in ipairs(byName[name]or {})do Include(aura)end
+        else
+            Include(spell.id and byID[spell.id])
+            for id in pairs(spell.ids or {})do Include(byID[id])end
         end
+        if permanent then return true end
     end
     return active,longest
 end

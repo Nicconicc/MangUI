@@ -12,7 +12,7 @@ local seeds={1243,1244,1245,2791,10937,10938,25389,48161,21562,21564,25392,48162
     19740,19834,19835,19836,19837,19838,25291,27140,48931,48932,25782,25916,27141,48933,48934,
     19742,19850,19852,19853,19854,25290,27142,48935,48936,25894,25918,27143,48937,48938,
     20217,25898,20911,25899,976,10957,10958,25433,48169,27683,39374,14752,14818,14819,27841,25312,48073,
-    6673,5242,6192,11549,11550,11551,25289,2048,47436,469,47439,57330,
+    6673,5242,6192,11549,11550,11551,25289,2048,47436,469,47439,57330,57623,
     6307,7804,7805,11766,11767,27268,47982,19506,30809,17007,24932,55610,19574,57399,
     21562,1459,1126,462854,381748,381732,15473,6673,264764,465,32223,52127,32593,32594,974,97462}
 local function Saved()
@@ -73,6 +73,16 @@ function I.ResolveName(value)
     end
     if record then return value,record.id,record.icon,record.ids,record.revision end
     return name,id,icon
+end
+-- Opt-in rank matching for player-Buff reminders only. Other modules can
+-- continue resolving a numeric value as one exact spell ID.
+function I.ExpandBuffRanks(spell)
+    spell.matchName=not tonumber(spell.value)and spell.value or nil
+    if tonumber(spell.value)and spell.name~=spell.value then
+        spell.matchName=spell.name
+        local _,_,_,ids,revision=I.ResolveName(spell.name)
+        spell.ids,spell.revision=ids,revision
+    end
 end
 local function Refresh()
     local view=M.live;local o=view and view.nodes.raidBuffsIcons
