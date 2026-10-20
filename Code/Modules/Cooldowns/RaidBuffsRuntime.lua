@@ -168,7 +168,7 @@ local function UpdateConnector(view,o)
         local distance=math.sqrt(vx*vx/(rx*rx)+vy*vy/(ry*ry))
         connector.outside=distance>1
         if connector.outside then
-            connector.row:SetThickness(pixel);connector.link:SetThickness(pixel)
+            connector.row:SetThickness(2*pixel);connector.link:SetThickness(2*pixel)
             connector.row:SetStartPoint("CENTER",frame,innerX,y)
             connector.row:SetEndPoint("CENTER",frame,iconEdge,y)
             local edgeX,edgeY=tx+vx/distance,ty+vy/distance
