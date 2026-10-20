@@ -26,7 +26,19 @@ function W.ItemInfo(id)
         if not W.requested[id]then W.requested[id]=true;Safe(C_Item and C_Item.RequestLoadItemDataByID,id)end
     end
     if not icon then icon=Safe(C_Item and C_Item.GetItemIconByID or GetItemIcon,id)end
-    return Text(name),Text(link),Number(ilevel),Number(level),Text(equip),Readable(icon)and icon or nil
+    icon=Readable(icon)and icon or nil
+    -- Custom-client items can return the question-mark icon while uncached.
+    -- A placeholder is not authoritative metadata for a curated item.
+    if not icon or icon==134400 then icon=W.byItem[id]and W.byItem[id].icon or icon end
+    return Text(name),Text(link),Number(ilevel),Number(level),Text(equip),icon
+end
+function W.Tooltip(info)
+    if info.itemID and info.link and GameTooltip.SetHyperlink then GameTooltip:SetHyperlink(info.link)
+    elseif info.itemID then
+        GameTooltip:SetText(info.name or "",1,1,1,1,true)
+        GameTooltip:AddLine("ItemID: "..info.itemID,.7,.7,.7)
+    elseif info.id and GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(info.id)
+    else GameTooltip:SetText(info.name or "",1,1,1,1,true)end
 end
 function W.ItemAvailable(d)
     if d.interfaces then return d.interfaces[M.Compat.interface]==true end

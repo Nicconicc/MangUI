@@ -79,9 +79,7 @@ local function Icon(o,index)
     slot.hand:SetPoint("BOTTOM",slot.base,"BOTTOM",0,1);slot.hand:SetTextColor(1,1,1);slot.hand:SetWidth(40);slot.hand:SetWordWrap(false)
     slot:SetScript("OnEnter",function(self)
         GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
-        if self.spell.itemID and GameTooltip.SetHyperlink then GameTooltip:SetHyperlink("item:"..self.spell.itemID)
-        elseif self.spell.id and GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(self.spell.id)
-        else GameTooltip:SetText(self.spell.name or "",1,1,1,1,true)end
+        W.Tooltip(self.spell)
         if self.weapon then GameTooltip:AddLine(M:T(self.remaining and self.remaining>0 and "武器强化即将到期："or "缺少武器强化：")..W.SlotName(self.entry),1,.82,0,true)end
         GameTooltip:Show()
     end)
