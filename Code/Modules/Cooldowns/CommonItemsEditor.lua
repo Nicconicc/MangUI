@@ -97,8 +97,6 @@ function I.BuildControls(e,parent)
                 if not row then
                     row=CreateFrame("Frame",nil,self);self.rows[index]=row;row.inputs={};row.listKey=self.key
                     row.tint=row:CreateTexture(nil,"BACKGROUND");row.tint:SetAllPoints();row.tint:SetColorTexture(.2,.6,.9,.2);row.tint:Hide();Drag(row,row)
-                    row.line=row:CreateTexture(nil,"ARTWORK");row.line:SetHeight(1);row.line:SetColorTexture(.45,.45,.45,.22)
-                    row.line:SetPoint("TOPLEFT",0,4);row.line:SetPoint("TOPRIGHT",0,4)
                     row.type=Drop(row,"监控分类",I.types,function()return I.Kind(row.entry)end,function(value)
                         if value=="equipment"and I.Kind(row.entry)=="item"then
                             local item=I.Resolve(row.entry);if item.slot then row.entry.slot=item.slot end
@@ -155,7 +153,7 @@ function I.BuildControls(e,parent)
                     if not row.create:HasFocus()then W.SetInputValue(row.create,entry.createSpell)end
                 end
                 row.item.placeholder:SetShown(not equipment and row.item:GetText()=="")
-                PreviewIcon(row);row.line:SetShown(index>1);W.ShadeDragRow(row,index);row:Show()
+                PreviewIcon(row);W.ShadeDragRow(row,index);row:Show()
             end
             for index=#entries+1,#self.rows do self.rows[index]:Hide()end
             local height=#entries*108+32;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-#entries*108)

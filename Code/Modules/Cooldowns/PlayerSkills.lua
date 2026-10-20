@@ -697,9 +697,6 @@ function S.BuildControls(e,parent,Row)
             local row=self.rows[i]
             if not row then
                 row=CreateFrame("Frame",nil,self);row:SetHeight(84);self.rows[i]=row
-                row.separator=row:CreateTexture(nil,"ARTWORK");row.separator:SetHeight(1)
-                row.separator:SetPoint("TOPLEFT",0,6);row.separator:SetPoint("TOPRIGHT",0,6)
-                row.separator:SetColorTexture(.45,.45,.45,.22)
                 row.dragTint=row:CreateTexture(nil,"BACKGROUND");row.dragTint:SetAllPoints();row.dragTint:SetColorTexture(.2,.6,.9,.2);row.dragTint:Hide()
                 DragSurface(row,row)
                 row.dragHandle=CreateFrame("Button",nil,row);row.dragHandle:SetSize(100,18)
@@ -767,7 +764,7 @@ function S.BuildControls(e,parent,Row)
             row.shortcutEdit:ClearAllPoints();row.shortcutEdit:SetPoint("TOPLEFT",row,"TOPLEFT",keyX,-21)
             row.shortcutEdit:SetWidth(70)
             row.shortcutColor:ClearAllPoints();row.shortcutColor:SetPoint("LEFT",row.shortcutEdit,"RIGHT",12,0)
-            row.edit:SetWidth(width/3);row.separator:SetShown(i>1)
+            row.edit:SetWidth(width/3);
             if not row.edit:HasFocus()then W.SetInputValue(row.edit,entry.value)end
             if not row.shortcutEdit:HasFocus()then row.shortcutEdit:SetText(entry.shortcut or "")end
             row.showShortcut:SetChecked(entry.showShortcut~=false);row.shortcutColor:SetColor(entry.shortcutColor or {1,1,1,1})

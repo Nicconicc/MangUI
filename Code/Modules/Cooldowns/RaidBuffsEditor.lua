@@ -120,8 +120,6 @@ function I.BuildControls(e,parent)
                 if not row then
                     row=CreateFrame("Frame",nil,self);self.rows[index]=row;row.inputs={};row.listKey=self.key
                     row.tint=row:CreateTexture(nil,"BACKGROUND");row.tint:SetAllPoints();row.tint:SetColorTexture(.2,.6,.9,.2);row.tint:Hide();Drag(row,row)
-                    row.line=row:CreateTexture(nil,"ARTWORK");row.line:SetHeight(1);row.line:SetColorTexture(.45,.45,.45,.22)
-                    row.line:SetPoint("TOPLEFT",0,4);row.line:SetPoint("TOPRIGHT",0,4)
                     row.type=Drop(row,"监控类型",Wep.Types,function()return I.Kind(row.entry)end,function(value)
                         row.entry.type=value;row.entry.value=value=="classWeapon"and "auto"or "";row.entry.alternative="";row.entry.slot="main"
                     end)
@@ -211,7 +209,7 @@ function I.BuildControls(e,parent)
                 if not row.alternative:HasFocus()then W.SetInputValue(row.alternative,entry.alternative or "")end
                 row.item.placeholder:SetShown(W.InputValue(row.item)=="")
                 row.alternative.placeholder:SetShown(W.InputValue(row.alternative)=="")
-                PreviewIcon(row);row.line:SetShown(index>1);W.ShadeDragRow(row,index);row:Show()
+                PreviewIcon(row);W.ShadeDragRow(row,index);row:Show()
             end
             for index=#entries+1,#self.rows do self.rows[index]:Hide()end
             local height=#entries*128+32;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-#entries*128)

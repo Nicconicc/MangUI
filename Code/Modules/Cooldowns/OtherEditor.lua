@@ -195,8 +195,6 @@ function O.BuildControls(e,parent)
             local row=self.rows[i]
             if not row then
                 row=CreateFrame("Frame",nil,self);self.rows[i]=row;row.inputs={}
-                row.separator=row:CreateTexture(nil,"ARTWORK");row.separator:SetHeight(1);row.separator:SetColorTexture(.45,.45,.45,.22)
-                row.separator:SetPoint("TOPLEFT",0,6);row.separator:SetPoint("TOPRIGHT",0,6)
                 row.dragTint=row:CreateTexture(nil,"BACKGROUND");row.dragTint:SetAllPoints();row.dragTint:SetColorTexture(.2,.6,.9,.2);row.dragTint:Hide();Drag(row,row)
                 row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(110,18)
                 row.dragLabel=W.Label(row.handle,"",12);row.dragLabel:SetPoint("CENTER");row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetWordWrap(false);Drag(row.handle,row)
@@ -262,7 +260,7 @@ function O.BuildControls(e,parent)
             row.soundID:SetShown(entry.soundEnabled and entry.sound=="id")
             if not row.path:HasFocus()then row.path:SetText(entry.soundPath)end
             if not row.soundID:HasFocus()then row.soundID:SetText(entry.soundID)end
-            row.separator:SetShown(i>1);W.ShadeDragRow(row,i);row:Show()
+            W.ShadeDragRow(row,i);row:Show()
         end
         for i=#entries+1,#self.rows do self.rows[i]:Hide()end
         self.contentHeight=offset;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-offset)
