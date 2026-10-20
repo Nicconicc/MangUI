@@ -94,42 +94,54 @@ local function Decoration(o)
     if o.decoration then return o.decoration end
     local frame=CreateFrame("Frame",nil,o.frame);frame:EnableMouse(false)
     frame:SetFrameLevel(o.frame:GetFrameLevel());frame.lines={}
-    for _,name in ipairs({"topLeft","topRight","left","right","bottom"})do
+    for _,name in ipairs({"topLeft","topRight","left","right","bottomLeft","bottomRight"})do
         local line=frame:CreateTexture(nil,"ARTWORK");line:SetColorTexture(1,1,1,1);frame.lines[name]=line
+        if line.SetSnapToPixelGrid then line:SetSnapToPixelGrid(true)end
+        if line.SetTexelSnappingBias then line:SetTexelSnappingBias(0)end
+        if line.SetRoundLayoutToNearestPixel then line:SetRoundLayoutToNearestPixel(true)end
     end
     local title=frame:CreateFontString(nil,"OVERLAY");frame.title=title
-    title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),24,"")
-    title:SetHeight(30)
+    title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"")
+    title:SetHeight(24)
     title:SetText("Missing raid buff");title:SetTextColor(1,1,1,1);title:SetJustifyH("CENTER");title:SetWordWrap(false)
     title:SetShadowColor(0,0,0,.8);title:SetShadowOffset(1,-1)
-    title:SetPoint("CENTER",frame,"CENTER",0,-10)
     frame:Hide();o.decoration=frame;return frame
 end
 local function LayoutDecoration(o,group,count)
     local frame=Decoration(o)
     if count==0 then frame:Hide();return end
     local rowWidth=count*44-4
-    local width=math.max(rowWidth+144,frame.title:GetStringWidth()+40)
+    local scale=math.max(.001,frame:GetEffectiveScale())
+    local _,screenHeight=Safe(GetPhysicalScreenSize)
+    local pixel=(PixelUtil and PixelUtil.GetPixelToUIUnitFactor and PixelUtil.GetPixelToUIUnitFactor()
+        or 768/math.max(1,Number(screenHeight)or 768))/scale
+    local textWidth=(frame.title.GetUnboundedStringWidth and frame.title:GetUnboundedStringWidth()or frame.title:GetStringWidth())+2
+    local width=math.ceil(math.max(rowWidth+144,textWidth+40)/pixel)*pixel
     local center=S.RowOffset(group,count)
-    if frame.layoutWidth~=width or frame.layoutRowWidth~=rowWidth or frame.layoutCenter~=center then
-        local thickness,height=1.5,80
-        local arm=(width-rowWidth)/2-8
+    if frame.layoutWidth~=width or frame.layoutRowWidth~=rowWidth or frame.layoutCenter~=center
+        or frame.layoutPixel~=pixel or frame.layoutTextWidth~=textWidth then
+        local thickness,height=pixel,math.ceil(80/pixel)*pixel
+        local arm=math.floor(((width-rowWidth)/2-8)/pixel)*pixel
+        local bottomArm=math.floor((width-textWidth-16)/2/pixel)*pixel
         frame:ClearAllPoints();frame:SetPoint("TOP",o.frame,"CENTER",center,-7);frame:SetSize(width,height)
         local lines=frame.lines
         lines.topLeft:SetPoint("TOPLEFT",frame,"TOPLEFT",0,0);lines.topLeft:SetSize(arm,thickness)
         lines.topRight:SetPoint("TOPRIGHT",frame,"TOPRIGHT",0,0);lines.topRight:SetSize(arm,thickness)
         lines.left:SetPoint("TOPLEFT",frame,"TOPLEFT",0,0);lines.left:SetSize(thickness,height)
         lines.right:SetPoint("TOPRIGHT",frame,"TOPRIGHT",0,0);lines.right:SetSize(thickness,height)
-        lines.bottom:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",0,0);lines.bottom:SetSize(width,thickness)
-        frame.title:SetWidth(width-32)
+        lines.bottomLeft:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",0,0);lines.bottomLeft:SetSize(bottomArm,thickness)
+        lines.bottomRight:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",0,0);lines.bottomRight:SetSize(bottomArm,thickness)
+        frame.title:ClearAllPoints();frame.title:SetPoint("CENTER",frame,"BOTTOM",0,thickness/2)
+        frame.title:SetWidth(textWidth)
         frame.layoutWidth,frame.layoutRowWidth,frame.layoutCenter=width,rowWidth,center
+        frame.layoutPixel,frame.layoutTextWidth=pixel,textWidth
     end
     frame:Show()
 end
 function I.Configure(view,o)
     o.buffIcons=o.buffIcons or {};o.entries=I.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
     local decoration=Decoration(o)
-    decoration.title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),24,"")
+    decoration.title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"")
     decoration.layoutWidth=nil
     for index,entry in ipairs(o.entries)do
         local slot=Icon(o,index);slot.entry=entry;ResolveSlot(slot,entry)
