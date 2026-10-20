@@ -64,8 +64,18 @@ end
 function M:SetLocaleLineHeight(label,height)
     label.localeLineHeight=height;self:EnsureLocaleLineHeight(label)
 end
+function M:ControlPanelFontSize(object)
+    while object do
+        if object.controlPanelTextSize then return object.controlPanelTextSize end
+        object=object.GetParent and object:GetParent()or nil
+    end
+end
 function M:FitLocaleText(label,width,minimum)
     if not label or not label.GetFont or not label.GetStringWidth or not width or width<=0 then return end
+    if self:ControlPanelFontSize(label)then
+        label.localeFitWidth=nil;label.localeFitCache=nil
+        self:ApplyLocaleFont(label,label:GetText());return
+    end
     local path,size,flags=label:GetFont();if not path or not size then return end
     path=self:ResolveFontPath(path)
     local cached=label.localeFitCache
@@ -119,6 +129,7 @@ function M:ApplyLocaleFont(object,text)
         desired=self:ResolveFontPath(label.localePreviewFont)
         size=label.localePreviewSize or size;flags=label.localePreviewFlags or ""
     end
+    size=self:ControlPanelFontSize(object)or size
     local _,currentSize,currentFlags=label:GetFont()
     if desired~=path or size~=currentSize or flags~=currentFlags then
         local ok,loaded=pcall(label.SetFont,label,desired,size,flags or "")

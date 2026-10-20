@@ -133,6 +133,7 @@ function W.MediaSelect(parent,label,width,kind,fn)
 end
 function W.MediaMenu(anchor,items,kind,selectedPath,onSelect,selectedName)
     local p=CreateFrame("Frame",nil,M.editor.window,"BackdropTemplate")
+    p.controlPanelTextSize=M:ControlPanelFontSize(anchor)
     p.localeTransient=true
     p:SetBackdrop({bgFile="Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
         edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border",tile=true,tileSize=32,edgeSize=32,
@@ -428,6 +429,7 @@ function W.BlacklistEditor(parent,width,changed)
             if not row then
                 row=CreateFrame("Frame",nil,body);row:SetSize(width-38,26)
                 row.label=row:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+                M:BindInputFont(row.label)
                 row.label:SetPoint("LEFT",4,0);row.label:SetPoint("RIGHT",-34,0)
                 row.label:SetJustifyH("LEFT");row.label:SetWordWrap(false)
                 row.remove=W.Button(row,"-",28,function()

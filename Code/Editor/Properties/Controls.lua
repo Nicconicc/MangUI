@@ -21,6 +21,7 @@ local Change=private.Change
 local PreviewModuleID=private.PreviewModuleID
 
 local function BuildProperties(e)
+    e.right.controlPanelTextSize=12
     local propertyWidth=470
     local scroll,content=W.Scroll(e.right);scroll:SetPoint("TOPLEFT",12,-42);scroll:SetPoint("BOTTOMRIGHT",-30,12);content:SetWidth(propertyWidth)
     e.propScroll=scroll;e.props=content;e.fields={};e.colors={};e.propRows={}

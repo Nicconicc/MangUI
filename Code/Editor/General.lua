@@ -51,7 +51,7 @@ function M:OpenGeneral()
     M.EditorUndo.Clear()
     local editor=self.editor
     if not self.general then
-        local panel=W.Panel(editor.window);self.general=panel
+        local panel=W.Panel(editor.window);self.general=panel;panel.controlPanelTextSize=12
         panel:SetPoint("TOPLEFT",14,-61);panel:SetPoint("BOTTOMRIGHT",-14,49)
         panel:SetFrameStrata("DIALOG");panel:SetFrameLevel(7000);panel:EnableMouse(true)
         local content=CreateFrame("Frame",nil,panel)
@@ -168,7 +168,7 @@ end
 function M:ShowConfigStringDialog(mode,scope)
     local dialog=self.configDialog
     if not dialog then
-        dialog=CreateFrame("Frame","MangUIUFConfigStringDialog",self.editor.window,"BackdropTemplate");self.configDialog=dialog
+        dialog=CreateFrame("Frame","MangUIUFConfigStringDialog",self.editor.window,"BackdropTemplate");self.configDialog=dialog;dialog.controlPanelTextSize=12
         dialog:SetSize(720,430);dialog:SetPoint("CENTER",self.editor.window,"CENTER");dialog:SetFrameStrata("FULLSCREEN_DIALOG")
         dialog:SetAlpha(1)
         dialog:SetBackdrop(backdrop);dialog:SetBackdropColor(.08,.08,.09,1);dialog:SetBackdropBorderColor(.34,.34,.36,1)
