@@ -293,10 +293,10 @@ function I.BuildControls(e,parent)
                     button:ClearAllPoints();button:SetPoint("TOPLEFT",96+(classIndex-1)*classStep,-102);button:SetWidth(math.min(24,classStep))
                     local info=button.classInfo;local color=RAID_CLASS_COLORS and RAID_CLASS_COLORS[button.classToken]
                     local enabled=I.ForClass(entry,button.classToken)
-                    button.icon:SetDesaturated(true);button.icon:SetAlpha(enabled and 1 or .3)
+                    button.icon:SetDesaturated(true);button.icon:SetAlpha(enabled and 1 or .1)
                     if enabled then
                         local r,g,b=color and color.r or info[4],color and color.g or info[5],color and color.b or info[6]
-                        button.icon:SetVertexColor(r*.7,g*.7,b*.7,1)
+                        button.icon:SetVertexColor(r,g,b,1)
                     else button.icon:SetVertexColor(.65,.65,.65,1)end
                     button.selected=enabled
                 end
