@@ -248,6 +248,10 @@ function I.BuildControls(e,parent)
                         button.classToken=info[1];button.classInfo=info;row.classButtons[classIndex]=button
                         button.icon=button:CreateTexture(nil,"ARTWORK");button.icon:SetSize(19.2,19.2);button.icon:SetPoint("CENTER")
                         button.icon:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
+                        button.iconBright=button:CreateTexture(nil,"OVERLAY")
+                        button.iconBright:SetAllPoints(button.icon)
+                        button.iconBright:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
+                        button.iconBright:SetDesaturated(true);button.iconBright:SetBlendMode("ADD");button.iconBright:SetAlpha(.5);button.iconBright:Hide()
                         -- Add the same class-tinted luminance instead of a white highlight.
                         button:SetScript("OnClick",function(self)
                             Flush();if Editable(row)then
@@ -297,7 +301,8 @@ function I.BuildControls(e,parent)
                     if enabled then
                         local r,g,b=color and color.r or info[4],color and color.g or info[5],color and color.b or info[6]
                         button.icon:SetVertexColor(r,g,b,1)
-                    else button.icon:SetVertexColor(.65,.65,.65,1)end
+                        button.iconBright:SetVertexColor(r,g,b,1);button.iconBright:Show()
+                    else button.icon:SetVertexColor(.65,.65,.65,1);button.iconBright:Hide()end
                     button.selected=enabled
                 end
                 PreviewIcon(row);W.ShadeDragRow(row,index);row:Show()
