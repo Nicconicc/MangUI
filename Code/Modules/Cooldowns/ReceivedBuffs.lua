@@ -35,7 +35,7 @@ function I.MoveBounds(group)
     local count=math.max(1,#I.Entries(group));return S.RowOffset(group,count),20,math.max(180,count*44+20),112
 end
 function I.RestorePosition(group,reference)
-    local x,y=0,-120
+    local x,y=240,-120
     if reference then local cx,cy=I.MoveBounds(reference);local scale=M:NodeScale(reference);x,y=((reference.x or 0)+cx)*scale,((reference.y or 0)+cy)*scale end
     local cx,cy=I.MoveBounds(group);local scale=math.max(.001,M:NodeScale(group));group.x,group.y=x/scale-cx,y/scale-cy
 end
