@@ -2,6 +2,10 @@ local _,M=...
 local I,S,W=M.RaidBuffMonitor,M.PlayerSkillMonitor,M.WeaponEnhancements
 local Safe,Number,Readable=I.Safe,I.Number,I.Readable
 local expiryCurve
+local function HideConnector(connector)
+    connector.lead:Hide();connector.row:Hide();connector.link:Hide()
+    if connector.joint then connector.joint:Hide()end
+end
 local function ExpiryCurve()
     if not expiryCurve and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
         expiryCurve=C_CurveUtil.CreateCurve();expiryCurve:SetType(Enum.LuaCurveType.Step)
@@ -94,7 +98,7 @@ local function Decoration(o)
     if o.decoration then return o.decoration end
     local frame=CreateFrame("Frame",nil,o.frame);frame:EnableMouse(false)
     frame:SetFrameLevel(o.frame:GetFrameLevel());frame.lines={}
-    for _,name in ipairs({"topLeft","topRight","left","right","bottomLeft","bottomRight"})do
+    for _,name in ipairs({"topRight","bottomLeft","bottomRight"})do
         local line=frame:CreateTexture(nil,"ARTWORK");line:SetColorTexture(1,1,1,.6);frame.lines[name]=line
         if line.SetSnapToPixelGrid then line:SetSnapToPixelGrid(true)end
         if line.SetTexelSnappingBias then line:SetTexelSnappingBias(0)end
@@ -102,9 +106,16 @@ local function Decoration(o)
     end
     if frame.CreateLine then
         frame.connector={}
-        for _,name in ipairs({"lead","link"})do
-            local line=frame:CreateLine(nil,"OVERLAY");line:SetColorTexture(1,.25,.25,.6)
+        for _,name in ipairs({"lead","row","link"})do
+            local line=frame:CreateLine(nil,"OVERLAY");line:SetColorTexture(1,1,1,.6)
             line:Hide();frame.connector[name]=line
+        end
+        if frame.CreateMaskTexture then
+            local dot=frame:CreateTexture(nil,"OVERLAY");dot:SetTexture("Interface\\Buttons\\WHITE8X8")
+            dot:SetVertexColor(1,1,1,.6)
+            local mask=frame:CreateMaskTexture(nil,"OVERLAY")
+            mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+            dot:AddMaskTexture(mask);frame.connector.joint=dot;frame.connector.jointMask=mask
         end
     end
     local title=frame:CreateFontString(nil,"OVERLAY");frame.title=title
@@ -132,10 +143,7 @@ local function LayoutDecoration(o,group,count)
         local bottomArm=math.floor((width-textWidth-16)/2/pixel)*pixel
         frame:ClearAllPoints();frame:SetPoint("TOP",o.frame,"CENTER",center,-7);frame:SetSize(width,height)
         local lines=frame.lines
-        lines.topLeft:SetPoint("TOPLEFT",frame,"TOPLEFT",0,0);lines.topLeft:SetSize(arm,thickness)
         lines.topRight:SetPoint("TOPRIGHT",frame,"TOPRIGHT",0,0);lines.topRight:SetSize(arm,thickness)
-        lines.left:SetPoint("TOPLEFT",frame,"TOPLEFT",0,0);lines.left:SetSize(thickness,height)
-        lines.right:SetPoint("TOPRIGHT",frame,"TOPRIGHT",0,0);lines.right:SetSize(thickness,height)
         lines.bottomLeft:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT",0,0);lines.bottomLeft:SetSize(bottomArm,thickness)
         lines.bottomRight:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",0,0);lines.bottomRight:SetSize(bottomArm,thickness)
         frame.title:ClearAllPoints();frame.title:SetPoint("CENTER",frame,"BOTTOM",0,thickness/2)
@@ -150,36 +158,48 @@ local function UpdateConnector(view,o)
     if not connector then return end
     local target=view.nodes[M.MainBarLayout.tokenID]
     if not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
-        connector.lead:Hide();connector.link:Hide();return
+        HideConnector(connector);return
     end
     -- Read only our own artwork frames. The external secure portrait anchor and
     -- Blizzard aura frames must never become layout dependencies of these lines.
     local cx,cy=frame:GetCenter();local tx,ty=target.frame:GetCenter()
-    if not cx or not cy or not tx or not ty then connector.lead:Hide();connector.link:Hide();return end
+    if not cx or not cy or not tx or not ty then HideConnector(connector);return end
     local ratio=target.frame:GetEffectiveScale()/frame:GetEffectiveScale()
     tx,ty=tx*ratio-cx,ty*ratio-cy
     local rx,ry=target.frame:GetWidth()*ratio/2,target.frame:GetHeight()*ratio/2
-    local width,height,pixel=frame:GetWidth(),frame:GetHeight(),frame.layoutPixel
-    if rx<=0 or ry<=0 or not pixel then connector.lead:Hide();connector.link:Hide();return end
+    local width,height,pixel,rowWidth=frame:GetWidth(),frame:GetHeight(),frame.layoutPixel,frame.layoutRowWidth
+    if rx<=0 or ry<=0 or not pixel then HideConnector(connector);return end
     if connector.tx~=tx or connector.ty~=ty or connector.rx~=rx or connector.ry~=ry
-        or connector.width~=width or connector.height~=height or connector.pixel~=pixel then
+        or connector.width~=width or connector.height~=height or connector.pixel~=pixel
+        or connector.rowWidth~=rowWidth then
         local side=tx<0 and -1 or 1
         local innerX,y=side*width/2,height/2
         local outerX=innerX+side*84
+        local iconEdge=side*(rowWidth/2+8)
         local vx,vy=outerX-tx,y-ty
         local distance=math.sqrt(vx*vx/(rx*rx)+vy*vy/(ry*ry))
         connector.outside=distance>1
         if connector.outside then
-            connector.lead:SetThickness(pixel);connector.link:SetThickness(pixel)
+            connector.lead:SetThickness(pixel);connector.row:SetThickness(pixel);connector.link:SetThickness(pixel)
             connector.lead:SetStartPoint("CENTER",frame,innerX,y)
             connector.lead:SetEndPoint("CENTER",frame,outerX,y)
-            connector.link:SetStartPoint("CENTER",frame,outerX,y)
-            connector.link:SetEndPoint("CENTER",frame,tx+vx/distance,ty+vy/distance)
+            connector.row:SetStartPoint("CENTER",frame,innerX,y)
+            connector.row:SetEndPoint("CENTER",frame,iconEdge,y)
+            local edgeX,edgeY=tx+vx/distance,ty+vy/distance
+            local startX,startY=edgeX+(outerX-edgeX)*.62,edgeY+(y-edgeY)*.62
+            connector.link:SetStartPoint("CENTER",frame,startX,startY)
+            connector.link:SetEndPoint("CENTER",frame,outerX,y)
+            if connector.joint then
+                connector.joint:SetSize(8*pixel,8*pixel)
+                connector.joint:ClearAllPoints();connector.joint:SetPoint("CENTER",frame,outerX,y)
+                connector.jointMask:SetAllPoints(connector.joint)
+            end
         end
         connector.tx,connector.ty,connector.rx,connector.ry=tx,ty,rx,ry
-        connector.width,connector.height,connector.pixel=width,height,pixel
+        connector.width,connector.height,connector.pixel,connector.rowWidth=width,height,pixel,rowWidth
     end
-    connector.lead:SetShown(connector.outside);connector.link:SetShown(connector.outside)
+    connector.lead:SetShown(connector.outside);connector.row:SetShown(connector.outside);connector.link:SetShown(connector.outside)
+    if connector.joint then connector.joint:SetShown(connector.outside)end
 end
 function I.Configure(view,o)
     o.buffIcons=o.buffIcons or {};o.entries=I.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
