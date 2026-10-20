@@ -14,6 +14,7 @@ function I.BuildControls(e,parent)
     local function Editable(row)return row.owner and M.byID[row.owner.id]==row.owner and Index(row.owner[row.listKey],row.entry)and M:CanEdit()end
     local function PreviewIcon(row)
         local item=I.Resolve({value=row.item:GetText()})
+        if row.entry and row.entry.value==row.item:GetText()and not item.id then I.RequestBuffName(row.entry.value)end
         row.icon.texture:SetTexture(item.icon or 134400)
     end
     for _,definition in ipairs({{"raidBuffs","通用Buff设置","raidBuffsSharedRows"},{"classBuffs","职业Buff设置","raidBuffsClassRows"}})do

@@ -30,7 +30,7 @@ local function Bind(slot)
         container:SetAuraGroupLayout("missing",{elementSpacing=0,lineSpacing=0,elementWidth=40,elementHeight=40})
     end
     slot.container:SetUnit("player")
-    slot.container:SetAuraGroupCandidateFilters("missing",{includeSpellIDs={[slot.spell.id]=true}})
+    slot.container:SetAuraGroupCandidateFilters("missing",{includeSpellIDs=slot.spell.ids or {[slot.spell.id]=true}})
     slot.container:SetAuraGroupMaxFrameCount("missing",1)
     slot.container:SetEnabled(true);slot.container:UpdateAllAuras();slot.bound=true
 end
@@ -52,6 +52,7 @@ function I.Configure(view,o)
     o.buffIcons=o.buffIcons or {};o.entries=I.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
     for index,entry in ipairs(o.entries)do
         local slot=Icon(o,index);slot.entry=entry;slot.spell=I.Resolve(entry);slot.texture:SetTexture(slot.spell.icon or 134400)
+        if not slot.spell.id then I.RequestBuffName(entry.value)end
         if not view.preview then
             if InCombatLockdown()then slot.pending=true
             elseif o.native then Bind(slot)
@@ -72,6 +73,7 @@ local function Auras()
     local byID,byName={},{}
     for index=1,255 do
         local aura=M.Compat.Aura("player",index,"HELPFUL");if not aura then break end
+        I.RememberBuffAura(aura)
         local id=aura.spellId;if type(id)=="nil"then id=aura.spellID end
         if Readable(id)and type(id)=="number"then byID[id]=aura end
         if Readable(aura.name)and type(aura.name)=="string"then byName[aura.name]=aura end
@@ -95,7 +97,9 @@ function I.Paint(view,o,animateOnly)
                 if not spell.id and byName and byName[slot.entry.value]then
                     local aura=byName[slot.entry.value];spell.id=Number(aura.spellId)or Number(aura.spellID);spell.icon=Readable(aura.icon)and aura.icon or spell.icon
                 end
-                local changed=spell.id~=slot.spell.id;slot.spell=spell;slot.texture:SetTexture(spell.icon or 134400)
+                local changed=spell.id~=slot.spell.id or spell.revision~=slot.spell.revision
+                slot.spell=spell;slot.texture:SetTexture(spell.icon or 134400)
+                if not spell.id then I.RequestBuffName(slot.entry.value)end
                 if o.native and (changed or not slot.bound)then slot.pending=true end
             end
             if slot.pending and o.native and not InCombatLockdown()then Bind(slot)end

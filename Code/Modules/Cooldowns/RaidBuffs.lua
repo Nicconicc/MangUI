@@ -90,8 +90,9 @@ function M:ImportRaidBuffMonitor(config)
     self:BindRaidBuffMonitorClass()
 end
 function I.Resolve(entry)
-    local name,id,icon=M.PetBuffs.SpellInfo(S.Input(entry.value))
-    return {name=name or entry.value,id=tonumber(entry.value)or id,icon=I.Readable(icon)and icon or nil}
+    local value=S.Input(entry.value)
+    local name,id,icon,ids,revision=I.ResolveName(value)
+    return {name=name or value,id=tonumber(value)or id,icon=I.Readable(icon)and icon or nil,ids=ids,revision=revision}
 end
 M.moduleIDs.raidBuffs=true
 M:EnsureRaidBuffMonitor(M.defaults);M:EnsureRaidBuffMonitor(M.recordedDefaults)
