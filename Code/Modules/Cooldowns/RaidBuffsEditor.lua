@@ -252,7 +252,7 @@ function I.BuildControls(e,parent)
                         button.iconLight=button:CreateTexture(nil,"OVERLAY")
                         button.iconLight:SetAllPoints(button.icon)
                         button.iconLight:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
-                        button.iconLight:SetDesaturated(true);button.iconLight:SetBlendMode("ADD");button.iconLight:SetAlpha(.15)
+                        button.iconLight:SetDesaturated(true);button.iconLight:SetBlendMode("ADD");button.iconLight:SetAlpha(0)
                         button:SetScript("OnClick",function(self)
                             Flush();if Editable(row)then
                                 local enabled=I.ForClass(row.entry,self.classToken)
