@@ -60,8 +60,8 @@ end
 local function UpdateModuleColors(e,elapsed)
     e.groupColorClock=(e.groupColorClock or 0)+elapsed
     local started=false
-    if e.groupColorClock>=20 then
-        e.groupColorClock=e.groupColorClock%20
+    if e.groupColorClock>=10 then
+        e.groupColorClock=e.groupColorClock%10
         e.groupColorTransition=e.groupColorClock;e.groupColorTick=0;started=true
         local available={1,2,3,4,5,6,7,8}
         for _,state in ipairs(e.groupColors) do
