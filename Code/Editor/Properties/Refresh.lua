@@ -137,10 +137,10 @@ function M:RefreshProperties()
     end
     e.empty:SetText("从左侧列表或画布选择元素")
     e.props:SetShown(n~=nil);e.empty:SetShown(n==nil)
-    e.propTitle:SetShown(n~=nil and not IsUnitComposite(n) and n.id~="wa8d650f8d3a" and n.compound~="partyFrames" and n.compound~="bossFrames" and n.compound~="playerSkillMonitor" and n.compound~="playerOtherMonitor" and n.compound~="cooldownMonitor" and n.compound~="commonItems" and n.compound~="chatButtons" and n.compound~="combatNotices" and n.compound~="systemMenu" and n.compound~="mouseCircle" and n.compound~="experienceBar" and n.compound~="targetThreat" and n.compound~="targetDistance")
+    e.propTitle:SetShown(n~=nil and not IsUnitComposite(n) and n.id~="wa8d650f8d3a" and n.compound~="partyFrames" and n.compound~="bossFrames" and n.compound~="playerSkillMonitor" and n.compound~="playerOtherMonitor" and n.compound~="cooldownMonitor" and n.compound~="raidBuffs" and n.compound~="commonItems" and n.compound~="chatButtons" and n.compound~="combatNotices" and n.compound~="systemMenu" and n.compound~="mouseCircle" and n.compound~="experienceBar" and n.compound~="targetThreat" and n.compound~="targetDistance")
     if not n then ResetDividers(e);e.propertyLayoutSignature=nil;return end
     e.propScroll:ClearAllPoints()
-    e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,((IsUnitComposite(n) or n.id=="wa8d650f8d3a" or n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="playerSkillMonitor" or n.compound=="playerOtherMonitor" or n.compound=="cooldownMonitor" or n.compound=="commonItems" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="systemMenu" or n.compound=="mouseCircle" or n.compound=="experienceBar" or n.compound=="targetThreat" or n.compound=="targetDistance") and -12 or -42)-headerOffset)
+    e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,((IsUnitComposite(n) or n.id=="wa8d650f8d3a" or n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="playerSkillMonitor" or n.compound=="playerOtherMonitor" or n.compound=="cooldownMonitor" or n.compound=="raidBuffs"or n.compound=="commonItems" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="systemMenu" or n.compound=="mouseCircle" or n.compound=="experienceBar" or n.compound=="targetThreat" or n.compound=="targetDistance") and -12 or -42)-headerOffset)
     e.propScroll:SetPoint("BOTTOMRIGHT",e.right,"BOTTOMRIGHT",-30,12)
     e.propScroll:Show()
     local valueTextTitle=n.id=="wadb51e41246" or n.id=="wa8ee62b16d6" or n.id=="wa6edbcf125a"
@@ -161,7 +161,7 @@ function M:RefreshProperties()
                 edit.updating=false
             elseif field=="scale" then
                 edit.updating=true
-                if n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="playerSkillMonitor" or n.compound=="playerOtherMonitor" or n.compound=="cooldownMonitor" or n.compound=="commonItems" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="systemMenu" or n.compound=="mouseCircle" or n.compound=="experienceBar" then edit:SetMinMaxValues(.1,2)
+                if n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="playerSkillMonitor" or n.compound=="playerOtherMonitor" or n.compound=="cooldownMonitor" or n.compound=="raidBuffs"or n.compound=="commonItems" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="systemMenu" or n.compound=="mouseCircle" or n.compound=="experienceBar" then edit:SetMinMaxValues(.1,2)
                 else edit:SetMinMaxValues(.05,10) end
                 edit.updating=false
             end
@@ -365,6 +365,12 @@ function M:RefreshProperties()
     local rules={}
     for _,rule in ipairs(n.rules or {}) do rules[#rules+1]=(rule.invert and "非 " or "")..(rule.unit or "player").." · "..({casting="施法中",exists="单位存在",classification="分类",isPlayer="玩家",friendly="友方",leader="队长",afk="暂离",dead="死亡",hearth="炉石",raid="团队标记"})[rule.test] end
     e.ruleText:SetText(#rules>0 and table.concat(rules,"\n") or "跟随所属单位显示")
+    if n.compound=="raidBuffs"then
+        e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
+        e.raidBuffsOnlyRaid:SetChecked(n.raidOnly~=false)
+        e.skillMonitorDirection:SetValue(M.PlayerSkillMonitor.Direction(n))
+        e.raidBuffsSharedPanel:Refresh(n);e.raidBuffsClassPanel:Refresh(n)
+    end
     if n.compound=="commonItems"then
         e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
         e.skillMonitorDirection:SetValue(M.PlayerSkillMonitor.Direction(n))
@@ -402,6 +408,8 @@ function M:RefreshProperties()
                 visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="otherMonitorSharing"or row.key=="otherMonitorItems"or row.key=="otherMonitorEquipment"
             elseif n.compound=="playerSkillMonitor" then
                 visible=row.key=="scale" or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"
+            elseif n.compound=="raidBuffs"then
+                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsClassRows"
             elseif n.compound=="commonItems"then
                 visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"
             elseif n.compound=="cooldownMonitor" then
@@ -501,7 +509,7 @@ function M:RefreshProperties()
     end
     local offsetPairs={}
     if n.compound~="partyFrames"then
-        for _,keys in ipairs({{"x","y"},{"nameX","nameY"},{"bossPercentX","bossPercentY"},
+        for _,keys in ipairs({{"skillMonitorHideWithoutTarget","raidBuffsOnlyRaid"},{"x","y"},{"nameX","nameY"},{"bossPercentX","bossPercentY"},
             {"castX","castY"},{"castWidth","castHeight"},{"distanceX","distanceY"}})do
             local left,right=byKey[keys[1]],byKey[keys[2]]
             if left and right and left.visible and right.visible then
@@ -514,7 +522,8 @@ function M:RefreshProperties()
         local row,visible=entry.row,entry.visible and not entry.fontPairHidden and not entry.inlineHidden
         if visible and previousSection and previousSection~=entry.section then
             height=PropertyDivider(e,height)
-            if (n.compound=="commonItems"and (row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"))
+            if (n.compound=="raidBuffs"and (row.key=="raidBuffsSharedRows"or row.key=="raidBuffsClassRows"))
+                or (n.compound=="commonItems"and (row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"))
                 or (n.compound=="playerSkillMonitor"and (row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"))
                 or (n.compound=="playerOtherMonitor"and (row.key=="otherMonitorSharing"or row.key=="otherMonitorItems"or row.key=="otherMonitorEquipment"))then
                 e.propertyDividers[e.propertyDividerCount]:Hide()
@@ -546,10 +555,12 @@ function M:RefreshProperties()
     for _,pair in ipairs(offsetPairs)do
         local half=(e.props:GetWidth()-20)/2
         local left,right=pair[1],pair[2]
-        left[2][1]:SetWidth(half);right[2][1]:SetWidth(half)
-        M:FitLocaleText(left[1][1],half,9)
-        M:FitLocaleText(right[1][1],half,9)
-        for i=1,2 do
+        if left[2]and right[2]then left[2][1]:SetWidth(half);right[2][1]:SetWidth(half)end
+        if left[2]and right[2]then
+            M:FitLocaleText(left[1][1],half,9)
+            M:FitLocaleText(right[1][1],half,9)
+        end
+        for i=1,#right do
             local control=right[i][1]
             control:ClearAllPoints();control:SetPoint("TOPLEFT",left[i][1],"TOPLEFT",half+20,0);control:Show()
         end

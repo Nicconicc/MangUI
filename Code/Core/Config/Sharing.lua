@@ -36,7 +36,9 @@ local function CleanNodes(nodes)
         if node.monitors~=nil and not M.PlayerSkillMonitor.ValidEntries(node.monitors) then return end
         if node.otherMonitors~=nil and not M.PlayerOtherMonitor.ValidEntries(node.otherMonitors)then return end
         if node.commonItems~=nil and not M.CommonItems.ValidEntries(node.commonItems)then return end
+        if node.raidBuffs~=nil and not M.RaidBuffMonitor.ValidEntries(node.raidBuffs)then return end
         if node.classItems~=nil and not M.CommonItems.ValidEntries(node.classItems)then return end
+        if node.classBuffs~=nil and not M.RaidBuffMonitor.ValidEntries(node.classBuffs)then return end
     end
     M:NormalizeAssetPaths(nodes)
     M:NormalizeRetiredFonts(nodes)
@@ -47,6 +49,7 @@ local function CleanNodes(nodes)
     if M.EnsurePlayerSkillMonitor then M:EnsurePlayerSkillMonitor({nodes=nodes}) end
     if M.EnsurePlayerOtherMonitor then M:EnsurePlayerOtherMonitor({nodes=nodes})end
     if M.EnsureCommonItems then M:EnsureCommonItems({nodes=nodes})end
+    if M.EnsureRaidBuffMonitor then M:EnsureRaidBuffMonitor({nodes=nodes})end
     if M.EnsureChatButtonsModule then M:EnsureChatButtonsModule({nodes=nodes}) end
     if M.EnsureCombatNoticesModule then M:EnsureCombatNoticesModule({nodes=nodes}) end
     if M.EnsureSystemMenuModule then M:EnsureSystemMenuModule({nodes=nodes}) end
@@ -149,7 +152,9 @@ local function CleanConfig(config)
     if config.playerOtherMonitorsByClass~=nil and (not M.PlayerOtherMonitor.ValidProfiles(config.playerOtherMonitorsByClass)
         or not M.PlayerSkillMonitor.ValidClass(config.playerOtherMonitorClass))then return end
     if config.commonItemsShared~=nil and not M.CommonItems.ValidEntries(config.commonItemsShared)then return end
+    if config.raidBuffsShared~=nil and not M.RaidBuffMonitor.ValidEntries(config.raidBuffsShared)then return end
     if config.commonItemsByClass~=nil and (not M.CommonItems.ValidProfiles(config.commonItemsByClass)or not M.PlayerSkillMonitor.ValidClass(config.commonItemsClass))then return end
+    if config.raidBuffsByClass~=nil and (not M.RaidBuffMonitor.ValidProfiles(config.raidBuffsByClass)or not M.PlayerSkillMonitor.ValidClass(config.raidBuffsClass))then return end
     if config.otherMonitorEquipmentOverrides~=nil and not M.PlayerOtherMonitor.ValidOverrides(config.otherMonitorEquipmentOverrides)then return end
     if config.otherMonitorEquipmentEntries~=nil and not M.PlayerOtherMonitor.ValidEquipmentEntries(config.otherMonitorEquipmentEntries)then return end
     for _,key in ipairs({"globalFontPath","globalFontName"})do
@@ -173,7 +178,9 @@ local function CleanConfig(config)
         playerOtherMonitorsByClass=config.playerOtherMonitorsByClass and M.Copy(config.playerOtherMonitorsByClass),
         playerOtherMonitorClass=config.playerOtherMonitorClass,
         commonItemsShared=config.commonItemsShared and M.Copy(config.commonItemsShared),
+        raidBuffsShared=config.raidBuffsShared and M.Copy(config.raidBuffsShared),
         commonItemsByClass=config.commonItemsByClass and M.Copy(config.commonItemsByClass),commonItemsClass=config.commonItemsClass,
+        raidBuffsByClass=config.raidBuffsByClass and M.Copy(config.raidBuffsByClass),raidBuffsClass=config.raidBuffsClass,
         otherMonitorEquipmentOverrides=config.otherMonitorEquipmentOverrides and M.Copy(config.otherMonitorEquipmentOverrides),
         otherMonitorEquipmentEntries=config.otherMonitorEquipmentEntries and M.Copy(config.otherMonitorEquipmentEntries),
         design={nodes=nodes},moduleDefaults={nodes=defaults}}
@@ -245,6 +252,7 @@ function M:ExportConfigString()
     self:SavePlayerSkillMonitorClass()
     self:SavePlayerOtherMonitorClass()
     self:SaveCommonItemsClass()
+    self:SaveRaidBuffMonitorClass()
     local ok,result=pcall(function()
         local serializer,deflate=Libraries()
         local config=CleanConfig({format=1,schema=self.db.schema,language=self.db.language,
@@ -255,6 +263,7 @@ function M:ExportConfigString()
             playerSkillMonitorsByClass=self.db.playerSkillMonitorsByClass,playerSkillMonitorClass=self.db.playerSkillMonitorClass,
             playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass,playerOtherMonitorClass=self.db.playerOtherMonitorClass,
             commonItemsShared=self.db.commonItemsShared,commonItemsByClass=self.db.commonItemsByClass,commonItemsClass=self.db.commonItemsClass,
+            raidBuffsShared=self.db.raidBuffsShared,raidBuffsByClass=self.db.raidBuffsByClass,raidBuffsClass=self.db.raidBuffsClass,
             otherMonitorEquipmentOverrides=self.db.otherMonitorEquipmentOverrides,
             design=self.db.design,moduleDefaults=self.db.moduleDefaults})
         if not config then return end
@@ -299,14 +308,17 @@ function M:ApplyConfigString(input)
     if not config then return false,INVALID end
     if self.PlayerOtherMonitor.FlushEditor then self.PlayerOtherMonitor.FlushEditor()end
     if self.CommonItems.FlushEditor then self.CommonItems.FlushEditor()end
+    if self.RaidBuffMonitor.FlushEditor then self.RaidBuffMonitor.FlushEditor()end
     if self.moveMode and self.StopFrameMoveMode then self:StopFrameMoveMode(false) end
     self:SavePlayerSkillMonitorClass()
     self:SavePlayerOtherMonitorClass()
     self:SaveCommonItemsClass()
+    self:SaveRaidBuffMonitorClass()
     self.db.design=config.design;self.db.moduleDefaults=config.moduleDefaults
     self:ImportPlayerSkillMonitorClasses(config)
     self:ImportPlayerOtherMonitorClasses(config)
     self:ImportCommonItems(config)
+    self:ImportRaidBuffMonitor(config)
     self.db.language=config.language;self.db.minimap=config.minimap;self.db.hideBlizzard=config.hideBlizzard
     self.db.hideWithoutTarget=config.hideWithoutTarget
     self.db.portrait3D=config.portrait3D

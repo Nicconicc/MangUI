@@ -26,7 +26,7 @@ function M:FitPreview()
             local g=geo[n.id]
             local width=n.autoWidth and e.view.nodes[n.id] and e.view.nodes[n.id].frame:GetWidth() or g.w
             local x=g.x
-            if n.kind=="skillmonitor"or n.kind=="othermonitor"or n.kind=="commonitems"then
+            if n.kind=="skillmonitor"or n.kind=="othermonitor"or n.kind=="raidbuffs"or n.kind=="commonitems"then
                 local object=e.view.nodes[n.id]
                 x=x+M.PlayerSkillMonitor.RowOffset(e.view.byID[n.parent],object and object.rowCount or 0)*g.s
             end
@@ -52,7 +52,7 @@ function M:FitPreview()
     end
     local portrait=e.mainPreview and geo.wabc757f81ee
     local cast=HasDedicatedPreview(selected) and geo[e.previewFocusID or selected.id]
-    if PreviewModuleID(selected)=="partyFrames" or PreviewModuleID(selected)=="bossFrames"or PreviewModuleID(selected)=="playerSkillMonitor" or PreviewModuleID(selected)=="playerOtherMonitor"or PreviewModuleID(selected)=="commonItems" then cast=nil end
+    if PreviewModuleID(selected)=="partyFrames" or PreviewModuleID(selected)=="bossFrames"or PreviewModuleID(selected)=="playerSkillMonitor" or PreviewModuleID(selected)=="playerOtherMonitor"or PreviewModuleID(selected)=="raidBuffs"or PreviewModuleID(selected)=="commonItems" then cast=nil end
     e.centerX,e.centerY=portrait and portrait.x or (cast and cast.x or (minx+maxx)/2),
         portrait and portrait.y or (cast and cast.y or (miny+maxy)/2)
     e.view.root:SetScale(e.fit);e.view.root:ClearAllPoints()
