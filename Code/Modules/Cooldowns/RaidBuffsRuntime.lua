@@ -95,7 +95,7 @@ local function Decoration(o)
     local frame=CreateFrame("Frame",nil,o.frame);frame:EnableMouse(false)
     frame:SetFrameLevel(o.frame:GetFrameLevel());frame.lines={}
     for _,name in ipairs({"topLeft","topRight","left","right","bottomLeft","bottomRight"})do
-        local line=frame:CreateTexture(nil,"ARTWORK");line:SetColorTexture(1,1,1,1);frame.lines[name]=line
+        local line=frame:CreateTexture(nil,"ARTWORK");line:SetColorTexture(1,1,1,.6);frame.lines[name]=line
         if line.SetSnapToPixelGrid then line:SetSnapToPixelGrid(true)end
         if line.SetTexelSnappingBias then line:SetTexelSnappingBias(0)end
         if line.SetRoundLayoutToNearestPixel then line:SetRoundLayoutToNearestPixel(true)end
@@ -120,7 +120,7 @@ local function LayoutDecoration(o,group,count)
     local center=S.RowOffset(group,count)
     if frame.layoutWidth~=width or frame.layoutRowWidth~=rowWidth or frame.layoutCenter~=center
         or frame.layoutPixel~=pixel or frame.layoutTextWidth~=textWidth then
-        local thickness,height=pixel,math.ceil(80/pixel)*pixel
+        local thickness,height=pixel,math.ceil(50/pixel)*pixel
         local arm=math.floor(((width-rowWidth)/2-8)/pixel)*pixel
         local bottomArm=math.floor((width-textWidth-16)/2/pixel)*pixel
         frame:ClearAllPoints();frame:SetPoint("TOP",o.frame,"CENTER",center,-7);frame:SetSize(width,height)
