@@ -36,10 +36,6 @@ Item({28420},"魔能平衡石","Fel Weightstone",2,{2954},"blunt")
 Item({28421},"精金平衡石","Adamantite Weightstone",2,{2955},"blunt")
 Item({34539},"正义武器涂层","Righteous Weapon Coating",2,{3266})
 Item({34538},"神圣武器涂层","Blessed Weapon Coating",2,{3265})
--- Titan-only item supplied by the player's in-game tooltip. The server's
--- timed weapon-tooltip line also identifies it when its enchant ID differs.
-Item({267773},"尤亚姆巴巫师之油","Yojamba Wizard Oil",3,{})
-W.byItem[267773].interfaces={[38001]=true,[38002]=true};W.byItem[267773].icon=1483104
 Item({211848},"黑暗深渊法力之油","Blackfathom Mana Oil",1,{7099})
 Item({211845},"黑暗深渊磨刀石","Blackfathom Sharpening Stone",1,{7098},"blade")
 Item({171285},"影核之油","Shadowcore Oil",9,{6188})

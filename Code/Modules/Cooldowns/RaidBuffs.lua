@@ -25,9 +25,22 @@ end
 function I.Group(design)
     for _,node in ipairs(design and design.nodes or {})do if node.id=="raidBuffs"then return node end end
 end
+function I.NormalizeEntries(entries)
+    for _,entry in ipairs(entries or {})do
+        if entry.type=="consumable"then
+            local value=S.Input(entry.value)
+            local id=tonumber(value)or tonumber(value:match("item:(%d+)"))
+            if id==267773 or value=="尤亚姆巴巫师之油"or value:lower()=="yojamba wizard oil"then
+                -- This Titan consumable grants a player aura, not a weapon enchant.
+                entry.type,entry.value,entry.alternative,entry.slot="buff","1282985","",nil
+            end
+        end
+    end
+end
 function I.Entries(group)
     local entries={}
     for _,list in ipairs({group.raidBuffs or {},group.classBuffs or {}})do
+        I.NormalizeEntries(list)
         for _,entry in ipairs(list)do
             if I.Kind(entry)=="buff"then
                 if entry.value~=""or (entry.alternative or "")~=""then entries[#entries+1]=entry end
@@ -62,6 +75,7 @@ function M:EnsureRaidBuffMonitor(design)
     end
     if not I.ValidEntries(group.raidBuffs)then group.raidBuffs={}end
     if not I.ValidEntries(group.classBuffs)then group.classBuffs={}end
+    I.NormalizeEntries(group.raidBuffs);I.NormalizeEntries(group.classBuffs)
     if group.hideWithoutTarget==nil then group.hideWithoutTarget=false end
     if group.raidOnly==nil then group.raidOnly=true end
     group.growthDirection=S.Direction(group)
@@ -83,6 +97,9 @@ function M:BindRaidBuffMonitorClass()
     local db=self.db;local group=I.Group(db.design);local class=Class();if not group or not class then return end
     if not I.ValidProfiles(db.raidBuffsByClass)then db.raidBuffsByClass={}end
     if not I.ValidEntries(db.raidBuffsShared)then db.raidBuffsShared=M.Copy(group.raidBuffs)end
+    I.NormalizeEntries(db.raidBuffsShared)
+    for _,entries in pairs(db.raidBuffsByClass)do I.NormalizeEntries(entries)end
+    I.NormalizeEntries(group.raidBuffs);I.NormalizeEntries(group.classBuffs)
     local previous=db.raidBuffsClass
     if S.ValidClass(previous)then db.raidBuffsByClass[previous]=M.Copy(group.classBuffs)
     elseif db.raidBuffsByClass[class]==nil then db.raidBuffsByClass[class]=M.Copy(group.classBuffs)end
