@@ -13,8 +13,11 @@ function I.BuildControls(e,parent)
     end
     local function Editable(row)return row.owner and M.byID[row.owner.id]==row.owner and Index(row.owner[row.listKey],row.entry)and M:CanEdit()end
     local function PreviewIcon(row)
-        local item=I.Resolve({value=row.item:GetText()})
-        if row.entry and row.entry.value==row.item:GetText()and not item.id then I.RequestBuffName(row.entry.value)end
+        local alternative=row.alternative and row.alternative:GetText()or ""
+        local item=I.Resolve({value=row.item:GetText(),alternative=alternative})
+        if row.entry and row.entry.value==row.item:GetText()and (row.entry.alternative or "")==alternative then
+            for _,spell in ipairs(I.Options(row.entry))do if not spell.id then I.RequestBuffName(spell.value)end end
+        end
         row.icon.texture:SetTexture(item.icon or 134400)
     end
     for _,definition in ipairs({{"raidBuffs","通用Buff设置","raidBuffsSharedRows"},{"classBuffs","职业Buff设置","raidBuffsClassRows"}})do
@@ -89,10 +92,11 @@ function I.BuildControls(e,parent)
                     row.line:SetPoint("TOPLEFT",0,4);row.line:SetPoint("TOPRIGHT",0,4)
                     row.icon=CreateFrame("Button",nil,row);row.icon:SetSize(26,26);row.icon:SetPoint("TOPLEFT",0,-25)
                     row.icon.texture=row.icon:CreateTexture(nil,"ARTWORK");row.icon.texture:SetAllPoints();Drag(row.icon,row)
-                    for _,field in ipairs({"value"})do
+                    row.orLabel=W.Label(row,"或",12);row.orLabel:SetWidth(24);row.orLabel:SetJustifyH("CENTER")
+                    for _,field in ipairs({"value","alternative"})do
                         local edit=W.Edit(row,170);edit:SetMaxLetters(128);edit:SetAutoFocus(false);edit:SetTextInsets(6,6,0,0)
                         row.inputs[#row.inputs+1]=edit
-                        row.item=edit
+                        if field=="value"then row.item=edit else row.alternative=edit end
                         edit.placeholder=W.Label(edit,"输入Buff名称或ID",11)
                         edit.placeholder:SetTextColor(.5,.5,.5);edit.placeholder:SetPoint("LEFT",6,0);edit.placeholder:SetPoint("RIGHT",-6,0);edit.placeholder:SetWordWrap(false)
                         local function Save(self)
@@ -104,8 +108,8 @@ function I.BuildControls(e,parent)
                         edit:SetScript("OnEditFocusGained",function(self)self.editOwner,self.editEntry=row.owner,row.entry end)
                         edit:SetScript("OnEditFocusLost",function(self)Save(self);self.editOwner,self.editEntry=nil,nil end)
                         edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
-                        edit:SetScript("OnEscapePressed",function(self)if self.editEntry then self:SetText(self.editEntry[field])end;self:ClearFocus()end)
-                        edit:SetScript("OnTextChanged",function(self)self.placeholder:SetShown(self:GetText()=="");if field=="value"then PreviewIcon(row)end end)
+                        edit:SetScript("OnEscapePressed",function(self)if self.editEntry then self:SetText(self.editEntry[field]or "")end;self:ClearFocus()end)
+                        edit:SetScript("OnTextChanged",function(self)self.placeholder:SetShown(self:GetText()=="");PreviewIcon(row)end)
                         edit:HookScript("OnHide",function(self)self:ClearFocus()end)
                     end
                     row.remove=W.Button(row,"删除",72,function()
@@ -116,9 +120,14 @@ function I.BuildControls(e,parent)
                     row.dragLabel=W.Label(row.handle,"拖拽排序",12);row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetPoint("CENTER");Drag(row.handle,row)
                 end
                 row.owner,row.entry=group,entry;row.offset=(index-1)*72;row:SetSize(width,68);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-row.offset)
-                row.item:ClearAllPoints();row.item:SetPoint("LEFT",row.icon,"RIGHT",8,0);row.item:SetWidth(width-128)
+                local inputWidth=(width-160)/2
+                row.item:ClearAllPoints();row.item:SetPoint("LEFT",row.icon,"RIGHT",8,0);row.item:SetWidth(inputWidth)
+                row.orLabel:ClearAllPoints();row.orLabel:SetPoint("LEFT",row.item,"RIGHT",4,0)
+                row.alternative:ClearAllPoints();row.alternative:SetPoint("LEFT",row.orLabel,"RIGHT",4,0);row.alternative:SetWidth(inputWidth)
                 if not row.item:HasFocus()then row.item:SetText(entry.value)end
+                if not row.alternative:HasFocus()then row.alternative:SetText(entry.alternative or "")end
                 row.item.placeholder:SetShown(row.item:GetText()=="")
+                row.alternative.placeholder:SetShown(row.alternative:GetText()=="")
                 PreviewIcon(row);row.line:SetShown(index>1);row:Show()
             end
             for index=#entries+1,#self.rows do self.rows[index]:Hide()end

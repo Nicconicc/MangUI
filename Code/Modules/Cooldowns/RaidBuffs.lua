@@ -2,13 +2,14 @@ local _,M=...
 local I={};M.RaidBuffMonitor=I
 local S,O=M.PlayerSkillMonitor,M.PlayerOtherMonitor
 I.Safe,I.Number,I.Readable=O.Safe,O.Number,O.Readable
-function I.NewEntry()return {value=""}end
+function I.NewEntry()return {value="",alternative=""}end
 function I.ValidEntries(entries)
     if type(entries)~="table"or #entries>256 then return false end
     for k,entry in pairs(entries)do
         if type(k)~="number"or k%1~=0 or k<1 or k>#entries or type(entry)~="table"then return false end
         if type(entry.value)~="string"or #entry.value>384 then return false end
-        for field in pairs(entry)do if field~="value"then return false end end
+        if entry.alternative~=nil and (type(entry.alternative)~="string"or #entry.alternative>384)then return false end
+        for field in pairs(entry)do if field~="value"and field~="alternative"then return false end end
     end
     for index=1,#entries do if type(entries[index])~="table"then return false end end
     return true
@@ -24,7 +25,7 @@ end
 function I.Entries(group)
     local entries={}
     for _,list in ipairs({group.raidBuffs or {},group.classBuffs or {}})do
-        for _,entry in ipairs(list)do if entry.value~=""then entries[#entries+1]=entry end end
+        for _,entry in ipairs(list)do if entry.value~=""or (entry.alternative or "")~=""then entries[#entries+1]=entry end end
     end
     return entries
 end
@@ -89,10 +90,23 @@ function M:ImportRaidBuffMonitor(config)
     else self.db.raidBuffsClass=Class()end
     self:BindRaidBuffMonitorClass()
 end
-function I.Resolve(entry)
-    local value=S.Input(entry.value)
+function I.ResolveValue(value)
+    value=S.Input(value)
     local name,id,icon,ids,revision=I.ResolveName(value)
-    return {name=name or value,id=tonumber(value)or id,icon=I.Readable(icon)and icon or nil,ids=ids,revision=revision}
+    return {value=value,name=name or value,id=tonumber(value)or id,icon=I.Readable(icon)and icon or nil,ids=ids,revision=revision}
+end
+function I.Options(entry)
+    local result={}
+    for _,value in ipairs({entry.value,entry.alternative or ""})do
+        if S.Input(value)~=""then result[#result+1]=I.ResolveValue(value)end
+    end
+    return result
+end
+function I.Resolve(entry)
+    local first=I.ResolveValue(entry.value)
+    if first.value~=""and first.icon then return first end
+    local second=I.ResolveValue(entry.alternative or "")
+    return second.icon and second or (first.value~=""and first or second)
 end
 M.moduleIDs.raidBuffs=true
 M:EnsureRaidBuffMonitor(M.defaults);M:EnsureRaidBuffMonitor(M.recordedDefaults)

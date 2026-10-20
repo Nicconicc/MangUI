@@ -658,4 +658,5 @@ english["显示当前等级的经验进度，可调整位置、文字与外观�
 english["在鼠标周围显示光圈，便于定位鼠标，可调整大小与颜色。"]="Show a ring around the cursor to make it easier to find. Adjust its size and color."
 english["进入或离开战斗时显示文字提示，并可设置提示音效。"]="Show text when entering or leaving combat, with optional sound alerts."
 english["同时显示可移动模块的位置区域，拖动调整布局；右键可选择重叠框体。"]="Show all movable module regions. Drag to arrange them, or right-click to select overlapping frames."
+english["或"]="or"
 M:RebuildLocaleKeys()
