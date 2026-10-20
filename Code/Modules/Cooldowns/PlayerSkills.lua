@@ -279,19 +279,23 @@ end
 local function StyleNativeAura(slot,frame)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
-    frame.monitorIcon=frame:CreateTexture(nil,"ARTWORK");frame.monitorIcon:SetAllPoints();frame.monitorIcon:SetDesaturated(true)
+    frame.monitorIcon=frame:CreateTexture(nil,"ARTWORK");frame.monitorIcon:SetAllPoints();frame.monitorIcon:SetDesaturated(M.Compat.interface~=16001)
     frame.monitorIcon:SetAlpha(.5)
     frame.monitorTime=frame:CreateFontString(nil,"OVERLAY");Font(frame.monitorTime)
     frame.monitorTime:SetPoint("BOTTOM",frame,"TOP",0,7)
     frame:SetIcon(frame.monitorIcon);frame:SetDurationText(frame.monitorTime,S.DurationTextOptions())
     frame.monitorCount=frame:CreateFontString(nil,"OVERLAY");CountFont(frame.monitorCount)
     frame.monitorCount:SetPoint("BOTTOM",frame,"TOP",0,29);frame:SetApplicationCount(frame.monitorCount,{})
+    -- The provider denies direct access to its AuraButtons once auras become
+    -- secret. Our own child exposes inherited visibility as a secret boolean;
+    -- pass it straight to the alpha setter without querying the AuraButton.
+    frame.monitorPresence=CreateFrame("Frame",nil,frame);frame.monitorPresence:SetAllPoints();frame.monitorPresence:EnableMouse(false)
     -- Each native aura frame gates the annotation through engine alpha. This
     -- also handles private visibility without testing secret booleans in Lua.
     frame.shortcutGate=CreateFrame("Frame",nil,slot.shortcutGate or slot.shortcutFrame)
     frame.shortcutGate:SetAllPoints();frame.shortcutGate:EnableMouse(false)
     slot.shortcutGate=frame.shortcutGate;slot.shortcut:SetParent(frame.shortcutGate)
-    -- Remove the colored backing while a native gray icon is present, so its
+    -- Remove the colored backing while a native aura icon is present, so its
     -- half opacity is not composited over another fully opaque icon.
     frame.baseIconGate=CreateFrame("Frame",nil,slot.baseIconGate or slot.baseIconFrame)
     frame.baseIconGate:SetAllPoints();frame.baseIconGate:EnableMouse(false)
@@ -491,8 +495,10 @@ function S.Paint(view,o,animateOnly)
         slot.texture:SetAlpha(1)
         for _,frame in ipairs(slot.nativeFrames or {})do
             if not view.preview and o.usesNativeAuras and slot.entry.type=="debuff" then
-                local present=frame:IsShown()
-                if frame.shortcutGate.SetAlphaFromBoolean then
+                local present=Safe(frame.monitorPresence.IsVisible,frame.monitorPresence)
+                if type(present)=="nil"then
+                    frame.shortcutGate:SetAlpha(1);frame.baseIconGate:SetAlpha(1)
+                elseif frame.shortcutGate.SetAlphaFromBoolean then
                     frame.shortcutGate:SetAlphaFromBoolean(present,0,1);frame.baseIconGate:SetAlphaFromBoolean(present,0,1)
                 elseif Readable(present)then
                     frame.shortcutGate:SetAlpha(present and 0 or 1);frame.baseIconGate:SetAlpha(present and 0 or 1)
@@ -500,7 +506,7 @@ function S.Paint(view,o,animateOnly)
             else frame.shortcutGate:SetAlpha(1);frame.baseIconGate:SetAlpha(1)end
         end
         if view.preview then
-            ClearCooldown(slot.cooldown);slot.texture:SetDesaturated(i%2==1);slot.texture:SetAlpha(i%2==1 and .5 or 1);slot.text:SetText(tostring(30-i))
+            ClearCooldown(slot.cooldown);slot.texture:SetDesaturated(i%2==1 and not(slot.entry.type=="debuff"and M.Compat.interface==16001));slot.texture:SetAlpha(i%2==1 and .5 or 1);slot.text:SetText(tostring(30-i))
             slot.count:SetText(slot.entry.type=="debuff"and "3"or "2")
         elseif slot.duration then
             local desat=DesaturationCurve()
@@ -519,11 +525,11 @@ function S.Paint(view,o,animateOnly)
             end
         elseif slot.entry.type=="debuff" and o.usesNativeAuras then
             slot.texture:SetDesaturated(false);slot.text:SetText("");slot.count:SetText("")
-            -- Native aura frames draw a gray overlay and countdown only while
+            -- Native aura frames draw a half-opacity icon and countdown while
             -- present. The colored base icon remains visible when absent.
         else
             local active=slot.active and (not slot.expires or slot.expires>now)
-            slot.texture:SetDesaturated(active==true);Remaining(slot,active and slot.expires and slot.expires-now or nil)
+            slot.texture:SetDesaturated(active==true and not(slot.entry.type=="debuff"and M.Compat.interface==16001));Remaining(slot,active and slot.expires and slot.expires-now or nil)
             slot.texture:SetAlpha(active and .5 or 1)
             slot.shortcutFrame:SetAlpha(active and 0 or 1)
             if slot.entry.type=="debuff"then CountText(slot.count,active and slot.stacks or nil,false)end
