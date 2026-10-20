@@ -16,11 +16,13 @@ function I.BuildControls(e,parent)
     local function PreviewIcon(row)
         local alternative=row.alternative and row.alternative:GetText()or ""
         local kind=row.entry and I.Kind(row.entry)or "buff"
-        local item=I.Resolve({type=kind,value=kind=="classWeapon"and row.entry.value or row.item:GetText(),alternative=alternative})
+        local item=kind=="buff"and I.ResolveValue(row.item:GetText())or I.Resolve({type=kind,value=kind=="classWeapon"and row.entry.value or row.item:GetText(),alternative=alternative})
+        local other=I.ResolveValue(alternative)
         if kind=="buff"and row.entry and row.entry.value==row.item:GetText()and (row.entry.alternative or "")==alternative then
             for _,spell in ipairs(I.Options(row.entry))do if not spell.id then I.RequestBuffName(spell.value)end end
         end
         row.icon.texture:SetTexture(item.icon or 134400)
+        row.alternativeIcon.texture:SetTexture(other.icon or 134400)
         if row.status then
             local message=""
             if kind=="consumable"and row.item:GetText()~=""then
@@ -125,6 +127,8 @@ function I.BuildControls(e,parent)
                     row.slot=Drop(row,"检查位置",Wep.slots,function()return row.entry.slot or "main"end,function(value)row.entry.slot=value end)
                     row.icon=CreateFrame("Button",nil,row);row.icon:SetSize(26,26);row.icon:SetPoint("TOPLEFT",0,-58)
                     row.icon.texture=row.icon:CreateTexture(nil,"ARTWORK");row.icon.texture:SetAllPoints();Drag(row.icon,row)
+                    row.alternativeIcon=CreateFrame("Button",nil,row);row.alternativeIcon:SetSize(26,26)
+                    row.alternativeIcon.texture=row.alternativeIcon:CreateTexture(nil,"ARTWORK");row.alternativeIcon.texture:SetAllPoints();Drag(row.alternativeIcon,row)
                     row.orLabel=W.Label(row,"或",12);row.orLabel:SetWidth(24);row.orLabel:SetJustifyH("CENTER")
                     for _,field in ipairs({"value","alternative"})do
                         local edit=W.Edit(row,170);edit:SetMaxLetters(128);edit:SetAutoFocus(false);edit:SetTextInsets(6,6,0,0)
@@ -186,11 +190,12 @@ function I.BuildControls(e,parent)
                 row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT");row.slot:SetWidth(dw);row.slot:SetValue(entry.slot or "main")
                 local d=kind=="classWeapon"and Wep.classes[entry.value]
                 row.slot:SetShown(weapon and not(kind=="classWeapon"and entry.value=="auto")and not(d and d.class=="ROGUE"and Wep.Family()>=5))
-                local inputWidth=(width-160)/2
+                local inputWidth=(width-194)/2
                 row.item:ClearAllPoints();row.item:SetPoint("LEFT",row.icon,"RIGHT",8,0);row.item:SetWidth(weapon and width-194 or inputWidth)
                 row.orLabel:ClearAllPoints();row.orLabel:SetPoint("LEFT",row.item,"RIGHT",4,0)
-                row.alternative:ClearAllPoints();row.alternative:SetPoint("LEFT",row.orLabel,"RIGHT",4,0);row.alternative:SetWidth(inputWidth)
-                row.orLabel:SetShown(not weapon);row.alternative:SetShown(not weapon);row.pick:SetShown(weapon)
+                row.alternativeIcon:ClearAllPoints();row.alternativeIcon:SetPoint("LEFT",row.orLabel,"RIGHT",4,0)
+                row.alternative:ClearAllPoints();row.alternative:SetPoint("LEFT",row.alternativeIcon,"RIGHT",8,0);row.alternative:SetWidth(inputWidth)
+                row.orLabel:SetShown(not weapon);row.alternativeIcon:SetShown(not weapon);row.alternative:SetShown(not weapon);row.pick:SetShown(weapon)
                 row.pick:ClearAllPoints();row.pick:SetPoint("LEFT",row.item,"RIGHT",4,0)
                 row.item.placeholder:SetText(weapon and "搜索武器强化名称或输入物品ID"or "输入Buff名称或ID")
                 if kind=="classWeapon"then
