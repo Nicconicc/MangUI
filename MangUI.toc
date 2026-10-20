@@ -6,7 +6,7 @@
 ## Notes-zhCN: 可自定义的单位、队伍和首领框体，提供预览设置和统一移动模式。作者：Nc。
 ## Notes-zhTW: 可自訂的單位、隊伍與首領框體，提供預覽設定及統一移動模式。作者：Nc。
 ## Author: Nc
-## Version: 1.0.559
+## Version: 1.0.560
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\Logo.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB
@@ -61,6 +61,9 @@ Code\Modules\Cooldowns\ReceivedBuffs.lua
 Code\Modules\Cooldowns\ReceivedBuffsRuntime.lua
 Code\Modules\Cooldowns\ReceivedBuffsSharing.lua
 Code\Modules\Cooldowns\ReceivedBuffsEditor.lua
+Code\Modules\Cooldowns\RaidVulnerability.lua
+Code\Modules\Cooldowns\RaidVulnerabilityRuntime.lua
+Code\Modules\Cooldowns\RaidVulnerabilityEditor.lua
 Code\Modules\Chat\Buttons.lua
 Code\Modules\Combat\Notices.lua
 Code\Modules\System\Menu.lua

@@ -220,12 +220,12 @@ local function TextureCoords(t,n)
     if n.mirrorY then top,bottom=bottom,top end
     t:SetTexCoord(l,r,top,bottom)
 end
-local independentKinds={raidbuffs=true,receivedbuffs=true,commonitems=true,othermonitor=true,skillmonitor=true,cooldowns=true,chatbuttons=true,systemmenu=true,mousecircle=true,
+local independentKinds={raidbuffs=true,receivedbuffs=true,raidvulnerability=true,commonitems=true,othermonitor=true,skillmonitor=true,cooldowns=true,chatbuttons=true,systemmenu=true,mousecircle=true,
     experiencebar=true,combatnotice=true,targetthreat=true,targetdistance=true}
 local function Animated(n)
     return n.kind=="sprite" or n.kind=="combatnotice" or n.kind=="systemmenu" or n.kind=="mousecircle"
         or n.kind=="experiencebar" or n.kind=="targetthreat" or n.kind=="targetdistance" or n.kind=="glow"
-        or n.kind=="spark" or n.kind=="resources" or n.kind=="skillmonitor" or n.kind=="othermonitor" or n.kind=="raidbuffs" or n.kind=="receivedbuffs" or n.kind=="commonitems" or n.kind=="cooldowns" or n.centerLogo or n.spinPeriod
+        or n.kind=="spark" or n.kind=="resources" or n.kind=="skillmonitor" or n.kind=="othermonitor" or n.kind=="raidbuffs" or n.kind=="receivedbuffs" or n.kind=="raidvulnerability" or n.kind=="commonitems" or n.kind=="cooldowns" or n.centerLogo or n.spinPeriod
         or n.smooth or n.binding=="cast" or n.binding=="castTime" or n.attackKind
 end
 local function ResetParticle(o)

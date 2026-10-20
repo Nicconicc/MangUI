@@ -79,11 +79,13 @@ local function Refresh()
     if o then o.nextInfo=0;I.Paint(view,o,false)end
     local received=view and view.nodes.receivedBuffsIcons
     if received and M.ReceivedBuffs then received.nextInfo=0;M.ReceivedBuffs.Paint(view,received,false)end
-    if M.editor and M.editor.window:IsShown()and (M.selection=="raidBuffs"or M.selection=="receivedBuffs")then M:RefreshProperties()end
+    local vulnerability=view and view.nodes.raidVulnerabilityIcons
+    if vulnerability and M.RaidVulnerability then vulnerability.nextInfo=0;M.RaidVulnerability.Paint(view,vulnerability,false)end
+    if M.editor and M.editor.window:IsShown()and (M.selection=="raidBuffs"or M.selection=="receivedBuffs"or M.selection=="raidVulnerability")then M:RefreshProperties()end
 end
 local function Scan()
     if InCombatLockdown()then return end
-    if not M.editor or not M.editor.window:IsShown()or (M.selection~="raidBuffs"and M.selection~="receivedBuffs")then worker:SetScript("OnUpdate",nil);return end
+    if not M.editor or not M.editor.window:IsShown()or (M.selection~="raidBuffs"and M.selection~="receivedBuffs"and M.selection~="raidVulnerability")then worker:SetScript("OnUpdate",nil);return end
     local start=Safe(debugprofilestop)
     local changed=false
     for index=1,200 do
@@ -103,17 +105,18 @@ function I.RequestBuffName(value)
     wanted[value]=true
     if cursor<2000000 then worker:SetScript("OnUpdate",Scan)end
 end
-local function Observe()
+local function Observe(unit)
+    unit=unit=="target"and "target"or "player"
     Saved()
     if C_Secrets and C_Secrets.ShouldAurasBeSecret then
-        local secret=Safe(C_Secrets.ShouldAurasBeSecret,"player")
+        local secret=Safe(C_Secrets.ShouldAurasBeSecret,unit)
         if not Readable(secret)or secret==true then return end
     end
-    for index=1,255 do local aura=M.Compat.Aura("player",index,"HELPFUL");if not aura then break end;I.RememberBuffAura(aura)end
+    for index=1,255 do local aura=M.Compat.Aura(unit,index,unit=="target"and "HARMFUL"or "HELPFUL");if not aura then break end;I.RememberBuffAura(aura)end
 end
 worker:SetScript("OnEvent",function(_,event,unit)
-    if event=="UNIT_AURA"and unit~="player"then return end
-    Observe()
+    if event=="UNIT_AURA"and unit~="player"and unit~="target"then return end
+    Observe(event=="UNIT_AURA"and unit or "player")
     if event=="SPELL_DATA_LOAD_RESULT"then seeded=false end
     Refresh()
 end)

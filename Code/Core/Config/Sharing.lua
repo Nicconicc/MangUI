@@ -40,8 +40,10 @@ local function CleanNodes(nodes)
         if node.otherMonitors~=nil and not M.PlayerOtherMonitor.ValidEntries(node.otherMonitors)then return end
         if node.commonItems~=nil and not M.CommonItems.ValidEntries(node.commonItems)then return end
         if node.raidBuffs~=nil and not M.RaidBuffMonitor.ValidEntries(node.raidBuffs)then return end
+        if node.raidVulnerability~=nil and not M.RaidVulnerability.ValidEntries(node.raidVulnerability)then return end
         if node.classItems~=nil and not M.CommonItems.ValidEntries(node.classItems)then return end
         if node.classBuffs~=nil and not M.RaidBuffMonitor.ValidEntries(node.classBuffs)then return end
+        if node.classVulnerabilities~=nil and not M.RaidVulnerability.ValidEntries(node.classVulnerabilities)then return end
     end
     M:NormalizeAssetPaths(nodes)
     M:NormalizeRetiredFonts(nodes)
@@ -54,6 +56,7 @@ local function CleanNodes(nodes)
     if M.EnsureCommonItems then M:EnsureCommonItems({nodes=nodes})end
     if M.EnsureReceivedBuffs then M:EnsureReceivedBuffs({nodes=nodes})end
     if M.EnsureRaidBuffMonitor then M:EnsureRaidBuffMonitor({nodes=nodes})end
+    if M.EnsureRaidVulnerability then M:EnsureRaidVulnerability({nodes=nodes})end
     if M.EnsureChatButtonsModule then M:EnsureChatButtonsModule({nodes=nodes}) end
     if M.EnsureCombatNoticesModule then M:EnsureCombatNoticesModule({nodes=nodes}) end
     if M.EnsureSystemMenuModule then M:EnsureSystemMenuModule({nodes=nodes}) end
@@ -157,9 +160,11 @@ local function CleanConfig(config)
         or not M.PlayerSkillMonitor.ValidClass(config.playerOtherMonitorClass))then return end
     if config.commonItemsShared~=nil and not M.CommonItems.ValidEntries(config.commonItemsShared)then return end
     if config.raidBuffsShared~=nil and not M.RaidBuffMonitor.ValidEntries(config.raidBuffsShared)then return end
+    if config.raidVulnerabilityShared~=nil and not M.RaidVulnerability.ValidEntries(config.raidVulnerabilityShared)then return end
     if config.commonItemsByClass~=nil and (not M.CommonItems.ValidProfiles(config.commonItemsByClass)or not M.PlayerSkillMonitor.ValidClass(config.commonItemsClass))then return end
     if config.receivedBuffsByClass~=nil and (not M.ReceivedBuffs.ValidProfiles(config.receivedBuffsByClass)or not M.PlayerSkillMonitor.ValidClass(config.receivedBuffsClass))then return end
     if config.raidBuffsByClass~=nil and (not M.RaidBuffMonitor.ValidProfiles(config.raidBuffsByClass)or not M.PlayerSkillMonitor.ValidClass(config.raidBuffsClass))then return end
+    if config.raidVulnerabilityByClass~=nil and (not M.RaidVulnerability.ValidProfiles(config.raidVulnerabilityByClass)or not M.PlayerSkillMonitor.ValidClass(config.raidVulnerabilityClass))then return end
     if config.otherMonitorEquipmentOverrides~=nil and not M.PlayerOtherMonitor.ValidOverrides(config.otherMonitorEquipmentOverrides)then return end
     if config.otherMonitorEquipmentEntries~=nil and not M.PlayerOtherMonitor.ValidEquipmentEntries(config.otherMonitorEquipmentEntries)then return end
     for _,key in ipairs({"globalFontPath","globalFontName"})do
@@ -184,9 +189,11 @@ local function CleanConfig(config)
         playerOtherMonitorClass=config.playerOtherMonitorClass,
         commonItemsShared=config.commonItemsShared and M.Copy(config.commonItemsShared),
         raidBuffsShared=config.raidBuffsShared and M.Copy(config.raidBuffsShared),
+        raidVulnerabilityShared=config.raidVulnerabilityShared and M.Copy(config.raidVulnerabilityShared),
         commonItemsByClass=config.commonItemsByClass and M.Copy(config.commonItemsByClass),commonItemsClass=config.commonItemsClass,
         receivedBuffsByClass=config.receivedBuffsByClass and M.Copy(config.receivedBuffsByClass),receivedBuffsClass=config.receivedBuffsClass,
         raidBuffsByClass=config.raidBuffsByClass and M.Copy(config.raidBuffsByClass),raidBuffsClass=config.raidBuffsClass,
+        raidVulnerabilityByClass=config.raidVulnerabilityByClass and M.Copy(config.raidVulnerabilityByClass),raidVulnerabilityClass=config.raidVulnerabilityClass,
         otherMonitorEquipmentOverrides=config.otherMonitorEquipmentOverrides and M.Copy(config.otherMonitorEquipmentOverrides),
         otherMonitorEquipmentEntries=config.otherMonitorEquipmentEntries and M.Copy(config.otherMonitorEquipmentEntries),
         design={nodes=nodes},moduleDefaults={nodes=defaults}}
@@ -260,6 +267,7 @@ function M:ExportConfigString()
     self:SaveCommonItemsClass()
     self:SaveReceivedBuffsClass()
     self:SaveRaidBuffMonitorClass()
+    self:SaveRaidVulnerabilityClass()
     local ok,result=pcall(function()
         local serializer,deflate=Libraries()
         local config=CleanConfig({format=1,schema=self.db.schema,language=self.db.language,
@@ -272,6 +280,7 @@ function M:ExportConfigString()
             commonItemsShared=self.db.commonItemsShared,commonItemsByClass=self.db.commonItemsByClass,commonItemsClass=self.db.commonItemsClass,
             receivedBuffsByClass=self.db.receivedBuffsByClass,receivedBuffsClass=self.db.receivedBuffsClass,
             raidBuffsShared=self.db.raidBuffsShared,raidBuffsByClass=self.db.raidBuffsByClass,raidBuffsClass=self.db.raidBuffsClass,
+            raidVulnerabilityShared=self.db.raidVulnerabilityShared,raidVulnerabilityByClass=self.db.raidVulnerabilityByClass,raidVulnerabilityClass=self.db.raidVulnerabilityClass,
             otherMonitorEquipmentOverrides=self.db.otherMonitorEquipmentOverrides,
             design=self.db.design,moduleDefaults=self.db.moduleDefaults})
         if not config then return end
@@ -319,18 +328,21 @@ function M:ApplyConfigString(input)
     if self.CommonItems.FlushEditor then self.CommonItems.FlushEditor()end
     if self.ReceivedBuffs.FlushEditor then self.ReceivedBuffs.FlushEditor()end
     if self.RaidBuffMonitor.FlushEditor then self.RaidBuffMonitor.FlushEditor()end
+    if self.RaidVulnerability.FlushEditor then self.RaidVulnerability.FlushEditor()end
     if self.moveMode and self.StopFrameMoveMode then self:StopFrameMoveMode(false) end
     self:SavePlayerSkillMonitorClass()
     self:SavePlayerOtherMonitorClass()
     self:SaveCommonItemsClass()
     self:SaveReceivedBuffsClass()
     self:SaveRaidBuffMonitorClass()
+    self:SaveRaidVulnerabilityClass()
     self.db.design=config.design;self.db.moduleDefaults=config.moduleDefaults
     self:ImportPlayerSkillMonitorClasses(config)
     self:ImportPlayerOtherMonitorClasses(config)
     self:ImportCommonItems(config)
     self:ImportReceivedBuffs(config)
     self:ImportRaidBuffMonitor(config)
+    self:ImportRaidVulnerability(config)
     self.db.language=config.language;self.db.minimap=config.minimap;self.db.hideBlizzard=config.hideBlizzard
     self.db.hideWithoutTarget=config.hideWithoutTarget
     self.db.portrait3D=config.portrait3D
