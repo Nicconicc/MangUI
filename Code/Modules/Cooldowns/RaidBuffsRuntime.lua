@@ -123,10 +123,10 @@ local function Decoration(o)
         end
     end
     local shadow=frame:CreateFontString(nil,"ARTWORK");frame.titleShadow=shadow
-    shadow:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"OUTLINE")
-    shadow:SetTextColor(0,0,0,.1);shadow:SetJustifyH("CENTER");shadow:SetWordWrap(false);shadow:SetShadowColor(0,0,0,0)
+    shadow:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"")
+    shadow:SetTextColor(0,0,0,.3);shadow:SetJustifyH("CENTER");shadow:SetWordWrap(false);shadow:SetShadowColor(0,0,0,0)
     local title=frame:CreateFontString(nil,"OVERLAY");frame.title=title
-    title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"OUTLINE")
+    title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"")
     title:SetHeight(24)
     title:SetText(I.DefaultGuideText());title:SetTextColor(1,1,1,1);title:SetJustifyH("CENTER");title:SetWordWrap(false)
     title:SetShadowColor(0,0,0,0);title:SetShadowOffset(0,0)
@@ -151,8 +151,8 @@ local function LayoutDecoration(o,group,count)
     local fontSize=I.GuideFontSize(group)/fontScale
     local fontPath=M:EffectiveFontPath(I.GuideFontPath(group))
     if not frame.layoutFontSize or math.abs(frame.layoutFontSize-fontSize)>.01 or frame.layoutFontPath~=fontPath then
-        frame.title:SetFont(fontPath,fontSize,"OUTLINE")
-        frame.titleShadow:SetFont(fontPath,fontSize,"OUTLINE")
+        frame.title:SetFont(fontPath,fontSize,"")
+        frame.titleShadow:SetFont(fontPath,fontSize,"")
         frame.title:SetHeight(math.max(24,fontSize*1.5))
         frame.titleShadow:ClearAllPoints()
         frame.titleShadow:SetPoint("TOPLEFT",frame.title,"TOPLEFT",1/fontScale,-1/fontScale)
@@ -264,7 +264,7 @@ I.UpdateGuideConnector=UpdateConnector
 function I.Configure(view,o)
     o.buffIcons=o.buffIcons or {};o.entries=I.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
     local decoration=Decoration(o)
-    decoration.title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),12,"OUTLINE");decoration.layoutFontSize=nil
+    decoration.title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),12,"");decoration.layoutFontSize=nil
     decoration.layoutWidth=nil
     for index,entry in ipairs(o.entries)do
         local slot=Icon(o,index);slot.entry=entry;ResolveSlot(slot,entry)
