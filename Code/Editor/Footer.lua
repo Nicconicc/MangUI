@@ -140,7 +140,7 @@ function F.Attach(editor)
         local token = hideToken
         C_Timer.After(0.25, function()
             if token ~= hideToken or popup.pinned or not popup:IsShown() then return end
-            if MouseIsOver(popup) or (popup.owner and MouseIsOver(popup.owner)) then return end
+            if M.Compat.MouseOver(popup) or (popup.owner and M.Compat.MouseOver(popup.owner)) then return end
             popup:Hide()
         end)
     end
