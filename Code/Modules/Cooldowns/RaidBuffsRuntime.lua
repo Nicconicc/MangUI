@@ -157,7 +157,7 @@ local function LayoutDecoration(o,group,count)
     if frame.layoutWidth~=width or frame.layoutRowWidth~=rowWidth or frame.layoutCenter~=center
         or frame.layoutPixel~=pixel or frame.layoutTextWidth~=textWidth
         or frame.layoutCenterY~=centerY or frame.layoutBodyHeight~=bodyHeight then
-        local thickness,height=pixel,math.ceil((bodyHeight/2+30)/pixel)*pixel
+        local thickness,height=pixel,math.ceil((bodyHeight/2+16)/pixel)*pixel
         frame:ClearAllPoints();frame:SetPoint("TOP",o.frame,"CENTER",center,centerY);frame:SetSize(width,height)
         frame.title:ClearAllPoints();frame.title:SetPoint("CENTER",frame,"BOTTOM",0,thickness/2)
         frame.title:SetWidth(textWidth)
