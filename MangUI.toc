@@ -6,7 +6,7 @@
 ## Notes-zhCN: 可自定义的单位、队伍和首领框体，提供预览设置和统一移动模式。作者：Nc。
 ## Notes-zhTW: 可自訂的單位、隊伍與首領框體，提供預覽設定及統一移動模式。作者：Nc。
 ## Author: Nc
-## Version: 1.0.595
+## Version: 1.0.596
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\Logo.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB
@@ -75,6 +75,7 @@ Code\Modules\Target\Distance.lua
 Code\Modules\UnitFrames\Boss\Frames.lua
 Code\Modules\UnitFrames\Party\Frames.lua
 Code\Modules\UnitFrames\Shared\PetBuffs.lua
+Code\Modules\Guides\ModuleGuides.lua
 Code\Core\Config\Sharing.lua
 Code\Core\Runtime\Compat.lua
 Code\Modules\Target\NameplateLine.lua

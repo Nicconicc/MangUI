@@ -174,6 +174,9 @@ local function OrganizePropertyRows(n,rows)
     end
     local order,section={},{}
     for group,keys in ipairs(profile)do for i,key in ipairs(keys)do order[key]=group*100+i;section[key]=group end end
+    if M.ModuleGuides.Supports(n)and n.id~="raidBuffs"then
+        order.moduleGuideSettings=(#profile+1)*100+1;section.moduleGuideSettings=#profile+1
+    end
     for index,entry in ipairs(rows)do
         local key=entry.row.key
         entry.originalIndex=index;entry.section=section[key]or 99;entry.rank=order[key]or 9900+index

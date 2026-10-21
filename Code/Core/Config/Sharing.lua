@@ -66,6 +66,7 @@ local function CleanNodes(nodes)
     if M.EnsureTargetDistanceModule then M:EnsureTargetDistanceModule({nodes=nodes}) end
     if M.EnsureBossFramesModule then M:EnsureBossFramesModule({nodes=nodes}) end
     if M.EnsurePartyFramesModule then M:EnsurePartyFramesModule({nodes=nodes}) end
+    if M.ModuleGuides then M.ModuleGuides.Ensure({nodes=nodes})end
     if M.EnsureAttackProgress then M:EnsureAttackProgress({nodes=nodes}) end
     local known,fields,index,result={},{},{},{}
     for _,node in ipairs(M.defaults.nodes) do

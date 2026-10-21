@@ -167,6 +167,7 @@ function R.Update(view,units,modules,fields,objects)
     R.UpdateEntryAnimations(view)
     if M.BossFrames then M.BossFrames.Animate(view) end
     if M.PartyFrames then M.PartyFrames.RefreshHighlight(view) end
+    if M.ModuleGuides then M.ModuleGuides.Refresh(view,true)end
 end
 local function NeedsAnimation(view,o)
     if view.preview then return true end
@@ -200,6 +201,7 @@ function R.Animate(view)
             end
         end
     end
+    if M.ModuleGuides then M.ModuleGuides.Refresh(view)end
     R.UpdateEntryAnimations(view,true)
     if M.BossFrames and view.bossAnimating then M.BossFrames.Animate(view) end
     if M.MainSweep then

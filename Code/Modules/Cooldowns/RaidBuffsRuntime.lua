@@ -131,33 +131,40 @@ local function LayoutDecoration(o,group,count)
     local text=I.GuideText(group)
     if frame.title:GetText()~=text then frame.title:SetText(text)end
     frame.title:SetShown(group.showGuideText~=false)
-    local rowWidth=count*44-4
+    local bounds=o.guideBounds
+    local rowWidth=bounds and bounds.width or count*44-4
     local scale=math.max(.001,frame:GetEffectiveScale())
     local _,screenHeight=Safe(GetPhysicalScreenSize)
     local pixel=(PixelUtil and PixelUtil.GetPixelToUIUnitFactor and PixelUtil.GetPixelToUIUnitFactor()
         or 768/math.max(1,Number(screenHeight)or 768))/scale
     local textWidth=(frame.title.GetUnboundedStringWidth and frame.title:GetUnboundedStringWidth()or frame.title:GetStringWidth())+2
     local width=math.ceil(math.max(rowWidth+144,textWidth+40)/pixel)*pixel
-    local center=S.RowOffset(group,count)
+    local center=bounds and bounds.x or S.RowOffset(group,count)
+    local centerY=bounds and bounds.y or -7
+    local bodyHeight=bounds and bounds.height or 40
     if frame.layoutWidth~=width or frame.layoutRowWidth~=rowWidth or frame.layoutCenter~=center
-        or frame.layoutPixel~=pixel or frame.layoutTextWidth~=textWidth then
-        local thickness,height=pixel,math.ceil(50/pixel)*pixel
-        frame:ClearAllPoints();frame:SetPoint("TOP",o.frame,"CENTER",center,-7);frame:SetSize(width,height)
+        or frame.layoutPixel~=pixel or frame.layoutTextWidth~=textWidth
+        or frame.layoutCenterY~=centerY or frame.layoutBodyHeight~=bodyHeight then
+        local thickness,height=pixel,math.ceil((bodyHeight/2+30)/pixel)*pixel
+        frame:ClearAllPoints();frame:SetPoint("TOP",o.frame,"CENTER",center,centerY);frame:SetSize(width,height)
         frame.title:ClearAllPoints();frame.title:SetPoint("CENTER",frame,"BOTTOM",0,thickness/2)
         frame.title:SetWidth(textWidth)
         frame.layoutWidth,frame.layoutRowWidth,frame.layoutCenter=width,rowWidth,center
         frame.layoutPixel,frame.layoutTextWidth=pixel,textWidth
+        frame.layoutCenterY,frame.layoutBodyHeight=centerY,bodyHeight
     end
     frame:Show()
 end
 local function UpdateConnector(view,o)
     local frame=o.decoration;local connector=frame and frame.connector
     if not connector then return end
-    local group=view.byID[o.spec.parent]
+    local group=o.guideGroup or view.byID[o.spec.parent]
     local target=view.nodes[M.MainBarLayout.tokenID]
     if group.hideGuideLines or not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
         HideConnector(connector);return
     end
+    local level=math.max(o.frame:GetFrameLevel(),target.frame:GetFrameLevel()+1)
+    if frame:GetFrameLevel()~=level then frame:SetFrameLevel(level)end
     -- Read only our own artwork frames. The external secure portrait anchor and
     -- Blizzard aura frames must never become layout dependencies of these lines.
     local cx,cy=frame:GetCenter();local tx,ty=target.frame:GetCenter()
@@ -207,6 +214,9 @@ local function UpdateConnector(view,o)
     connector.row:SetShown(connector.outside and horizontalLength>0);connector.link:SetShown(connector.outside and length>0)
     if connector.joint then connector.joint:SetShown(connector.outside)end
 end
+I.CreateGuideDecoration=Decoration
+I.LayoutGuideDecoration=LayoutDecoration
+I.UpdateGuideConnector=UpdateConnector
 function I.Configure(view,o)
     o.buffIcons=o.buffIcons or {};o.entries=I.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
     local decoration=Decoration(o)

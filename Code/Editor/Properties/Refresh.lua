@@ -366,6 +366,7 @@ function M:RefreshProperties()
     for _,rule in ipairs(n.rules or {}) do rules[#rules+1]=(rule.invert and "非 " or "")..(rule.unit or "player").." · "..({casting="施法中",exists="单位存在",classification="分类",isPlayer="玩家",friendly="友方",leader="队长",afk="暂离",dead="死亡",hearth="炉石",raid="团队标记"})[rule.test] end
     e.ruleText:SetText(#rules>0 and table.concat(rules,"\n") or "跟随所属单位显示")
     M.MonitorSharing.RefreshControls(e,n)
+    if M.ModuleGuides.Supports(n)and n.id~="raidBuffs"then e.moduleGuidePanel:Refresh(n)end
     if n.compound=="raidBuffs"then
         e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
         e.raidBuffsOnlyRaid:SetChecked(n.raidOnly~=false)
@@ -491,6 +492,7 @@ function M:RefreshProperties()
             visible=row.key=="decorationHidden" or row.key=="x" or row.key=="y" or row.key=="scale"
         end
         if e.mainPreview and row.key=="overallScale" and n.compound~="targetCast" then visible=false end
+        if row.key=="moduleGuideSettings"then visible=M.ModuleGuides.Supports(n)and n.id~="raidBuffs"end
         rows[#rows+1]={row=row,visible=visible}
     end
     OrganizePropertyRows(n,rows)
@@ -539,7 +541,7 @@ function M:RefreshProperties()
         local row,visible=entry.row,entry.visible and not entry.fontPairHidden and not entry.inlineHidden
         if visible and previousSection and previousSection~=entry.section then
             height=PropertyDivider(e,height)
-            if (n.compound=="raidBuffs"and (row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsGuideSettings"))
+            if row.key=="moduleGuideSettings"or (n.compound=="raidBuffs"and (row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsGuideSettings"))
                 or (n.compound=="receivedBuffs"and (row.key=="receivedBuffSharing"or row.key=="receivedBuffItems"))
                 or (n.compound=="raidVulnerability"and (row.key=="raidVulnerabilitySharing"or row.key=="raidVulnerabilitySharedRows"or row.key=="raidVulnerabilityClassRows"))
                 or (n.compound=="commonItems"and (row.key=="commonItemsSharing"or row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"))

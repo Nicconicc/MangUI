@@ -650,6 +650,7 @@ local function BuildProperties(e)
     M.RaidVulnerability.BuildControls(e,content)
     M.ReceivedBuffs.BuildControls(e,content)
     M.RaidBuffMonitor.BuildControls(e,content)
+    M.ModuleGuides.BuildControls(e,content)
     local petBuffTitle=W.Label(content,"宠物Buff监控",13)
     Row(28,{{petBuffTitle,0,-3}},{},"petBuffTitle");y=y-28
     e.petBuffInputs={}

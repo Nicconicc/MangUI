@@ -38,6 +38,10 @@ function M:FitPreview()
     minx,miny,maxx,maxy=minx or -100,miny or -100,maxx or 100,maxy or 100
     e.fit=UIParent:GetEffectiveScale()/math.max(.001,e.canvas:GetEffectiveScale())
     local selected=Selected()
+    if M.ModuleGuides.Supports(selected)then
+        local left,bottom,right,top=M.ModuleGuides.PreviewBounds(e.view,selected.id,geo)
+        if left then minx,miny,maxx,maxy=math.min(minx,left),math.min(miny,bottom),math.max(maxx,right),math.max(maxy,top)end
+    end
     if PreviewModuleID(selected)=="bossFrames" then
         local left,bottom,right,top=M.BossFrames.VisibleBounds(geo)
         if left then minx,miny,maxx,maxy=left,bottom,right,top end

@@ -152,6 +152,7 @@ function M:InitStore()
     if self.EnsureTargetDistanceModule then self:EnsureTargetDistanceModule(db.design) end
     if self.EnsureBossFramesModule then self:EnsureBossFramesModule(db.design) end
     if self.EnsurePartyFramesModule then self:EnsurePartyFramesModule(db.design) end
+    if self.ModuleGuides then self.ModuleGuides.Ensure(db.design)end
     if db.portraitFrameTokenRevision~=1 then
         local replacementFile="Interface\\AddOns\\MangUI\\Assets\\Library\\TokenFrame\\TokenFrame_01_BattleMaster"
         local function replaceLegacyPortraitTexture(design)
@@ -224,6 +225,7 @@ function M:InitStore()
     if self.EnsureTargetDistanceModule then self:EnsureTargetDistanceModule(db.moduleDefaults) end
     if self.EnsureBossFramesModule then self:EnsureBossFramesModule(db.moduleDefaults) end
     if self.EnsurePartyFramesModule then self:EnsurePartyFramesModule(db.moduleDefaults) end
+    if self.ModuleGuides then self.ModuleGuides.Ensure(db.moduleDefaults)end
     if db.targetRaidMarkArtRevision~=3 then
         self:UpgradeTargetRaidMark(db.design)
         self:UpgradeTargetRaidMark(db.moduleDefaults)

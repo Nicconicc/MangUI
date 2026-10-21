@@ -2,13 +2,14 @@ local _,M=...
 local I={};M.RaidBuffMonitor=I
 local S,O=M.PlayerSkillMonitor,M.PlayerOtherMonitor
 I.Safe,I.Number,I.Readable=O.Safe,O.Number,O.Readable
-function I.DefaultGuideText()
+function I.DefaultGuideText(group)
+    if M.ModuleGuides then return M.ModuleGuides.DefaultText(group)end
     local english=M.localeTables and M.localeTables.enUS
     local text=english and english["团队Buff缺失监控"]or "Missing raid buff tracking"
     return (text:gsub("[Tt][Rr][Aa][Cc][Kk][Ii][Nn][Gg]",""):gsub("%s+"," "):match("^%s*(.-)%s*$"))
 end
 function I.GuideText(group)
-    return type(group.guideText)=="string"and group.guideText or I.DefaultGuideText()
+    return type(group.guideText)=="string"and group.guideText or I.DefaultGuideText(group)
 end
 function I.GuideLength(group)
     return M.Clamp(I.Number(group.guideLineLength)or 1,0,1)
