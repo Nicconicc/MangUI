@@ -65,7 +65,10 @@ function O.MigrateEquipment(db)
     group.otherMonitors=entries
     local _,current=O.Safe(UnitClass,"player")
     local owner=S.ValidClass(db.playerOtherMonitorClass)and db.playerOtherMonitorClass or current
-    if S.ValidClass(owner)then
+    if S.ValidCharacter(db.playerOtherMonitorCharacter)then
+        db.playerOtherMonitorsByCharacter=db.playerOtherMonitorsByCharacter or {}
+        db.playerOtherMonitorsByCharacter[db.playerOtherMonitorCharacter]=M.Copy(entries)
+    elseif S.ValidClass(owner)then
         db.playerOtherMonitorsByClass=db.playerOtherMonitorsByClass or {}
         db.playerOtherMonitorsByClass[owner]=M.Copy(entries)
     end
@@ -111,36 +114,20 @@ function M:EnsurePlayerOtherMonitor(design)
         scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=346}
 end
 M.moduleIDs.playerOtherMonitor=true
-local function CurrentClass()local _,class=O.Safe(UnitClass,"player");return S.ValidClass(class)and class end
-function M:SavePlayerOtherMonitorClass()
-    local db=self.db;local class=CurrentClass();local group=db and O.Group(db.design)
-    if group and class and db.playerOtherMonitorClass==class and O.ValidEntries(group.otherMonitors)then
-        db.playerOtherMonitorsByClass=db.playerOtherMonitorsByClass or {};db.playerOtherMonitorsByClass[class]=M.Copy(group.otherMonitors)
-    end
-end
+function M:SavePlayerOtherMonitorClass()S.SaveCharacter("playerOtherMonitor")end
 function M:BindPlayerOtherMonitorClass()
-    local db=self.db;local class=CurrentClass();local group=O.Group(db.design);if not class or not group then return end
-    if not O.ValidProfiles(db.playerOtherMonitorsByClass)then db.playerOtherMonitorsByClass={}end
-    O.MigrateEquipment(db)
-    local profiles=db.playerOtherMonitorsByClass;local previous=db.playerOtherMonitorClass
-    if S.ValidClass(previous)and O.ValidEntries(group.otherMonitors)then profiles[previous]=M.Copy(group.otherMonitors)
-    elseif profiles[class]==nil then profiles[class]=M.Copy(group.otherMonitors)end
-    group.otherMonitors=M.Copy(profiles[class]or {O.NewEntry()});self:EnsurePlayerOtherMonitor(db.design)
-    db.playerOtherMonitorClass=class;profiles[class]=M.Copy(group.otherMonitors)
+    local db=self.db
+    O.MigrateEquipment(db);S.BindCharacter("playerOtherMonitor")
     if not O.ValidOverrides(db.otherMonitorEquipmentOverrides)then db.otherMonitorEquipmentOverrides={O.NewOverride()}end
     if type(db.otherMonitorEquipmentTimers)~="table"then db.otherMonitorEquipmentTimers={}end
     local clock=O.Safe(time)
     if clock then for key,stamp in pairs(db.otherMonitorEquipmentTimers)do if type(key)~="string"or not O.Number(stamp)or stamp<=clock then db.otherMonitorEquipmentTimers[key]=nil end end end
 end
 function M:ImportPlayerOtherMonitorClasses(config)
-    if config.otherMonitorEquipmentEntries then self.db.otherMonitorEquipmentEntries=M.Copy(config.otherMonitorEquipmentEntries)end
-    if config.playerOtherMonitorsByClass then
-        self.db.playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass or {}
-        for class,entries in pairs(config.playerOtherMonitorsByClass)do self.db.playerOtherMonitorsByClass[class]=M.Copy(entries)end
-        self.db.playerOtherMonitorClass=config.playerOtherMonitorClass;self:BindPlayerOtherMonitorClass()
-    else self.db.playerOtherMonitorClass=CurrentClass();self:SavePlayerOtherMonitorClass()end
+    S.ImportCharacter("playerOtherMonitor",config)
     if config.otherMonitorEquipmentOverrides then self.db.otherMonitorEquipmentOverrides=M.Copy(config.otherMonitorEquipmentOverrides)end
-    O.MigrateEquipment(self.db)
+    if config.otherMonitorEquipmentEntries then self.db.otherMonitorEquipmentEntries=M.Copy(config.otherMonitorEquipmentEntries)end
+    O.MigrateEquipment(self.db);self:SavePlayerOtherMonitorClass()
 end
 function O.Entries(group)
     local entries={}

@@ -91,40 +91,109 @@ end
 local function MonitorGroup(design)
     for _,node in ipairs(design and design.nodes or {})do if node.id=="playerSkillMonitor"then return node end end
 end
-function M:SavePlayerSkillMonitorClass()
-    local db=self.db;local class=CurrentClass();local group=db and MonitorGroup(db.design)
-    if not class or not group or db.playerSkillMonitorClass~=class or not S.ValidEntries(group.monitors)then return end
-    if type(db.playerSkillMonitorsByClass)~="table"then db.playerSkillMonitorsByClass={}end
-    db.playerSkillMonitorsByClass[class]=self.Copy(group.monitors)
+function S.ValidCharacter(key)
+    return type(key)=="string"and #key>0 and #key<=128 and not key:find("[%c]")
 end
-function M:BindPlayerSkillMonitorClass()
-    local db=self.db;local class=CurrentClass();local group=db and MonitorGroup(db.design)
-    if not class or not group then return end
-    if type(db.playerSkillMonitorsByClass)~="table"then db.playerSkillMonitorsByClass={}end
-    local profiles=db.playerSkillMonitorsByClass
-    for key,entries in pairs(profiles)do if not S.ValidClass(key)or not S.ValidEntries(entries)then profiles[key]=nil end end
-    local previous=db.playerSkillMonitorClass
-    if S.ValidClass(previous)and S.ValidEntries(group.monitors)then
-        profiles[previous]=self.Copy(group.monitors)
-    elseif profiles[class]==nil then
-        -- Adopt the pre-upgrade list once, for the first class that loads it.
-        profiles[class]=self.Copy(group.monitors)
+local function CharacterNameKey()
+    local name,realm=Safe(UnitFullName or UnitName,"player")
+    realm=realm and realm~=""and realm or Safe(GetNormalizedRealmName or GetRealmName)
+    if type(name)=="string"and name~=""and type(realm)=="string"and realm~=""then return "char:"..name.."-"..realm end
+end
+function S.CurrentCharacter()
+    local guid=Safe(UnitGUID,"player")
+    if S.ValidCharacter(guid)then return guid end
+    local key=CharacterNameKey();return S.ValidCharacter(key)and key
+end
+local function CharacterDefinition(id)
+    if id=="playerSkillMonitor"then
+        return {api=S,list="monitors",profiles="playerSkillMonitorsByCharacter",owner="playerSkillMonitorCharacter",legacy="playerSkillMonitorsByClass",class="playerSkillMonitorClass",revision="playerSkillMonitorCharacterRevision",ensure="EnsurePlayerSkillMonitor"}
+    elseif id=="playerOtherMonitor"then
+        return {api=M.PlayerOtherMonitor,list="otherMonitors",profiles="playerOtherMonitorsByCharacter",owner="playerOtherMonitorCharacter",legacy="playerOtherMonitorsByClass",class="playerOtherMonitorClass",revision="playerOtherMonitorCharacterRevision",ensure="EnsurePlayerOtherMonitor"}
     end
-    group.monitors=self.Copy(profiles[class]or {S.NewEntry()})
-    self:EnsurePlayerSkillMonitor(db.design)
-    db.playerSkillMonitorClass=class;profiles[class]=self.Copy(group.monitors)
 end
-function M:ImportPlayerSkillMonitorClasses(config)
-    if config.playerSkillMonitorsByClass then
-        if type(self.db.playerSkillMonitorsByClass)~="table"then self.db.playerSkillMonitorsByClass={}end
-        for class,entries in pairs(config.playerSkillMonitorsByClass)do self.db.playerSkillMonitorsByClass[class]=self.Copy(entries)end
-        self.db.playerSkillMonitorClass=config.playerSkillMonitorClass
-        self:BindPlayerSkillMonitorClass()
+local function CharacterGroup(id,design)
+    for _,node in ipairs(design and design.nodes or {})do if node.id==id then return node end end
+end
+function S.ValidCharacterProfiles(profiles,valid)
+    if type(profiles)~="table"then return false end
+    local count=0
+    for key,entries in pairs(profiles)do
+        count=count+1;if count>512 or not S.ValidCharacter(key)or not valid(entries)then return false end
+    end
+    return true
+end
+function S.SaveCharacter(id)
+    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentCharacter();local group=db and CharacterGroup(id,db.design)
+    if not key or not group or db[d.owner]~=key or not d.api.ValidEntries(group[d.list])then return end
+    db[d.profiles]=type(db[d.profiles])=="table"and db[d.profiles]or {};db[d.profiles][key]=M.Copy(group[d.list])
+end
+function S.BindCharacter(id)
+    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentCharacter();local class=CurrentClass()
+    local group=db and CharacterGroup(id,db.design);if not key or not class or not group then return end
+    local profiles=type(db[d.profiles])=="table"and db[d.profiles]or {};db[d.profiles]=profiles
+    for owner,entries in pairs(profiles)do if not S.ValidCharacter(owner)or not d.api.ValidEntries(entries)then profiles[owner]=nil end end
+    local previous=db[d.owner]
+    if S.ValidCharacter(previous)and d.api.ValidEntries(group[d.list])then profiles[previous]=M.Copy(group[d.list])end
+    if db[d.revision]~=1 then
+        local legacy=type(db[d.legacy])=="table"and db[d.legacy]or {};db[d.legacy]=legacy
+        for token,entries in pairs(legacy)do if not S.ValidClass(token)or not d.api.ValidEntries(entries)then legacy[token]=nil end end
+        local owner=S.ValidClass(db[d.class])and db[d.class]or class
+        if d.api.ValidEntries(group[d.list])then legacy[owner]=M.Copy(group[d.list])end
+        db[d.revision]=1
+    end
+    -- Old class lists become fixed templates; edits only update character lists.
+    local fallback=CharacterNameKey()
+    local template=profiles[key]or (fallback and profiles[fallback])or (db[d.legacy]or {})[class]or {d.api.NewEntry()}
+    group[d.list]=M.Copy(template);db[d.owner]=key;db[d.class]=class
+    M[d.ensure](M,db.design);profiles[key]=M.Copy(group[d.list])
+end
+function S.ImportCharacter(id,config)
+    local d=CharacterDefinition(id);local db=M.db;local group=CharacterGroup(id,db.design);local key=S.CurrentCharacter()
+    if not group or not key then return end
+    db[d.profiles]=type(db[d.profiles])=="table"and db[d.profiles]or {}
+    if config[d.profiles]then
+        for owner,entries in pairs(config[d.profiles])do db[d.profiles][owner]=M.Copy(entries)end
+        group[d.list]=M.Copy(config[d.profiles][key]or group[d.list])
     else
-        -- Older exports contain one list; import it into the current class.
-        self.db.playerSkillMonitorClass=CurrentClass();self:SavePlayerSkillMonitorClass()
+        if config[d.legacy]then
+            db[d.legacy]=type(db[d.legacy])=="table"and db[d.legacy]or {}
+            for token,entries in pairs(config[d.legacy])do db[d.legacy][token]=M.Copy(entries)end
+            group[d.list]=M.Copy(config[d.legacy][CurrentClass()]or group[d.list])
+        end
     end
+    db[d.owner]=key;db[d.class]=CurrentClass();db[d.revision]=1;S.SaveCharacter(id)
 end
+function S.CleanCharacterSharing(config,id)
+    local d=CharacterDefinition(id)
+    if type(config)~="table"or config.module~=id then return end
+    if config.format==2 then
+        if not d.api.ValidEntries(config.entries)then return end
+        return {format=2,module=id,entries=M.Copy(config.entries)}
+    end
+    if config.format~=1 or type(config.profiles)~="table"then return end
+    for token,entries in pairs(config.profiles)do if not S.ValidClass(token)or not d.api.ValidEntries(entries)then return end end
+    if next(config.profiles)==nil then return end
+    if config.scope=="class"then
+        if not S.ValidClass(config.class)or not config.profiles[config.class]then return end
+        for token in pairs(config.profiles)do if token~=config.class then return end end
+    elseif config.scope~="all"or config.class~=nil then return end
+    return {format=1,module=id,scope=config.scope,class=config.class,profiles=M.Copy(config.profiles)}
+end
+function S.ExportCharacterSharing(id)
+    local d=CharacterDefinition(id);S.SaveCharacter(id);local group=M.db and CharacterGroup(id,M.db.design)
+    return group and S.CleanCharacterSharing({format=2,module=id,entries=group[d.list]},id)
+end
+function S.ApplyCharacterSharing(id,config)
+    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentCharacter();local group=CharacterGroup(id,db.design)
+    if not key or not group then return false end
+    S.SaveCharacter(id)
+    local entries=config.format==2 and config.entries or config.profiles[config.class or CurrentClass()]
+    if entries then group[d.list]=M.Copy(entries);db[d.owner]=key;S.SaveCharacter(id)end
+    M[d.ensure](M,db.design);return true
+end
+function M:SavePlayerSkillMonitorClass()S.SaveCharacter("playerSkillMonitor")end
+function M:BindPlayerSkillMonitorClass()S.BindCharacter("playerSkillMonitor")end
+function M:ImportPlayerSkillMonitorClasses(config)S.ImportCharacter("playerSkillMonitor",config)end
 function M:EnsurePlayerSkillMonitor(design)
     if not design or not design.nodes then return end
     local seen={};for _,n in ipairs(design.nodes)do seen[n.id]=n end
@@ -579,10 +648,9 @@ function S.BuildControls(e,parent,Row)
     local function Flush()
         for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
     end
-    sharing.exportAll=W.Button(sharing,"导出全职业配置",150,function()Flush();M:ShowConfigStringDialog("export","skillsAll")end)
-    sharing.exportClass=W.Button(sharing,"导出当前职业配置",150,function()Flush();M:ShowConfigStringDialog("export","skillsClass")end)
+    sharing.exportAll=W.Button(sharing,"导出配置",150,function()Flush();M:ShowConfigStringDialog("export","skillsAll")end)
     sharing.import=W.Button(sharing,"导入配置",150,function()Flush();M:ShowConfigStringDialog("import","skills")end)
-    for _,button in ipairs({sharing.exportAll,sharing.exportClass,sharing.import})do button:SetHoverTextColor(1,.82,0)end
+    for _,button in ipairs({sharing.exportAll,sharing.import})do button:SetHoverTextColor(1,.82,0)end
     local function SkillIcon(row)
         local value=S.Input(W.InputValue(row.edit))
         local name,_,icon
@@ -688,8 +756,8 @@ function S.BuildControls(e,parent,Row)
         if self.drag and (self.drag.group~=group or self.drag.entries~=group.monitors or self.drag.count~=#group.monitors)then self:FinishDrag(false)end
         local monitors=group and group.monitors or {};local width=e.props:GetWidth()
         sharing:SetWidth(width)
-        for i,button in ipairs({sharing.exportAll,sharing.exportClass,sharing.import})do
-            local buttonWidth=(width-16)/3;button:SetWidth(buttonWidth)
+        for i,button in ipairs({sharing.exportAll,sharing.import})do
+            local buttonWidth=(width-8)/2;button:SetWidth(buttonWidth)
             button:ClearAllPoints();button:SetPoint("TOPLEFT",sharing,"TOPLEFT",(i-1)*(buttonWidth+8),-24)
         end
         if self.owner~=group or self.count~=#monitors or self.width~=width then e.propertyLayoutSignature=nil end

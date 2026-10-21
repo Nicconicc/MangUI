@@ -216,7 +216,7 @@ function M:ShowConfigStringDialog(mode,scope)
     local monitor,all=M.MonitorSharing.Scope(scope)
     dialog.mode,dialog.scope=mode,scope;dialog.status:SetText("");dialog:Show()
     if mode=="export" then
-        dialog.title:SetText(monitor and "导出配置"or (scope=="skillsAll"or scope=="otherAll")and "导出全职业配置"or (scope=="skillsClass"or scope=="otherClass")and "导出当前职业配置"or "导出配置")
+        dialog.title:SetText("导出配置")
         dialog.hint:SetText("按 Ctrl+C 复制下方字符串，分享给其他用户。")
         dialog.action:SetText("全选")
         local value
@@ -228,7 +228,7 @@ function M:ShowConfigStringDialog(mode,scope)
         if not value then dialog.status:SetText("当前配置无法导出，请检查配置数据。") end
     else
         dialog.title:SetText("导入配置")
-        dialog.hint:SetText(scope and (scope:sub(1,5)=="other"and "粘贴其他监控配置字符串；单职业仅更新该职业，全职业包含共用装备监控与补充。"or "粘贴技能监控配置字符串；仅更新字符串包含的职业配置。")or "粘贴配置字符串；技能监控配置仅更新对应职业，整体配置更新全部设置。")
+        dialog.hint:SetText(scope and (scope:sub(1,5)=="other"and "粘贴其他监控配置字符串；仅更新当前角色的监控设置。"or "粘贴技能监控配置字符串；仅更新当前角色的监控设置。")or "粘贴配置字符串；模块配置更新当前监控设置，整体配置更新全部设置。")
         if scope and scope:sub(1,8)=="received"then dialog.hint:SetText("粘贴队友Buff监控配置字符串；所有职业共用。")end
         if monitor then dialog.hint:SetText("粘贴此模块配置字符串；单职业仅更新对应职业，全职业包含通用设置。")end
         dialog.action:SetText("确认导入");dialog.edit:SetText("")

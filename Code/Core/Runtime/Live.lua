@@ -112,6 +112,12 @@ function M:StartLive()
         if event=="UI_SCALE_CHANGED" then M:QueueUIScale();return end
         if event=="PLAYER_ENTERING_WORLD" then M:QueueUIScale()
         elseif event=="PLAYER_REGEN_ENABLED" and M.pendingUIScale then M:ApplyUIScale() end
+        if (event=="PLAYER_ENTERING_WORLD"or event=="PLAYER_REGEN_ENABLED")and not InCombatLockdown()then
+            local key=M.PlayerSkillMonitor.CurrentCharacter()
+            if key and (M.db.playerSkillMonitorCharacter~=key or M.db.playerOtherMonitorCharacter~=key)then
+                M:BindPlayerSkillMonitorClass();M:BindPlayerOtherMonitorClass();M:Commit()
+            end
+        end
         local profile=M.ModuleProfiler
         local started=profile and profile.active and debugprofilestop()
         if portraitEvents[event] then

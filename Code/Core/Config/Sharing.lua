@@ -155,6 +155,10 @@ local function CleanConfig(config)
     if config.healthClassColor~=nil and type(config.healthClassColor)~="boolean" then return end
     if config.adapt4KUIScale~=nil and type(config.adapt4KUIScale)~="boolean" then return end
     if config.useGlobalFont~=nil and type(config.useGlobalFont)~="boolean" then return end
+    for _,definition in ipairs({{"playerSkillMonitorsByCharacter","playerSkillMonitorCharacter",M.PlayerSkillMonitor.ValidEntries},{"playerOtherMonitorsByCharacter","playerOtherMonitorCharacter",M.PlayerOtherMonitor.ValidEntries}})do
+        local profiles,owner=config[definition[1]],config[definition[2]]
+        if profiles~=nil and (not M.PlayerSkillMonitor.ValidCharacterProfiles(profiles,definition[3])or not M.PlayerSkillMonitor.ValidCharacter(owner)or profiles[owner]==nil)then return end
+    end
     if config.playerSkillMonitorsByClass~=nil and (not M.PlayerSkillMonitor.ValidClassProfiles(config.playerSkillMonitorsByClass)
         or not M.PlayerSkillMonitor.ValidClass(config.playerSkillMonitorClass))then return end
     if config.playerOtherMonitorsByClass~=nil and (not M.PlayerOtherMonitor.ValidProfiles(config.playerOtherMonitorsByClass)
@@ -188,6 +192,8 @@ local function CleanConfig(config)
         globalFontPath=M:ResolveFontPath(config.globalFontPath and config.globalFontPath~="" and config.globalFontPath or M:DefaultFontPath()),
         globalFontName=not M:IsRetiredFont(config.globalFontName) and config.globalFontName and config.globalFontName~="" and config.globalFontName or "默认",
         minimap={hide=config.minimap.hide,angle=config.minimap.angle},
+        playerSkillMonitorsByCharacter=config.playerSkillMonitorsByCharacter and M.Copy(config.playerSkillMonitorsByCharacter),playerSkillMonitorCharacter=config.playerSkillMonitorCharacter,
+        playerOtherMonitorsByCharacter=config.playerOtherMonitorsByCharacter and M.Copy(config.playerOtherMonitorsByCharacter),playerOtherMonitorCharacter=config.playerOtherMonitorCharacter,
         playerSkillMonitorsByClass=config.playerSkillMonitorsByClass and M.Copy(config.playerSkillMonitorsByClass),
         playerSkillMonitorClass=config.playerSkillMonitorsByClass and config.playerSkillMonitorClass,
         playerOtherMonitorsByClass=config.playerOtherMonitorsByClass and M.Copy(config.playerOtherMonitorsByClass),
@@ -209,23 +215,12 @@ local function CleanConfig(config)
 end
 local function CleanSkillConfig(config)
     if type(config)~="table"or not ValidTree(config,{},0,{count=0})then return end
-    if config.format~=1 or config.module~="playerSkillMonitor"or not M.PlayerSkillMonitor.ValidClassProfiles(config.profiles)then return end
-    if config.scope=="class"then
-        if not M.PlayerSkillMonitor.ValidClass(config.class)or config.profiles[config.class]==nil then return end
-        for class in pairs(config.profiles)do if class~=config.class then return end end
-    elseif config.scope~="all"or config.class~=nil then return end
-    if next(config.profiles)==nil then return end
-    return {format=1,module="playerSkillMonitor",scope=config.scope,class=config.class,profiles=M.Copy(config.profiles)}
+    return M.PlayerSkillMonitor.CleanCharacterSharing(config,"playerSkillMonitor")
 end
 function M:ExportPlayerSkillMonitorString(allClasses)
     self:SavePlayerSkillMonitorClass()
     local ok,result=pcall(function()
-        local class=self.db.playerSkillMonitorClass
-        if not self.PlayerSkillMonitor.ValidClass(class)then return end
-        local profiles=self.db.playerSkillMonitorsByClass or {}
-        if not allClasses then profiles={[class]=profiles[class]}end
-        local config=CleanSkillConfig({format=1,module="playerSkillMonitor",scope=allClasses and "all"or "class",
-            class=not allClasses and class or nil,profiles=profiles})
+        local config=CleanSkillConfig(M.PlayerSkillMonitor.ExportCharacterSharing("playerSkillMonitor"))
         if not config then return end
         local serializer,deflate=Libraries();local payload=serializer:Serialize(config)
         if #payload>MAX_PAYLOAD then return end
@@ -254,20 +249,13 @@ end
 function M:ApplyPlayerSkillMonitorString(input)
     if not self:CanEdit()then return false,"战斗中暂不能修改布局，脱战后即可编辑。"end
     local config=self:ImportPlayerSkillMonitorString(input)
-    local current=self.db.playerSkillMonitorClass
-    if not config or not self.PlayerSkillMonitor.ValidClass(current)then return false,INVALID end
+    if not config then return false,INVALID end
     local panel=self.editor and self.editor.skillMonitorPanel
     if panel then
         panel:FinishDrag(false)
         for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
     end
-    self:SavePlayerSkillMonitorClass()
-    if type(self.db.playerSkillMonitorsByClass)~="table"then self.db.playerSkillMonitorsByClass={}end
-    for class,entries in pairs(config.profiles)do self.db.playerSkillMonitorsByClass[class]=self.Copy(entries)end
-    if config.profiles[current]then
-        local group=self.byID.playerSkillMonitor
-        group.monitors=self.Copy(config.profiles[current]);self:EnsurePlayerSkillMonitor(self.db.design)
-    end
+    if not self.PlayerSkillMonitor.ApplyCharacterSharing("playerSkillMonitor",config)then return false,INVALID end
     self:Commit();return true
 end
 function M:ExportConfigString()
@@ -284,6 +272,8 @@ function M:ExportConfigString()
             healthClassColor=self.db.healthClassColor,minimap=self.db.minimap,
             adapt4KUIScale=self.db.adapt4KUIScale,
             useGlobalFont=self.db.useGlobalFont,globalFontPath=self.db.globalFontPath,globalFontName=self.db.globalFontName,
+            playerSkillMonitorsByCharacter=self.db.playerSkillMonitorsByCharacter,playerSkillMonitorCharacter=self.db.playerSkillMonitorCharacter,
+            playerOtherMonitorsByCharacter=self.db.playerOtherMonitorsByCharacter,playerOtherMonitorCharacter=self.db.playerOtherMonitorCharacter,
             playerSkillMonitorsByClass=self.db.playerSkillMonitorsByClass,playerSkillMonitorClass=self.db.playerSkillMonitorClass,
             playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass,playerOtherMonitorClass=self.db.playerOtherMonitorClass,
             commonItemsShared=self.db.commonItemsShared,commonItemsByClass=self.db.commonItemsByClass,commonItemsClass=self.db.commonItemsClass,
