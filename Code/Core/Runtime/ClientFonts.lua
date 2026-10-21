@@ -15,10 +15,10 @@ end
 
 function M:ClientInterfaceFontSize(nominal)
     -- GameFontNormal is already resized by ApplyClientFontScale. Add the
-    -- interface label's original difference from 12 AFTER that scaling.
+    -- interface label's original difference from 13 AFTER that scaling.
     local _,size=ReadFont(GameFontNormal)
-    if not size then size=12*self:NormalizeClientFontScale(self.db and self.db.clientFontScale) end
-    return math.max(1,size+(nominal or 12)-12)
+    if not size then size=13*self:NormalizeClientFontScale(self.db and self.db.clientFontScale) end
+    return math.max(1,size+(nominal or 13)-13)
 end
 
 local function Capture(object,visiting,allowed)
