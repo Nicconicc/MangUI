@@ -113,7 +113,14 @@ function S.TalentContext()
     if interface>=70000 then
         local index=Number(Safe(GetSpecialization or (C_SpecializationInfo and C_SpecializationInfo.GetSpecialization)))
         local spec=index and Number(Safe(GetSpecializationInfo or (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo),index))
-        if spec and spec>0 then return "spec:"..spec,active,count end
+        if spec and spec>0 then
+            -- The active config is the working spec tree, not the saved loadout.
+            local saved=interface>=100000 and Number(Safe(C_ClassTalents and C_ClassTalents.GetLastSelectedSavedConfigID,spec))
+            if saved and saved>0 and saved<=1000000000 and saved%1==0 then
+                return "spec:"..spec..":loadout:"..saved,active,count,saved
+            end
+            return "spec:"..spec,active,count
+        end
     end
     return "talent:"..active,active,count
 end
@@ -123,8 +130,11 @@ function S.CurrentProfile()
     return S.ValidCharacter(key)and key
 end
 function S.RefreshMonitorTitle(title)
-    local _,active,count=S.TalentContext();local text=M:T("监控设置")
-    if count==2 then text=text.." "..(active==1 and "|cffff80c0"..M:T("主天赋")or "|cff40ff80"..M:T("副天赋")).."|r"end
+    local _,active,count,loadout=S.TalentContext();local text=M:T("监控设置")
+    if loadout then
+        local info=Safe(C_Traits and C_Traits.GetConfigInfo,loadout)
+        if type(info)=="table"and type(info.name)=="string"and info.name~=""then text=text.." · "..info.name end
+    elseif count==2 then text=text.." "..(active==1 and "|cffff80c0"..M:T("主天赋")or "|cff40ff80"..M:T("副天赋")).."|r"end
     title:SetText(text);title:SetJustifyH("CENTER");title:SetWordWrap(false)
 end
 local function CharacterDefinition(id)
@@ -148,6 +158,8 @@ end
 local characterModules={"playerSkillMonitor","playerOtherMonitor"}
 function S.ValidTalentKey(key)
     if type(key)~="string"or #key>48 then return false end
+    local spec,loadout=key:match("^spec:(%d+):loadout:(%d+)$")
+    if spec then return tonumber(spec)>0 and tonumber(spec)<=1000000000 and tonumber(loadout)>0 and tonumber(loadout)<=1000000000 end
     local value=key:match("^talent:(%d+)$")or key:match("^spec:(%d+)$")
     return value~=nil and tonumber(value)>0 and tonumber(value)<=1000000000
 end
@@ -155,8 +167,8 @@ function S.InitCharacterStore()
     local loaded=type(MangUICharacterDB)=="table"
     if type(MangUICharacterDB)~="table"then MangUICharacterDB={}end
     local root=MangUICharacterDB
-    if type(root.schema)=="number"and root.schema>1 then error("角色配置由更新版本创建，请更新 MangUI；现有配置未修改。")end
-    root.schema=1;if type(root.monitors)~="table"then root.monitors={}end
+    if type(root.schema)=="number"and root.schema>2 then error("角色配置由更新版本创建，请更新 MangUI；现有配置未修改。")end
+    root.schema=2;if type(root.monitors)~="table"then root.monitors={}end
     if M.characterDB~=root then M.characterDB=root;S.profileBindings={};S.characterStorageLoaded=loaded end
     if not M.characterSaveEvents then
         local frame=CreateFrame("Frame");M.characterSaveEvents=frame;frame:RegisterEvent("PLAYER_LOGOUT")
@@ -237,7 +249,9 @@ function S.BindCharacter(id)
         local consumed=LegacyCharacterProfiles(id,db,{profiles={}},false)
         for _,key in ipairs(consumed)do db[d.profiles][key]=nil end
     end
-    group[d.list]=M.Copy(store.profiles[profile]or store.template or {d.api.NewEntry()})
+    -- Keep the previous spec-wide list frozen as the seed for every loadout.
+    local specProfile=profile:match("^(spec:%d+):loadout:%d+$")
+    group[d.list]=M.Copy(store.profiles[profile]or (specProfile and store.profiles[specProfile])or store.template or {d.api.NewEntry()})
     M[d.ensure](M,db.design);store.profiles[profile]=M.Copy(group[d.list])
     S.profileBindings[id]={root=MangUICharacterDB,character=character,profile=profile}
 end
@@ -270,6 +284,12 @@ function S.ImportCharacter(id,config)
     local store
     if config.characterMonitors and config.characterMonitors[id]then
         store=M.Copy(config.characterMonitors[id])
+        local profile=S.TalentContext()
+        -- Saved loadout IDs differ between characters. Apply the exported visible
+        -- list to an unknown receiving loadout and retain the other saved lists.
+        if profile:find(":loadout:",1,true)and not store.profiles[profile]and d.api.ValidEntries(group[d.list])then
+            store.profiles[profile]=M.Copy(group[d.list])
+        end
     else
         local existing=CharacterStore(id);store={profiles=M.Copy(existing.profiles)}
         LegacyCharacterProfiles(id,config,store,true)
