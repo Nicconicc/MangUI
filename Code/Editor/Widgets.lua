@@ -458,14 +458,16 @@ end
 local monitorInputTooltip
 local monitorIcons=setmetatable({},{__mode="k"})
 local monitorHover,monitorHoverDriver,monitorCheckDriver
-local function InputTooltip()
-    if not monitorInputTooltip then
-        monitorInputTooltip=CreateFrame("GameTooltip","MangUIUFMonitorInputTooltip",UIParent,"GameTooltipTemplate")
-        monitorInputTooltip:SetFrameStrata("TOOLTIP")
-        monitorInputTooltip:SetClampedToScreen(true)
-        monitorInputTooltip:EnableMouse(false)
-        monitorInputTooltip:Hide()
+local tooltipFailures={}
+local function TooltipFailure(stage,err)
+    local message=stage..": "..tostring(err)
+    if tooltipFailures[#tooltipFailures]~=message then
+        tooltipFailures[#tooltipFailures+1]=message
+        if #tooltipFailures>8 then table.remove(tooltipFailures,1)end
     end
+end
+local function InputTooltip()
+    monitorInputTooltip=GameTooltip
     return monitorInputTooltip
 end
 local function OwnsIconTooltip(icon)
@@ -476,40 +478,50 @@ end
 local function HideIconTooltip(icon)
     if OwnsIconTooltip(icon)then monitorInputTooltip:Hide()end
 end
-local function ShowIconTooltip(icon)
+local function RenderIconTooltip(icon)
     local info=icon.monitorTooltip
     if not info then HideIconTooltip(icon);return end
-    InputTooltip()
-    monitorInputTooltip:SetOwner(icon,"ANCHOR_RIGHT")
-    monitorInputTooltip:ClearLines()
-    local function Try(method,...)
-        if type(method)~="function"then return false end
-        local ok,result=pcall(method,monitorInputTooltip,...)
-        -- Native setters can return normally without producing a tooltip (for
-        -- example when the spell/item is not cached in this client).
-        return ok and result~=false and monitorInputTooltip:NumLines()>0
+    local tip=InputTooltip()
+    if not tip then TooltipFailure("GameTooltip","missing");return end
+    tip:SetOwner(icon,"ANCHOR_RIGHT")
+    -- Use the same direct name tooltip as the working class selectors first.
+    -- Native detail queries may clear it; restore this name if they fail.
+    local title=info.name or info.id or info.itemID or info.value
+    title=title and tostring(title)or ""
+    if title~=""then tip:SetText(title,1,1,1);tip:Show()end
+    local function Try(methodName,...)
+        local method=tip[methodName]
+        if type(method)~="function"then TooltipFailure(methodName,"unavailable");return false end
+        if tip.ClearLines then tip:ClearLines()end
+        local ok,result=pcall(method,tip,...)
+        if not ok then TooltipFailure(methodName,result);return false end
+        if result==false or (tip.NumLines and tip:NumLines()==0)then
+            TooltipFailure(methodName,"no content");return false
+        end
+        return true
     end
     local item=icon.monitorTooltipKind=="item"or info.itemID~=nil
     local id=item and (info.itemID or info.id)or info.id
     local shown
     if item then
-        if info.slot and id then shown=Try(monitorInputTooltip.SetInventoryItem,"player",info.slot)end
-        if not shown and info.link then shown=Try(monitorInputTooltip.SetHyperlink,info.link)end
-        if not shown and id then
-            shown=Try(monitorInputTooltip.SetItemByID,id)or Try(monitorInputTooltip.SetHyperlink,"item:"..id)
-        end
+        if info.slot and id then shown=Try("SetInventoryItem","player",info.slot)end
+        if not shown and info.link then shown=Try("SetHyperlink",info.link)end
+        if not shown and id then shown=Try("SetItemByID",id)or Try("SetHyperlink","item:"..id)end
     else
-        if id then shown=Try(monitorInputTooltip.SetSpellByID,id)or Try(monitorInputTooltip.SetHyperlink,"spell:"..id)end
+        if id then shown=Try("SetSpellByID",id)or Try("SetHyperlink","spell:"..id)end
         if not shown and info.name and GetSpellLink then
             local ok,link=pcall(GetSpellLink,info.name)
-            if ok and type(link)=="string"then shown=Try(monitorInputTooltip.SetHyperlink,link)end
+            if not ok then TooltipFailure("GetSpellLink",link)end
+            if ok and type(link)=="string"then shown=Try("SetHyperlink",link)end
         end
     end
-    if not shown and type(info.name)=="string"and info.name~=""then
-        shown=Try(monitorInputTooltip.SetText,info.name,1,1,1,1,true)
-    end
-    if shown then monitorInputTooltip:Show()else monitorInputTooltip:Hide()end
+    if not shown and title~=""then tip:SetText(title,1,1,1);shown=true end
+    if shown then tip:Show()else tip:Hide();TooltipFailure("display","no identity")end
     icon.monitorTooltipRenderedInfo=info
+end
+local function ShowIconTooltip(icon)
+    local ok,err=pcall(RenderIconTooltip,icon)
+    if not ok then TooltipFailure("display",err)end
 end
 -- Input icons also live on drag-enabled rows in a scroll child. Coordinate
 -- checks let their tooltips work when a row receives native mouse motion.
@@ -521,29 +533,38 @@ local function CursorInside(frame,x,y)
 end
 local function MonitorHit()
     local editor=M.editor
-    if not editor or not editor.window:IsVisible()or not editor.propScroll then return end
-    if IsMouseButtonDown and (IsMouseButtonDown("LeftButton")or IsMouseButtonDown("RightButton"))then return end
-    -- Respect menus and unrelated windows over the settings panel. Older
-    -- clients need not expose either focus API; bounds still work there.
-    local focus
-    if GetMouseFoci then local list=GetMouseFoci();focus=list and list[1]
-    elseif GetMouseFocus then focus=GetMouseFocus()end
-    if focus then
-        local current,inEditor=focus,false
-        while current do
-            if current.localeTransient then return end
-            if current==editor.window then inEditor=true;break end
-            current=current.GetParent and current:GetParent()
+    if not editor or not editor.window:IsVisible()or not editor.propScroll then return nil,"editor hidden"end
+    if IsMouseButtonDown and (IsMouseButtonDown("LeftButton")or IsMouseButtonDown("RightButton"))then return nil,"mouse button down"end
+    -- Inspect all mouse foci. UIParent/WorldFrame are background entries,
+    -- not evidence that an unrelated window covers the input icon.
+    local foci={}
+    if GetMouseFoci then
+        local ok,result=pcall(GetMouseFoci)
+        if ok and type(result)=="table"then foci=result
+        elseif not ok then TooltipFailure("GetMouseFoci",result)end
+    elseif GetMouseFocus then
+        local ok,result=pcall(GetMouseFocus)
+        if ok and result then foci={result}
+        elseif not ok then TooltipFailure("GetMouseFocus",result)end
+    end
+    for _,focus in ipairs(foci)do
+        if focus~=UIParent and focus~=WorldFrame then
+            local current,inEditor=focus,false
+            while current do
+                if current.localeTransient then return nil,"menu"end
+                if current==editor.window then inEditor=true;break end
+                current=current.GetParent and current:GetParent()
+            end
+            if not inEditor then return nil,"other window"end
         end
-        if not inEditor then return end
     end
     local x,y=GetCursorPosition()
-    if not CursorInside(editor.propScroll,x,y)then return end
+    if not CursorInside(editor.propScroll,x,y)then return nil,"outside scroll viewport"end
     local hit
     for icon in pairs(monitorIcons)do
         if icon.monitorTooltip and CursorInside(icon,x,y)and (not hit or icon:GetFrameLevel()>hit:GetFrameLevel())then hit=icon end
     end
-    return hit
+    return hit,hit and "hit"or "outside resolved icons"
 end
 local function UpdateMonitorHover()
     local hit=MonitorHit()
@@ -578,10 +599,12 @@ function W.CheckMonitorTooltip()
         if self.elapsed<3 then return end
         self:Hide();self:SetScript("OnUpdate",nil)
         local ok,err=pcall(function()
-            local hit=MonitorHit();local count=0
+            local hit,reason=MonitorHit();local count=0
             for icon in pairs(monitorIcons)do if icon:IsVisible()and icon.monitorTooltip then count=count+1 end end
             UpdateMonitorHover()
             M:Print("Icons="..count.." Hit="..tostring(hit and hit.monitorTooltip.id).." Tooltip="..tostring(monitorInputTooltip and monitorInputTooltip:IsShown()))
+            M:Print("Reason="..tostring(reason).." Enter="..tostring(hit and hit.monitorTooltipEnterCount or 0).." Name="..tostring(hit and hit.monitorTooltip.name))
+            for _,message in ipairs(tooltipFailures)do M:Print("Tooltip: "..message)end
         end)
         if not ok then M:Print("Icon check error: "..tostring(err))end
     end)
@@ -596,7 +619,7 @@ function W.SetIconTooltip(icon,info,kind)
     if not icon.monitorTooltipBound then
         icon.monitorTooltipBound=true;icon:EnableMouse(true)
         if icon.EnableMouseMotion then icon:EnableMouseMotion(true)end
-        icon:HookScript("OnEnter",function(self)self.monitorTooltipHovered=true;ShowIconTooltip(self)end)
+        icon:HookScript("OnEnter",function(self)self.monitorTooltipEnterCount=(self.monitorTooltipEnterCount or 0)+1;self.monitorTooltipHovered=true;ShowIconTooltip(self)end)
         local function Leave(self)self.monitorTooltipHovered=nil;HideIconTooltip(self)end
         icon:HookScript("OnLeave",Leave)
         icon:HookScript("OnHide",Leave)
