@@ -192,7 +192,7 @@ function G.BuildControls(e,parent,flush,key)
         W.SetInputValue(self,guide.owner and I.GuideText(guide.owner)or "");self:ClearFocus()
     end)
     local fontChoices=M:BundledFontChoices()
-    guide.font=W.MediaSelect(guide.rows[6],"字体",282,"font",function()
+    guide.font=W.MediaSelect(guide.rows[6],"字体",225,"font",function()
         local drop=guide.font
         if drop.menu then drop.menu:Hide();return end
         W.MediaMenu(drop,fontChoices,"font",drop.value,function(choice)
@@ -207,10 +207,10 @@ function G.BuildControls(e,parent,flush,key)
         end
         self:SetMedia(value or "",value)
     end
-    guide.fontSizeLabel=W.Label(guide.rows[6],"字体大小",12)
-    guide.fontSizeLabel:SetPoint("TOPLEFT",guide.rows[6],"TOPLEFT",294,0)
-    guide.fontSize=W.SpinBox(guide.rows[6],172,4,150,1)
-    guide.fontSize:SetPoint("TOPLEFT",guide.rows[6],"TOPLEFT",294,-24)
+    guide.fontSizeLabel=W.Label(guide.rows[6],"大小",12)
+    guide.fontSizeLabel:SetPoint("TOPLEFT",guide.rows[6],"TOPLEFT",245,0)
+    guide.fontSize=W.SpinBox(guide.rows[6],225,4,150,1)
+    guide.fontSize:SetPoint("TOPLEFT",guide.rows[6],"TOPLEFT",245,-24)
     guide.fontSize:SetScript("OnValueChanged",function(self,value)
         if not self.updating then ChangeGuide("guideFontSize",M.Clamp(math.floor(value+.5),4,150))end
     end)
@@ -234,10 +234,10 @@ function G.BuildControls(e,parent,flush,key)
         local width=(self:GetWidth()-20)/2
         for _,row in ipairs(self.rows)do row:SetWidth(self:GetWidth())end
         self.length:SetWidth(width);self.opacity:SetWidth(width);self.flatLength:SetWidth(width);self.text:SetWidth(width)
-        local fontWidth=math.floor(self:GetWidth()*.6)
-        self.font:SetWidth(fontWidth);self.fontSizeLabel:ClearAllPoints();self.fontSizeLabel:SetPoint("TOPLEFT",self.rows[6],"TOPLEFT",fontWidth+12,0)
-        self.fontSize:ClearAllPoints();self.fontSize:SetPoint("TOPLEFT",self.rows[6],"TOPLEFT",fontWidth+12,-24)
-        self.fontSize:SetWidth(math.max(100,self:GetWidth()-fontWidth-14))
+        local fontWidth=(self:GetWidth()-20)/2
+        self.font:SetWidth(fontWidth);self.fontSizeLabel:ClearAllPoints();self.fontSizeLabel:SetPoint("TOPLEFT",self.rows[6],"TOPLEFT",fontWidth+20,0)
+        self.fontSize:ClearAllPoints();self.fontSize:SetPoint("TOPLEFT",self.rows[6],"TOPLEFT",fontWidth+20,-24)
+        self.fontSize:SetWidth(width)
         self.showLines:SetChecked(I.GuideLinesShown(owner));self.showText:SetChecked(owner.showGuideText~=false)
         self.length.updating=true;self.length:SetValue(I.GuideLength(owner));self.length.updating=false
         self.flatLength.updating=true;self.flatLength:SetValue(I.GuideHorizontalLength(owner));self.flatLength.updating=false
