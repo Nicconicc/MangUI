@@ -233,6 +233,11 @@ local function Build(view,n)
         o.shadow:SetPoint("TOPLEFT",f,"TOPLEFT",6,-6)
         o.shadow:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",6,-6)
         o.text=f:CreateFontString(nil,"OVERLAY");o.text:SetAllPoints()
+        if not view.preview then
+            f:HookScript("OnShow",function()
+                if not o.removed then o.fontNeedsSettle=true;view.fontRefreshPending=true end
+            end)
+        end
     elseif n.kind=="bar" then
         o.bar=CreateFrame("StatusBar",nil,f);o.bar:SetAllPoints();o.bar:EnableMouse(false)
         o.clip=CreateFrame("Frame",nil,f);o.clip:SetClipsChildren(true);o.clip:EnableMouse(false)
@@ -338,10 +343,7 @@ local function ApplyTextFont(view,o,force)
         and applied.size==size and applied.outline==outline and applied.justify==(n.justify or "CENTER") then return end
     local failed=false
     for _,label in ipairs({o.shadow,o.text}) do
-        local ok,loaded=pcall(label.SetFont,label,font,size,outline)
-        if not ok or loaded==false then
-            failed=true;label:SetFont(M:DefaultFontPath(),size,outline)
-        end
+        if not M:ApplyRegionFont(label,font,size,outline,force)then failed=true end
         label:SetText("")
         label:SetJustifyH(n.justify or "CENTER")
         label:SetShadowColor(0,0,0,0);label:SetWordWrap(false)

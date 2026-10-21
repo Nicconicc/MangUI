@@ -2,6 +2,24 @@ local _,M=...
 local fonts={}
 local pending=false
 
+-- SetFont may report success while the native glyph run still uses the login
+-- fallback. A recovery pass must detach that face before selecting it again.
+function M:ApplyRegionFont(region,path,size,flags,force)
+    local fallback=self:DefaultFontPath()
+    flags=flags or ""
+    if force and path~=fallback then pcall(region.SetFont,region,fallback,size,flags) end
+    local ok,loaded=pcall(region.SetFont,region,path,size,flags)
+    if ok and loaded~=false and region.GetFont then
+        local read,actual,height=pcall(region.GetFont,region)
+        local function Key(value)return type(value)=="string"and value:gsub("/","\\"):lower()end
+        ok=read and Key(actual)==Key(path)and type(height)=="number"and math.abs(height-size)<.01
+    end
+    if not ok or loaded==false then
+        pcall(region.SetFont,region,fallback,size,flags);return false
+    end
+    return true
+end
+
 function M:NormalizeClientFontScale(value)
     if type(value)~="number" or value~=value or value==math.huge or value==-math.huge then return 1 end
     return math.floor(math.max(.5,math.min(1.5,value))*20+.5)/20

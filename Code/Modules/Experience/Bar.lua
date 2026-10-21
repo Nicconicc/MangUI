@@ -28,10 +28,7 @@ function E.RefreshFonts(view,o,force)
     local group=o.module or {};local font=M:EffectiveFontPath(group.fontPath or M:DefaultFontPath())
     local failed=false
     for i,label in ipairs(o.labels) do
-        local ok,loaded=pcall(label.SetFont,label,font,({12,11,12,12})[i],"OUTLINE")
-        if not ok or loaded==false then
-            failed=true;label:SetFont(M:DefaultFontPath(),({12,11,12,12})[i],"OUTLINE")
-        end
+        if not M:ApplyRegionFont(label,font,({12,11,12,12})[i],"OUTLINE",force)then failed=true end
         -- Rebuild unchanged glyph runs after the selected face becomes available.
         label:SetText("");label.localeFitSize=({12,11,12,12})[i]
     end

@@ -2,7 +2,7 @@ local _,M=...
 local R=M.Renderer
 -- Cold login can report font assignment success before glyph assets settle.
 -- Finite refreshes rebuild glyphs after loading; never retry healthy fonts forever.
-local fontSettleDelays={.5,2,5,10,20,40}
+local fontSettleDelays={.5,2,5,10,20,40,60,90}
 local independentEvents={SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,BAG_UPDATE_COOLDOWN=true,
     PLAYER_STARTED_TURNING=true,PLAYER_STOPPED_TURNING=true,PLAYER_STARTED_LOOKING=true,PLAYER_STOPPED_LOOKING=true}
 local cooldownEvents={UNIT_SPELLCAST_SUCCEEDED=true,SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,
@@ -75,6 +75,8 @@ function M:StartLive()
     end
     self:ApplyLive()
     if self.liveEvents then return end
+    -- Also arm recovery when loaded after PLAYER_ENTERING_WORLD already fired.
+    self.live.fontSettleStarted=GetTime();self.live.fontSettleStep=1
     local f=CreateFrame("Frame");self.liveEvents=f
     for _,event in ipairs({"PLAYER_ENTERING_WORLD","UI_SCALE_CHANGED","PLAYER_STARTED_TURNING","PLAYER_STOPPED_TURNING","PLAYER_STARTED_LOOKING","PLAYER_STOPPED_LOOKING","PLAYER_REGEN_DISABLED","PLAYER_REGEN_ENABLED","PLAYER_TARGET_CHANGED","PLAYER_FOCUS_CHANGED","UNIT_PET","UNIT_TARGET",
         "UNIT_HEALTH","UNIT_MAXHEALTH","UNIT_POWER_UPDATE","UNIT_MAXPOWER","UNIT_DISPLAYPOWER","UNIT_NAME_UPDATE","UNIT_LEVEL",

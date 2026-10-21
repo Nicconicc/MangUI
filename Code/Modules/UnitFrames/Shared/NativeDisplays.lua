@@ -24,8 +24,7 @@ function N.RefreshAuraFonts(view,o,force)
         if not object then
             fontSerial=fontSerial+1;object=CreateFont("MangUINativeAuraFont"..fontSerial);o.nativeAuraFonts[spec.id]=object
         end
-        local ok,loaded=pcall(object.SetFont,object,P.Font(spec),spec.fontSize or 12,"OUTLINE")
-        if not ok or loaded==false then failed=true;object:SetFont(M:DefaultFontPath(),spec.fontSize or 12,"OUTLINE") end
+        if not M:ApplyRegionFont(object,P.Font(spec),spec.fontSize or 12,"OUTLINE",force)then failed=true end
     end
     o.fontFailed=failed;o.fontNeedsSettle=not force
     if failed then view.fontsPending=true end

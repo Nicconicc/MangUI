@@ -242,8 +242,7 @@ function B.RefreshFonts(view,o,force)
     local failed=false
     for _,slot in ipairs(o.chatButtons or {}) do
         for _,label in ipairs({slot.text,slot.shadow}) do
-            local ok,loaded=pcall(label.SetFont,label,font,size,"OUTLINE")
-            if not ok or loaded==false then failed=true;label:SetFont(M:DefaultFontPath(),size,"OUTLINE") end
+            if not M:ApplyRegionFont(label,font,size,"OUTLINE",force)then failed=true end
             -- Rebuild existing glyphs as well as assigning the requested face.
             label:SetWordWrap(false)
             if label.SetNonSpaceWrap then label:SetNonSpaceWrap(false) end
