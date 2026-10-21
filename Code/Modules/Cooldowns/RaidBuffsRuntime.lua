@@ -122,11 +122,14 @@ local function Decoration(o)
             dot:AddMaskTexture(mask);frame.connector.joint=dot;frame.connector.jointMask=mask
         end
     end
+    local shadow=frame:CreateFontString(nil,"ARTWORK");frame.titleShadow=shadow
+    shadow:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"OUTLINE")
+    shadow:SetTextColor(0,0,0,1);shadow:SetJustifyH("CENTER");shadow:SetWordWrap(false);shadow:SetShadowColor(0,0,0,0)
     local title=frame:CreateFontString(nil,"OVERLAY");frame.title=title
-    title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"")
+    title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"OUTLINE")
     title:SetHeight(24)
     title:SetText(I.DefaultGuideText());title:SetTextColor(1,1,1,1);title:SetJustifyH("CENTER");title:SetWordWrap(false)
-    title:SetShadowColor(0,0,0,.8);title:SetShadowOffset(2,-2)
+    title:SetShadowColor(0,0,0,0);title:SetShadowOffset(0,0)
     frame:Hide();o.decoration=frame;return frame
 end
 local function LayoutDecoration(o,group,count)
@@ -134,7 +137,8 @@ local function LayoutDecoration(o,group,count)
     if count==0 then frame:Hide();return end
     local text=I.GuideText(group)
     if frame.title:GetText()~=text then frame.title:SetText(text)end
-    frame.title:SetShown(group.showGuideText~=false)
+    if frame.titleShadow:GetText()~=text then frame.titleShadow:SetText(text)end
+    frame.title:SetShown(group.showGuideText~=false);frame.titleShadow:SetShown(group.showGuideText~=false)
     local bounds=o.guideBounds
     local rowWidth=bounds and bounds.width or count*44-4
     local scale=math.max(.001,frame:GetEffectiveScale())
@@ -147,9 +151,12 @@ local function LayoutDecoration(o,group,count)
     local fontSize=I.GuideFontSize(group)/fontScale
     local fontPath=M:EffectiveFontPath(I.GuideFontPath(group))
     if not frame.layoutFontSize or math.abs(frame.layoutFontSize-fontSize)>.01 or frame.layoutFontPath~=fontPath then
-        frame.title:SetFont(fontPath,fontSize,"")
+        frame.title:SetFont(fontPath,fontSize,"OUTLINE")
+        frame.titleShadow:SetFont(fontPath,fontSize,"OUTLINE")
         frame.title:SetHeight(math.max(24,fontSize*1.5))
-        frame.title:SetShadowOffset(2/fontScale,-2/fontScale)
+        frame.titleShadow:ClearAllPoints()
+        frame.titleShadow:SetPoint("TOPLEFT",frame.title,"TOPLEFT",2/fontScale,-2/fontScale)
+        frame.titleShadow:SetPoint("BOTTOMRIGHT",frame.title,"BOTTOMRIGHT",2/fontScale,-2/fontScale)
         frame.layoutFontSize,frame.layoutFontPath=fontSize,fontPath
     end
     local textWidth=(frame.title.GetUnboundedStringWidth and frame.title:GetUnboundedStringWidth()or frame.title:GetStringWidth())+2
@@ -257,7 +264,7 @@ I.UpdateGuideConnector=UpdateConnector
 function I.Configure(view,o)
     o.buffIcons=o.buffIcons or {};o.entries=I.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
     local decoration=Decoration(o)
-    decoration.title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),12,"");decoration.layoutFontSize=nil
+    decoration.title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),12,"OUTLINE");decoration.layoutFontSize=nil
     decoration.layoutWidth=nil
     for index,entry in ipairs(o.entries)do
         local slot=Icon(o,index);slot.entry=entry;ResolveSlot(slot,entry)
