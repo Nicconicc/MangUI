@@ -90,8 +90,8 @@ function H.RefreshClassControls(row,entry,width)
         button.icon:SetAlpha(enabled and 1 or .3)
         if enabled then
             local r,g,b=color and color.r or info[4],color and color.g or info[5],color and color.b or info[6]
-            button.icon:SetVertexColor(r*.9,g*.9,b*.9,1)
-        else button.icon:SetVertexColor(.65,.65,.65,1)end
+            button.icon:SetVertexColor(math.min(1,r*1.08),math.min(1,g*1.08),math.min(1,b*1.08),1)
+        else button.icon:SetVertexColor(.78,.78,.78,1)end
         button.selected=enabled
     end
 end
