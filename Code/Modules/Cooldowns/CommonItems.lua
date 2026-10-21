@@ -75,15 +75,26 @@ local function ItemID(value)
     local id=tonumber(value)or (type(value)=="string"and tonumber(value:match("item:(%d+)")))
     return id and id>0 and id%1==0 and id<=1000000000 and id or nil
 end
+local function ItemCache()
+    if M.db then
+        if type(M.db.commonItemMetadata)~="table"then M.db.commonItemMetadata={}end
+        return M.db.commonItemMetadata
+    end
+    I.itemMetadata=I.itemMetadata or {};return I.itemMetadata
+end
+local function CacheKey(value)return tostring(I.Safe(GetLocale)or "")..":"..value end
+local function KnownIcon(icon)return I.Readable(icon)and icon~=134400 and (type(icon)=="number"or type(icon)=="string")end
 function I.Resolve(entry)
     if I.Kind(entry)=="equipment"then
         local slot=entry.slot or 13;local id,name,icon=O.Item(slot)
         return {id=id,name=name or (id and tostring(id)or M:T("未装备")),icon=I.Readable(icon)and icon or nil,
             equippable=true,slot=slot,use=tostring(slot)}
     end
-    local value=S.Input(entry.value);local input=ItemID(value)or value
+    local value=S.Input(entry.value);local cache=ItemCache();local cached=cache[CacheKey(value)]
+    if type(cached)~="table"then cached=nil end
+    local input=ItemID(value)or cached and ItemID(cached.id)or value
     local name,link,_,_,_,_,_,_,equip,icon=I.Safe(C_Item and C_Item.GetItemInfo or GetItemInfo,input)
-    local id=ItemID(link)or ItemID(value)
+    local id=ItemID(link)or ItemID(input)
     local instant,_,_,instantEquip,instantIcon=I.Safe(C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant,input)
     id=I.Number(instant)or id;equip=equip or instantEquip;icon=icon or instantIcon
     -- Item names may not be cached yet. Search carried items and equipment.
@@ -104,6 +115,23 @@ function I.Resolve(entry)
         if equipped and ((id and equipped==id)or (not id and I.Safe(C_Item and C_Item.GetItemInfo or GetItemInfo,equipped)==value))then id=equipped;equippedSlot=slot;break end
     end
     if not icon and id then icon=I.Safe(C_Item and C_Item.GetItemIconByID or GetItemIcon,id)end
+    if id and (not name or not KnownIcon(icon))then
+        I.requestedItems=I.requestedItems or {}
+        if not I.requestedItems[id]and C_Item and C_Item.RequestLoadItemDataByID then
+            I.requestedItems[id]=true;I.Safe(C_Item.RequestLoadItemDataByID,id)
+        end
+    end
+    if KnownIcon(icon)and id and name then
+        local metadata={id=id,name=name,icon=icon}
+        cache[CacheKey(value)]=metadata;cache[CacheKey(name)]=metadata;cache[CacheKey(tostring(id))]=metadata
+    elseif cached then
+        id=id or ItemID(cached.id);name=name or cached.name
+        if not KnownIcon(icon)and KnownIcon(cached.icon)then icon=cached.icon end
+    end
+    if not KnownIcon(icon)and M.PetBuffs then
+        local _,_,spellIcon=M.PetBuffs.SpellInfo(S.Input(entry.createSpell or ""))
+        if KnownIcon(spellIcon)then icon=spellIcon end
+    end
     -- Titan uses a nonempty NON_EQUIP marker for consumables. It is not
     -- an equipment slot and must not disable their secure item action.
     local equippable=equippedSlot~=nil or (type(equip)=="string"and equip~=""

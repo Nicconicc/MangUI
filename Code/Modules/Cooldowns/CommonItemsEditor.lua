@@ -14,7 +14,7 @@ function I.BuildControls(e,parent)
     M.MonitorSharing.BuildControls(e,parent,"commonItems",Flush)
     local function Editable(row)return row.owner and M.byID[row.owner.id]==row.owner and Index(row.owner[row.listKey],row.entry)and M:CanEdit()end
     local function PreviewIcon(row)
-        local item=I.Resolve(row.entry and I.Kind(row.entry)=="equipment"and row.entry or {value=row.item:GetText(),createSpell=""})
+        local item=I.Resolve(row.entry and I.Kind(row.entry)=="equipment"and row.entry or {value=row.item:GetText(),createSpell=row.create and W.InputValue(row.create)or ""})
         row.icon.texture:SetTexture(item.icon or 134400)
     end
     local function Drop(row,label,choices,selected,apply)
@@ -122,7 +122,7 @@ function I.BuildControls(e,parent)
                         edit:SetScript("OnEditFocusLost",function(self)Save(self);self.editOwner,self.editEntry=nil,nil end)
                         edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
                         edit:SetScript("OnEscapePressed",function(self)if self.editEntry then W.SetInputValue(self,self.editEntry[field])end;self:ClearFocus()end)
-                        edit:SetScript("OnTextChanged",function(self)self.placeholder:SetShown(self:GetText()=="");if field=="value"then PreviewIcon(row)end end)
+                        edit:SetScript("OnTextChanged",function(self)self.placeholder:SetShown(self:GetText()=="");PreviewIcon(row)end)
                         W.NamedInput(edit,field=="createSpell"and "spell"or nil)
                         edit:HookScript("OnHide",function(self)self:ClearFocus()end)
                     end
