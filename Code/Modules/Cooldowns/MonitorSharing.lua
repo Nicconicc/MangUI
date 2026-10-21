@@ -69,6 +69,7 @@ function H.BuildClassControls(row,flush,editable)
         button.classToken=info[1];button.classInfo=info;row.classButtons[#row.classButtons+1]=button
         button.icon=button:CreateTexture(nil,"ARTWORK");button.icon:SetSize(19.2,19.2);button.icon:SetPoint("CENTER")
         button.icon:SetTexture(M.ART.."ClassMarks\\"..info[3]:gsub("%s+","").."_mark.png")
+        button:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight","ADD")
         button:SetScript("OnClick",function(self)
             flush();if editable()then
                 local enabled=I.ForClass(row.entry,self.classToken)
@@ -86,7 +87,7 @@ function H.RefreshClassControls(row,entry,width)
     for index,button in ipairs(row.classButtons)do
         button:ClearAllPoints();button:SetPoint("TOPLEFT",96+(index-1)*step,-102);button:SetWidth(math.min(24,step))
         local info=button.classInfo;local color=RAID_CLASS_COLORS and RAID_CLASS_COLORS[button.classToken];local enabled=I.ForClass(entry,button.classToken)
-        button.icon:SetAlpha(enabled and 1 or .1)
+        button.icon:SetAlpha(enabled and 1 or .3)
         if enabled then
             local r,g,b=color and color.r or info[4],color and color.g or info[5],color and color.b or info[6]
             button.icon:SetVertexColor(r*.9,g*.9,b*.9,1)
