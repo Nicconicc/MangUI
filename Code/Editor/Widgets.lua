@@ -455,43 +455,58 @@ function W.Scroll(parent)
 end
 -- Editor icon tooltips use the current resolved input, never a translated name
 -- or a saved row that may have changed after typing, sorting or row reuse.
+local monitorInputTooltip
+local function InputTooltip()
+    if not monitorInputTooltip then
+        monitorInputTooltip=CreateFrame("GameTooltip","MangUIUFMonitorInputTooltip",UIParent,"GameTooltipTemplate")
+        monitorInputTooltip:SetFrameStrata("TOOLTIP")
+        monitorInputTooltip:SetClampedToScreen(true)
+        monitorInputTooltip:EnableMouse(false)
+        monitorInputTooltip:Hide()
+    end
+    return monitorInputTooltip
+end
 local function OwnsIconTooltip(icon)
-    if not GameTooltip then return false end
-    if GameTooltip.IsOwned then return GameTooltip:IsOwned(icon)end
-    return GameTooltip.GetOwner and GameTooltip:GetOwner()==icon
+    if not monitorInputTooltip then return false end
+    if monitorInputTooltip.IsOwned then return monitorInputTooltip:IsOwned(icon)end
+    return monitorInputTooltip.GetOwner and monitorInputTooltip:GetOwner()==icon
 end
 local function HideIconTooltip(icon)
-    if OwnsIconTooltip(icon)then GameTooltip:Hide()end
+    if OwnsIconTooltip(icon)then monitorInputTooltip:Hide()end
 end
 local function ShowIconTooltip(icon)
     local info=icon.monitorTooltip
-    if not info or not GameTooltip then HideIconTooltip(icon);return end
-    GameTooltip:SetOwner(icon,"ANCHOR_RIGHT")
+    if not info then HideIconTooltip(icon);return end
+    InputTooltip()
+    monitorInputTooltip:SetOwner(icon,"ANCHOR_RIGHT")
+    monitorInputTooltip:ClearLines()
     local function Try(method,...)
         if type(method)~="function"then return false end
-        local ok,result=pcall(method,GameTooltip,...)
-        return ok and result~=false
+        local ok,result=pcall(method,monitorInputTooltip,...)
+        -- Native setters can return normally without producing a tooltip (for
+        -- example when the spell/item is not cached in this client).
+        return ok and result~=false and monitorInputTooltip:NumLines()>0
     end
     local item=icon.monitorTooltipKind=="item"or info.itemID~=nil
     local id=item and (info.itemID or info.id)or info.id
     local shown
     if item then
-        if info.slot and id then shown=Try(GameTooltip.SetInventoryItem,"player",info.slot)end
-        if not shown and info.link then shown=Try(GameTooltip.SetHyperlink,info.link)end
+        if info.slot and id then shown=Try(monitorInputTooltip.SetInventoryItem,"player",info.slot)end
+        if not shown and info.link then shown=Try(monitorInputTooltip.SetHyperlink,info.link)end
         if not shown and id then
-            shown=Try(GameTooltip.SetItemByID,id)or Try(GameTooltip.SetHyperlink,"item:"..id)
+            shown=Try(monitorInputTooltip.SetItemByID,id)or Try(monitorInputTooltip.SetHyperlink,"item:"..id)
         end
     else
-        if id then shown=Try(GameTooltip.SetSpellByID,id)or Try(GameTooltip.SetHyperlink,"spell:"..id)end
+        if id then shown=Try(monitorInputTooltip.SetSpellByID,id)or Try(monitorInputTooltip.SetHyperlink,"spell:"..id)end
         if not shown and info.name and GetSpellLink then
             local ok,link=pcall(GetSpellLink,info.name)
-            if ok and type(link)=="string"then shown=Try(GameTooltip.SetHyperlink,link)end
+            if ok and type(link)=="string"then shown=Try(monitorInputTooltip.SetHyperlink,link)end
         end
     end
     if not shown and type(info.name)=="string"and info.name~=""then
-        shown=Try(GameTooltip.SetText,info.name,1,1,1,1,true)
+        shown=Try(monitorInputTooltip.SetText,info.name,1,1,1,1,true)
     end
-    if shown then GameTooltip:Show()else GameTooltip:Hide()end
+    if shown then monitorInputTooltip:Show()else monitorInputTooltip:Hide()end
 end
 function W.SetIconTooltip(icon,info,kind)
     local texture=info and info.icon
@@ -501,6 +516,7 @@ function W.SetIconTooltip(icon,info,kind)
     icon.monitorTooltipKind=kind or "spell"
     if not icon.monitorTooltipBound then
         icon.monitorTooltipBound=true;icon:EnableMouse(true)
+        if icon.EnableMouseMotion then icon:EnableMouseMotion(true)end
         icon:HookScript("OnEnter",function(self)self.monitorTooltipHovered=true;ShowIconTooltip(self)end)
         local function Leave(self)self.monitorTooltipHovered=nil;HideIconTooltip(self)end
         icon:HookScript("OnLeave",Leave)
