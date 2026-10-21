@@ -124,7 +124,7 @@ local function Decoration(o)
     end
     local shadow=frame:CreateFontString(nil,"ARTWORK");frame.titleShadow=shadow
     shadow:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"OUTLINE")
-    shadow:SetTextColor(0,0,0,.5);shadow:SetJustifyH("CENTER");shadow:SetWordWrap(false);shadow:SetShadowColor(0,0,0,0)
+    shadow:SetTextColor(0,0,0,.2);shadow:SetJustifyH("CENTER");shadow:SetWordWrap(false);shadow:SetShadowColor(0,0,0,0)
     local title=frame:CreateFontString(nil,"OVERLAY");frame.title=title
     title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"OUTLINE")
     title:SetHeight(24)
