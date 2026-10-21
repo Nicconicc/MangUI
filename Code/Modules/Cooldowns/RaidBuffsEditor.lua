@@ -300,7 +300,7 @@ function I.BuildControls(e,parent)
                     button.icon:SetDesaturated(true);button.icon:SetAlpha(enabled and 1 or .1)
                     if enabled then
                         local r,g,b=color and color.r or info[4],color and color.g or info[5],color and color.b or info[6]
-                        button.icon:SetVertexColor(r,g,b,1)
+                        button.icon:SetVertexColor(r*.9,g*.9,b*.9,1)
                         button.iconBright:SetVertexColor(r,g,b,1);button.iconBright:Show()
                     else button.icon:SetVertexColor(.65,.65,.65,1);button.iconBright:Hide()end
                     button.selected=enabled
