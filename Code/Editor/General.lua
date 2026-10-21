@@ -157,24 +157,28 @@ function M:OpenGeneral()
 end
 local function WrapString(value,edit,measure)
     local rows={};local width=math.max(100,edit:GetWidth()-16)
-    local font,size,flags=measure:GetFont()
+    local font,size,flags=edit:GetFont()
+    measure:SetFont(font,size,flags or "")
     local signature=tostring(font)..":"..tostring(size)..":"..tostring(flags)
     if measure.exportFontSignature~=signature then
-        measure.exportFontSignature=signature;measure.exportGlyphs={};measure.exportGlyphWidth=0
+        measure.exportFontSignature=signature;measure.exportGlyphs={}
     end
-    -- An encoded configuration has a small ASCII alphabet. Measure each glyph
-    -- once, rather than forcing native text layout repeatedly for every line.
-    for char in value:gmatch(".") do
-        if not measure.exportGlyphs[char] then
-            measure:SetText(char)
-            measure.exportGlyphWidth=math.max(measure.exportGlyphWidth,measure:GetStringWidth())
-            measure.exportGlyphs[char]=true
+    -- Cache actual ASCII advances, then fill each line to the edit box width.
+    -- Measuring whole prefixes repeatedly is expensive for large configurations.
+    local first,lineWidth=1,0
+    for index=1,#value do
+        local char=value:sub(index,index)
+        local advance=measure.exportGlyphs[char]
+        if not advance then
+            measure:SetText(char);advance=measure:GetStringWidth()
+            measure.exportGlyphs[char]=advance
         end
+        if lineWidth+advance>width and index>first then
+            rows[#rows+1]=value:sub(first,index-1);first=index;lineWidth=0
+        end
+        lineWidth=lineWidth+advance
     end
-    local count=math.max(1,math.min(150,math.floor(width/math.max(1,measure.exportGlyphWidth+1))))
-    for first=1,#value,count do
-        rows[#rows+1]=value:sub(first,first+count-1)
-    end
+    if first<=#value then rows[#rows+1]=value:sub(first) end
     return table.concat(rows,"\n")
 end
 function M:ShowConfigStringDialog(mode,scope)
@@ -187,16 +191,18 @@ function M:ShowConfigStringDialog(mode,scope)
         dialog:EnableMouse(true)
         dialog.title=Label(dialog,"","GameFontNormalLarge");dialog.title:SetPoint("TOP",0,-18)
         dialog.hint=Label(dialog,"");dialog.hint:SetPoint("TOP",0,-48);dialog.hint:SetWidth(670);dialog.hint:SetJustifyH("CENTER")
-        local scroll=CreateFrame("ScrollFrame",nil,dialog,"UIPanelScrollFrameTemplate")
-        scroll:SetPoint("TOPLEFT",28,-78);scroll:SetPoint("BOTTOMRIGHT",-44,70)
+        local input=CreateFrame("Frame",nil,dialog,"BackdropTemplate");dialog.input=input
+        input:SetPoint("TOPLEFT",28,-78);input:SetPoint("BOTTOMRIGHT",-28,70)
+        local scroll=CreateFrame("ScrollFrame",nil,input,"UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT",6,-6);scroll:SetPoint("BOTTOMRIGHT",-28,6)
         local edit=CreateFrame("EditBox",nil,scroll,"BackdropTemplate")
-        edit:SetPoint("TOPLEFT",4,-4);edit:SetSize(620,560);edit:SetMultiLine(true);edit:SetAutoFocus(false)
+        edit:SetPoint("TOPLEFT",0,0);edit:SetSize(630,560);edit:SetMultiLine(true);edit:SetAutoFocus(false)
         edit:SetMaxLetters(400000);edit:SetFontObject(GameFontHighlightSmall);edit:SetTextInsets(6,6,6,6)
-        edit:SetBackdrop({bgFile="Interface\\ChatFrame\\ChatFrameBackground",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",
+        input:SetBackdrop({bgFile="Interface\\ChatFrame\\ChatFrameBackground",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",
             tile=true,tileSize=16,edgeSize=12,insets={left=3,right=3,top=3,bottom=3}})
-        edit:SetBackdropColor(.03,.03,.04,1);edit:SetBackdropBorderColor(.34,.34,.36,1)
+        input:SetBackdropColor(.03,.03,.04,1);input:SetBackdropBorderColor(.34,.34,.36,1)
         scroll:SetScrollChild(edit);dialog.edit=edit;dialog.scroll=scroll
-        scroll:SetScript("OnSizeChanged",function(self,width)edit:SetWidth(math.max(100,width-20))end)
+        scroll:SetScript("OnSizeChanged",function(self,width)edit:SetWidth(math.max(100,width))end)
         edit:SetScript("OnEscapePressed",function()dialog:Hide()end)
         edit:SetScript("OnTextChanged",function(self)
             local rows=0;local charsPerLine=math.max(1,math.floor((self:GetWidth()-12)/7))
@@ -205,7 +211,7 @@ function M:ShowConfigStringDialog(mode,scope)
             if dialog.status then dialog.status:SetText("") end
         end)
         dialog.measure=dialog:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall");dialog.measure:Hide()
-        dialog.status=Label(dialog,"");dialog.status:SetPoint("TOP",scroll,"BOTTOM",0,-4)
+        dialog.status=Label(dialog,"");dialog.status:SetPoint("TOP",input,"BOTTOM",0,-4)
         dialog.status:SetWidth(670);dialog.status:SetJustifyH("CENTER");dialog.status:SetTextColor(1,.3,.3)
         dialog.action=Button(dialog,"",120,26,function()
             if dialog.mode=="export" then edit:SetFocus();edit:HighlightText();return end
