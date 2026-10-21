@@ -216,7 +216,7 @@ function M:ShowConfigStringDialog(mode,scope)
     local monitor,all=M.MonitorSharing.Scope(scope)
     dialog.mode,dialog.scope=mode,scope;dialog.status:SetText("");dialog:Show()
     if mode=="export" then
-        dialog.title:SetText(monitor=="raidBuffs"and "导出配置"or ((monitor and all)or scope=="skillsAll"or scope=="otherAll")and "导出全职业配置"or ((monitor and not all)or scope=="skillsClass"or scope=="otherClass")and "导出当前职业配置"or "导出配置")
+        dialog.title:SetText(monitor and "导出配置"or (scope=="skillsAll"or scope=="otherAll")and "导出全职业配置"or (scope=="skillsClass"or scope=="otherClass")and "导出当前职业配置"or "导出配置")
         dialog.hint:SetText("按 Ctrl+C 复制下方字符串，分享给其他用户。")
         dialog.action:SetText("全选")
         local value

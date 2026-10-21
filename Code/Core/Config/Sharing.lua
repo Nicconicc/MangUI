@@ -161,6 +161,8 @@ local function CleanConfig(config)
         or not M.PlayerSkillMonitor.ValidClass(config.playerOtherMonitorClass))then return end
     if config.commonItemsShared~=nil and not M.CommonItems.ValidEntries(config.commonItemsShared)then return end
     if config.raidBuffsUnified~=nil and type(config.raidBuffsUnified)~="boolean"then return end
+    if config.commonItemsUnified~=nil and type(config.commonItemsUnified)~="boolean"then return end
+    if config.raidVulnerabilityUnified~=nil and type(config.raidVulnerabilityUnified)~="boolean"then return end
     if config.raidBuffsShared~=nil and not M.RaidBuffMonitor.ValidEntries(config.raidBuffsShared)then return end
     if config.raidVulnerabilityShared~=nil and not M.RaidVulnerability.ValidEntries(config.raidVulnerabilityShared)then return end
     if config.commonItemsByClass~=nil and (not M.CommonItems.ValidProfiles(config.commonItemsByClass)or not M.PlayerSkillMonitor.ValidClass(config.commonItemsClass))then return end
@@ -192,6 +194,8 @@ local function CleanConfig(config)
         playerOtherMonitorClass=config.playerOtherMonitorClass,
         commonItemsShared=config.commonItemsShared and M.Copy(config.commonItemsShared),
         raidBuffsUnified=config.raidBuffsUnified==true,
+        commonItemsUnified=config.commonItemsUnified==true,
+        raidVulnerabilityUnified=config.raidVulnerabilityUnified==true,
         raidBuffsShared=config.raidBuffsShared and M.Copy(config.raidBuffsShared),
         raidVulnerabilityShared=config.raidVulnerabilityShared and M.Copy(config.raidVulnerabilityShared),
         commonItemsByClass=config.commonItemsByClass and M.Copy(config.commonItemsByClass),commonItemsClass=config.commonItemsClass,
@@ -285,6 +289,8 @@ function M:ExportConfigString()
             commonItemsShared=self.db.commonItemsShared,commonItemsByClass=self.db.commonItemsByClass,commonItemsClass=self.db.commonItemsClass,
             receivedBuffsShared=self.db.receivedBuffsShared,
             raidBuffsUnified=self.db.raidBuffsUnified==true,
+            commonItemsUnified=self.db.commonItemsUnified==true,
+            raidVulnerabilityUnified=self.db.raidVulnerabilityUnified==true,
             raidBuffsShared=self.db.raidBuffsShared,raidBuffsByClass=self.db.raidBuffsByClass,raidBuffsClass=self.db.raidBuffsClass,
             raidVulnerabilityShared=self.db.raidVulnerabilityShared,raidVulnerabilityByClass=self.db.raidVulnerabilityByClass,raidVulnerabilityClass=self.db.raidVulnerabilityClass,
             otherMonitorEquipmentOverrides=self.db.otherMonitorEquipmentOverrides,

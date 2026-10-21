@@ -6,13 +6,17 @@ I.types={{name="物品",path="item"},{name="装备",path="equipment"}}
 function I.Kind(entry)return entry.type=="equipment"and "equipment"or "item"end
 function I.NewEntry()return {type="item",slot=13,value="",createSpell=""}end
 function I.ValidEntries(entries)
-    if type(entries)~="table"or #entries>256 then return false end
+    if type(entries)~="table"or #entries>4096 then return false end
     for k,entry in pairs(entries)do
         if type(k)~="number"or k%1~=0 or k<1 or k>#entries or type(entry)~="table"then return false end
         if type(entry.value)~="string"or #entry.value>384 or type(entry.createSpell)~="string"or #entry.createSpell>384 then return false end
         if entry.type~=nil and entry.type~="item"and entry.type~="equipment"then return false end
         if entry.slot~=nil and (type(entry.slot)~="number"or entry.slot%1~=0 or entry.slot<1 or entry.slot>19)then return false end
-        for field in pairs(entry)do if field~="value"and field~="createSpell"and field~="type"and field~="slot"then return false end end
+        if entry.classes~=nil then
+            if type(entry.classes)~="table"then return false end
+            for class,enabled in pairs(entry.classes)do if not S.ValidClass(class)or type(enabled)~="boolean"then return false end end
+        end
+        for field in pairs(entry)do if field~="value"and field~="createSpell"and field~="type"and field~="slot"and field~="classes"then return false end end
     end
     for index=1,#entries do if type(entries[index])~="table"then return false end end
     return true
@@ -26,9 +30,9 @@ function I.Group(design)
     for _,node in ipairs(design and design.nodes or {})do if node.id=="commonItems"then return node end end
 end
 function I.Entries(group)
-    local entries={}
-    for _,list in ipairs({group.commonItems or {},group.classItems or {}})do
-        for _,entry in ipairs(list)do if I.Kind(entry)=="equipment"or entry.value~=""then entries[#entries+1]=entry end end
+    local entries={};local _,class=I.Safe(UnitClass,"player")
+    for _,entry in ipairs(group.commonItems or {})do
+        if class and (entry.classes==nil or entry.classes[class]==true)and (I.Kind(entry)=="equipment"or entry.value~="")then entries[#entries+1]=entry end
     end
     return entries
 end
@@ -51,7 +55,7 @@ function M:EnsureCommonItems(design)
         group={id="commonItems",label="常用物品监控",kind="group",compound="commonItems",scope="player",unit="player",
             width=2,height=2,scale=source and source.scale or 1,scaleReference=source and (source.scaleReference or source.scale)or 1,
             point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=355,hideWithoutTarget=false,growthDirection="CENTER",
-            commonItems={I.NewEntry()},classItems={I.NewEntry()}}
+            commonItems={I.NewEntry()},classItems={}}
         I.RestorePosition(group);design.nodes[#design.nodes+1]=group
     end
     if not I.ValidEntries(group.commonItems)then group.commonItems={}end
@@ -64,34 +68,9 @@ function M:EnsureCommonItems(design)
         scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=356}
 end
 local function Class()local _,class=I.Safe(UnitClass,"player");return S.ValidClass(class)and class end
-function M:SaveCommonItemsClass()
-    local db=self.db;local group=db and I.Group(db.design);local class=Class()
-    if not group or not class or db.commonItemsClass~=class then return end
-    if I.ValidEntries(group.commonItems)then db.commonItemsShared=M.Copy(group.commonItems)end
-    if I.ValidEntries(group.classItems)then
-        db.commonItemsByClass=db.commonItemsByClass or {};db.commonItemsByClass[class]=M.Copy(group.classItems)
-    end
-end
-function M:BindCommonItemsClass()
-    local db=self.db;local group=I.Group(db.design);local class=Class();if not group or not class then return end
-    if not I.ValidProfiles(db.commonItemsByClass)then db.commonItemsByClass={}end
-    if not I.ValidEntries(db.commonItemsShared)then db.commonItemsShared=M.Copy(group.commonItems)end
-    local previous=db.commonItemsClass
-    if S.ValidClass(previous)then db.commonItemsByClass[previous]=M.Copy(group.classItems)
-    elseif db.commonItemsByClass[class]==nil then db.commonItemsByClass[class]=M.Copy(group.classItems)end
-    group.commonItems=M.Copy(db.commonItemsShared);group.classItems=M.Copy(db.commonItemsByClass[class]or {I.NewEntry()})
-    db.commonItemsClass=class;db.commonItemsByClass[class]=M.Copy(group.classItems)
-end
-function M:ImportCommonItems(config)
-    local group=I.Group(self.db.design)
-    self.db.commonItemsShared=M.Copy(config.commonItemsShared or group.commonItems)
-    if config.commonItemsByClass then
-        self.db.commonItemsByClass=self.db.commonItemsByClass or {}
-        for class,entries in pairs(config.commonItemsByClass)do self.db.commonItemsByClass[class]=M.Copy(entries)end
-        self.db.commonItemsClass=config.commonItemsClass
-    else self.db.commonItemsClass=Class()end
-    self:BindCommonItemsClass()
-end
+function M:SaveCommonItemsClass()M.MonitorSharing.SaveUnified("commonItems")end
+function M:BindCommonItemsClass()M.MonitorSharing.BindUnified("commonItems")end
+function M:ImportCommonItems(config)M.MonitorSharing.ImportUnified("commonItems",config)end
 local function ItemID(value)
     local id=tonumber(value)or (type(value)=="string"and tonumber(value:match("item:(%d+)")))
     return id and id>0 and id%1==0 and id<=1000000000 and id or nil
@@ -136,3 +115,4 @@ function I.Resolve(entry)
 end
 M.moduleIDs.commonItems=true
 M:EnsureCommonItems(M.defaults);M:EnsureCommonItems(M.recordedDefaults)
+

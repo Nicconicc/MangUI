@@ -383,12 +383,12 @@ function M:RefreshProperties()
         e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
         e.raidBuffsOnlyRaid:SetChecked(n.raidOnly~=false)
         e.skillMonitorDirection:SetValue(M.PlayerSkillMonitor.Direction(n))
-        e.raidVulnerabilitySharedPanel:Refresh(n);e.raidVulnerabilityClassPanel:Refresh(n)
+        e.raidVulnerabilitySharedPanel:Refresh(n)
     end
     if n.compound=="commonItems"then
         e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
         e.skillMonitorDirection:SetValue(M.PlayerSkillMonitor.Direction(n))
-        e.commonItemsSharedPanel:Refresh(n);e.commonItemsClassPanel:Refresh(n)
+        e.commonItemsSharedPanel:Refresh(n)
     end
     if n.compound=="playerOtherMonitor" then
         e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
@@ -427,9 +427,9 @@ function M:RefreshProperties()
             elseif n.compound=="receivedBuffs"then
                 visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="receivedBuffSharing"or row.key=="receivedBuffItems"
             elseif n.compound=="raidVulnerability"then
-                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidVulnerabilitySharing"or row.key=="raidVulnerabilitySharedRows"or row.key=="raidVulnerabilityClassRows"
+                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidVulnerabilitySharing"or row.key=="raidVulnerabilitySharedRows"
             elseif n.compound=="commonItems"then
-                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="commonItemsSharing"or row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"
+                visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="commonItemsSharing"or row.key=="commonItemsSharedRows"
             elseif n.compound=="cooldownMonitor" then
                 visible=row.key=="scale" or row.key=="minCooldown" or row.key=="maxCooldown" or row.key=="blacklist"
             elseif n.compound=="chatButtons" then
@@ -543,8 +543,8 @@ function M:RefreshProperties()
             height=PropertyDivider(e,height)
             if row.key=="moduleGuideSettings"or (n.compound=="raidBuffs"and (row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsGuideSettings"))
                 or (n.compound=="receivedBuffs"and (row.key=="receivedBuffSharing"or row.key=="receivedBuffItems"))
-                or (n.compound=="raidVulnerability"and (row.key=="raidVulnerabilitySharing"or row.key=="raidVulnerabilitySharedRows"or row.key=="raidVulnerabilityClassRows"))
-                or (n.compound=="commonItems"and (row.key=="commonItemsSharing"or row.key=="commonItemsSharedRows"or row.key=="commonItemsClassRows"))
+                or (n.compound=="raidVulnerability"and (row.key=="raidVulnerabilitySharing"or row.key=="raidVulnerabilitySharedRows"))
+                or (n.compound=="commonItems"and (row.key=="commonItemsSharing"or row.key=="commonItemsSharedRows"))
                 or (n.compound=="playerSkillMonitor"and (row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"))
                 or (n.compound=="playerOtherMonitor"and (row.key=="otherMonitorSharing"or row.key=="otherMonitorItems"or row.key=="otherMonitorEquipment"))then
                 e.propertyDividers[e.propertyDividerCount]:Hide()
@@ -588,3 +588,4 @@ function M:RefreshProperties()
     end
     e.props:SetHeight(math.max(2,height+10))
 end
+
