@@ -181,6 +181,10 @@ local function UpdateConnector(view,o)
     local frame=o.decoration;local connector=frame and frame.connector
     if not connector then return end
     local group=o.guideGroup or view.byID[o.spec.parent]
+    local mouse=group and group.id=="mouseCircle"
+    if mouse and IsMouseButtonDown and (IsMouseButtonDown("LeftButton")or IsMouseButtonDown("RightButton"))then
+        HideConnector(connector);return
+    end
     local target=view.nodes[M.MainBarLayout.tokenID]
     if not I.GuideLinesShown(group)or not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
         HideConnector(connector);return
@@ -201,7 +205,6 @@ local function UpdateConnector(view,o)
         if connector.joint then connector.joint:SetVertexColor(1,1,1,opacity)end
         connector.opacity=opacity
     end
-    local mouse=group.id=="mouseCircle"
     local horizontalLength=mouse and 0 or I.GuideHorizontalLength(group)
     if rx<=0 or ry<=0 or not pixel then HideConnector(connector);return end
     if connector.tx~=tx or connector.ty~=ty or connector.rx~=rx or connector.ry~=ry
