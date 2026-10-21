@@ -141,6 +141,14 @@ local function LayoutDecoration(o,group,count)
     local _,screenHeight=Safe(GetPhysicalScreenSize)
     local pixel=(PixelUtil and PixelUtil.GetPixelToUIUnitFactor and PixelUtil.GetPixelToUIUnitFactor()
         or 768/math.max(1,Number(screenHeight)or 768))/scale
+    local uiScale=math.max(.001,UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()or 1)
+    local effectiveScale=frame.title.GetEffectiveScale and frame.title:GetEffectiveScale()or frame:GetEffectiveScale()
+    local fontScale=math.max(.001,effectiveScale/uiScale)
+    local fontSize=12/fontScale
+    if not frame.layoutFontSize or math.abs(frame.layoutFontSize-fontSize)>.01 then
+        frame.title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),fontSize,"")
+        frame.layoutFontSize=fontSize
+    end
     local textWidth=(frame.title.GetUnboundedStringWidth and frame.title:GetUnboundedStringWidth()or frame.title:GetStringWidth())+2
     local width=math.ceil(math.max(rowWidth+144,textWidth+40)/pixel)*pixel
     local center=bounds and bounds.x or S.RowOffset(group,count)
@@ -176,6 +184,13 @@ local function UpdateConnector(view,o)
     local rx,ry=target.frame:GetWidth()*ratio/2,target.frame:GetHeight()*ratio/2
     local width,height,pixel,rowWidth=frame:GetWidth(),frame:GetHeight(),frame.layoutPixel,frame.layoutRowWidth
     local length=I.GuideLength(group)
+    local opacity=I.GuideOpacity(group)
+    if connector.opacity~=opacity then
+        connector.row:SetColorTexture(1,1,1,opacity)
+        connector.link:SetVertexColor(1,1,1,opacity)
+        if connector.joint then connector.joint:SetVertexColor(1,1,1,opacity)end
+        connector.opacity=opacity
+    end
     local mouse=group.id=="mouseCircle"
     local horizontalLength=mouse and 0 or I.GuideHorizontalLength(group)
     if rx<=0 or ry<=0 or not pixel then HideConnector(connector);return end
@@ -239,7 +254,7 @@ I.UpdateGuideConnector=UpdateConnector
 function I.Configure(view,o)
     o.buffIcons=o.buffIcons or {};o.entries=I.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
     local decoration=Decoration(o)
-    decoration.title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"")
+    decoration.title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),12,"");decoration.layoutFontSize=nil
     decoration.layoutWidth=nil
     for index,entry in ipairs(o.entries)do
         local slot=Icon(o,index);slot.entry=entry;ResolveSlot(slot,entry)

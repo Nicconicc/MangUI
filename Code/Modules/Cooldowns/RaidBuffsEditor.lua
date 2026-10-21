@@ -29,7 +29,7 @@ function I.BuildControls(e,parent)
             local message=""
             if kind=="consumable"and W.InputValue(row.item)~=""then
                 message=item.supported and item.name or M:T("暂不支持此物品，请从列表选择")
-            elseif kind=="classWeapon"then message=M:T("只检查已学会且适用于当前武器的强化")end
+            end
             row.status:SetText(message);row.status:SetTextColor(item.supported and .65 or 1,item.supported and .85 or .65,.5)
         end
     end

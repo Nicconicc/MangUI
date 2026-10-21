@@ -26,6 +26,7 @@ function G.Ensure(design)
             if type(group.showGuideText)~="boolean"then group.showGuideText=true end
             group.guideLineLength=I.GuideLength(group)
             group.guideHorizontalLength=I.GuideHorizontalLength(group)
+            group.guideOpacity=I.GuideOpacity(group)
             if type(group.guideText)~="string"or #group.guideText>384 then group.guideText=G.DefaultText(group)end
         end
     end
@@ -126,7 +127,7 @@ function G.BuildControls(e,parent,flush,key)
     local function Flush()
         if flush then flush()elseif guide and guide.text then guide.text:ClearFocus()end
     end
-    guide=CreateFrame("Frame",nil,parent);guide:SetSize(470,144);if key=="raidBuffsGuideSettings"then e.raidBuffsGuidePanel=guide else e.moduleGuidePanel=guide end
+    guide=CreateFrame("Frame",nil,parent);guide:SetSize(470,180);if key=="raidBuffsGuideSettings"then e.raidBuffsGuidePanel=guide else e.moduleGuidePanel=guide end
     guide.title=W.Label(guide,"辅助线",12);guide.title:SetPoint("CENTER",guide,"TOP",0,12);guide.title:SetTextColor(1,.82,0)
     M:SetLocaleLineHeight(guide.title,18);guide.title:SetJustifyH("CENTER")
     guide.left=guide:CreateTexture(nil,"ARTWORK");guide.left:SetHeight(1);guide.left:SetColorTexture(.5,.5,.5,.45)
@@ -134,7 +135,7 @@ function G.BuildControls(e,parent,flush,key)
     guide.right=guide:CreateTexture(nil,"ARTWORK");guide.right:SetHeight(1);guide.right:SetColorTexture(.5,.5,.5,.45)
     guide.right:SetPoint("LEFT",guide.title,"RIGHT",8,0);guide.right:SetPoint("RIGHT",guide,"TOPRIGHT",0,12)
     guide.rows={}
-    for index=1,4 do
+    for index=1,5 do
         local row=CreateFrame("Frame",nil,guide);row:SetSize(470,24)
         row:SetPoint("TOPLEFT",guide,"TOPLEFT",0,-(index-1)*36);guide.rows[index]=row
     end
@@ -151,6 +152,12 @@ function G.BuildControls(e,parent,flush,key)
     guide.length:SetPoint("RIGHT",guide.rows[2],"RIGHT",-2,0)
     guide.length:SetScript("OnValueChanged",function(self,value)
         if not self.updating then ChangeGuide("guideLineLength",M.Clamp(value,0,1))end
+    end)
+    guide.opacityLabel=W.Label(guide.rows[3],"辅助线透明度",12);guide.opacityLabel:SetPoint("LEFT",guide.rows[3],"LEFT",0,0)
+    guide.opacity=W.SpinBox(guide.rows[3],225,0,1,.01);guide.opacity:SetIsPercent(true)
+    guide.opacity:SetPoint("RIGHT",guide.rows[3],"RIGHT",-2,0)
+    guide.opacity:SetScript("OnValueChanged",function(self,value)
+        if not self.updating then ChangeGuide("guideOpacity",M.Clamp(value,0,1))end
     end)
     guide.flatLengthLabel=W.Label(guide.rows[3],"辅助平线长度",12);guide.flatLengthLabel:SetPoint("LEFT",guide.rows[3],"LEFT",0,0)
     guide.flatLength=W.SpinBox(guide.rows[3],225,0,1,.01);guide.flatLength:SetIsPercent(true)
@@ -174,19 +181,25 @@ function G.BuildControls(e,parent,flush,key)
     function guide:Refresh(owner)
         self.owner=owner;self:SetWidth(e.props:GetWidth())
         local mouse=owner.id=="mouseCircle"
-        local height=mouse and 108 or 144
-        self.rows[3]:SetShown(not mouse)
-        self.rows[4]:ClearAllPoints();self.rows[4]:SetPoint("TOPLEFT",self,"TOPLEFT",0,mouse and -72 or -108)
+        local rowIndex=1
+        local function Place(row,visible)
+            row:SetShown(visible)
+            if visible then row:ClearAllPoints();row:SetPoint("TOPLEFT",self,"TOPLEFT",0,-(rowIndex-1)*36);rowIndex=rowIndex+1 end
+        end
+        Place(self.rows[1],true);Place(self.rows[2],true);Place(self.rows[3],true)
+        Place(self.rows[4],not mouse);Place(self.rows[5],true)
+        local height=(rowIndex-1)*36
         self:SetHeight(height)
         if propertyRow.height~=height then propertyRow.height=height;e.propertyLayoutSignature=nil end
         local width=(self:GetWidth()-20)/2
         for _,row in ipairs(self.rows)do row:SetWidth(self:GetWidth())end
-        self.length:SetWidth(width);self.flatLength:SetWidth(width);self.text:SetWidth(width)
+        self.length:SetWidth(width);self.opacity:SetWidth(width);self.flatLength:SetWidth(width);self.text:SetWidth(width)
         self.hide:SetChecked(owner.hideGuideLines==true);self.showText:SetChecked(owner.showGuideText~=false)
         self.length.updating=true;self.length:SetValue(I.GuideLength(owner));self.length.updating=false
         self.flatLength.updating=true;self.flatLength:SetValue(I.GuideHorizontalLength(owner));self.flatLength.updating=false
+        self.opacity.updating=true;self.opacity:SetValue(I.GuideOpacity(owner));self.opacity.updating=false
         if not self.text:HasFocus()then W.SetInputValue(self.text,I.GuideText(owner))end
     end
-    propertyRow={height=144,controls={{guide,0,0}},kinds={},key=key or "moduleGuideSettings"};e.propRows[#e.propRows+1]=propertyRow
+    propertyRow={height=180,controls={{guide,0,0}},kinds={},key=key or "moduleGuideSettings"};e.propRows[#e.propRows+1]=propertyRow
     return guide
 end
