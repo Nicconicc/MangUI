@@ -99,9 +99,13 @@ local function Decoration(o)
     local frame=CreateFrame("Frame",nil,o.frame);frame:EnableMouse(false)
     frame:SetFrameLevel(o.frame:GetFrameLevel())
     if frame.CreateLine then
-        frame.connector={}
+        -- Keep the connector behind every addon panel while the caption stays
+        -- on the guide frame's regular layer.
+        local canvas=CreateFrame("Frame",nil,frame);canvas:SetAllPoints(frame);canvas:EnableMouse(false)
+        canvas:SetFrameStrata("BACKGROUND")
+        frame.connector={canvas=canvas}
         for _,name in ipairs({"row","link"})do
-            local line=frame:CreateLine(nil,"OVERLAY")
+            local line=canvas:CreateLine(nil,"OVERLAY")
             if name=="link"then
                 line:SetTexture(M.ART.."UI\\RaidBuffSoftLine.tga","CLAMP","CLAMP","LINEAR")
                 line:SetVertexColor(1,1,1,.6);line:SetBlendMode("BLEND")
@@ -111,9 +115,9 @@ local function Decoration(o)
             line:Hide();frame.connector[name]=line
         end
         if frame.CreateMaskTexture then
-            local dot=frame:CreateTexture(nil,"OVERLAY");dot:SetTexture("Interface\\Buttons\\WHITE8X8")
+            local dot=canvas:CreateTexture(nil,"OVERLAY");dot:SetTexture("Interface\\Buttons\\WHITE8X8")
             dot:SetVertexColor(1,1,1,.6)
-            local mask=frame:CreateMaskTexture(nil,"OVERLAY")
+            local mask=canvas:CreateMaskTexture(nil,"OVERLAY")
             mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
             dot:AddMaskTexture(mask);frame.connector.joint=dot;frame.connector.jointMask=mask
         end
@@ -163,8 +167,6 @@ local function UpdateConnector(view,o)
     if group.hideGuideLines or not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
         HideConnector(connector);return
     end
-    local level=math.max(o.frame:GetFrameLevel(),target.frame:GetFrameLevel()+1)
-    if frame:GetFrameLevel()~=level then frame:SetFrameLevel(level)end
     -- Read only our own artwork frames. The external secure portrait anchor and
     -- Blizzard aura frames must never become layout dependencies of these lines.
     local cx,cy=frame:GetCenter();local tx,ty=target.frame:GetCenter()
@@ -209,17 +211,17 @@ local function UpdateConnector(view,o)
             -- shoulder on each side, so the quad boundary stays transparent.
             connector.row:SetThickness(2*pixel);connector.link:SetThickness(4*pixel)
             if horizontalLength>0 then
-                connector.row:SetStartPoint("CENTER",frame,innerX,y)
-                connector.row:SetEndPoint("CENTER",frame,iconEdge,y)
+                connector.row:SetStartPoint("CENTER",connector.canvas,innerX,y)
+                connector.row:SetEndPoint("CENTER",connector.canvas,iconEdge,y)
             end
             local startX,startY=innerX+(edgeX-innerX)*length,y+(edgeY-y)*length
             if length>0 then
-                connector.link:SetStartPoint("CENTER",frame,startX,startY)
-                connector.link:SetEndPoint("CENTER",frame,innerX,y)
+                connector.link:SetStartPoint("CENTER",connector.canvas,startX,startY)
+                connector.link:SetEndPoint("CENTER",connector.canvas,innerX,y)
             end
             if connector.joint then
                 connector.joint:SetSize(8*pixel,8*pixel)
-                connector.joint:ClearAllPoints();connector.joint:SetPoint("CENTER",frame,startX,startY)
+                connector.joint:ClearAllPoints();connector.joint:SetPoint("CENTER",connector.canvas,startX,startY)
                 connector.jointMask:SetAllPoints(connector.joint)
             end
         end
