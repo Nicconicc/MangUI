@@ -46,7 +46,7 @@ function I.BuildControls(e,parent)
         end
         return drop
     end
-    for _,definition in ipairs({{"raidBuffs","通用Buff设置","raidBuffsSharedRows"}})do
+    for _,definition in ipairs({{"raidBuffs","监控设置","raidBuffsSharedRows"}})do
         local key,title,property=unpack(definition)
         local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,32);panel.rows={};panel.key=key;panels[#panels+1]=panel
         panel.title=W.Label(panel,title,12);panel.title:SetPoint("CENTER",panel,"TOP",0,12);panel.title:SetTextColor(1,.82,0)

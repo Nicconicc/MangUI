@@ -208,15 +208,12 @@ function I.CleanSharing(config)
     local entries=I.Unify(config.shared,config.profiles);if not I.ValidEntries(entries)then return end
     return {format=2,module="raidBuffs",scope="all",entries=entries}
 end
-function M:ExportRaidBuffSharing(all)
-    self:SaveRaidBuffMonitorClass();local entries={};local class=Class()
-    if not all and not class then return end
+function M:ExportRaidBuffSharing()
+    self:SaveRaidBuffMonitorClass();local entries={}
     for _,entry in ipairs(self.db.raidBuffsShared or {})do
-        if all or I.ForClass(entry,class)then
-            local copy=M.Copy(entry);copy.classes=all and I.ClassMask(entry)or {[class]=true};entries[#entries+1]=copy
-        end
+        local copy=M.Copy(entry);copy.classes=I.ClassMask(entry);entries[#entries+1]=copy
     end
-    return {format=2,module="raidBuffs",scope=all and "all"or "class",class=not all and class or nil,entries=entries}
+    return {format=2,module="raidBuffs",scope="all",entries=entries}
 end
 function M:ApplyRaidBuffSharing(config)
     local group=self.byID.raidBuffs;local entries

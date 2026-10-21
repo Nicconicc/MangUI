@@ -46,7 +46,7 @@ local function Clean(config)
 end
 function M:ExportMonitorString(id,all)
     local d=definitions[id];if not d then return end
-    if id=="raidBuffs"then local config=self:ExportRaidBuffSharing(all);return config and H.Encode("!MUM1:",config)end
+    if id=="raidBuffs"then local config=self:ExportRaidBuffSharing();return config and H.Encode("!MUM1:",config)end
     self[d.save](self)
     local class=self.db[d.class];if not S.ValidClass(class)then return end
     local profiles=self.db[d.profiles]or {}
@@ -80,10 +80,11 @@ function H.BuildControls(e,parent,id,flush)
     left:SetPoint("LEFT",frame,"TOPLEFT",0,12);left:SetPoint("RIGHT",frame.title,"LEFT",-8,0)
     local right=frame:CreateTexture(nil,"ARTWORK");right:SetHeight(1);right:SetColorTexture(.5,.5,.5,.45)
     right:SetPoint("LEFT",frame.title,"RIGHT",8,0);right:SetPoint("RIGHT",frame,"TOPRIGHT",0,12)
-    frame.exportAll=W.Button(frame,"导出全职业配置",150,function()flush();M:ShowConfigStringDialog("export",id.."All")end)
-    frame.exportClass=W.Button(frame,"导出当前职业配置",150,function()flush();M:ShowConfigStringDialog("export",id.."Class")end)
+    frame.exportAll=W.Button(frame,id=="raidBuffs"and "导出配置"or "导出全职业配置",150,function()flush();M:ShowConfigStringDialog("export",id.."All")end)
+    if id~="raidBuffs"then frame.exportClass=W.Button(frame,"导出当前职业配置",150,function()flush();M:ShowConfigStringDialog("export",id.."Class")end)end
     frame.import=W.Button(frame,"导入配置",150,function()flush();M:ShowConfigStringDialog("import",id)end)
-    for _,button in ipairs({frame.exportAll,frame.exportClass,frame.import})do button:SetHoverTextColor(1,.82,0)end
+    frame.buttons=id=="raidBuffs"and {frame.exportAll,frame.import}or {frame.exportAll,frame.exportClass,frame.import}
+    for _,button in ipairs(frame.buttons)do button:SetHoverTextColor(1,.82,0)end
     e[id.."Sharing"]=frame
     e.propRows[#e.propRows+1]={height=56,controls={{frame,0,0}},kinds={},key=id.."Sharing"}
 end
@@ -91,7 +92,7 @@ function H.RefreshControls(e,group)
     if not definitions[group.compound]then return end
     local frame=e[group.compound.."Sharing"];if not frame then return end
     local width=e.props:GetWidth();frame:SetWidth(width)
-    for index,button in ipairs({frame.exportAll,frame.exportClass,frame.import})do
-        local w=(width-16)/3;button:SetWidth(w);button:ClearAllPoints();button:SetPoint("TOPLEFT",(index-1)*(w+8),-24)
+    for index,button in ipairs(frame.buttons)do
+        local w=(width-(#frame.buttons-1)*8)/#frame.buttons;button:SetWidth(w);button:ClearAllPoints();button:SetPoint("TOPLEFT",(index-1)*(w+8),-24)
     end
 end
