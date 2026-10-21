@@ -456,6 +456,8 @@ end
 -- Editor icon tooltips use the current resolved input, never a translated name
 -- or a saved row that may have changed after typing, sorting or row reuse.
 local monitorInputTooltip
+local monitorIcons=setmetatable({},{__mode="k"})
+local monitorHover,monitorHoverDriver,monitorCheckDriver
 local function InputTooltip()
     if not monitorInputTooltip then
         monitorInputTooltip=CreateFrame("GameTooltip","MangUIUFMonitorInputTooltip",UIParent,"GameTooltipTemplate")
@@ -507,8 +509,85 @@ local function ShowIconTooltip(icon)
         shown=Try(monitorInputTooltip.SetText,info.name,1,1,1,1,true)
     end
     if shown then monitorInputTooltip:Show()else monitorInputTooltip:Hide()end
+    icon.monitorTooltipRenderedInfo=info
+end
+-- Input icons also live on drag-enabled rows in a scroll child. Coordinate
+-- checks let their tooltips work when a row receives native mouse motion.
+local function CursorInside(frame,x,y)
+    if not frame or not frame:IsVisible()then return false end
+    local scale=frame:GetEffectiveScale()
+    local left,right,bottom,top=frame:GetLeft(),frame:GetRight(),frame:GetBottom(),frame:GetTop()
+    return left and right and bottom and top and x>=left*scale and x<=right*scale and y>=bottom*scale and y<=top*scale
+end
+local function MonitorHit()
+    local editor=M.editor
+    if not editor or not editor.window:IsVisible()or not editor.propScroll then return end
+    if IsMouseButtonDown and (IsMouseButtonDown("LeftButton")or IsMouseButtonDown("RightButton"))then return end
+    -- Respect menus and unrelated windows over the settings panel. Older
+    -- clients need not expose either focus API; bounds still work there.
+    local focus
+    if GetMouseFoci then local list=GetMouseFoci();focus=list and list[1]
+    elseif GetMouseFocus then focus=GetMouseFocus()end
+    if focus then
+        local current,inEditor=focus,false
+        while current do
+            if current.localeTransient then return end
+            if current==editor.window then inEditor=true;break end
+            current=current.GetParent and current:GetParent()
+        end
+        if not inEditor then return end
+    end
+    local x,y=GetCursorPosition()
+    if not CursorInside(editor.propScroll,x,y)then return end
+    local hit
+    for icon in pairs(monitorIcons)do
+        if icon.monitorTooltip and CursorInside(icon,x,y)and (not hit or icon:GetFrameLevel()>hit:GetFrameLevel())then hit=icon end
+    end
+    return hit
+end
+local function UpdateMonitorHover()
+    local hit=MonitorHit()
+    if hit~=monitorHover then
+        if monitorHover then monitorHover.monitorTooltipHovered=nil;HideIconTooltip(monitorHover)end
+        monitorHover=hit
+        if hit then hit.monitorTooltipHovered=true;ShowIconTooltip(hit)end
+    elseif hit and (not OwnsIconTooltip(hit)or not monitorInputTooltip:IsShown()or hit.monitorTooltipRenderedInfo~=hit.monitorTooltip)then
+        ShowIconTooltip(hit)
+    end
+end
+local function WatchMonitorHover()
+    if monitorHoverDriver or not M.editor or not M.editor.window then return end
+    monitorHoverDriver=CreateFrame("Frame",nil,M.editor.window)
+    monitorHoverDriver:EnableMouse(false)
+    monitorHoverDriver:SetScript("OnUpdate",function(self,elapsed)
+        self.elapsed=(self.elapsed or 0)+elapsed
+        if self.elapsed<.08 then return end
+        self.elapsed=0;UpdateMonitorHover()
+    end)
+    monitorHoverDriver:SetScript("OnHide",function()
+        if monitorHover then monitorHover.monitorTooltipHovered=nil;HideIconTooltip(monitorHover);monitorHover=nil end
+    end)
+end
+function W.CheckMonitorTooltip()
+    M:Print("Icon check v"..M.version..": move to an input icon within 3 seconds.")
+    monitorCheckDriver=monitorCheckDriver or CreateFrame("Frame",nil,UIParent)
+    monitorCheckDriver.elapsed=0
+    monitorCheckDriver:Show()
+    monitorCheckDriver:SetScript("OnUpdate",function(self,elapsed)
+        self.elapsed=self.elapsed+elapsed
+        if self.elapsed<3 then return end
+        self:Hide();self:SetScript("OnUpdate",nil)
+        local ok,err=pcall(function()
+            local hit=MonitorHit();local count=0
+            for icon in pairs(monitorIcons)do if icon:IsVisible()and icon.monitorTooltip then count=count+1 end end
+            UpdateMonitorHover()
+            M:Print("Icons="..count.." Hit="..tostring(hit and hit.monitorTooltip.id).." Tooltip="..tostring(monitorInputTooltip and monitorInputTooltip:IsShown()))
+        end)
+        if not ok then M:Print("Icon check error: "..tostring(err))end
+    end)
 end
 function W.SetIconTooltip(icon,info,kind)
+    monitorIcons[icon]=true;WatchMonitorHover()
     local texture=info and info.icon
     local readable=M.Compat.Readable(texture)
     icon.monitorTooltip=readable and (type(texture)=="number"or type(texture)=="string")

@@ -1,7 +1,7 @@
 local name, M = ...
 _G.MangUIUF = M
-M.name, M.version = name, "1.0.642"
-M.optionsTitle = "MangUI - V1.0.642 2026/10/21 2116"
+M.name, M.version = name, "1.0.643"
+M.optionsTitle = "MangUI - V1.0.643 2026/10/21 2148"
 M.errors, M.status = {}, "等待初始化"
 M.ART = "Interface\\AddOns\\MangUI\\Assets\\"
 M.MYRIAD = "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
@@ -71,6 +71,8 @@ SlashCmdList.MANGUIUF = function(text)
         if M.BossFrames then M.BossFrames.Test(text:match("^bosstest%s+(%S+)") or "") end
     elseif text=="profile" or text:match("^profile%s") then
         if M.ModuleProfiler then M.ModuleProfiler.Command(text:match("^profile%s+(%S+)") or "") end
+    elseif text == "tipcheck" then
+        if M.Widgets and M.Widgets.CheckMonitorTooltip then M.Widgets.CheckMonitorTooltip()end
     elseif text == "status" then
         local _, _, _, build = GetBuildInfo()
         M:Print("v"..M.version.." · 接口 "..tostring(build).." · "..M.status)
