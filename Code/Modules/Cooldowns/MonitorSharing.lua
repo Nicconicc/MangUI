@@ -87,11 +87,11 @@ function H.RefreshClassControls(row,entry,width)
     for index,button in ipairs(row.classButtons)do
         button:ClearAllPoints();button:SetPoint("TOPLEFT",96+(index-1)*step,-102);button:SetWidth(math.min(24,step))
         local info=button.classInfo;local color=RAID_CLASS_COLORS and RAID_CLASS_COLORS[button.classToken];local enabled=I.ForClass(entry,button.classToken)
-        button.icon:SetAlpha(enabled and 1 or .3)
+        button.icon:SetAlpha(enabled and 1 or .05)
         if enabled then
             local r,g,b=color and color.r or info[4],color and color.g or info[5],color and color.b or info[6]
             button.icon:SetVertexColor(math.min(1,r*1.08),math.min(1,g*1.08),math.min(1,b*1.08),1)
-        else button.icon:SetVertexColor(.78,.78,.78,1)end
+        else button.icon:SetVertexColor(0,0,0,1)end
         button.selected=enabled
     end
 end
