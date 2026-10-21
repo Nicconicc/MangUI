@@ -1,7 +1,7 @@
 local name, M = ...
 _G.MangUIUF = M
-M.name, M.version = name, "1.0.639"
-M.optionsTitle = "MangUI - V1.0.639 2026/10/21 2018"
+M.name, M.version = name, "1.0.640"
+M.optionsTitle = "MangUI - V1.0.640 2026/10/21 2045"
 M.errors, M.status = {}, "等待初始化"
 M.ART = "Interface\\AddOns\\MangUI\\Assets\\"
 M.MYRIAD = "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
@@ -21,6 +21,28 @@ function M:Safe(stage, fn, ...)
     local ok, result = pcall(fn, ...)
     if not ok then self:Report(stage, result) end
     return ok, result
+end
+function M:RuntimeCall(view,key,label,fn,...)
+    if view.preview then return true,fn(...) end
+    local failures=view.runtimeFailures
+    local failure=failures and failures[key]
+    if failure and GetTime()<failure.retryAt then return false end
+    local ok,result=pcall(fn,...)
+    if ok then
+        if failure then failures[key]=nil end
+        return true,result
+    end
+    failures=failures or {};view.runtimeFailures=failures
+    failure=failure or {attempts=0};failures[key]=failure
+    failure.attempts=math.min(6,failure.attempts+1)
+    failure.retryAt=GetTime()+math.min(30,2^(failure.attempts-1))
+    local reports=view.runtimeReports or {};view.runtimeReports=reports
+    local message=tostring(result)
+    if reports[key]~=message then
+        reports[key]=message
+        self:Report("模块刷新暂缓："..label.."（将自动重试，其他模块继续运行）",message)
+    end
+    return false,result
 end
 function M.Copy(value)
     if type(value) ~= "table" then return value end

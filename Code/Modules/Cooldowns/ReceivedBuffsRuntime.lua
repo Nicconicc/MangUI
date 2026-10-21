@@ -50,7 +50,7 @@ local function Bind(slot)
         container:SetAuraGroupLayout("received",{elementSpacing=0,lineSpacing=0,elementWidth=40,elementHeight=40})
     end
     slot.container:SetUnit("player")
-    slot.container:SetAuraGroupCandidateFilters("received",{includeSpellIDs=slot.spell.ids or {[slot.spell.id]=true},isFromPlayerOrPlayerPet=true})
+    slot.container:SetAuraGroupCandidateFilters("received",{includeSpellIDs=slot.spell.ids or {[slot.spell.id]=true},isFromPlayerOrPlayerPet=false})
     slot.container:SetAuraGroupMaxFrameCount("received",1);slot.container:SetEnabled(true);slot.container:UpdateAllAuras();slot.bound=true
 end
 local function Icon(o,index)

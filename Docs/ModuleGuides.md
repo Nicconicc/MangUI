@@ -54,20 +54,6 @@
 
 ## 职业加载图标
 
-团队易伤监控、团队 Buff 缺失监控、常用物品监控的职业加载按钮使用 `Assets/ClassMarks` 中的白色透明职业图标，并按游戏职业颜色着色。悬停时显示通用高亮；未激活职业图标透明度为30%，激活职业仍按职业颜色显示。点击切换和悬停提示沿用原规则；每个客户端只显示该版本支持的职业。
+团队易伤监控、团队 Buff 缺失监控和常用物品监控使用与左侧页签一致的菱形图标。激活时按职业颜色着色，未激活时正常褪色、不透明度10%；鼠标悬停显示通用高亮。点击切换和职业名称提示保留，每个客户端只显示该版本支持的职业。
 
-| 职业 | 图标文件 |
-| --- | --- |
-| Priest | `Priest_mark.png` |
-| Warrior | `Warrior_mark.png` |
-| Warlock | `Warlock_mark.png` |
-| Death Knight | `DeathKnight_mark.png` |
-| Paladin | `Paladin_mark.png` |
-| Shaman | `Shaman_mark.png` |
-| Demon Hunter | `DemonHunter_mark.png` |
-| Mage | `Mage_mark.png` |
-| Hunter | `Hunter_mark.png` |
-| Rogue | `Rogue_mark.png` |
-| Evoker | `Evoker_mark.png` |
-| Monk | `Monk_mark.png` |
-| Druid | `Druid_mark.png` |
+当前不使用 `Assets/ClassMarks` 中的职业剪影；这些保留资源不会参与职业加载按钮绘制。

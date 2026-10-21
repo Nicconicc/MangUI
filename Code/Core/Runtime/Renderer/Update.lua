@@ -114,6 +114,12 @@ local function ProfilePaint(view,o,animateOnly,visibleHint)
     Paint(view,o,animateOnly,visibleHint)
     M.ModuleProfiler.Record(o.module and o.module.id,o.spec.kind,debugprofilestop()-started,animateOnly and "animate" or "update")
 end
+local function RuntimePaint(view,o,animateOnly,visibleHint)
+    o.runtimeKey=o.runtimeKey or "update:"..o.spec.id
+    local group=o.module or o.spec
+    local paint=M.ModuleProfiler and M.ModuleProfiler.active and ProfilePaint or Paint
+    M:RuntimeCall(view,o.runtimeKey,group.label or group.id,paint,view,o,animateOnly,visibleHint)
+end
 local emptyUpdates={}
 local function QueueBucket(list,bucket,generation)
     if not bucket then return 0 end
@@ -124,7 +130,7 @@ local function QueueBucket(list,bucket,generation)
 end
 function R.Update(view,units,modules,fields,objects)
     if not view.ordered then return end
-    R.UpdateDecorationRange(view)
+    M:RuntimeCall(view,"decorationRange","装饰范围刷新",R.UpdateDecorationRange,view)
     for unit in pairs(view.stateFields) do view.stateFields[unit]=nil end
     local list=view.ordered;local focus=not units and not modules and not objects
     if objects then
@@ -158,16 +164,16 @@ function R.Update(view,units,modules,fields,objects)
         if buckets>1 then table.sort(list,UpdateOrder) end
     else for unit in pairs(view.cache) do view.cache[unit]=nil end end
     view.lastUpdateCount=#list
-    local paint=not view.preview and M.ModuleProfiler and M.ModuleProfiler.active and ProfilePaint or Paint
+    local paint=view.preview and Paint or RuntimePaint
     for _,o in ipairs(list) do
         paint(view,o,false)
         if o.module and o.module.id=="focusComposite" then focus=true end
     end
-    if not view.preview and focus then UpdateFocusMenuBounds(view) end
-    R.UpdateEntryAnimations(view)
-    if M.BossFrames then M.BossFrames.Animate(view) end
-    if M.PartyFrames then M.PartyFrames.RefreshHighlight(view) end
-    if M.ModuleGuides then M.ModuleGuides.Refresh(view,true)end
+    if not view.preview and focus then M:RuntimeCall(view,"menuBounds","点击区域刷新",UpdateFocusMenuBounds,view)end
+    M:RuntimeCall(view,"entryAnimations","入场动画",R.UpdateEntryAnimations,view)
+    if M.BossFrames then M:RuntimeCall(view,"bossAnimation","首领框体",M.BossFrames.Animate,view)end
+    if M.PartyFrames then M:RuntimeCall(view,"partyHighlight","队伍框体",M.PartyFrames.RefreshHighlight,view)end
+    if M.ModuleGuides then M:RuntimeCall(view,"guides:update","辅助线",M.ModuleGuides.Refresh,view,true)end
 end
 local function NeedsAnimation(view,o)
     if view.preview then return true end
@@ -181,32 +187,33 @@ local function NeedsAnimation(view,o)
     if n.kind=="resources" and o.resourceAnimating==false then return false end
     return true
 end
+local function AnimateObject(view,o)
+    local n=o.spec
+    if not NeedsAnimation(view,o)then return end
+    local paint=not view.preview and M.ModuleProfiler and M.ModuleProfiler.active and ProfilePaint or Paint
+    if independentKinds[n.kind]or n.attackKind or n.centerLogo or (n.kind=="spark"and n.edgeOnly)then paint(view,o,true)
+    elseif o.frame:IsVisible()then paint(view,o,true,true)
+    elseif n.particleFlow then ResetParticle(o)end
+end
 function R.Animate(view)
     if not view.root:IsVisible() then return end
-    R.UpdateDecorationRange(view)
+    M:RuntimeCall(view,"decorationRange","装饰范围刷新",R.UpdateDecorationRange,view)
     if not view.preview then view.animationNow=GetTime();view.animationCasting=nil end
-    local paint=not view.preview and M.ModuleProfiler and M.ModuleProfiler.active and ProfilePaint or Paint
     for _,o in ipairs(view.animated) do
-        -- Custom modules may wake themselves while hidden (range, cooldowns,
-        -- combat notices). Ordinary visuals wake through Update or gate OnShow.
-        local n=o.spec
-        if NeedsAnimation(view,o) then
-            if independentKinds[n.kind] or n.attackKind or n.centerLogo or (n.kind=="spark" and n.edgeOnly) then
-                paint(view,o,true)
-            elseif o.frame:IsVisible() then
-                paint(view,o,true,true)
-            elseif n.particleFlow then
-                ResetParticle(o)
-            end
+        if view.preview then AnimateObject(view,o)
+        else
+            o.animateRuntimeKey=o.animateRuntimeKey or "animate:"..o.spec.id
+            local group=o.module or o.spec
+            M:RuntimeCall(view,o.animateRuntimeKey,group.label or group.id,AnimateObject,view,o)
         end
     end
-    if M.ModuleGuides then M.ModuleGuides.Refresh(view)end
-    R.UpdateEntryAnimations(view,true)
-    if M.BossFrames and view.bossAnimating then M.BossFrames.Animate(view) end
+    if M.ModuleGuides then M:RuntimeCall(view,"guides:animate","辅助线",M.ModuleGuides.Refresh,view)end
+    M:RuntimeCall(view,"entryAnimations","入场动画",R.UpdateEntryAnimations,view,true)
+    if M.BossFrames and view.bossAnimating then M:RuntimeCall(view,"bossAnimation","首领框体",M.BossFrames.Animate,view)end
     if M.MainSweep then
         local profile=not view.preview and M.ModuleProfiler
         local started=profile and profile.active and debugprofilestop()
-        M.MainSweep.Animate(view)
+        M:RuntimeCall(view,"mainSweep","主框体扫光",M.MainSweep.Animate,view)
         if started then profile.Record("mainComposite","shine",debugprofilestop()-started,"animate") end
     end
 end

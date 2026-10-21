@@ -330,9 +330,10 @@ end
 function S.ApplyCharacterSharing(id,config)
     local d=CharacterDefinition(id);local db=M.db;local group=CharacterGroup(id,db.design)
     if not S.CurrentCharacter()or not group then return false end
-    S.SaveCharacter(id)
     local entries=config.format==2 and config.entries or config.profiles[config.class or CurrentClass()]
-    if entries then group[d.list]=M.Copy(entries);S.SaveCharacter(id)end
+    if not entries then return false,"旧版配置中没有当前职业的监控列表，未导入。"end
+    S.SaveCharacter(id)
+    group[d.list]=M.Copy(entries);S.SaveCharacter(id)
     M[d.ensure](M,db.design);return true
 end
 function S.RefreshProfileBindings()

@@ -354,18 +354,23 @@ local function ApplyTextFont(view,o,force)
     o.appliedFont={path=font,size=size,outline=outline,justify=n.justify or "CENTER"}
     o.fontFailed=failed;o.fontNeedsSettle=not force
 end
+local function RefreshObjectFont(view,o)
+    if o.text then ApplyTextFont(view,o,true)
+    elseif o.chatButtons then M.ChatButtons.RefreshFonts(view,o,true)
+    elseif o.nativeAuras then M.NativeDisplays.RefreshAuraFonts(view,o,true)
+    else M.ExperienceBar.RefreshFonts(view,o,true) end
+end
 function R.RefreshTextFonts(view,onlyPending)
     if not view then return end
     view.fontsPending=nil
     local refreshed={}
     for _,o in ipairs(view.ordered or {}) do
-        if (o.text or o.spec.kind=="experiencebar" or o.chatButtons or o.nativeAuras) and not o.removed and (not onlyPending or o.fontNeedsSettle or o.fontFailed)
-            and (not onlyPending or not view.preview or o.frame:IsVisible()) then
-            if o.text then ApplyTextFont(view,o,true)
-            elseif o.chatButtons then M.ChatButtons.RefreshFonts(view,o,true)
-            elseif o.nativeAuras then M.NativeDisplays.RefreshAuraFonts(view,o,true)
-            else M.ExperienceBar.RefreshFonts(view,o,true) end
-            refreshed[#refreshed+1]=o
+        if (o.text or o.spec.kind=="experiencebar" or o.chatButtons or o.nativeAuras)and not o.removed and (not onlyPending or o.fontNeedsSettle or o.fontFailed)
+            and (not onlyPending or not view.preview or o.frame:IsVisible())then
+            o.fontRuntimeKey=o.fontRuntimeKey or "font:"..o.spec.id
+            local group=o.module or o.spec
+            if M:RuntimeCall(view,o.fontRuntimeKey,group.label or group.id,RefreshObjectFont,view,o)then refreshed[#refreshed+1]=o
+            else o.fontFailed=true;view.fontsPending=true end
         end
     end
     return refreshed
@@ -458,6 +463,7 @@ function R.PrepareDesign(design,unchanged)
 end
 
 function R.Apply(view,design,unchanged)
+    view.runtimeFailures=nil
     local prepared=R.PrepareDesign(design,unchanged)
     local selectionChanged=view.renderSelection~=view.selected or view.renderScene~=view.scene
         or view.renderScope~=view.previewScope

@@ -24,3 +24,5 @@
 模块分享只替换接收方当前方案。整体分享保留全部已有方案列表；接收方当前方案编号不在字符串内时，将导出时显示的列表应用到当前方案，保留其他已导入的列表。
 
 实现按客户端生成的 [ClassTalents API](https://github.com/Gethe/wow-ui-source/blob/live/Interface/AddOns/Blizzard_APIDocumentationGenerated/ClassTalentsDocumentation.lua) 读取已保存方案编号，并响应 SELECTED_LOADOUT_CHANGED；不会把内部的工作配置编号当作已保存方案编号。
+
+旧版全职业模块字符串若不包含接收方当前职业的列表，导入会明确提示未导入，保留现有列表及装备补充设置。包含对应职业的旧串、明确指定职业的旧单职业串，以及新版当前列表字符串仍可使用。

@@ -24,9 +24,13 @@ local portraitEvents={UNIT_PORTRAIT_UPDATE=true,UNIT_MODEL_CHANGED=true,PORTRAIT
 local trackedUnits={player=true,vehicle=true,target=true,targettarget=true,focus=true,pet=true,
     party1=true,party2=true,party3=true,party4=true}
 local function Clear(t) for key in pairs(t) do t[key]=nil end end
+local dispatchKeys={}
 local function Dispatch(id,fn,...)
+    local key=dispatchKeys[id];if not key then key="event:"..id;dispatchKeys[id]=key end
+    local group=M.byID and M.byID[id];local label=group and group.label or id
     local profile=M.ModuleProfiler
-    if profile and profile.active then profile.Measure(id,fn,...) else fn(...) end
+    if profile and profile.active then M:RuntimeCall(M.live,key,label,profile.Measure,id,fn,...)
+    else M:RuntimeCall(M.live,key,label,fn,...)end
 end
 -- Match the supplied WA exactly; do not change the game's saved scale CVars.
 local waUIScale=768/1440
@@ -217,7 +221,7 @@ function M:StartLive()
         local settling=step and GetTime()>=(view.fontSettleStarted+fontSettleDelays[step])
         if view.fontRefreshPending or settling or (view.fontsPending and (view.fontRetryCount or 0)<10 and GetTime()>=(view.fontRetryAt or 0)) then
             view.fontRefreshPending=nil
-            R.RefreshTextFonts(view)
+            M:RuntimeCall(view,"fonts","字体刷新",R.RefreshTextFonts,view)
             if settling then
                 repeat step=step+1 until not fontSettleDelays[step] or GetTime()<view.fontSettleStarted+fontSettleDelays[step]
                 view.fontSettleStep=fontSettleDelays[step] and step or nil
@@ -227,11 +231,11 @@ function M:StartLive()
             dirty=true
         end
         if dirty or polled>=.2 then
-            R.Update(M.live);dirty=false;pending=false;polled=0;ResetDirty()
+            M:RuntimeCall(view,"update","状态刷新",R.Update,M.live);dirty=false;pending=false;polled=0;ResetDirty()
         elseif pending then
-            R.Update(M.live,dirtyUnits,dirtyModules,dirtyFields);pending=false;ResetDirty()
+            M:RuntimeCall(view,"update","状态刷新",R.Update,M.live,dirtyUnits,dirtyModules,dirtyFields);pending=false;ResetDirty()
         end
-        R.Animate(M.live)
+        M:RuntimeCall(view,"animate","动画刷新",R.Animate,M.live)
     end
     f:SetScript("OnUpdate",function(self,dt)
         polled=polled+dt
@@ -239,6 +243,12 @@ function M:StartLive()
         local started=profile and profile.active and debugprofilestop()
         local ok,err=pcall(Refresh)
         if started then profile.Total("frame",debugprofilestop()-started) end
-        if not ok then self:SetScript("OnUpdate",nil);M:Report("框体刷新已暂停",err) end
+        if not ok then
+            dirty=true;pending=false;polled=0;ResetDirty()
+            local message=tostring(err)
+            if M.live.lastRefreshError~=message then
+                M.live.lastRefreshError=message;M:Report("刷新异常（继续重试）",message)
+            end
+        end
     end)
 end

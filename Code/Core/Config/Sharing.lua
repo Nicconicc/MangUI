@@ -263,7 +263,8 @@ function M:ApplyPlayerSkillMonitorString(input)
         panel:FinishDrag(false)
         for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
     end
-    if not self.PlayerSkillMonitor.ApplyCharacterSharing("playerSkillMonitor",config)then return false,INVALID end
+    local ok,errorText=self.PlayerSkillMonitor.ApplyCharacterSharing("playerSkillMonitor",config)
+    if not ok then return false,errorText or INVALID end
     self:Commit();return true
 end
 function M:ExportConfigString()

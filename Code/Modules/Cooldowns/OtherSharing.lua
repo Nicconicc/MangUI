@@ -42,7 +42,8 @@ function M:ApplyPlayerOtherMonitorString(input)
     local config=self:ImportPlayerOtherMonitorString(input)
     if not config then return false,"配置字符串无效或已损坏，请检查是否完整复制。"end
     if O.FlushEditor then O.FlushEditor()end
-    if not S.ApplyCharacterSharing("playerOtherMonitor",config)then return false,"配置字符串无效或已损坏，请检查是否完整复制。"end
+    local ok,errorText=S.ApplyCharacterSharing("playerOtherMonitor",config)
+    if not ok then return false,errorText or "配置字符串无效或已损坏，请检查是否完整复制。"end
     if config.scope=="all"and config.overrides then self.db.otherMonitorEquipmentOverrides=M.Copy(config.overrides)end
     if config.scope=="all"and config.equipment then self.db.otherMonitorEquipmentEntries=M.Copy(config.equipment)end
     if config.scope=="all"then O.MigrateEquipment(self.db);self:SavePlayerOtherMonitorClass()end
