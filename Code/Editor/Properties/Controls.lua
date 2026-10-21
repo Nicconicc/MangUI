@@ -685,6 +685,14 @@ local function BuildProperties(e)
     end
     e.nameXSlider,e.nameXLabel=NameSlider("焦点名称X偏移","nameX","x",100,400,1)
     e.nameYSlider,e.nameYLabel=NameSlider("焦点名称Y偏移","nameY","y",-100,100,1)
+    e.hidePlayerCastText=W.Check(content,"隐藏施法文字",function(hidden)
+        local group=Selected()
+        if not group or group.compound~="playerCast" or not M:CanEdit() then return end
+        local name=CastPart(group,"waba76314011sub3")
+        if not name then return end
+        name.enabled=not hidden;M:Commit()
+    end)
+    Row(32,{{e.hidePlayerCastText,-4,0}},nil,"hidePlayerCastText");y=y-32
     e.nameFontButton=W.MediaSelect(content,"字体",propertyWidth,"font",function()M:OpenFocusFontPicker()end)
     e.nameFontButton:SetPoint("TOPLEFT",0,y)
     Row(53,{{e.nameFontButton,0,0}},nil,"nameFont");y=y-53

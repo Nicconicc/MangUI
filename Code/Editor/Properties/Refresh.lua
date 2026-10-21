@@ -290,6 +290,8 @@ function M:RefreshProperties()
     if IsCastGroup(n) then
         if n.compound=="targetCast" then e.hideCastName:SetChecked(self.byID.targetCastName and self.byID.targetCastName.enabled==false)end
         if n.compound=="playerCast" then
+            local name=CastPart(n,"waba76314011sub3")
+            e.hidePlayerCastText:SetChecked(name and name.enabled==false)
             e.castColor:SetColor(M.byID.waba76314011.color or {1,1,1,1})
             e.rangedProgressColor:SetColor(n.rangedProgressColor or {1,1,1,1})
             e.meleeProgressColor:SetColor(n.meleeProgressColor or {1,1,1,1})
@@ -417,7 +419,7 @@ function M:RefreshProperties()
                 visible=row.key=="overallScale" or row.key=="castIconSize"
                     or row.key=="castFontSize" or row.key=="nameFont"
                     or (n.compound=="targetCast" and (row.key=="x" or row.key=="y" or row.key=="hideCastName"))
-                    or (n.compound=="playerCast" and (row.key=="castColor" or row.key=="showRangedProgress" or row.key=="showMeleeProgress"))
+                    or (n.compound=="playerCast" and (row.key=="hidePlayerCastText" or row.key=="castColor" or row.key=="showRangedProgress" or row.key=="showMeleeProgress"))
             elseif n.compound=="playerOtherMonitor" then
                 visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="otherMonitorSharing"or row.key=="otherMonitorItems"or row.key=="otherMonitorEquipment"
             elseif n.compound=="playerSkillMonitor" then
