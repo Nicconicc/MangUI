@@ -26,8 +26,9 @@ function W.RoundedMoveArea(frame)
         end end
     end
 end
-function W.Label(parent,text,size)
+function W.Label(parent,text,size,nativeSize)
     local t=parent:CreateFontString(nil,"OVERLAY");t:SetFont(M:DefaultFontPath(),size or 12,"")
+    if not nativeSize then t.clientInterfaceNominalSize=size or 12 end
     M:BindText(t);t:SetText(text or "");t:SetTextColor(1,1,1);t:SetJustifyH("LEFT");return t
 end
 function W.DragListHeader(panel,line)
@@ -237,7 +238,7 @@ function W.Tab(parent,text,fn)
     highlight:SetHeight(b:GetHeight())
     highlight:SetPoint("LEFT",b,"LEFT",10,-4);highlight:SetPoint("RIGHT",b,"RIGHT",-10,-4)
     local _,labelSize=GameFontNormal:GetFont()
-    b.label=W.Label(b,text,labelSize);b.label:SetPoint("CENTER",0,-2);b:SetScript("OnClick",fn)
+    b.label=W.Label(b,text,labelSize,true);b.label:SetPoint("CENTER",0,-2);b:SetScript("OnClick",fn)
     function b:SetActive(active)self.label:SetTextColor(1,active and 1 or .82,active and 1 or 0)end
     b:SetActive(false)
     return b

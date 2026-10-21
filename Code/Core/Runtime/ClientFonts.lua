@@ -13,6 +13,14 @@ local function ReadFont(object)
     if ok and type(path)=="string" and type(size)=="number" and size>0 then return path,size,flags end
 end
 
+function M:ClientInterfaceFontSize(nominal)
+    -- GameFontNormal is already resized by ApplyClientFontScale. Add the
+    -- interface label's original difference from 12 AFTER that scaling.
+    local _,size=ReadFont(GameFontNormal)
+    if not size then size=12*self:NormalizeClientFontScale(self.db and self.db.clientFontScale) end
+    return math.max(1,size+(nominal or 12)-12)
+end
+
 local function Capture(object,visiting,allowed)
     if fonts[object] then return fonts[object] end
     local _,size=ReadFont(object)
@@ -60,6 +68,7 @@ function M:ApplyClientFontScale()
             end
         end
     end
+    if self.RefreshClientInterfaceFonts then self:RefreshClientInterfaceFonts() end
 end
 
 function M:SetClientFontScale(value)

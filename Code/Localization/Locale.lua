@@ -129,13 +129,25 @@ function M:ApplyLocaleFont(object,text)
         desired=self:ResolveFontPath(label.localePreviewFont)
         size=label.localePreviewSize or size;flags=label.localePreviewFlags or ""
     end
-    size=self:ControlPanelFontSize(object)or size
+    local nominal=self:ControlPanelFontSize(object)or label.clientInterfaceNominalSize
+    if nominal then size=self:ClientInterfaceFontSize(nominal) end
     local _,currentSize,currentFlags=label:GetFont()
     if desired~=path or size~=currentSize or flags~=currentFlags then
         local ok,loaded=pcall(label.SetFont,label,desired,size,flags or "")
         if not ok or loaded==false then label:SetFont(self:InterfaceFontPath(),size,flags or "") end
     end
     self:EnsureLocaleLineHeight(label)
+end
+function M:RefreshClientInterfaceFonts()
+    local function Refresh(object)
+        local label=object.GetFontString and object:GetFontString()or object
+        if label and (self:ControlPanelFontSize(object)or label.clientInterfaceNominalSize)then
+            object.localeRenderCache=nil;object.localeFitCache=nil
+            self:ApplyLocaleFont(object,object:GetText())
+        end
+    end
+    for object in pairs(self.localizedText)do Refresh(object)end
+    for object in pairs(self.localizedInputs)do Refresh(object)end
 end
 function M:BindInputFont(object)
     if not object or not object.GetFont then return end
