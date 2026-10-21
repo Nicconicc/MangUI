@@ -124,7 +124,7 @@ local function Decoration(o)
     end
     local shadow=frame:CreateFontString(nil,"ARTWORK");frame.titleShadow=shadow
     shadow:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"OUTLINE")
-    shadow:SetTextColor(0,0,0,1);shadow:SetJustifyH("CENTER");shadow:SetWordWrap(false);shadow:SetShadowColor(0,0,0,0)
+    shadow:SetTextColor(0,0,0,.5);shadow:SetJustifyH("CENTER");shadow:SetWordWrap(false);shadow:SetShadowColor(0,0,0,0)
     local title=frame:CreateFontString(nil,"OVERLAY");frame.title=title
     title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"OUTLINE")
     title:SetHeight(24)
@@ -155,8 +155,8 @@ local function LayoutDecoration(o,group,count)
         frame.titleShadow:SetFont(fontPath,fontSize,"OUTLINE")
         frame.title:SetHeight(math.max(24,fontSize*1.5))
         frame.titleShadow:ClearAllPoints()
-        frame.titleShadow:SetPoint("TOPLEFT",frame.title,"TOPLEFT",2/fontScale,-2/fontScale)
-        frame.titleShadow:SetPoint("BOTTOMRIGHT",frame.title,"BOTTOMRIGHT",2/fontScale,-2/fontScale)
+        frame.titleShadow:SetPoint("TOPLEFT",frame.title,"TOPLEFT",1/fontScale,-1/fontScale)
+        frame.titleShadow:SetPoint("BOTTOMRIGHT",frame.title,"BOTTOMRIGHT",1/fontScale,-1/fontScale)
         frame.layoutFontSize,frame.layoutFontPath=fontSize,fontPath
     end
     local textWidth=(frame.title.GetUnboundedStringWidth and frame.title:GetUnboundedStringWidth()or frame.title:GetStringWidth())+2
