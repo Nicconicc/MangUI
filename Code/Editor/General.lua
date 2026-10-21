@@ -14,7 +14,7 @@ local function Section(parent,text,y,height)
     local area=CreateFrame("Frame",nil,parent,"BackdropTemplate")
     area:SetPoint("TOPLEFT",4,y-18);area:SetPoint("TOPRIGHT",-4,y-18);area:SetHeight(height)
     area:SetFrameLevel(math.max(0,parent:GetFrameLevel()-1));area:SetBackdrop(backdrop)
-    area:SetBackdropColor(.12,.12,.13,.55);area:SetBackdropBorderColor(.34,.34,.36,.9)
+    area:SetBackdropColor(.12,.12,.13,.75);area:SetBackdropBorderColor(.34,.34,.36,.9)
     local title=Label(parent,text);title:SetTextColor(1,.82,0);title:SetPoint("BOTTOMLEFT",area,"TOPLEFT",3,2)
     return area
 end
