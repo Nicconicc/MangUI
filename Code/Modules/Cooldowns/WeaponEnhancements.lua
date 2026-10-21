@@ -4,11 +4,8 @@ local Safe,Number,Readable=I.Safe,I.Number,I.Readable
 W.types={{name="常驻Buff",path="buff"},{name="职业武器强化",path="classWeapon"},{name="消耗品武器强化",path="consumable"}}
 W.slots={{name="主手",path="main"},{name="副手",path="off"},{name="主副手",path="both"},{name="任一武器",path="any"}}
 function W.Types()
-    local _,class=Safe(UnitClass,"player");local list={}
-    for _,choice in ipairs(W.types)do
-        if choice.path~="classWeapon"or class=="ROGUE"or class=="SHAMAN"or class=="WARLOCK"or class=="PALADIN"then list[#list+1]=choice end
-    end
-    return list
+    -- Every class can configure all enhancement rules; runtime checks decide which apply.
+    return W.types
 end
 function W.Family()
     local n=M.Compat.interface or 0

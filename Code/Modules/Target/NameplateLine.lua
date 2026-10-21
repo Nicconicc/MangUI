@@ -1,39 +1,27 @@
 local _,M=...
-local L={restricted=setmetatable({},{__mode="k"})};M.TargetNameplateLine=L
+local L={};M.TargetNameplateLine=L
 local C=M.Compat
 local function Call(fn,...)
     if not fn then return end
     local ok,value=pcall(fn,...);if ok then return value end
 end
-local function Number(value)return C.Readable(value)and type(value)=="number"and value==value and math.abs(value)<1e9 and value or nil end
 local function Visible(frame)
     if not frame or Call(frame.IsForbidden,frame)==true then return false end
-    if C.Bool(Call(frame.IsVisible,frame))~=true then return false end
-    local alpha=Call(frame.GetEffectiveAlpha or frame.GetAlpha,frame)
-    if not C.Readable(alpha)then return false end
-    return alpha==nil or (type(alpha)=="number"and alpha>0)
-end
-local function Center(frame,scale)
-    if not frame.GetCenter then return end
-    local ok,x,y=pcall(frame.GetCenter,frame)
-    local restricted=not C.Readable(x)or not C.Readable(y)
-    x,y=Number(x),Number(y)
-    local frameScale=Number(Call(frame.GetEffectiveScale,frame))
-    if ok and x and y and frameScale then return x*frameScale/scale,y*frameScale/scale end
-    if not ok or restricted then return nil,nil,"restricted"end
-    return nil,nil,"unavailable"
+    return C.Bool(Call(frame.IsVisible,frame))==true
 end
 function L.Hide(view,reason)
     L.status=reason or "hidden"
-    local overlay=view and view.targetNameplateLine
-    if overlay then
-        if overlay:IsShown()then overlay:Hide()end
-        overlay.source=nil;overlay.plate=nil
-    end
+    local host=view and view.targetNameplateLine
+    if host and host:IsShown()then host:Hide()end
+end
+local function Restricted(view,err)
+    L.lastError=tostring(err);L.unsupported=true
+    L.Hide(view,"nameplate-child-anchor-unavailable")
+    if M.general and M.RefreshOtherSettings then M:RefreshOtherSettings()end
 end
 function L.Update(view)
     if not view or view.preview then return end
-    if L.unsupported then L.Hide(view,"nameplate-restricted");return end
+    if L.unsupported then L.Hide(view,"nameplate-child-anchor-unavailable");return end
     local portrait=view.nodes and view.nodes.wa0b0b0540c7
     local source=portrait and (portrait.portraitAnchor or portrait.frame)
     if not M.db or M.db.targetNameplateLine==false or not Visible(view.root)
@@ -41,48 +29,32 @@ function L.Update(view)
         or C.Bool(Call(UnitExists,"target"))~=true then L.Hide(view,"source-or-target-unavailable");return end
     local plate=Call(C_NamePlate and C_NamePlate.GetNamePlateForUnit,"target")
     if not Visible(plate)then L.Hide(view,"nameplate-unavailable");return end
-    if L.restricted[plate]then L.Hide(view,"nameplate-restricted");return end
-    local overlay=view.targetNameplateLine
-    if not overlay then
-        overlay=CreateFrame("Frame",nil,UIParent);overlay:SetAllPoints(UIParent)
-        overlay:SetFrameStrata("HIGH");overlay:SetFrameLevel(1);overlay:EnableMouse(false)
-        overlay:Hide();view.targetNameplateLine=overlay
-        if not overlay.CreateLine then return end
-        overlay.line=overlay:CreateLine(nil,"ARTWORK")
-        overlay.line:SetColorTexture(1,1,1,.75);overlay.line:SetThickness(2)
-        if overlay.line.SetSnapToPixelGrid then overlay.line:SetSnapToPixelGrid(false)end
-        if overlay.line.SetTexelSnappingBias then overlay.line:SetTexelSnappingBias(0)end
-    end
-    if not overlay.line then L.status="line-api-unavailable";return end
-    local scale=Number(Call(overlay.GetEffectiveScale,overlay))
-    local sx,sy,tx,ty,reason
-    if scale and scale>0 then
-        sx,sy=Center(source,scale);tx,ty,reason=Center(plate,scale)
-    end
-    if not tx then
-        if reason=="restricted"then
-            L.restricted[plate]=true;L.unsupported=true
-            if M.general and M.RefreshOtherSettings then M:RefreshOtherSettings()end
-        end
-        L.Hide(view,reason=="restricted"and "nameplate-restricted"or "nameplate-coordinates-unavailable");return
-    end
-    if not sx then L.Hide(view,"source-coordinates-unavailable");return end
-    -- Restricted nameplates cannot be measured or used as cross-frame line
-    -- anchors. Only draw from readable coordinates; never fall back to that anchor.
-    local left=Number(Call(overlay.GetLeft,overlay))or 0
-    local bottom=Number(Call(overlay.GetBottom,overlay))or 0
-    sx,sy,tx,ty=sx-left,sy-bottom,tx-left,ty-bottom
-    if overlay.source~=source or overlay.plate~=plate
-        or overlay.sx~=sx or overlay.sy~=sy or overlay.tx~=tx or overlay.ty~=ty then
+    view.nameplateLineHosts=view.nameplateLineHosts or setmetatable({},{__mode="k"})
+    local host=view.nameplateLineHosts[plate]
+    if not host then
         local ok,err=pcall(function()
-            overlay.line:SetStartPoint("BOTTOMLEFT",overlay,sx,sy)
-            overlay.line:SetEndPoint("BOTTOMLEFT",overlay,tx,ty)
+            -- Keep the line inside the nameplate's layout family. Never measure
+            -- the plate or anchor a UIParent-owned line onto the plate.
+            host=CreateFrame("Frame",nil,plate);host:Hide();host:EnableMouse(false)
+            view.nameplateLineHosts[plate]=host
+            host:SetAllPoints(plate)
+            if host.SetClipsChildren then host:SetClipsChildren(false)end
+            host.line=host:CreateLine(nil,"OVERLAY")
+            host.line:SetColorTexture(1,1,1,.75);host.line:SetThickness(2)
+            host.line:SetStartPoint("CENTER",host,0,0)
         end)
-        if not ok then L.lastError=tostring(err);L.Hide(view,"anchor-unavailable");return end
-        overlay.source,overlay.plate=source,plate
-        overlay.sx,overlay.sy,overlay.tx,overlay.ty=sx,sy,tx,ty
+        if not ok then Restricted(view,err);return end
     end
-    L.status="shown-screen";L.lastError=nil;overlay.line:Show();overlay:Show()
+    if view.targetNameplateLine~=host then
+        L.Hide(view);view.targetNameplateLine=host
+    end
+    if host.source~=source then
+        local ok,err=pcall(host.line.SetEndPoint,host.line,"CENTER",source,0,0)
+        if not ok then Restricted(view,err);return end
+        host.source=source
+    end
+    -- Native anchors follow both endpoints without polling their coordinates.
+    L.status="shown-nameplate-child";L.lastError=nil;host.line:Show();host:Show()
 end
 function L.Event(view,event)
     if event=="PLAYER_TARGET_CHANGED"or event=="NAME_PLATE_UNIT_ADDED"or event=="NAME_PLATE_UNIT_REMOVED"
