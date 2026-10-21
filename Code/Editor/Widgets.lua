@@ -453,6 +453,63 @@ function W.Scroll(parent)
     local content=CreateFrame("Frame",nil,s);content:SetSize(200,2);s:SetScrollChild(content)
     return s,content
 end
+-- Editor icon tooltips use the current resolved input, never a translated name
+-- or a saved row that may have changed after typing, sorting or row reuse.
+local function OwnsIconTooltip(icon)
+    if not GameTooltip then return false end
+    if GameTooltip.IsOwned then return GameTooltip:IsOwned(icon)end
+    return GameTooltip.GetOwner and GameTooltip:GetOwner()==icon
+end
+local function HideIconTooltip(icon)
+    if OwnsIconTooltip(icon)then GameTooltip:Hide()end
+end
+local function ShowIconTooltip(icon)
+    local info=icon.monitorTooltip
+    if not info or not GameTooltip then HideIconTooltip(icon);return end
+    GameTooltip:SetOwner(icon,"ANCHOR_RIGHT")
+    local function Try(method,...)
+        if type(method)~="function"then return false end
+        local ok,result=pcall(method,GameTooltip,...)
+        return ok and result~=false
+    end
+    local item=icon.monitorTooltipKind=="item"or info.itemID~=nil
+    local id=item and (info.itemID or info.id)or info.id
+    local shown
+    if item then
+        if info.slot and id then shown=Try(GameTooltip.SetInventoryItem,"player",info.slot)end
+        if not shown and info.link then shown=Try(GameTooltip.SetHyperlink,info.link)end
+        if not shown and id then
+            shown=Try(GameTooltip.SetItemByID,id)or Try(GameTooltip.SetHyperlink,"item:"..id)
+        end
+    else
+        if id then shown=Try(GameTooltip.SetSpellByID,id)or Try(GameTooltip.SetHyperlink,"spell:"..id)end
+        if not shown and info.name and GetSpellLink then
+            local ok,link=pcall(GetSpellLink,info.name)
+            if ok and type(link)=="string"then shown=Try(GameTooltip.SetHyperlink,link)end
+        end
+    end
+    if not shown and type(info.name)=="string"and info.name~=""then
+        shown=Try(GameTooltip.SetText,info.name,1,1,1,1,true)
+    end
+    if shown then GameTooltip:Show()else GameTooltip:Hide()end
+end
+function W.SetIconTooltip(icon,info,kind)
+    local texture=info and info.icon
+    local readable=M.Compat.Readable(texture)
+    icon.monitorTooltip=readable and (type(texture)=="number"or type(texture)=="string")
+        and texture~=0 and texture~=134400 and texture~=""and info or nil
+    icon.monitorTooltipKind=kind or "spell"
+    if not icon.monitorTooltipBound then
+        icon.monitorTooltipBound=true;icon:EnableMouse(true)
+        icon:HookScript("OnEnter",function(self)self.monitorTooltipHovered=true;ShowIconTooltip(self)end)
+        local function Leave(self)self.monitorTooltipHovered=nil;HideIconTooltip(self)end
+        icon:HookScript("OnLeave",Leave)
+        icon:HookScript("OnHide",Leave)
+        icon:HookScript("OnDragStart",Leave)
+    end
+    if icon.monitorTooltipHovered and OwnsIconTooltip(icon)then ShowIconTooltip(icon)end
+end
+
 function W.BlacklistEditor(parent,width,changed)
     local f=CreateFrame("Frame",nil,parent);f:SetSize(width,234);f.rows={};f.entries={}
     local panel=W.Panel(f);panel:SetPoint("TOPLEFT");panel:SetPoint("TOPRIGHT");panel:SetHeight(198)

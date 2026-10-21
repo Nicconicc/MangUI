@@ -70,6 +70,7 @@ function O.BuildControls(e,parent)
     local function RefreshIcon(row)
         local spell=M.RaidBuffMonitor.ResolveValue(W.InputValue(row.edit))
         row.icon.texture:SetTexture(spell.icon or 134400)
+        W.SetIconTooltip(row.icon,spell)
         if row.entry.value==W.InputValue(row.edit)and not spell.id then M.RaidBuffMonitor.RequestBuffName(row.entry.value)end
     end
     do

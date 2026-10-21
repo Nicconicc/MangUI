@@ -73,10 +73,14 @@ function O.BuildControls(e,parent)
         Flush();if Current()and M:CanEdit()then M.db.otherMonitorEquipmentOverrides[#M.db.otherMonitorEquipmentOverrides+1]=O.NewOverride();M:Commit()end
     end)
     local function RefreshIcon(row)
-        local entry=row.entry;local name,_,icon
-        if entry.type=="equipment"then _,name,icon=O.Item(entry.slot or 13)
-        else name,_,icon=M.PetBuffs.SpellInfo(W.InputValue(row.edit))end
+        local entry=row.entry;local name,id,icon
+        local equipment=entry.type=="equipment"
+        if equipment then id,name,icon=O.Item(entry.slot or 13)
+        else
+            local value=W.InputValue(row.edit);name,id,icon=M.PetBuffs.SpellInfo(value);id=tonumber(value)or id
+        end
         row.icon.texture:SetTexture(icon or 134400)
+        W.SetIconTooltip(row.icon,{name=name,id=id,icon=icon,slot=equipment and (entry.slot or 13)or nil},equipment and "item"or "spell")
         if entry.type=="equipment"then row.edit:SetText(name or M:T("未装备"))end
     end
     local function RefreshSupplementIcon(row)
@@ -90,6 +94,7 @@ function O.BuildControls(e,parent)
         end
         if not O.Readable(icon)or icon==0 then icon=nil end
         row.icon.texture:SetTexture(icon or 134400)
+        W.SetIconTooltip(row.icon,{id=id,icon=icon},"item")
     end
     function supplement:Refresh(width)
         local rows=M.db.otherMonitorEquipmentOverrides or {};self:SetWidth(width)

@@ -16,6 +16,7 @@ function I.BuildControls(e,parent)
     local function PreviewIcon(row)
         local item=I.Resolve(row.entry and I.Kind(row.entry)=="equipment"and row.entry or {value=row.item:GetText(),createSpell=row.create and W.InputValue(row.create)or ""})
         row.icon.texture:SetTexture(item.icon or 134400)
+        W.SetIconTooltip(row.icon,item,"item")
     end
     local function Drop(row,label,choices,selected,apply)
         local drop

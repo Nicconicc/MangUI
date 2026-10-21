@@ -809,9 +809,10 @@ function S.BuildControls(e,parent,Row)
     for _,button in ipairs({sharing.exportAll,sharing.import})do button:SetHoverTextColor(1,.82,0)end
     local function SkillIcon(row)
         local value=S.Input(W.InputValue(row.edit))
-        local name,_,icon
-        if value~="" then name,_,icon=M.PetBuffs.SpellInfo(value)end
+        local name,id,icon
+        if value~="" then name,id,icon=M.PetBuffs.SpellInfo(value)end
         row.skillIcon.texture:SetTexture(name and icon or 134400)
+        W.SetIconTooltip(row.skillIcon,name and {name=name,id=tonumber(value)or id,icon=icon}or nil)
     end
     panel.insertMarker=CreateFrame("Frame",nil,panel);panel.insertMarker:SetSize(470,2)
     panel.insertMarker:SetFrameLevel(panel:GetFrameLevel()+40);panel.insertMarker:Hide()

@@ -25,6 +25,8 @@ function I.BuildControls(e,parent)
         end
         row.icon.texture:SetTexture(item.icon or 134400)
         row.alternativeIcon.texture:SetTexture(other.icon or 134400)
+        W.SetIconTooltip(row.icon,item)
+        W.SetIconTooltip(row.alternativeIcon,other)
         if row.status then
             local message=""
             if kind=="consumable"and W.InputValue(row.item)~=""then
@@ -174,13 +176,6 @@ function I.BuildControls(e,parent)
                         Flush();row.entry.value=tostring(id or link or "");ClearCursor();M:Commit()
                     end
                     row.item:SetScript("OnReceiveDrag",ReceiveItem);row.icon:SetScript("OnReceiveDrag",ReceiveItem)
-                    row.icon:HookScript("OnEnter",function(self)
-                        local info=I.Resolve(row.entry)
-                        GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
-                        Wep.Tooltip(info)
-                        GameTooltip:Show()
-                    end)
-                    row.icon:HookScript("OnLeave",function()GameTooltip:Hide()end)
                     row.remove=W.Button(row,"删除",72,function()
                         Flush();if Editable(row)then table.remove(row.owner[row.listKey],Index(row.owner[row.listKey],row.entry));M:Commit()end
                     end)
