@@ -10,6 +10,7 @@
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\Logo.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB
+## SavedVariablesPerCharacter: MangUICharacterDB
 
 Code\Core\Bootstrap.lua
 Code\Media\AssetPaths.lua

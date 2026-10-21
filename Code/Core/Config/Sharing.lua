@@ -155,6 +155,11 @@ local function CleanConfig(config)
     if config.healthClassColor~=nil and type(config.healthClassColor)~="boolean" then return end
     if config.adapt4KUIScale~=nil and type(config.adapt4KUIScale)~="boolean" then return end
     if config.useGlobalFont~=nil and type(config.useGlobalFont)~="boolean" then return end
+    local characterMonitors
+    if config.characterMonitors~=nil then
+        characterMonitors=M.PlayerSkillMonitor.CleanCharacterSettings(config.characterMonitors)
+        if not characterMonitors then return end
+    end
     for _,definition in ipairs({{"playerSkillMonitorsByCharacter","playerSkillMonitorCharacter",M.PlayerSkillMonitor.ValidEntries},{"playerOtherMonitorsByCharacter","playerOtherMonitorCharacter",M.PlayerOtherMonitor.ValidEntries}})do
         local profiles,owner=config[definition[1]],config[definition[2]]
         if profiles~=nil and (not M.PlayerSkillMonitor.ValidCharacterProfiles(profiles,definition[3])or not M.PlayerSkillMonitor.ValidCharacter(owner)or profiles[owner]==nil)then return end
@@ -192,6 +197,7 @@ local function CleanConfig(config)
         globalFontPath=M:ResolveFontPath(config.globalFontPath and config.globalFontPath~="" and config.globalFontPath or M:DefaultFontPath()),
         globalFontName=not M:IsRetiredFont(config.globalFontName) and config.globalFontName and config.globalFontName~="" and config.globalFontName or "默认",
         minimap={hide=config.minimap.hide,angle=config.minimap.angle},
+        characterMonitors=characterMonitors,
         playerSkillMonitorsByCharacter=config.playerSkillMonitorsByCharacter and M.Copy(config.playerSkillMonitorsByCharacter),playerSkillMonitorCharacter=config.playerSkillMonitorCharacter,
         playerOtherMonitorsByCharacter=config.playerOtherMonitorsByCharacter and M.Copy(config.playerOtherMonitorsByCharacter),playerOtherMonitorCharacter=config.playerOtherMonitorCharacter,
         playerSkillMonitorsByClass=config.playerSkillMonitorsByClass and M.Copy(config.playerSkillMonitorsByClass),
@@ -272,10 +278,7 @@ function M:ExportConfigString()
             healthClassColor=self.db.healthClassColor,minimap=self.db.minimap,
             adapt4KUIScale=self.db.adapt4KUIScale,
             useGlobalFont=self.db.useGlobalFont,globalFontPath=self.db.globalFontPath,globalFontName=self.db.globalFontName,
-            playerSkillMonitorsByCharacter=self.db.playerSkillMonitorsByCharacter,playerSkillMonitorCharacter=self.db.playerSkillMonitorCharacter,
-            playerOtherMonitorsByCharacter=self.db.playerOtherMonitorsByCharacter,playerOtherMonitorCharacter=self.db.playerOtherMonitorCharacter,
-            playerSkillMonitorsByClass=self.db.playerSkillMonitorsByClass,playerSkillMonitorClass=self.db.playerSkillMonitorClass,
-            playerOtherMonitorsByClass=self.db.playerOtherMonitorsByClass,playerOtherMonitorClass=self.db.playerOtherMonitorClass,
+            characterMonitors=self.PlayerSkillMonitor.ExportCharacterSettings(),
             commonItemsShared=self.db.commonItemsShared,commonItemsByClass=self.db.commonItemsByClass,commonItemsClass=self.db.commonItemsClass,
             receivedBuffsShared=self.db.receivedBuffsShared,
             raidBuffsUnified=self.db.raidBuffsUnified==true,

@@ -65,7 +65,9 @@ function O.MigrateEquipment(db)
     group.otherMonitors=entries
     local _,current=O.Safe(UnitClass,"player")
     local owner=S.ValidClass(db.playerOtherMonitorClass)and db.playerOtherMonitorClass or current
-    if S.ValidCharacter(db.playerOtherMonitorCharacter)then
+    if S.IsProfileBound("playerOtherMonitor")then
+        S.SaveCharacter("playerOtherMonitor")
+    elseif S.ValidCharacter(db.playerOtherMonitorCharacter)then
         db.playerOtherMonitorsByCharacter=db.playerOtherMonitorsByCharacter or {}
         db.playerOtherMonitorsByCharacter[db.playerOtherMonitorCharacter]=M.Copy(entries)
     elseif S.ValidClass(owner)then

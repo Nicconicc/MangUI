@@ -252,6 +252,7 @@ function M:InitStore()
     db.schema=82
     db.hideBlizzard=db.hideBlizzard or false
     self.db=db
+    self.PlayerSkillMonitor.InitCharacterStore()
     if self.BindPlayerSkillMonitorClass then self:BindPlayerSkillMonitorClass()end
     if self.BindPlayerOtherMonitorClass then self:BindPlayerOtherMonitorClass()end
     if self.BindCommonItemsClass then self:BindCommonItemsClass()end

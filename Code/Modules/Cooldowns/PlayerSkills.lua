@@ -145,46 +145,147 @@ function S.ValidCharacterProfiles(profiles,valid)
     end
     return true
 end
-function S.SaveCharacter(id)
-    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentProfile();local group=db and CharacterGroup(id,db.design)
-    if not key or not group or db[d.owner]~=key or not d.api.ValidEntries(group[d.list])then return end
-    db[d.profiles]=type(db[d.profiles])=="table"and db[d.profiles]or {};db[d.profiles][key]=M.Copy(group[d.list])
+local characterModules={"playerSkillMonitor","playerOtherMonitor"}
+function S.ValidTalentKey(key)
+    if type(key)~="string"or #key>48 then return false end
+    local value=key:match("^talent:(%d+)$")or key:match("^spec:(%d+)$")
+    return value~=nil and tonumber(value)>0 and tonumber(value)<=1000000000
 end
-function S.BindCharacter(id)
-    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentProfile();local class=CurrentClass()
-    local group=db and CharacterGroup(id,db.design);if not key or not class or not group then return end
-    local profiles=type(db[d.profiles])=="table"and db[d.profiles]or {};db[d.profiles]=profiles
-    for owner,entries in pairs(profiles)do if not S.ValidCharacter(owner)or not d.api.ValidEntries(entries)then profiles[owner]=nil end end
-    local previous=db[d.owner]
-    if S.ValidCharacter(previous)and d.api.ValidEntries(group[d.list])then profiles[previous]=M.Copy(group[d.list])end
-    if db[d.revision]~=1 then
-        local legacy=type(db[d.legacy])=="table"and db[d.legacy]or {};db[d.legacy]=legacy
-        for token,entries in pairs(legacy)do if not S.ValidClass(token)or not d.api.ValidEntries(entries)then legacy[token]=nil end end
-        local owner=S.ValidClass(db[d.class])and db[d.class]or class
-        if d.api.ValidEntries(group[d.list])then legacy[owner]=M.Copy(group[d.list])end
-        db[d.revision]=1
+function S.InitCharacterStore()
+    local loaded=type(MangUICharacterDB)=="table"
+    if type(MangUICharacterDB)~="table"then MangUICharacterDB={}end
+    local root=MangUICharacterDB
+    if type(root.schema)=="number"and root.schema>1 then error("角色配置由更新版本创建，请更新 MangUI；现有配置未修改。")end
+    root.schema=1;if type(root.monitors)~="table"then root.monitors={}end
+    if M.characterDB~=root then M.characterDB=root;S.profileBindings={};S.characterStorageLoaded=loaded end
+    if not M.characterSaveEvents then
+        local frame=CreateFrame("Frame");M.characterSaveEvents=frame;frame:RegisterEvent("PLAYER_LOGOUT")
+        frame:SetScript("OnEvent",function()
+            if not M.db then return end
+            M:SavePlayerSkillMonitorClass();M:SavePlayerOtherMonitorClass()
+            MangUIUFDB=S.AccountSnapshot(M.db)
+        end)
     end
-    -- Old class lists become fixed templates; edits only update character lists.
-    local fallback=CharacterNameKey();local character=S.CurrentCharacter();local suffix=S.TalentContext()
-    local template=profiles[key]or (fallback and profiles[fallback.."#"..suffix])or profiles[character]or (fallback and profiles[fallback])or (db[d.legacy]or {})[class]or {d.api.NewEntry()}
-    group[d.list]=M.Copy(template);db[d.owner]=key;db[d.class]=class
-    M[d.ensure](M,db.design);profiles[key]=M.Copy(group[d.list])
+    return root
 end
-function S.ImportCharacter(id,config)
-    local d=CharacterDefinition(id);local db=M.db;local group=CharacterGroup(id,db.design);local key=S.CurrentProfile()
-    if not group or not key then return end
-    db[d.profiles]=type(db[d.profiles])=="table"and db[d.profiles]or {}
-    if config[d.profiles]then
-        for owner,entries in pairs(config[d.profiles])do db[d.profiles][owner]=M.Copy(entries)end
-        group[d.list]=M.Copy(config[d.profiles][key]or config[d.profiles][S.CurrentCharacter()]or group[d.list])
-    else
-        if config[d.legacy]then
-            db[d.legacy]=type(db[d.legacy])=="table"and db[d.legacy]or {}
-            for token,entries in pairs(config[d.legacy])do db[d.legacy][token]=M.Copy(entries)end
-            group[d.list]=M.Copy(config[d.legacy][CurrentClass()]or group[d.list])
+local function CharacterStore(id)
+    local root=S.InitCharacterStore();local d=CharacterDefinition(id);local store=root.monitors[id]
+    if type(store)~="table"then store={};root.monitors[id]=store end
+    if type(store.profiles)~="table"then store.profiles={}end
+    for key,entries in pairs(store.profiles)do if not S.ValidTalentKey(key)or not d.api.ValidEntries(entries)then store.profiles[key]=nil end end
+    if store.template~=nil and not d.api.ValidEntries(store.template)then store.template=nil end
+    return store,d
+end
+function S.IsProfileBound(id)
+    local binding=S.profileBindings and S.profileBindings[id]
+    return binding and binding.root==MangUICharacterDB and binding.character==S.CurrentCharacter()and binding.profile==S.TalentContext()
+end
+function S.SaveCharacter(id)
+    local store,d=CharacterStore(id);local group=M.db and CharacterGroup(id,M.db.design)
+    if not group or not S.IsProfileBound(id)or not d.api.ValidEntries(group[d.list])then return end
+    local profile=S.TalentContext();store.profiles[profile]=M.Copy(group[d.list])
+    -- Retain a migration copy until a later login confirms the new character
+    -- variable was loaded from disk, including clients still using an old TOC.
+    if not S.characterStorageLoaded then
+        local key=S.CurrentProfile()
+        local db=M.db;db[d.profiles]=type(db[d.profiles])=="table"and db[d.profiles]or {}
+        db[d.profiles][key]=M.Copy(group[d.list])
+    end
+end
+local function LegacyCharacterProfiles(id,config,store,portable)
+    local d=CharacterDefinition(id);local profiles=config[d.profiles]or {};local character=S.CurrentCharacter();local fallback=CharacterNameKey()
+    local identities={}
+    if character then identities[character]=true end;if fallback then identities[fallback]=true end
+    if portable and S.ValidCharacter(config[d.owner])then identities[config[d.owner]:match("^(.-)#")or config[d.owner]]=true end
+    local consumed={}
+    for key,entries in pairs(type(profiles)=="table"and profiles or {})do
+        local identity,profile
+        if type(key)=="string"then identity,profile=key:match("^(.-)#(.+)$")end
+        if identities[key]and d.api.ValidEntries(entries)then store.template=M.Copy(entries);consumed[#consumed+1]=key
+        elseif identity and identities[identity]and S.ValidTalentKey(profile)and d.api.ValidEntries(entries)then
+            store.profiles[profile]=M.Copy(entries);consumed[#consumed+1]=key
         end
     end
-    db[d.owner]=key;db[d.class]=CurrentClass();db[d.revision]=1;S.SaveCharacter(id)
+    local owner=config[d.owner];local group=CharacterGroup(id,config.design)
+    if group and d.api.ValidEntries(group[d.list])and S.ValidCharacter(owner)then
+        local identity,profile=owner:match("^(.-)#(.+)$")
+        if identities[owner]then store.template=M.Copy(group[d.list])
+        elseif identities[identity]and S.ValidTalentKey(profile)then store.profiles[profile]=M.Copy(group[d.list])end
+    end
+    local class=CurrentClass();local legacy=config[d.legacy]
+    local preset=CharacterGroup(id,config.moduleDefaults)
+    if not store.template then
+        local candidate=type(legacy)=="table"and legacy[class]
+        if not candidate and group and config[d.profiles]==nil and config[d.legacy]==nil then candidate=group[d.list]end
+        if not candidate and preset then candidate=preset[d.list]end
+        store.template=M.Copy(d.api.ValidEntries(candidate)and candidate or {d.api.NewEntry()})
+    end
+    return consumed
+end
+function S.BindCharacter(id)
+    local store,d=CharacterStore(id);local db=M.db;local group=db and CharacterGroup(id,db.design)
+    local character=S.CurrentCharacter();local profile=S.TalentContext();if not group or not character then return end
+    local prior=S.profileBindings[id]
+    if prior and prior.root==MangUICharacterDB and prior.character==character and d.api.ValidEntries(group[d.list])then
+        store.profiles[prior.profile]=M.Copy(group[d.list])
+    end
+    if not store.migrated then
+        LegacyCharacterProfiles(id,db,store,false)
+        store.migrated=true
+    end
+    if S.characterStorageLoaded then
+        local consumed=LegacyCharacterProfiles(id,db,{profiles={}},false)
+        for _,key in ipairs(consumed)do db[d.profiles][key]=nil end
+    end
+    group[d.list]=M.Copy(store.profiles[profile]or store.template or {d.api.NewEntry()})
+    M[d.ensure](M,db.design);store.profiles[profile]=M.Copy(group[d.list])
+    S.profileBindings[id]={root=MangUICharacterDB,character=character,profile=profile}
+end
+function S.CleanCharacterSettings(settings)
+    if type(settings)~="table"then return end
+    local result={}
+    for id,raw in pairs(settings)do
+        local d=CharacterDefinition(id);if not d or type(raw)~="table"or type(raw.profiles)~="table"then return end
+        local count=0;local store={profiles={}}
+        for profile,entries in pairs(raw.profiles)do
+            count=count+1;if count>64 or not S.ValidTalentKey(profile)or not d.api.ValidEntries(entries)then return end
+            store.profiles[profile]=M.Copy(entries)
+        end
+        if raw.template~=nil then if not d.api.ValidEntries(raw.template)then return end;store.template=M.Copy(raw.template)end
+        for key in pairs(raw)do if key~="profiles"and key~="template"then return end end
+        result[id]=store
+    end
+    return result
+end
+function S.ExportCharacterSettings()
+    local result={}
+    for _,id in ipairs(characterModules)do
+        S.SaveCharacter(id);local store=CharacterStore(id)
+        result[id]={profiles=M.Copy(store.profiles),template=store.template and M.Copy(store.template)}
+    end
+    return S.CleanCharacterSettings(result)
+end
+function S.ImportCharacter(id,config)
+    local root=S.InitCharacterStore();local d=CharacterDefinition(id);local group=CharacterGroup(id,M.db.design);if not group then return end
+    local store
+    if config.characterMonitors and config.characterMonitors[id]then
+        store=M.Copy(config.characterMonitors[id])
+    else
+        local existing=CharacterStore(id);store={profiles=M.Copy(existing.profiles)}
+        LegacyCharacterProfiles(id,config,store,true)
+        -- Old exports carry one visible list; bind that list to the receiving talent.
+        store.profiles[S.TalentContext()]=M.Copy(group[d.list])
+    end
+    store.migrated=true;root.monitors[id]=store;S.profileBindings[id]=nil;S.BindCharacter(id)
+end
+function S.AccountSnapshot(db)
+    local result=M.Copy(db)
+    for _,id in ipairs(characterModules)do
+        local d=CharacterDefinition(id);local group=CharacterGroup(id,result.design)
+        if group then group[d.list]={}end
+        result[d.owner]=nil;result[d.revision]=nil
+    end
+    return result
 end
 function S.CleanCharacterSharing(config,id)
     local d=CharacterDefinition(id)
@@ -207,16 +308,16 @@ function S.ExportCharacterSharing(id)
     return group and S.CleanCharacterSharing({format=2,module=id,entries=group[d.list]},id)
 end
 function S.ApplyCharacterSharing(id,config)
-    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentProfile();local group=CharacterGroup(id,db.design)
-    if not key or not group then return false end
+    local d=CharacterDefinition(id);local db=M.db;local group=CharacterGroup(id,db.design)
+    if not S.CurrentCharacter()or not group then return false end
     S.SaveCharacter(id)
     local entries=config.format==2 and config.entries or config.profiles[config.class or CurrentClass()]
-    if entries then group[d.list]=M.Copy(entries);db[d.owner]=key;S.SaveCharacter(id)end
+    if entries then group[d.list]=M.Copy(entries);S.SaveCharacter(id)end
     M[d.ensure](M,db.design);return true
 end
 function S.RefreshProfileBindings()
     local key=S.CurrentProfile();local db=M.db
-    if not key or not db or (db.playerSkillMonitorCharacter==key and db.playerOtherMonitorCharacter==key)then return false end
+    if not key or not db or (S.IsProfileBound("playerSkillMonitor")and S.IsProfileBound("playerOtherMonitor"))then return false end
     local panel=M.editor and M.editor.skillMonitorPanel
     if panel then
         panel:FinishDrag(false)
