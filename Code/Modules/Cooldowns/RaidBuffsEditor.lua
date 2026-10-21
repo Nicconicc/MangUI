@@ -2,7 +2,7 @@ local _,M=...
 local I,S,Wep=M.RaidBuffMonitor,M.PlayerSkillMonitor,M.WeaponEnhancements
 local function Index(entries,entry)for index,item in ipairs(entries or {})do if item==entry then return index end end end
 function I.BuildControls(e,parent)
-    local W=M.Widgets;local panels={};local availableClasses=I.AvailableClasses();local guide
+    local W=M.Widgets;local panels={};local guide
     local function Current()local group=M.byID[M.selection];return group and group.compound=="raidBuffs"and group end
     local function Flush()
         for _,panel in ipairs(panels)do for _,row in ipairs(panel.rows)do for _,edit in ipairs(row.inputs)do edit:ClearFocus()end end end
@@ -188,31 +188,7 @@ function I.BuildControls(e,parent)
                     row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(100,18);row.handle:SetPoint("TOPRIGHT",0,-96)
                     row.dragLabel=W.Label(row.handle,"",12);row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetPoint("CENTER");Drag(row.handle,row)
                     row.handle:Hide()
-                    row.classLabel=W.Label(row,"职业加载",12);row.classLabel:SetPoint("TOPLEFT",0,-105);row.classLabel:SetWidth(92);row.classLabel:SetHeight(18);row.classLabel:SetWordWrap(false)
-                    row.classButtons={}
-                    for classIndex,info in ipairs(availableClasses)do
-                        local button=CreateFrame("Button",nil,row);button:SetSize(24,24);button:SetPoint("TOPLEFT",96+(classIndex-1)*28,-102)
-                        button.classToken=info[1];button.classInfo=info;row.classButtons[classIndex]=button
-                        button.icon=button:CreateTexture(nil,"ARTWORK");button.icon:SetSize(19.2,19.2);button.icon:SetPoint("CENTER")
-                        button.icon:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
-                        button.iconBright=button:CreateTexture(nil,"OVERLAY")
-                        button.iconBright:SetAllPoints(button.icon)
-                        button.iconBright:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
-                        button.iconBright:SetDesaturated(true);button.iconBright:SetBlendMode("ADD");button.iconBright:SetAlpha(0);button.iconBright:Hide()
-                        -- Add the same class-tinted luminance instead of a white highlight.
-                        button:SetScript("OnClick",function(self)
-                            Flush();if Editable(row)then
-                                local enabled=I.ForClass(row.entry,self.classToken)
-                                row.entry.classes=I.ClassMask(row.entry);row.entry.classes[self.classToken]=not enabled;M:Commit()
-                            end
-                        end)
-                        button:SetScript("OnEnter",function(self)
-                            local info=self.classInfo;GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
-                            GameTooltip:SetText(M:EffectiveLanguage()=="zhCN"and info[2]or info[3],1,1,1)
-                            GameTooltip:Show()
-                        end)
-                        button:SetScript("OnLeave",function()GameTooltip:Hide()end)
-                    end
+                    M.MonitorSharing.BuildClassControls(row,Flush,function()return Editable(row)end)
                 end
                 row.owner,row.entry=group,entry;row.offset=(index-1)*140;row:SetSize(width,136);row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-row.offset)
                 local kind=I.Kind(entry);local weapon=kind~="buff";local dw=(width-16)/2
@@ -242,19 +218,7 @@ function I.BuildControls(e,parent)
                 if not row.alternative:HasFocus()then W.SetInputValue(row.alternative,entry.alternative or "")end
                 row.item.placeholder:SetShown(W.InputValue(row.item)=="")
                 row.alternative.placeholder:SetShown(W.InputValue(row.alternative)=="")
-                local classStep=math.min(28,math.max(18,(width-96)/#availableClasses))
-                for classIndex,button in ipairs(row.classButtons)do
-                    button:ClearAllPoints();button:SetPoint("TOPLEFT",96+(classIndex-1)*classStep,-102);button:SetWidth(math.min(24,classStep))
-                    local info=button.classInfo;local color=RAID_CLASS_COLORS and RAID_CLASS_COLORS[button.classToken]
-                    local enabled=I.ForClass(entry,button.classToken)
-                    button.icon:SetDesaturated(true);button.icon:SetAlpha(enabled and 1 or .1)
-                    if enabled then
-                        local r,g,b=color and color.r or info[4],color and color.g or info[5],color and color.b or info[6]
-                        button.icon:SetVertexColor(r*.9,g*.9,b*.9,1)
-                        button.iconBright:SetVertexColor(r,g,b,1);button.iconBright:Show()
-                    else button.icon:SetVertexColor(.65,.65,.65,1);button.iconBright:Hide()end
-                    button.selected=enabled
-                end
+                M.MonitorSharing.RefreshClassControls(row,entry,width)
                 PreviewIcon(row);W.ShadeDragRow(row,index);row:Show()
             end
             for index=#entries+1,#self.rows do self.rows[index]:Hide()end

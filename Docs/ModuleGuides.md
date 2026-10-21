@@ -50,3 +50,24 @@
 新增模块共用完整辅助线设置，按实际图标行数量和排列方向适配，图标行为空时隐藏辅助线和文字。冷却监控使用居中图标行的实际宽度。常用物品沿用“无目标隐藏”条件，不读取安全按钮的几何或可见状态。
 
 辅助线文字取消字体描边，黑色独立阴影透明度为30%，偏移为(1, -1)，不随模块缩放。
+
+
+## 职业加载图标
+
+团队易伤监控、团队 Buff 缺失监控、常用物品监控的职业加载按钮使用 `Assets/ClassMarks` 中的白色透明职业图标，并按游戏职业颜色着色。点击切换、悬停提示和已勾选淡化规则与原有控件相同；每个客户端只显示该版本支持的职业。
+
+| 职业 | 图标文件 |
+| --- | --- |
+| Priest | `Priest_mark.png` |
+| Warrior | `Warrior_mark.png` |
+| Warlock | `Warlock_mark.png` |
+| Death Knight | `DeathKnight_mark.png` |
+| Paladin | `Paladin_mark.png` |
+| Shaman | `Shaman_mark.png` |
+| Demon Hunter | `DemonHunter_mark.png` |
+| Mage | `Mage_mark.png` |
+| Hunter | `Hunter_mark.png` |
+| Rogue | `Rogue_mark.png` |
+| Evoker | `Evoker_mark.png` |
+| Monk | `Monk_mark.png` |
+| Druid | `Druid_mark.png` |
