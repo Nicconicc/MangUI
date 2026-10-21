@@ -140,7 +140,7 @@ function G.BuildControls(e,parent,flush,key)
     local function Flush()
         if flush then flush()elseif guide and guide.text then guide.text:ClearFocus()end
     end
-    guide=CreateFrame("Frame",nil,parent);guide:SetSize(470,252);if key=="raidBuffsGuideSettings"then e.raidBuffsGuidePanel=guide else e.moduleGuidePanel=guide end
+    guide=CreateFrame("Frame",nil,parent);guide:SetSize(470,276);if key=="raidBuffsGuideSettings"then e.raidBuffsGuidePanel=guide else e.moduleGuidePanel=guide end
     guide.title=W.Label(guide,"辅助线",12);guide.title:SetPoint("CENTER",guide,"TOP",0,12);guide.title:SetTextColor(1,.82,0)
     M:SetLocaleLineHeight(guide.title,18);guide.title:SetJustifyH("CENTER")
     guide.left=guide:CreateTexture(nil,"ARTWORK");guide.left:SetHeight(1);guide.left:SetColorTexture(.5,.5,.5,.45)
@@ -149,7 +149,7 @@ function G.BuildControls(e,parent,flush,key)
     guide.right:SetPoint("LEFT",guide.title,"RIGHT",8,0);guide.right:SetPoint("RIGHT",guide,"TOPRIGHT",0,12)
     guide.rows={}
     for index=1,7 do
-        local row=CreateFrame("Frame",nil,guide);row:SetSize(470,24)
+        local row=CreateFrame("Frame",nil,guide);row:SetSize(470,index==6 and 44 or 24)
         row:SetPoint("TOPLEFT",guide,"TOPLEFT",0,-(index-1)*36);guide.rows[index]=row
     end
     local function ChangeGuide(field,value)
@@ -191,11 +191,22 @@ function G.BuildControls(e,parent,flush,key)
     guide.text:SetScript("OnEscapePressed",function(self)
         W.SetInputValue(self,guide.owner and I.GuideText(guide.owner)or "");self:ClearFocus()
     end)
-    local fontChoices={}
-    for _,item in ipairs(M:BundledFontChoices())do fontChoices[#fontChoices+1]={item.path,item.name}end
-    guide.fontLabel=W.Label(guide.rows[6],"字体",12);guide.fontLabel:SetPoint("LEFT",guide.rows[6],"LEFT",0,0)
-    guide.font=W.Drop(guide.rows[6],225,fontChoices,function(value)ChangeGuide("guideFontPath",value)end)
-    guide.font:SetPoint("RIGHT",guide.rows[6],"RIGHT",-2,0)
+    local fontChoices=M:BundledFontChoices()
+    guide.font=W.MediaSelect(guide.rows[6],"字体",470,"font",function()
+        local drop=guide.font
+        if drop.menu then drop.menu:Hide();return end
+        W.MediaMenu(drop,fontChoices,"font",drop.value,function(choice)
+            ChangeGuide("guideFontPath",choice.path)
+        end)
+    end)
+    guide.font:SetPoint("TOPLEFT",guide.rows[6],"TOPLEFT",0,0)
+    function guide.font:SetValue(value)
+        self.value=value
+        for _,choice in ipairs(fontChoices)do
+            if choice.path==value then self:SetMedia(choice.name,choice.path);return end
+        end
+        self:SetMedia(value or "",value)
+    end
     guide.fontSizeLabel=W.Label(guide.rows[7],"字体大小",12);guide.fontSizeLabel:SetPoint("LEFT",guide.rows[7],"LEFT",0,0)
     guide.fontSize=W.SpinBox(guide.rows[7],225,4,150,1);guide.fontSize:SetPoint("RIGHT",guide.rows[7],"RIGHT",-2,0)
     guide.fontSize:SetScript("OnValueChanged",function(self,value)
@@ -205,20 +216,23 @@ function G.BuildControls(e,parent,flush,key)
         if self.owner~=owner and self.font.menu then self.font.menu:Hide();self.font.menu=nil end
         self.owner=owner;self:SetWidth(e.props:GetWidth())
         local mouse=owner.id=="mouseCircle"
-        local rowIndex=1
+        local offset=0
         local function Place(row,visible)
             row:SetShown(visible)
-            if visible then row:ClearAllPoints();row:SetPoint("TOPLEFT",self,"TOPLEFT",0,-(rowIndex-1)*36);rowIndex=rowIndex+1 end
+            if visible then
+                row:ClearAllPoints();row:SetPoint("TOPLEFT",self,"TOPLEFT",0,-offset)
+                offset=offset+(row==self.rows[6]and 60 or 36)
+            end
         end
         Place(self.rows[1],true);Place(self.rows[2],true);Place(self.rows[3],true)
         Place(self.rows[4],not mouse);Place(self.rows[5],true);Place(self.rows[6],true);Place(self.rows[7],true)
-        local height=(rowIndex-1)*36
+        local height=offset
         self:SetHeight(height)
         if propertyRow.height~=height then propertyRow.height=height;e.propertyLayoutSignature=nil end
         local width=(self:GetWidth()-20)/2
         for _,row in ipairs(self.rows)do row:SetWidth(self:GetWidth())end
         self.length:SetWidth(width);self.opacity:SetWidth(width);self.flatLength:SetWidth(width);self.text:SetWidth(width)
-        self.font:SetWidth(width);self.fontSize:SetWidth(width)
+        self.font:SetWidth(self:GetWidth());self.fontSize:SetWidth(width)
         self.showLines:SetChecked(I.GuideLinesShown(owner));self.showText:SetChecked(owner.showGuideText~=false)
         self.length.updating=true;self.length:SetValue(I.GuideLength(owner));self.length.updating=false
         self.flatLength.updating=true;self.flatLength:SetValue(I.GuideHorizontalLength(owner));self.flatLength.updating=false
@@ -227,6 +241,6 @@ function G.BuildControls(e,parent,flush,key)
         self.fontSize.updating=true;self.fontSize:SetValue(I.GuideFontSize(owner));self.fontSize.updating=false
         if not self.text:HasFocus()then W.SetInputValue(self.text,I.GuideText(owner))end
     end
-    propertyRow={height=252,controls={{guide,0,0}},kinds={},key=key or "moduleGuideSettings"};e.propRows[#e.propRows+1]=propertyRow
+    propertyRow={height=276,controls={{guide,0,0}},kinds={},key=key or "moduleGuideSettings"};e.propRows[#e.propRows+1]=propertyRow
     return guide
 end
