@@ -172,7 +172,7 @@ function I.Paint(view,o,animateOnly)
 end
 local events={PLAYER_ENTERING_WORLD=true,PLAYER_EQUIPMENT_CHANGED=true,UNIT_INVENTORY_CHANGED=true,
     BAG_UPDATE_DELAYED=true,GET_ITEM_INFO_RECEIVED=true,SPELLS_CHANGED=true,PLAYER_REGEN_ENABLED=true,
-    BAG_UPDATE_COOLDOWN=true,SPELL_UPDATE_COOLDOWN=true}
+    BAG_UPDATE_COOLDOWN=true,SPELL_UPDATE_COOLDOWN=true,ITEM_DATA_LOAD_RESULT=true}
 function I.Event(view,event,unit)
     if not events[event]or (event=="UNIT_INVENTORY_CHANGED"and unit~="player")then return end
     local o=view.nodes.commonItemsIcons;if not o then return end
@@ -190,7 +190,7 @@ function I.Event(view,event,unit)
         if InCombatLockdown()then o.pending=true else I.Configure(view,o)end
     end
     o.nextScan=0;I.Paint(view,o,false)
-    if (event=="GET_ITEM_INFO_RECEIVED"or event=="PLAYER_EQUIPMENT_CHANGED")and M.editor and M.editor.window:IsShown()and M.selection=="commonItems"then M:RefreshProperties()end
+    if (event=="GET_ITEM_INFO_RECEIVED"or event=="ITEM_DATA_LOAD_RESULT"or event=="BAG_UPDATE_DELAYED"or event=="PLAYER_EQUIPMENT_CHANGED")and M.editor and M.editor.window:IsShown()and M.selection=="commonItems"then M:RefreshProperties()end
 end
 function I.Remove(view,o)
     if not view.preview and o.clickRoot and not InCombatLockdown()then RegisterStateDriver(o.clickRoot,"visibility","hide");o.visibility="hide"end

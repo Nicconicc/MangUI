@@ -84,6 +84,124 @@ local function ItemCache()
 end
 local function CacheKey(value)return tostring(I.Safe(GetLocale)or "")..":"..value end
 local function KnownIcon(icon)return I.Readable(icon)and icon~=134400 and (type(icon)=="number"or type(icon)=="string")end
+-- Class-created items must resolve on characters that cannot create them.
+-- Localized item-name aliases are limited to known Classic conjured items;
+-- artwork and full item metadata still come from the current client by ID.
+local conjuredItems={
+    zhCN={
+        ["初级灵魂石"]={5232},
+        ["治疗石"]={5509,19008,19009},
+        ["强效治疗石"]={5510,19010,19011},
+        ["次级治疗石"]={5511,19006,19007},
+        ["初级治疗石"]={5512,19004,19005},
+        ["法力翡翠"]={5513},
+        ["法力玛瑙"]={5514},
+        ["法力黄水晶"]={8007},
+        ["法力红宝石"]={8008},
+        ["特效治疗石"]={9421,19012,19013},
+        ["次级灵魂石"]={16892},
+        ["灵魂石"]={16893},
+        ["强效灵魂石"]={16895},
+        ["特效灵魂石"]={16896},
+        ["法力刚玉"]={22044},
+        ["极效治疗石"]={22103,22104,22105},
+        ["极效灵魂石"]={22116},
+        ["法力青玉"]={33312},
+        ["恶魔治疗石"]={36889,36890,36891},
+        ["邪能治疗石"]={36892,36893,36894},
+        ["恶魔灵魂石"]={36895},
+        ["特效火焰石"]={40773},
+        ["火焰石"]={41169},
+        ["次级火焰石"]={41170},
+        ["强效火焰石"]={41171},
+        ["极效火焰石"]={41172},
+        ["邪能火焰石"]={41173},
+        ["完美火焰石"]={41174},
+        ["法术石"]={41191},
+        ["特效法术石"]={41192,41194},
+        ["极效法术石"]={41193},
+        ["恶魔法术石"]={41195},
+        ["完美法术石"]={41196},
+    },
+    zhTW={
+        ["初級靈魂石"]={5232},
+        ["治療石"]={5509,19008,19009},
+        ["強效治療石"]={5510,19010,19011},
+        ["次級治療石"]={5511,19006,19007},
+        ["初級治療石"]={5512,19004,19005},
+        ["法力碧玉"]={5513},
+        ["法力瑪瑙"]={5514},
+        ["法力黃水晶"]={8007},
+        ["法力紅寶石"]={8008},
+        ["極效治療石"]={9421,19012,19013},
+        ["次級靈魂石"]={16892},
+        ["靈魂石"]={16893},
+        ["強效靈魂石"]={16895},
+        ["極效靈魂石"]={16896},
+        ["法力翡翠"]={22044},
+        ["極強效治療石"]={22103,22104,22105},
+        ["極強效靈魂石"]={22116},
+        ["法力藍寶石"]={33312},
+        ["惡魔治療石"]={36889,36890,36891},
+        ["魔化治療石"]={36892,36893,36894},
+        ["惡魔靈魂石"]={36895},
+        ["極強效火焰石"]={40773},
+        ["火焰石"]={41169},
+        ["次級火焰石"]={41170},
+        ["強效火焰石"]={41171},
+        ["極效火焰石"]={41172},
+        ["魔化火焰石"]={41173},
+        ["極大火焰石"]={41174},
+        ["法術石"]={41191},
+        ["強效法術石"]={41192},
+        ["極效法術石"]={41193},
+        ["極強效法術石"]={41194},
+        ["惡魔法術石"]={41195},
+        ["極大法術石"]={41196},
+    },
+    enUS={
+        ["Minor Soulstone"]={5232},
+        ["Healthstone"]={5509,19008,19009},
+        ["Greater Healthstone"]={5510,19010,19011},
+        ["Lesser Healthstone"]={5511,19006,19007},
+        ["Minor Healthstone"]={5512,19004,19005},
+        ["Mana Jade"]={5513},
+        ["Mana Agate"]={5514},
+        ["Mana Citrine"]={8007},
+        ["Mana Ruby"]={8008},
+        ["Major Healthstone"]={9421,19012,19013},
+        ["Lesser Soulstone"]={16892},
+        ["Soulstone"]={16893},
+        ["Greater Soulstone"]={16895},
+        ["Major Soulstone"]={16896},
+        ["Mana Emerald"]={22044},
+        ["Master Healthstone"]={22103,22104,22105},
+        ["Master Soulstone"]={22116},
+        ["Mana Sapphire"]={33312},
+        ["Demonic Healthstone"]={36889,36890,36891},
+        ["Fel Healthstone"]={36892,36893,36894},
+        ["Demonic Soulstone"]={36895},
+        ["Master Firestone"]={40773},
+        ["Firestone"]={41169},
+        ["Lesser Firestone"]={41170},
+        ["Greater Firestone"]={41171},
+        ["Major Firestone"]={41172},
+        ["Fel Firestone"]={41173},
+        ["Grand Firestone"]={41174},
+        ["Spellstone"]={41191},
+        ["Greater Spellstone"]={41192},
+        ["Major Spellstone"]={41193},
+        ["Master Spellstone"]={41194},
+        ["Demonic Spellstone"]={41195},
+        ["Grand Spellstone"]={41196},
+    },
+}
+local function NameCandidates(value)
+    local locale=I.Safe(GetLocale)or "enUS"
+    if locale=="enGB"then locale="enUS"end
+    local names=conjuredItems[locale]
+    return names and names[value]
+end
 function I.Resolve(entry)
     if I.Kind(entry)=="equipment"then
         local slot=entry.slot or 13;local id,name,icon=O.Item(slot)
@@ -92,22 +210,29 @@ function I.Resolve(entry)
     end
     local value=S.Input(entry.value);local cache=ItemCache();local cached=cache[CacheKey(value)]
     if type(cached)~="table"then cached=nil end
-    local input=ItemID(value)or cached and ItemID(cached.id)or value
+    local candidates=not ItemID(value)and NameCandidates(value)
+    local input=ItemID(value)or cached and ItemID(cached.id)or (candidates and candidates[#candidates])or value
     local name,link,_,_,_,_,_,_,equip,icon=I.Safe(C_Item and C_Item.GetItemInfo or GetItemInfo,input)
     local id=ItemID(link)or ItemID(input)
     local instant,_,_,instantEquip,instantIcon=I.Safe(C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant,input)
     id=I.Number(instant)or id;equip=equip or instantEquip;icon=icon or instantIcon
     -- Item names may not be cached yet. Search carried items and equipment.
-    if not id then
+    if not id or not ItemID(value)then
+        local carried
         for bag=0,4 do
             local size=I.Number(I.Safe(C_Container and C_Container.GetContainerNumSlots or GetContainerNumSlots,bag))or 0
             for slot=1,size do
                 local itemLink=I.Safe(C_Container and C_Container.GetContainerItemLink or GetContainerItemLink,bag,slot)
-                if I.Readable(itemLink)and type(itemLink)=="string"and itemLink:match("%[(.-)%]")==value then id=ItemID(itemLink);break end
+                if I.Readable(itemLink)and type(itemLink)=="string"and itemLink:match("%[(.-)%]")==value then carried=ItemID(itemLink);break end
             end
-            if id then break end
+            if carried then break end
         end
-        if id then name,link,_,_,_,_,_,_,equip,icon=I.Safe(C_Item and C_Item.GetItemInfo or GetItemInfo,id)end
+        if carried then
+            id=carried
+            name,link,_,_,_,_,_,_,equip,icon=I.Safe(C_Item and C_Item.GetItemInfo or GetItemInfo,id)
+            local _,_,_,carriedEquip,carriedIcon=I.Safe(C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant,id)
+            equip=equip or carriedEquip;icon=icon or carriedIcon
+        end
     end
     local equippedSlot
     for slot=1,19 do
@@ -117,10 +242,13 @@ function I.Resolve(entry)
     if not icon and id then icon=I.Safe(C_Item and C_Item.GetItemIconByID or GetItemIcon,id)end
     if id and (not name or not KnownIcon(icon))then
         I.requestedItems=I.requestedItems or {}
-        if not I.requestedItems[id]and C_Item and C_Item.RequestLoadItemDataByID then
-            I.requestedItems[id]=true;I.Safe(C_Item.RequestLoadItemDataByID,id)
+        if (I.Number(I.requestedItems[id])or 0)<=GetTime()and C_Item and C_Item.RequestLoadItemDataByID then
+            I.requestedItems[id]=GetTime()+5;I.Safe(C_Item.RequestLoadItemDataByID,id)
         end
     end
+    -- A verified alias supplies a display name while native item data loads.
+    -- It must not override an already-resolved native name or a carried ID.
+    if candidates and not name then name=value end
     if KnownIcon(icon)and id and name then
         local metadata={id=id,name=name,icon=icon}
         cache[CacheKey(value)]=metadata;cache[CacheKey(name)]=metadata;cache[CacheKey(tostring(id))]=metadata
