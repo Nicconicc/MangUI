@@ -90,7 +90,7 @@ function G.Refresh(view,force)
                 elseif definition.mode=="icons"then
                     o.guideBounds=nil;I.LayoutGuideDecoration(o,group,owner.rowCount or 0);I.UpdateGuideConnector(view,o)
                 else
-                    if force or state.generation~=view.applyGeneration or now>=(state.nextBounds or 0)then
+                    if definition.mode=="mouse"or force or state.generation~=view.applyGeneration or now>=(state.nextBounds or 0)then
                         state.generation=view.applyGeneration;state.nextBounds=now+.1
                         if definition.mode=="unit"then o.guideBounds=VisibleBounds(view,id,owner.frame)
                         elseif definition.mode=="threat"then
@@ -121,7 +121,7 @@ function G.PreviewBounds(view,id,geometry)
 end
 
 function G.BuildControls(e,parent,flush,key)
-    local W=M.Widgets;local guide
+    local W=M.Widgets;local guide,propertyRow
     local function Current()local group=M.byID[M.selection];return G.Supports(group)and group end
     local function Flush()
         if flush then flush()elseif guide and guide.text then guide.text:ClearFocus()end
@@ -173,6 +173,12 @@ function G.BuildControls(e,parent,flush,key)
     end)
     function guide:Refresh(owner)
         self.owner=owner;self:SetWidth(e.props:GetWidth())
+        local mouse=owner.id=="mouseCircle"
+        local height=mouse and 108 or 144
+        self.rows[3]:SetShown(not mouse)
+        self.rows[4]:ClearAllPoints();self.rows[4]:SetPoint("TOPLEFT",self,"TOPLEFT",0,mouse and -72 or -108)
+        self:SetHeight(height)
+        if propertyRow.height~=height then propertyRow.height=height;e.propertyLayoutSignature=nil end
         local width=(self:GetWidth()-20)/2
         for _,row in ipairs(self.rows)do row:SetWidth(self:GetWidth())end
         self.length:SetWidth(width);self.flatLength:SetWidth(width);self.text:SetWidth(width)
@@ -181,6 +187,6 @@ function G.BuildControls(e,parent,flush,key)
         self.flatLength.updating=true;self.flatLength:SetValue(I.GuideHorizontalLength(owner));self.flatLength.updating=false
         if not self.text:HasFocus()then W.SetInputValue(self.text,I.GuideText(owner))end
     end
-    e.propRows[#e.propRows+1]={height=144,controls={{guide,0,0}},kinds={},key=key or "moduleGuideSettings"}
+    propertyRow={height=144,controls={{guide,0,0}},kinds={},key=key or "moduleGuideSettings"};e.propRows[#e.propRows+1]=propertyRow
     return guide
 end

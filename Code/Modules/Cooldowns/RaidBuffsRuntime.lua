@@ -174,18 +174,36 @@ local function UpdateConnector(view,o)
     local rx,ry=target.frame:GetWidth()*ratio/2,target.frame:GetHeight()*ratio/2
     local width,height,pixel,rowWidth=frame:GetWidth(),frame:GetHeight(),frame.layoutPixel,frame.layoutRowWidth
     local length=I.GuideLength(group)
-    local horizontalLength=I.GuideHorizontalLength(group)
+    local mouse=group.id=="mouseCircle"
+    local horizontalLength=mouse and 0 or I.GuideHorizontalLength(group)
     if rx<=0 or ry<=0 or not pixel then HideConnector(connector);return end
     if connector.tx~=tx or connector.ty~=ty or connector.rx~=rx or connector.ry~=ry
         or connector.width~=width or connector.height~=height or connector.pixel~=pixel
-        or connector.rowWidth~=rowWidth or connector.length~=length or connector.horizontalLength~=horizontalLength then
+        or connector.rowWidth~=rowWidth or connector.length~=length or connector.horizontalLength~=horizontalLength or connector.mouse~=mouse then
         local side=tx<0 and -1 or 1
         local innerX,y=side*width/2,height/2
         local iconEdge=side*(rowWidth/2+8)
         innerX=iconEdge+(innerX-iconEdge)*horizontalLength
         local vx,vy=innerX-tx,y-ty
         local distance=math.sqrt(vx*vx/(rx*rx)+vy*vy/(ry*ry))
-        connector.outside=distance>1
+        local edgeX,edgeY
+        if mouse then
+            -- Both endpoints follow the ray between the artwork centers. The
+            -- mouse endpoint lies on the pulsing halo, with no horizontal arm.
+            local mx,my=0,height/2
+            vx,vy=mx-tx,my-ty
+            local targetDistance=math.sqrt(vx*vx/(rx*rx)+vy*vy/(ry*ry))
+            local haloRX,haloRY=rowWidth/2,frame.layoutBodyHeight/2
+            local haloDistance=math.sqrt(vx*vx/(haloRX*haloRX)+vy*vy/(haloRY*haloRY))
+            connector.outside=targetDistance>0 and haloDistance>0 and 1/targetDistance+1/haloDistance<1
+            if connector.outside then
+                innerX,y=mx-vx/haloDistance,my-vy/haloDistance
+                edgeX,edgeY=tx+vx/targetDistance,ty+vy/targetDistance
+            end
+        else
+            connector.outside=distance>1
+            if connector.outside then edgeX,edgeY=tx+vx/distance,ty+vy/distance end
+        end
         if connector.outside then
             -- The texture's 4px footprint has a 2px solid core and a 1px alpha
             -- shoulder on each side, so the quad boundary stays transparent.
@@ -194,7 +212,6 @@ local function UpdateConnector(view,o)
                 connector.row:SetStartPoint("CENTER",frame,innerX,y)
                 connector.row:SetEndPoint("CENTER",frame,iconEdge,y)
             end
-            local edgeX,edgeY=tx+vx/distance,ty+vy/distance
             local startX,startY=innerX+(edgeX-innerX)*length,y+(edgeY-y)*length
             if length>0 then
                 connector.link:SetStartPoint("CENTER",frame,startX,startY)
@@ -209,7 +226,7 @@ local function UpdateConnector(view,o)
         connector.tx,connector.ty,connector.rx,connector.ry=tx,ty,rx,ry
         connector.width,connector.height,connector.pixel,connector.rowWidth=width,height,pixel,rowWidth
         connector.length=length
-        connector.horizontalLength=horizontalLength
+        connector.horizontalLength=horizontalLength;connector.mouse=mouse
     end
     connector.row:SetShown(connector.outside and horizontalLength>0);connector.link:SetShown(connector.outside and length>0)
     if connector.joint then connector.joint:SetShown(connector.outside)end
