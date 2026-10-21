@@ -2,6 +2,10 @@ local _,M=...
 local G={};M.ModuleGuides=G
 local I=M.RaidBuffMonitor
 G.definitions={
+    playerSkillMonitor={label="职业技能监控",anchor="playerSkillMonitorIcons",mode="icons"},
+    playerOtherMonitor={label="装备触发与其他监控",anchor="playerOtherMonitorIcons",mode="icons"},
+    cooldownMonitor={label="冷却监控",anchor="cooldownMonitorIcons",mode="cooldowns"},
+    commonItems={label="常用物品监控",anchor="commonItemsIcons",mode="icons",secureItems=true},
     petComposite={label="宠物框体",mode="unit"},
     totComposite={label="目标的目标框体",mode="unit"},
     focusComposite={label="焦点框体",mode="unit"},
@@ -88,10 +92,17 @@ function G.Refresh(view,force)
                     state={o={frame=owner.frame,spec={parent=id}}};view.moduleGuides[id]=state
                 end
                 local o=state.o;o.guideGroup=group
-                if (not view.preview and group.enabled==false)or (view.hidden and view.hidden[id])or not owner.frame:IsVisible()then
+                local itemsHidden=definition.secureItems and not view.preview and
+                    (M.moveMode or (group.hideWithoutTarget and not M.Compat.Bool(I.Safe(UnitExists,"target"))))
+                if (not view.preview and group.enabled==false)or owner.spec.enabled==false or itemsHidden
+                    or (view.hidden and (view.hidden[id]or view.hidden[owner.spec.id]))or not owner.frame:IsVisible()then
                     if o.decoration then o.decoration:Hide()end
                 elseif definition.mode=="icons"then
                     o.guideBounds=nil;I.LayoutGuideDecoration(o,group,owner.rowCount or 0);I.UpdateGuideConnector(view,o)
+                elseif definition.mode=="cooldowns"then
+                    local count=#(owner.cooldownEntries or {})
+                    o.guideBounds={x=0,y=0,width=math.max(1,count*44-4),height=40}
+                    I.LayoutGuideDecoration(o,group,count);I.UpdateGuideConnector(view,o)
                 else
                     if definition.mode=="mouse"or force or state.generation~=view.applyGeneration or now>=(state.nextBounds or 0)then
                         state.generation=view.applyGeneration;state.nextBounds=now+.1
