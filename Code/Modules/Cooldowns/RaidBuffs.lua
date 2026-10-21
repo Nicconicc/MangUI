@@ -20,6 +20,13 @@ end
 function I.GuideOpacity(group)
     return M.Clamp(I.Number(group.guideOpacity)or .6,0,1)
 end
+function I.GuideFontSize(group)
+    return M.Clamp(I.Number(group.guideFontSize)or 12,4,150)
+end
+function I.GuideFontPath(group)
+    local path=group.guideFontPath
+    return M:ResolveFontPath(type(path)=="string"and path~=""and #path<=512 and path or M:DefaultFontPath())
+end
 I.classes={
     {"WARRIOR","战士","Warrior",.78,.61,.43},{"PALADIN","圣骑士","Paladin",.96,.55,.73},
     {"HUNTER","猎人","Hunter",.67,.83,.45},{"ROGUE","潜行者","Rogue",1,.96,.41},
@@ -128,6 +135,8 @@ function M:EnsureRaidBuffMonitor(design)
     group.guideLineLength=I.GuideLength(group)
     group.guideHorizontalLength=I.GuideHorizontalLength(group)
     group.guideOpacity=I.GuideOpacity(group)
+    group.guideFontSize=I.GuideFontSize(group)
+    group.guideFontPath=I.GuideFontPath(group)
     if type(group.guideText)~="string"or #group.guideText>384 then group.guideText=I.DefaultGuideText()end
     group.growthDirection=S.Direction(group)
     for _,node in ipairs(design.nodes)do if node.id=="raidBuffsIcons"then return end end

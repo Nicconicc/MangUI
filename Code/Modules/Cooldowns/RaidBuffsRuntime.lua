@@ -126,7 +126,7 @@ local function Decoration(o)
     title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),19.2,"")
     title:SetHeight(24)
     title:SetText(I.DefaultGuideText());title:SetTextColor(1,1,1,1);title:SetJustifyH("CENTER");title:SetWordWrap(false)
-    title:SetShadowColor(0,0,0,.8);title:SetShadowOffset(1,-1)
+    title:SetShadowColor(0,0,0,.8);title:SetShadowOffset(2,-2)
     frame:Hide();o.decoration=frame;return frame
 end
 local function LayoutDecoration(o,group,count)
@@ -144,10 +144,13 @@ local function LayoutDecoration(o,group,count)
     local uiScale=math.max(.001,UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()or 1)
     local effectiveScale=frame.title.GetEffectiveScale and frame.title:GetEffectiveScale()or frame:GetEffectiveScale()
     local fontScale=math.max(.001,effectiveScale/uiScale)
-    local fontSize=12/fontScale
-    if not frame.layoutFontSize or math.abs(frame.layoutFontSize-fontSize)>.01 then
-        frame.title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),fontSize,"")
-        frame.layoutFontSize=fontSize
+    local fontSize=I.GuideFontSize(group)/fontScale
+    local fontPath=M:EffectiveFontPath(I.GuideFontPath(group))
+    if not frame.layoutFontSize or math.abs(frame.layoutFontSize-fontSize)>.01 or frame.layoutFontPath~=fontPath then
+        frame.title:SetFont(fontPath,fontSize,"")
+        frame.title:SetHeight(math.max(24,fontSize*1.5))
+        frame.title:SetShadowOffset(2/fontScale,-2/fontScale)
+        frame.layoutFontSize,frame.layoutFontPath=fontSize,fontPath
     end
     local textWidth=(frame.title.GetUnboundedStringWidth and frame.title:GetUnboundedStringWidth()or frame.title:GetStringWidth())+2
     local width=math.ceil(math.max(rowWidth+144,textWidth+40)/pixel)*pixel
