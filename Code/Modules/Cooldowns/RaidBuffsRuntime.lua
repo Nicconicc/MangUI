@@ -175,7 +175,7 @@ local function UpdateConnector(view,o)
     if not connector then return end
     local group=o.guideGroup or view.byID[o.spec.parent]
     local target=view.nodes[M.MainBarLayout.tokenID]
-    if group.hideGuideLines or not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
+    if not I.GuideLinesShown(group)or not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
         HideConnector(connector);return
     end
     -- Read only our own artwork frames. The external secure portrait anchor and

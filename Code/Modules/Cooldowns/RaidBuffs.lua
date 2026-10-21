@@ -17,6 +17,10 @@ end
 function I.GuideHorizontalLength(group)
     return M.Clamp(I.Number(group.guideHorizontalLength)or 1,0,1)
 end
+function I.GuideLinesShown(group)
+    if type(group.showGuideLines)=="boolean"then return group.showGuideLines end
+    return group.id=="mouseCircle"
+end
 function I.GuideOpacity(group)
     return M.Clamp(I.Number(group.guideOpacity)or .6,0,1)
 end
@@ -130,7 +134,7 @@ function M:EnsureRaidBuffMonitor(design)
     I.NormalizeEntries(group.raidBuffs);I.NormalizeEntries(group.classBuffs)
     if group.hideWithoutTarget==nil then group.hideWithoutTarget=false end
     if group.raidOnly==nil then group.raidOnly=true end
-    if type(group.hideGuideLines)~="boolean"then group.hideGuideLines=false end
+    group.showGuideLines=I.GuideLinesShown(group);group.hideGuideLines=nil
     if type(group.showGuideText)~="boolean"then group.showGuideText=true end
     group.guideLineLength=I.GuideLength(group)
     group.guideHorizontalLength=I.GuideHorizontalLength(group)

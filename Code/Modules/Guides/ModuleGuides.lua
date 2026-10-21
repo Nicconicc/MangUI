@@ -26,7 +26,7 @@ end
 function G.Ensure(design)
     for _,group in ipairs(design and design.nodes or {})do
         if G.Supports(group)then
-            if type(group.hideGuideLines)~="boolean"then group.hideGuideLines=false end
+            group.showGuideLines=I.GuideLinesShown(group);group.hideGuideLines=nil
             if type(group.showGuideText)~="boolean"then group.showGuideText=true end
             group.guideLineLength=I.GuideLength(group)
             group.guideHorizontalLength=I.GuideHorizontalLength(group)
@@ -158,8 +158,8 @@ function G.BuildControls(e,parent,flush,key)
         Flush()
         if owner[field]~=value then owner[field]=value;M:Commit()end
     end
-    guide.hide=W.Check(guide.rows[1],"隐藏辅助线",function(value)ChangeGuide("hideGuideLines",value==true)end)
-    guide.hide:SetPoint("LEFT",guide.rows[1],"LEFT",-4,0)
+    guide.showLines=W.Check(guide.rows[1],"显示辅助线",function(value)ChangeGuide("showGuideLines",value==true)end)
+    guide.showLines:SetPoint("LEFT",guide.rows[1],"LEFT",-4,0)
     guide.lengthLabel=W.Label(guide.rows[2],"辅助斜线长度",12);guide.lengthLabel:SetPoint("LEFT",guide.rows[2],"LEFT",0,0)
     guide.length=W.SpinBox(guide.rows[2],225,0,1,.01);guide.length:SetIsPercent(true)
     guide.length:SetPoint("RIGHT",guide.rows[2],"RIGHT",-2,0)
@@ -219,7 +219,7 @@ function G.BuildControls(e,parent,flush,key)
         for _,row in ipairs(self.rows)do row:SetWidth(self:GetWidth())end
         self.length:SetWidth(width);self.opacity:SetWidth(width);self.flatLength:SetWidth(width);self.text:SetWidth(width)
         self.font:SetWidth(width);self.fontSize:SetWidth(width)
-        self.hide:SetChecked(owner.hideGuideLines==true);self.showText:SetChecked(owner.showGuideText~=false)
+        self.showLines:SetChecked(I.GuideLinesShown(owner));self.showText:SetChecked(owner.showGuideText~=false)
         self.length.updating=true;self.length:SetValue(I.GuideLength(owner));self.length.updating=false
         self.flatLength.updating=true;self.flatLength:SetValue(I.GuideHorizontalLength(owner));self.flatLength.updating=false
         self.opacity.updating=true;self.opacity:SetValue(I.GuideOpacity(owner));self.opacity.updating=false
