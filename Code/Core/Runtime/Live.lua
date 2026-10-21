@@ -109,7 +109,6 @@ function M:StartLive()
     end
     local function Module(id) dirtyModules[id]=true;pending=true end
     f:SetScript("OnEvent",function(_,event,unit,...)
-        if M.TargetNameplateLine then M.TargetNameplateLine.Event(M.live,event)end
         if event=="UI_SCALE_CHANGED" then M:QueueUIScale();return end
         if event=="PLAYER_ENTERING_WORLD" then M:QueueUIScale()
         elseif event=="PLAYER_REGEN_ENABLED" and M.pendingUIScale then M:ApplyUIScale() end

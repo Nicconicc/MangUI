@@ -182,7 +182,6 @@ local function NeedsAnimation(view,o)
     return true
 end
 function R.Animate(view)
-    if M.TargetNameplateLine then M.TargetNameplateLine.Update(view)end
     if not view.root:IsVisible() then return end
     R.UpdateDecorationRange(view)
     if not view.preview then view.animationNow=GetTime();view.animationCasting=nil end
