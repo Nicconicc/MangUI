@@ -82,6 +82,7 @@ function M:StartLive()
         "NAME_PLATE_UNIT_ADDED","NAME_PLATE_UNIT_REMOVED",
         "PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","UPDATE_EXPANSION_LEVEL","QUEST_LOG_UPDATE","UNIT_QUEST_LOG_CHANGED","TIME_PLAYED_MSG",
         "UNIT_SPELLCAST_SUCCEEDED","SPELL_UPDATE_COOLDOWN","SPELL_UPDATE_CHARGES","SPELLS_CHANGED","LEARNED_SPELL_IN_TAB",
+        "ACTIVE_TALENT_GROUP_CHANGED","PLAYER_TALENT_UPDATE","PLAYER_SPECIALIZATION_CHANGED","TRAIT_CONFIG_UPDATED","TRAIT_CONFIG_LIST_UPDATED",
         "BAG_UPDATE_COOLDOWN","BAG_UPDATE_DELAYED","PLAYER_EQUIPMENT_CHANGED","GET_ITEM_INFO_RECEIVED","UNIT_INVENTORY_CHANGED",
         "UNIT_PORTRAIT_UPDATE","UNIT_MODEL_CHANGED","PORTRAITS_UPDATED","UNIT_FLAGS","UNIT_CONNECTION","UNIT_FACTION","UNIT_CLASSIFICATION_CHANGED","UNIT_AURA","RAID_TARGET_UPDATE","GROUP_ROSTER_UPDATE",
         "UNIT_TARGETABLE_CHANGED","UNIT_PHASE","ENCOUNTER_START","ENCOUNTER_END","INSTANCE_ENCOUNTER_ENGAGE_UNIT",
@@ -112,10 +113,12 @@ function M:StartLive()
         if event=="UI_SCALE_CHANGED" then M:QueueUIScale();return end
         if event=="PLAYER_ENTERING_WORLD" then M:QueueUIScale()
         elseif event=="PLAYER_REGEN_ENABLED" and M.pendingUIScale then M:ApplyUIScale() end
-        if (event=="PLAYER_ENTERING_WORLD"or event=="PLAYER_REGEN_ENABLED")and not InCombatLockdown()then
-            local key=M.PlayerSkillMonitor.CurrentCharacter()
-            if key and (M.db.playerSkillMonitorCharacter~=key or M.db.playerOtherMonitorCharacter~=key)then
-                M:BindPlayerSkillMonitorClass();M:BindPlayerOtherMonitorClass();M:Commit()
+        if (event=="PLAYER_ENTERING_WORLD"or event=="PLAYER_REGEN_ENABLED"or event=="ACTIVE_TALENT_GROUP_CHANGED"or event=="PLAYER_TALENT_UPDATE"
+            or event=="PLAYER_SPECIALIZATION_CHANGED"or event=="TRAIT_CONFIG_UPDATED"or event=="TRAIT_CONFIG_LIST_UPDATED")and not InCombatLockdown()
+            and (event~="PLAYER_SPECIALIZATION_CHANGED"or not unit or unit=="player")then
+            local changed=M.PlayerSkillMonitor.RefreshProfileBindings()
+            if not changed and M.editor and M.editor.window:IsShown()and (M.selection=="playerSkillMonitor"or M.selection=="playerOtherMonitor")then
+                M:RefreshProperties()
             end
         end
         local profile=M.ModuleProfiler

@@ -184,6 +184,7 @@ function O.BuildControls(e,parent)
         Flush();local group=Current();if group and M:CanEdit()then local entries=MonitorEntries(group);entries[#entries+1]=O.NewEntry();M:Commit()end
     end)
     function panel:Refresh(group)
+        M.PlayerSkillMonitor.RefreshMonitorTitle(self.title)
         if self.drag and (self.drag.owner~=group or self.drag.entries~=MonitorEntries(group))then self:FinishDrag(false)end
         local width=e.props:GetWidth();local entries=MonitorEntries(group) or {};self:SetWidth(width);sharing:SetWidth(width)
         for i,button in ipairs({sharing.exportAll,sharing.import})do

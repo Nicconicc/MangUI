@@ -104,6 +104,29 @@ function S.CurrentCharacter()
     if S.ValidCharacter(guid)then return guid end
     local key=CharacterNameKey();return S.ValidCharacter(key)and key
 end
+function S.TalentContext()
+    local count=Number(Safe(GetNumTalentGroups,false,false))or Number(Safe(GetNumSpecGroups,false,false))or 1
+    local active=Number(Safe(GetActiveTalentGroup,false,false))or Number(Safe(GetActiveSpecGroup,false,false))
+        or Number(Safe(C_SpecializationInfo and C_SpecializationInfo.GetActiveSpecGroup,false,false))or 1
+    active=math.max(1,math.floor(active));count=math.max(active,math.floor(count))
+    local interface=M.Compat.interface or 0
+    if interface>=70000 then
+        local index=Number(Safe(GetSpecialization or (C_SpecializationInfo and C_SpecializationInfo.GetSpecialization)))
+        local spec=index and Number(Safe(GetSpecializationInfo or (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo),index))
+        if spec and spec>0 then return "spec:"..spec,active,count end
+    end
+    return "talent:"..active,active,count
+end
+function S.CurrentProfile()
+    local character=S.CurrentCharacter();if not character then return end
+    local suffix=S.TalentContext();local key=character.."#"..suffix
+    return S.ValidCharacter(key)and key
+end
+function S.RefreshMonitorTitle(title)
+    local _,active,count=S.TalentContext();local text=M:T("监控设置")
+    if count==2 then text=text.." "..(active==1 and "|cffff80c0"..M:T("主天赋")or "|cff40ff80"..M:T("副天赋")).."|r"end
+    title:SetText(text);title:SetJustifyH("CENTER");title:SetWordWrap(false)
+end
 local function CharacterDefinition(id)
     if id=="playerSkillMonitor"then
         return {api=S,list="monitors",profiles="playerSkillMonitorsByCharacter",owner="playerSkillMonitorCharacter",legacy="playerSkillMonitorsByClass",class="playerSkillMonitorClass",revision="playerSkillMonitorCharacterRevision",ensure="EnsurePlayerSkillMonitor"}
@@ -123,12 +146,12 @@ function S.ValidCharacterProfiles(profiles,valid)
     return true
 end
 function S.SaveCharacter(id)
-    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentCharacter();local group=db and CharacterGroup(id,db.design)
+    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentProfile();local group=db and CharacterGroup(id,db.design)
     if not key or not group or db[d.owner]~=key or not d.api.ValidEntries(group[d.list])then return end
     db[d.profiles]=type(db[d.profiles])=="table"and db[d.profiles]or {};db[d.profiles][key]=M.Copy(group[d.list])
 end
 function S.BindCharacter(id)
-    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentCharacter();local class=CurrentClass()
+    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentProfile();local class=CurrentClass()
     local group=db and CharacterGroup(id,db.design);if not key or not class or not group then return end
     local profiles=type(db[d.profiles])=="table"and db[d.profiles]or {};db[d.profiles]=profiles
     for owner,entries in pairs(profiles)do if not S.ValidCharacter(owner)or not d.api.ValidEntries(entries)then profiles[owner]=nil end end
@@ -142,18 +165,18 @@ function S.BindCharacter(id)
         db[d.revision]=1
     end
     -- Old class lists become fixed templates; edits only update character lists.
-    local fallback=CharacterNameKey()
-    local template=profiles[key]or (fallback and profiles[fallback])or (db[d.legacy]or {})[class]or {d.api.NewEntry()}
+    local fallback=CharacterNameKey();local character=S.CurrentCharacter();local suffix=S.TalentContext()
+    local template=profiles[key]or (fallback and profiles[fallback.."#"..suffix])or profiles[character]or (fallback and profiles[fallback])or (db[d.legacy]or {})[class]or {d.api.NewEntry()}
     group[d.list]=M.Copy(template);db[d.owner]=key;db[d.class]=class
     M[d.ensure](M,db.design);profiles[key]=M.Copy(group[d.list])
 end
 function S.ImportCharacter(id,config)
-    local d=CharacterDefinition(id);local db=M.db;local group=CharacterGroup(id,db.design);local key=S.CurrentCharacter()
+    local d=CharacterDefinition(id);local db=M.db;local group=CharacterGroup(id,db.design);local key=S.CurrentProfile()
     if not group or not key then return end
     db[d.profiles]=type(db[d.profiles])=="table"and db[d.profiles]or {}
     if config[d.profiles]then
         for owner,entries in pairs(config[d.profiles])do db[d.profiles][owner]=M.Copy(entries)end
-        group[d.list]=M.Copy(config[d.profiles][key]or group[d.list])
+        group[d.list]=M.Copy(config[d.profiles][key]or config[d.profiles][S.CurrentCharacter()]or group[d.list])
     else
         if config[d.legacy]then
             db[d.legacy]=type(db[d.legacy])=="table"and db[d.legacy]or {}
@@ -184,12 +207,23 @@ function S.ExportCharacterSharing(id)
     return group and S.CleanCharacterSharing({format=2,module=id,entries=group[d.list]},id)
 end
 function S.ApplyCharacterSharing(id,config)
-    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentCharacter();local group=CharacterGroup(id,db.design)
+    local d=CharacterDefinition(id);local db=M.db;local key=S.CurrentProfile();local group=CharacterGroup(id,db.design)
     if not key or not group then return false end
     S.SaveCharacter(id)
     local entries=config.format==2 and config.entries or config.profiles[config.class or CurrentClass()]
     if entries then group[d.list]=M.Copy(entries);db[d.owner]=key;S.SaveCharacter(id)end
     M[d.ensure](M,db.design);return true
+end
+function S.RefreshProfileBindings()
+    local key=S.CurrentProfile();local db=M.db
+    if not key or not db or (db.playerSkillMonitorCharacter==key and db.playerOtherMonitorCharacter==key)then return false end
+    local panel=M.editor and M.editor.skillMonitorPanel
+    if panel then
+        panel:FinishDrag(false)
+        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
+    end
+    if M.PlayerOtherMonitor.FlushEditor then M.PlayerOtherMonitor.FlushEditor()end
+    M:BindPlayerSkillMonitorClass();M:BindPlayerOtherMonitorClass();M:Commit();return true
 end
 function M:SavePlayerSkillMonitorClass()S.SaveCharacter("playerSkillMonitor")end
 function M:BindPlayerSkillMonitorClass()S.BindCharacter("playerSkillMonitor")end
@@ -753,6 +787,7 @@ function S.BuildControls(e,parent,Row)
         Flush();group.monitors[#group.monitors+1]=S.NewEntry();M:Commit()
     end)
     function panel:Refresh(group)
+        S.RefreshMonitorTitle(self.title)
         if self.drag and (self.drag.group~=group or self.drag.entries~=group.monitors or self.drag.count~=#group.monitors)then self:FinishDrag(false)end
         local monitors=group and group.monitors or {};local width=e.props:GetWidth()
         sharing:SetWidth(width)

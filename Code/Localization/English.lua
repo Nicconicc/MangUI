@@ -702,4 +702,6 @@ english["辅助线"]="Guide lines"
 english["辅助斜线长度"]="Diagonal guide length"
 english["辅助平线长度"]="Horizontal guide length"
 english["显示文字"]="Show text"
+english["主天赋"]="Primary talents"
+english["副天赋"]="Secondary talents"
 M:RebuildLocaleKeys()
