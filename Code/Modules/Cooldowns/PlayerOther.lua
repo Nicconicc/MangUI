@@ -164,7 +164,7 @@ end
 function M:UpgradePlayerOtherMonitorDefaults(db)
     if db.playerOtherMonitorPositionRevision~=1 then
         local defaults=O.Group(db.moduleDefaults)
-        if defaults then O.RestorePosition(defaults)end
+        if defaults and not (self.recordedDefaults and O.Group(self.recordedDefaults))then O.RestorePosition(defaults)end
         db.playerOtherMonitorPositionRevision=1
     end
     if db.playerOtherMonitorSizeRevision==1 then return end

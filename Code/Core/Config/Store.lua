@@ -209,10 +209,11 @@ function M:InitStore()
     if self.EnsureRaidVulnerability then self:EnsureRaidVulnerability(db.moduleDefaults)end
     if self.EnsureReceivedBuffs then self:EnsureReceivedBuffs(db.moduleDefaults)end
     if self.EnsureRaidBuffMonitor then self:EnsureRaidBuffMonitor(db.moduleDefaults)end
-    -- Refresh default mover centers without moving the player's saved layout.
+    -- Preserve captured mover positions; use built-in centers only for new modules.
     for _,monitor in ipairs({self.ReceivedBuffs,self.RaidBuffMonitor,self.RaidVulnerability,self.CommonItems})do
         local group=monitor.Group(db.moduleDefaults)
-        if group then monitor.RestorePosition(group)end
+        local recorded=self.recordedDefaults and monitor.Group(self.recordedDefaults)
+        if group and not recorded then monitor.RestorePosition(group)end
     end
     if self.UpgradePlayerSkillMonitorDefaults then self:UpgradePlayerSkillMonitorDefaults(db) end
     if self.EnsureChatButtonsModule then self:EnsureChatButtonsModule(db.moduleDefaults) end

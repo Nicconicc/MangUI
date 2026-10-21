@@ -156,7 +156,9 @@ function M:UpgradePlayerSkillMonitorDefaults(db)
     if db.playerSkillMonitorDefaultsRevision==2 then return end
     local group=MonitorGroup(db.moduleDefaults)
     if group then
-        group.growthDirection="CENTER";S.RestorePosition(group)
+        if not (self.recordedDefaults and MonitorGroup(self.recordedDefaults))then
+            group.growthDirection="CENTER";S.RestorePosition(group)
+        end
         -- Repair the exact 1.0.527 default, which ignored scale and mover pivot.
         local active=MonitorGroup(db.design)
         if active and active.x==0 and active.y==-120 and S.Direction(active)=="CENTER"then S.RestorePosition(active)end
