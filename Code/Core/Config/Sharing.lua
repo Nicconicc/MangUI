@@ -154,6 +154,7 @@ local function CleanConfig(config)
     if config.portrait3D~=nil and type(config.portrait3D)~="boolean" then return end
     if config.healthClassColor~=nil and type(config.healthClassColor)~="boolean" then return end
     if config.adapt4KUIScale~=nil and type(config.adapt4KUIScale)~="boolean" then return end
+    if config.clientFontScale~=nil and (type(config.clientFontScale)~="number" or config.clientFontScale<.5 or config.clientFontScale>1.5) then return end
     if config.useGlobalFont~=nil and type(config.useGlobalFont)~="boolean" then return end
     local characterMonitors
     if config.characterMonitors~=nil then
@@ -193,6 +194,7 @@ local function CleanConfig(config)
         portrait3D=config.portrait3D==true,
         healthClassColor=config.healthClassColor==true,
         adapt4KUIScale=config.adapt4KUIScale==true,
+        clientFontScale=M:NormalizeClientFontScale(config.clientFontScale),
         useGlobalFont=config.useGlobalFont==true,
         globalFontPath=M:ResolveFontPath(config.globalFontPath and config.globalFontPath~="" and config.globalFontPath or M:DefaultFontPath()),
         globalFontName=not M:IsRetiredFont(config.globalFontName) and config.globalFontName and config.globalFontName~="" and config.globalFontName or "默认",
@@ -277,6 +279,7 @@ function M:ExportConfigString()
             hideBlizzard=self.db.hideBlizzard,hideWithoutTarget=self.db.hideWithoutTarget,portrait3D=self.db.portrait3D,
             healthClassColor=self.db.healthClassColor,minimap=self.db.minimap,
             adapt4KUIScale=self.db.adapt4KUIScale,
+            clientFontScale=self.db.clientFontScale,
             useGlobalFont=self.db.useGlobalFont,globalFontPath=self.db.globalFontPath,globalFontName=self.db.globalFontName,
             characterMonitors=self.PlayerSkillMonitor.ExportCharacterSettings(),
             commonItemsShared=self.db.commonItemsShared,commonItemsByClass=self.db.commonItemsByClass,commonItemsClass=self.db.commonItemsClass,
@@ -354,6 +357,8 @@ function M:ApplyConfigString(input)
     self.db.portrait3D=config.portrait3D
     self.db.healthClassColor=config.healthClassColor
     self.db.adapt4KUIScale=config.adapt4KUIScale
+    self.db.clientFontScale=config.clientFontScale
+    self:ApplyClientFontScale()
     self:ApplyUIScale()
     self.db.useGlobalFont=config.useGlobalFont
     self.db.globalFontPath=config.globalFontPath;self.db.globalFontName=config.globalFontName

@@ -189,6 +189,7 @@ function M:InitStore()
     db.portrait3D=db.portrait3D==true
     db.healthClassColor=db.healthClassColor==true
     db.adapt4KUIScale=db.adapt4KUIScale==true
+    db.clientFontScale=self:NormalizeClientFontScale(db.clientFontScale)
     db.useGlobalFont=db.useGlobalFont==true
     db.globalFontPath=type(db.globalFontPath)=="string" and db.globalFontPath~="" and db.globalFontPath or (M:DefaultFontPath())
     db.globalFontName=type(db.globalFontName)=="string" and db.globalFontName~="" and db.globalFontName or "默认"
@@ -252,6 +253,7 @@ function M:InitStore()
     db.schema=82
     db.hideBlizzard=db.hideBlizzard or false
     self.db=db
+    self:ApplyClientFontScale()
     self.PlayerSkillMonitor.InitCharacterStore()
     if self.BindPlayerSkillMonitorClass then self:BindPlayerSkillMonitorClass()end
     if self.BindPlayerOtherMonitorClass then self:BindPlayerOtherMonitorClass()end

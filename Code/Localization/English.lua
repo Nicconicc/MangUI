@@ -704,4 +704,5 @@ english["辅助平线长度"]="Horizontal guide length"
 english["显示文字"]="Show text"
 english["主天赋"]="Primary talents"
 english["副天赋"]="Secondary talents"
+english["客户端字体大小"]="Client font size"
 M:RebuildLocaleKeys()

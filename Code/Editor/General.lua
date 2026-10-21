@@ -34,6 +34,9 @@ function M:RefreshOtherSettings()
     panel.uiScaleCheck:SetChecked(self.db.adapt4KUIScale==true)
     panel.globalFontCheck:SetChecked(self.db.useGlobalFont==true)
     panel.globalFontSelect:SetMedia(self.db.globalFontName,self.db.globalFontPath)
+    panel.clientFontScale.updating=true
+    panel.clientFontScale:SetValue(self.db.clientFontScale)
+    panel.clientFontScale.updating=false
     panel.exportButton:SetText("导出配置");panel.importButton:SetText("导入配置")
 end
 function M:OpenGlobalFontPicker()
@@ -78,7 +81,7 @@ function M:OpenGeneral()
         local text=Label(check,"显示小地图图标");text:SetPoint("LEFT",check,"RIGHT",5,0);text:SetTextColor(1,1,1)
         check:SetScript("OnClick",function(self)M.db.minimap.hide=not self:GetChecked();M:CreateMinimap()end)
         panel.minimapCheck=check
-        Section(content,"显示",-145,252)
+        Section(content,"显示",-145,306)
         local visibility=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
         visibility:SetSize(28,28);visibility:SetPoint("TOPLEFT",12,-175)
         local visibilityText=Label(visibility,"无目标时隐藏框体")
@@ -122,13 +125,21 @@ function M:OpenGeneral()
         panel.globalFontSelect=W.MediaSelect(content,"字体",200,"font",function()M:OpenGlobalFontPicker()end)
         panel.globalFontSelect:SetPoint("TOPLEFT",16,-345)
         panel.globalFontSelect.caption:SetTextColor(1,1,1)
-        Section(content,"配置分享",-432,59)
+        local clientFontLabel=Label(content,"客户端字体大小")
+        clientFontLabel:SetPoint("TOPLEFT",16,-401);clientFontLabel:SetTextColor(1,1,1)
+        panel.clientFontScale=W.SpinBox(content,200,.5,1.5,.05)
+        panel.clientFontScale:SetPoint("TOPLEFT",16,-425)
+        panel.clientFontScale:SetScript("OnValueChanged",function(self,value)
+            if self.updating then return end
+            M:SetClientFontScale(value)
+        end)
+        Section(content,"配置分享",-486,59)
         local export=Button(content,"导出配置",190,32,function()M:ShowConfigStringDialog("export")end)
         panel.exportButton=export
-        export:SetPoint("TOPLEFT",16,-462)
+        export:SetPoint("TOPLEFT",16,-516)
         local import=Button(content,"导入配置",190,32,function()M:ShowConfigStringDialog("import")end)
         panel.importButton=import
-        import:SetPoint("TOPLEFT",216,-462)
+        import:SetPoint("TOPLEFT",216,-516)
         panel:SetScript("OnHide",function()
             if panel.globalFontSelect.menu then panel.globalFontSelect.menu:Hide()end
             if M.configDialog then M.configDialog:Hide() end
