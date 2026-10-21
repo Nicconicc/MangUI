@@ -68,7 +68,7 @@ function H.BuildClassControls(row,flush,editable)
         local button=CreateFrame("Button",nil,row);button:SetSize(24,24)
         button.classToken=info[1];button.classInfo=info;row.classButtons[#row.classButtons+1]=button
         button.icon=button:CreateTexture(nil,"ARTWORK");button.icon:SetSize(19.2,19.2);button.icon:SetPoint("CENTER")
-        button.icon:SetTexture(M.ART.."ClassMarks\\"..info[3]:gsub("%s+","").."_mark.png")
+        button.icon:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false);button.icon:SetDesaturated(true)
         button:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight","ADD")
         button:SetScript("OnClick",function(self)
             flush();if editable()then
