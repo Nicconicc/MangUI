@@ -71,6 +71,9 @@ local function LayoutEntry(menu,nativeLayout)
         for frame,anchors in pairs(state.anchors)do SetPoints(frame,anchors,stride/frame:GetEffectiveScale(),below)end
         menu:SetHeight(state.height+stride/menu:GetEffectiveScale())
         button:ClearAllPoints();button:SetPoint("TOP",addons,"BOTTOM",0,-gap);button:Show()
+        -- Native AddButton normally enables menu-template buttons. This one
+        -- is independent of that pool and must initialize its own input state.
+        button:SetEnabled(true);button:EnableMouse(true);button:RegisterForClicks("LeftButtonUp")
     end
     state.busy=false
 end
