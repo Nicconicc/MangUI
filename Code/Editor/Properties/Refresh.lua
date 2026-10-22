@@ -616,6 +616,7 @@ local function LockModuleSettings(e)
     e.moduleLockShield:SetFrameLevel(e.right:GetFrameLevel()+10000)
     e.moduleLockShield:SetShown(locked)
     e.moduleEnabled:SetFrameLevel(e.moduleLockShield:GetFrameLevel()+1)
+    e.moduleEnabled:SetIgnoreParentAlpha(true);e.moduleEnabled:SetAlpha(1)
     if not locked then return end
     e.moduleLockedInputs={};e.moduleLockedTextures={}
     -- End any active color edit owned by this panel before blocking its controls.
