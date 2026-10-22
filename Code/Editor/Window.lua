@@ -55,7 +55,7 @@ function M:OpenDesigner()
         background:SetAllPoints(opening);background:SetColorTexture(27/255,25/255,26/255,1)
         local logo=parent:CreateTexture(nil,"OVERLAY",nil,-1)
         -- Show only the central medallion in the native portrait opening.
-        logo:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\SettingsMedallion.png");logo:SetTexCoord(.245,.755,.24,.75)
+        logo:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\SettingsMedallion.png");logo:SetTexCoord(.22,.78,.215,.775)
         logo:SetAllPoints(background)
         local mask=parent:CreateMaskTexture()
         mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
