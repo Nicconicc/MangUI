@@ -1,6 +1,6 @@
 local _,M=...
 local registered=setmetatable({},{__mode="k"})
-local button
+local button,container
 local function OpenFromMenu()
     if PlaySound and SOUNDKIT and SOUNDKIT.IG_MAINMENU_OPTION then PlaySound(SOUNDKIT.IG_MAINMENU_OPTION)end
     if GameMenuFrame and GameMenuFrame:IsShown()then
@@ -49,18 +49,28 @@ local function LayoutEntry(menu,nativeLayout)
     end
     if addons then
         if not button then
-            -- Keep the addon button OUTSIDE the native menu and its frame pool.
-            -- AddButton/Reset/InitButtons and native callback scripts stay untouched.
-            button=CreateFrame("Button","MangUIUFGameMenuButton",UIParent,menu.buttonTemplate or "UIPanelButtonTemplate")
+            -- Use an owned child container, excluded from the native layout/pool.
+            -- Native AddButton/Reset/InitButtons and callbacks stay untouched.
+            container=CreateFrame("Frame",nil,menu)
+            container.ignoreInLayout=true;container:SetAllPoints(menu)
+            button=CreateFrame("Button","MangUIUFGameMenuButton",container,"UIPanelButtonTemplate")
             button:Hide();button:SetText("MangUI");button:SetScript("OnClick",OpenFromMenu)
             M.gameMenuButton=button
         end
+        container:SetParent(menu)
+        container:ClearAllPoints();container:SetAllPoints(menu);container:Show()
         local scale=addons:GetEffectiveScale()
-        button:SetScale(scale/UIParent:GetEffectiveScale())
+        button:SetScale(scale/container:GetEffectiveScale())
         button:SetSize(addons:GetWidth(),addons:GetHeight())
         button:SetFrameStrata(menu:GetFrameStrata());button:SetFrameLevel(menu:GetFrameLevel()+10)
         local text,source=button:GetFontString(),addons:GetFontString()
         if text and source then text:SetFont(source:GetFont())end
+        if button.SetNormalFontObject and addons.GetNormalFontObject then
+            local normal=addons:GetNormalFontObject()
+            local highlight=addons:GetHighlightFontObject()
+            if normal then button:SetNormalFontObject(normal)end
+            if highlight then button:SetHighlightFontObject(highlight)end
+        end
         local nextButton=buttons[index+1]
         local gap=nextButton and (addons:GetBottom()*scale-nextButton:GetTop()*nextButton:GetEffectiveScale())/scale or 1
         if gap<0 or gap>8 then gap=menu.spacing or 1 end
@@ -70,10 +80,9 @@ local function LayoutEntry(menu,nativeLayout)
         for i=index+1,#buttons do below[buttons[i]]=true;state.anchors[buttons[i]]=Points(buttons[i])end
         for frame,anchors in pairs(state.anchors)do SetPoints(frame,anchors,stride/frame:GetEffectiveScale(),below)end
         menu:SetHeight(state.height+stride/menu:GetEffectiveScale())
-        button:ClearAllPoints();button:SetPoint("TOP",addons,"BOTTOM",0,-gap);button:Show()
-        -- Native AddButton normally enables menu-template buttons. This one
-        -- is independent of that pool and must initialize its own input state.
+        button:ClearAllPoints();button:SetPoint("TOP",addons,"BOTTOM",0,-gap)
         button:SetEnabled(true);button:EnableMouse(true);button:RegisterForClicks("LeftButtonUp")
+        button:Show()
     end
     state.busy=false
 end
@@ -111,4 +120,16 @@ function M:RegisterGameMenuEntry()
         Restore(self,state)
     end)
     if menu:IsShown()then SafeLayout(menu,false)end
+end
+
+-- A normal addon command avoids restricted /run scripts and delayed timers.
+function M:ReportGameMenuEntry()
+    local function Flag(value)return value and "true" or "false" end
+    self:Print("v"..self.version.." menucheck")
+    if not button then self:Print("Esc menu entry: not created (open Esc once first).");return end
+    local enabled=button:IsEnabled()
+    local mouse=button:IsMouseEnabled()
+    local state=button:GetButtonState()
+    self:Print("enabled="..Flag(enabled).." mouse="..Flag(mouse).." state="..tostring(state))
+    self:Print("shown="..Flag(button:IsShown()).." visible="..Flag(button:IsVisible()).." menuParent="..Flag(container and container:GetParent()==GameMenuFrame))
 end
