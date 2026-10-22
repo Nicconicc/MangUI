@@ -29,7 +29,7 @@ local function ResetDividers(e)
     for _,line in ipairs(e.propertyDividers) do line:Hide() end
 end
 
-function M:RefreshProperties()
+local function RefreshProperties(self)
     local layoutEditor=self.editor
     layoutEditor.propertyDividers=layoutEditor.propertyDividers or {}
     local e=self.editor;local n=Selected()
@@ -589,5 +589,60 @@ function M:RefreshProperties()
         end
     end
     e.props:SetHeight(math.max(2,height+10))
+end
+
+local function InPanel(object,panel)
+    while object do
+        if object==panel then return true end
+        object=object.GetParent and object:GetParent()
+    end
+    return false
+end
+local function RestoreModuleSettings(e)
+    for texture,desaturated in pairs(e.moduleLockedTextures or {})do texture:SetDesaturated(desaturated)end
+    for input,enabled in pairs(e.moduleLockedInputs or {})do
+        if enabled then input:Enable()else input:Disable()end
+    end
+    e.moduleLockedTextures=nil;e.moduleLockedInputs=nil
+end
+local function LockModuleSettings(e)
+    local selected=Selected();local id=PreviewModuleID(selected)
+    local module=id and M.byID[id];local locked=module and module.enabled==false or false
+    e.right:SetAlpha(locked and .4 or 1)
+    if not e.moduleLockShield then
+        e.moduleLockShield=CreateFrame("Frame",nil,e.right)
+        e.moduleLockShield:SetAllPoints();e.moduleLockShield:EnableMouse(true)
+    end
+    e.moduleLockShield:SetFrameLevel(e.right:GetFrameLevel()+10000)
+    e.moduleLockShield:SetShown(locked)
+    e.moduleEnabled:SetFrameLevel(e.moduleLockShield:GetFrameLevel()+1)
+    if not locked then return end
+    e.moduleLockedInputs={};e.moduleLockedTextures={}
+    -- End any active color edit owned by this panel before blocking its controls.
+    local colorSource=M.EditorUndo and M.EditorUndo.colorSource
+    if colorSource and InPanel(colorSource,e.right)and ColorPickerFrame then ColorPickerFrame:Hide()end
+    for input in pairs(M.localizedInputs)do
+        if InPanel(input,e.right)then
+            e.moduleLockedInputs[input]=not input.IsEnabled or input:IsEnabled()
+            input:ClearFocus();input:Disable()
+        end
+    end
+    local function Desaturate(frame)
+        if frame==e.moduleLockShield or frame==e.moduleEnabled then return end
+        if frame.menu then frame.menu:Hide()end
+        if frame.GetRegions then for _,region in ipairs({frame:GetRegions()})do
+            if region.GetObjectType and region:GetObjectType()=="Texture"and region.IsDesaturated then
+                e.moduleLockedTextures[region]=region:IsDesaturated();region:SetDesaturated(true)
+            end
+        end end
+        if frame.GetChildren then for _,child in ipairs({frame:GetChildren()})do Desaturate(child)end end
+    end
+    Desaturate(e.right)
+end
+function M:RefreshProperties()
+    local e=self.editor
+    RestoreModuleSettings(e)
+    RefreshProperties(self)
+    LockModuleSettings(e)
 end
 
