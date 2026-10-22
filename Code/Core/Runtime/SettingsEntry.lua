@@ -14,10 +14,10 @@ function M:RegisterSettingsEntry()
         local content=CreateFrame("Frame",nil,panel)
         content:SetPoint("CENTER",panel,"CENTER",0,0);panel.content=content
         local logo=content:CreateTexture(nil,"ARTWORK")
-        logo:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\Logo.png")
-        -- Crop only transparent padding, preserving the visible Logo's proportions.
-        logo:SetTexCoord(21/256,231/256,27/256,232/256)
-        logo:SetSize(140*210/205,140);panel.logo=logo
+        logo:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\SettingsMedallion.png")
+        -- Show the complete square artwork, matching the CardMaster settings entry.
+        logo:SetTexCoord(0,1,0,1)
+        logo:SetSize(140,140);panel.logo=logo
         local title=content:CreateFontString(nil,"ARTWORK","GameFontNormalLarge")
         title:SetFont(self.MYRIAD,36,"OUTLINE");title:SetText("MangUI");title:SetTextColor(1,.82,0)
         local version=content:CreateFontString(nil,"ARTWORK","GameFontNormalLarge")
