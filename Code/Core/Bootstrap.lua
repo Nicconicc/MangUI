@@ -1,7 +1,7 @@
 local name, M = ...
 _G.MangUIUF = M
-M.name, M.version = name, "1.0.662"
-M.optionsTitle = "MangUI - V1.0.662 2026/10/22 2048"
+M.name, M.version = name, "1.0.663"
+M.optionsTitle = "MangUI - V1.0.663 2026/10/22 2105"
 M.errors, M.status = {}, "等待初始化"
 M.ART = "Interface\\AddOns\\MangUI\\Assets\\"
 M.MYRIAD = "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
@@ -94,7 +94,7 @@ function M:CreateMinimap()
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp"); b:RegisterForDrag("LeftButton")
     local background=b:CreateTexture(nil,"BACKGROUND");background:SetSize(26,26);background:SetPoint("CENTER",b,"CENTER",0,0)
     background:SetColorTexture(27/255,25/255,26/255,1)
-    local icon=b:CreateTexture(nil,"ARTWORK");icon:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\SettingsMedallion.png");icon:SetTexCoord(.245,.755,.24,.75);icon:SetAllPoints(background)
+    local icon=b:CreateTexture(nil,"ARTWORK");icon:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\MIcon.png");icon:SetTexCoord(0,1,0,1);icon:SetAllPoints(background)
     local mask=b:CreateMaskTexture();mask:SetTexture("Interface\\CHARACTERFRAME\\TempPortraitAlphaMask","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
     mask:SetAllPoints(background);background:AddMaskTexture(mask);icon:AddMaskTexture(mask)
     b.logo,b.logoBackground,b.logoMask=icon,background,mask
