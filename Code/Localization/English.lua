@@ -731,3 +731,10 @@ english["刷新间隔（秒，0仅事件）"]="Interval (seconds; 0 = events onl
 english["图标法术名称或ID（可选）"]="Icon spell name or ID (optional)"
 english["代码尚未应用。"]="Code has not been applied."
 english["代码只在保存后进入正式监控；测试使用独立数据。"]="Save to apply. Tests use separate state."
+
+english["自定义代码已保存。"]="Custom code saved."
+english["已保存，模块未启用。"]="Saved; module is disabled."
+english["已保存并应用：图标显示。"]="Saved and applied: icon shown."
+english["已保存并应用：当前条件不满足，图标隐藏。"]="Saved and applied: condition not met; icon hidden."
+english["已保存，等待运行配置刷新。"]="Saved; waiting for runtime configuration refresh."
+english["已保存并应用：图标被模块显示条件隐藏。"]="Saved and applied: icon hidden by module visibility settings."

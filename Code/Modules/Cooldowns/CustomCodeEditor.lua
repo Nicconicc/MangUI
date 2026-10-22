@@ -14,6 +14,22 @@ local function Draft(dialog)
     if not entry.customInterval then return nil,"刷新间隔须为0，或0.1～60秒。"end
     return entry
 end
+local function RuntimeStatus(owner,entry)
+    if owner.enabled==false then return "已保存，模块未启用。"end
+    local id=owner.id=="playerSkillMonitor"and "playerSkillMonitorIcons"or "playerOtherMonitorIcons"
+    local node=M.live and M.live.nodes[id]
+    for slot,record in pairs(node and node.customOwner and node.customOwner.records or {})do
+        if record.entry==entry and record.source==entry.customCode and record.eventText==entry.customEvents and record.interval==entry.customInterval then
+            if record.error then return "运行已暂停："..record.error end
+            if record.result.show then
+                local ok,visible=pcall(slot.IsVisible,slot)
+                if ok and M.Compat.Readable(visible)and not visible then return "已保存并应用：图标被模块显示条件隐藏。"end
+            end
+            return record.result.show and "已保存并应用：图标显示。"or "已保存并应用：当前条件不满足，图标隐藏。"
+        end
+    end
+    return C.status[entry]or "已保存，等待运行配置刷新。"
+end
 function C.OpenEditor(owner,entry)
     local W=M.Widgets;local d=C.editor
     if not d then
@@ -28,10 +44,19 @@ function C.OpenEditor(owner,entry)
         d.hint:SetPoint("TOPLEFT",20,-108);d.hint:SetPoint("TOPRIGHT",-20,-108);d.hint:SetHeight(42);d.hint:SetWordWrap(true)
         local area=W.Panel(d);area:SetPoint("TOPLEFT",20,-150);area:SetPoint("BOTTOMRIGHT",-20,100)
         local scroll=CreateFrame("ScrollFrame",nil,area,"UIPanelScrollFrameTemplate");d.scroll=scroll
-        scroll:SetPoint("TOPLEFT",8,-8);scroll:SetPoint("BOTTOMRIGHT",-28,8)
+        scroll:SetPoint("TOPLEFT",8,-8);scroll:SetPoint("BOTTOMRIGHT",-28,8);scroll:SetClipsChildren(true)
         local code=CreateFrame("EditBox",nil,scroll);d.code=code
         code:SetMultiLine(true);code:SetAutoFocus(false);code:SetMaxLetters(C.MAX_CODE);code:SetFontObject(GameFontHighlightSmall)
-        code:SetTextInsets(4,4,4,4);code:SetSize(740,100);scroll:SetScrollChild(code)
+        code:SetPoint("TOPLEFT",0,0);code:SetTextInsets(4,4,4,4);code:SetSize(740,100);scroll:SetScrollChild(code)
+        local function RefreshDraft()
+            if d.loading or not d.entry then return end
+            local text,events,interval=code:GetText(),d.events:GetText(),d.interval:GetText()
+            if text==d.observedCode and events==d.observedEvents and interval==d.observedInterval then return end
+            d.observedCode,d.observedEvents,d.observedInterval=text,events,interval
+            d.dirty=text~=d.savedCode or events~=d.savedEvents or interval~=d.savedInterval
+            d.outcome=nil
+            d.message:SetText(d.dirty and "代码尚未应用。"or RuntimeStatus(d.owner,d.entry))
+        end
         -- GetStringHeight belongs to FontString, not EditBox. Measure the
         -- wrapped text in a separate font string with the same face and width.
         local measure=area:CreateFontString(nil,"BACKGROUND");d.codeMeasure=measure
@@ -52,8 +77,9 @@ function C.OpenEditor(owner,entry)
             if d.codeMeasureWidth~=width then d.codeMeasureWidth=width;ResizeCode()end
         end)
         code:SetScript("OnTextChanged",function(self)
-            ResizeCode();d.message:SetText("代码尚未应用。")
+            ResizeCode();RefreshDraft()
         end)
+        d.events:HookScript("OnTextChanged",RefreshDraft);d.interval:HookScript("OnTextChanged",RefreshDraft)
         code:SetScript("OnCursorChanged",function(_,_,y,_,height)
             local top=-y;local offset=scroll:GetVerticalScroll();local visible=scroll:GetHeight()
             if top<offset then scroll:SetVerticalScroll(math.max(0,top))
@@ -63,33 +89,58 @@ function C.OpenEditor(owner,entry)
         d.message=W.Label(d,"",12);d.message:SetPoint("BOTTOMLEFT",20,48);d.message:SetPoint("BOTTOMRIGHT",-20,48)
         d.message:SetHeight(44);d.message:SetWordWrap(true)
         local function Check(test)
-            local candidate,err=Draft(d);if not candidate then d.message:SetText(err);return end
+            local candidate,err=Draft(d);if not candidate then d.outcome=err;d.message:SetText(err);return end
             local ok,result
             if test then ok,result=C.Test(candidate)
             else local chunk;chunk,err=C.Syntax(candidate);ok=chunk~=nil;result=ok and "语法及事件格式检查通过，尚未运行代码。"or err end
-            d.message:SetText(result);return ok,candidate
+            d.outcome=result;d.message:SetText(result);return ok,candidate
         end
         d.check=W.Button(d,"检查语法",120,function()Check(false)end);d.check:SetPoint("BOTTOMLEFT",20,14)
         d.test=W.Button(d,"测试",100,function()Check(true)end);d.test:SetPoint("LEFT",d.check,"RIGHT",12,0)
         d.save=W.Button(d,"保存并应用",140,function()
-            if not Current(d)or not M:CanEdit()then d.message:SetText("所属监控已切换，或当前无法编辑。请关闭后重新打开。");return end
+            if not Current(d)or not M:CanEdit()then
+                d.outcome="所属监控已切换，或当前无法编辑。请关闭后重新打开。";d.message:SetText(d.outcome);return
+            end
+            code:ClearFocus();d.events:ClearFocus();d.interval:ClearFocus()
             local ok,candidate=Check(false);if not ok then return end
-            for field in pairs(C.fields)do d.entry[field]=candidate[field]end
-            -- A new entry identity resets runtime state, including a paused error.
             local list=d.owner.id=="playerSkillMonitor"and d.owner.monitors or d.owner.otherMonitors
-            for i,item in ipairs(list)do if item==d.entry then list[i]=M.Copy(item);break end end
-            d:Hide();M:Commit()
+            local index
+            for i,item in ipairs(list)do if item==d.entry then index=i;break end end
+            -- Replace only after validation; a new identity restarts paused code.
+            local previous=d.entry;list[index]=candidate
+            local applied,err=pcall(M.Commit,M)
+            if not applied then
+                list[index]=previous
+                d.outcome="保存失败："..tostring(err);d.message:SetText(d.outcome);return
+            end
+            M:Print("自定义代码已保存。")
+            d:Hide()
         end);d.save:SetPoint("BOTTOMRIGHT",-132,14)
         d.cancel=W.Button(d,"取消",100,function()d:Hide()end);d.cancel:SetPoint("BOTTOMRIGHT",-20,14)
+        -- Multiline edit boxes may extend beyond the visible scroll viewport.
+        -- Keep every action above the input hierarchy for native mouse routing.
+        local actionLevel=code:GetFrameLevel()+20
+        for _,control in ipairs({d.check,d.test,d.save,d.cancel,d.events,d.interval})do control:SetFrameLevel(actionLevel)end
         for _,edit in ipairs({code,d.events,d.interval})do edit:SetScript("OnEscapePressed",function()d:Hide()end)end
         d:HookScript("OnHide",function()code:ClearFocus();d.events:ClearFocus();d.interval:ClearFocus();d.owner=nil;d.entry=nil end)
+        d:SetScript("OnUpdate",function(_,elapsed)
+            d.statusElapsed=(d.statusElapsed or 0)+elapsed
+            if d.statusElapsed<.25 then return end;d.statusElapsed=0
+            if d.entry and not d.dirty and not d.outcome then
+                if Current(d)then d.message:SetText(RuntimeStatus(d.owner,d.entry))
+                else d.outcome="所属监控已切换，或当前无法编辑。请关闭后重新打开。";d.message:SetText(d.outcome)end
+            end
+        end)
     end
     if d:IsShown()then d:Hide()end
     local width=math.max(660,math.min(940,M.editor.window:GetWidth()-60))
     local height=math.max(480,math.min(700,M.editor.window:GetHeight()-60))
     d:SetSize(width,height);d.events:SetWidth(width-220);d.code:SetWidth(width-80)
-    d.owner,d.entry=owner,entry;d.events:SetText(entry.customEvents or "");d.interval:SetText(tostring(entry.customInterval or .1))
+    d.loading=true;d.owner,d.entry=owner,entry;d.events:SetText(entry.customEvents or "");d.interval:SetText(tostring(entry.customInterval or .1))
     d.code:SetText(entry.customCode or C.defaultCode);d.scroll:SetVerticalScroll(0)
-    d.message:SetText(C.status[entry]or "代码只在保存后进入正式监控；测试使用独立数据。")
+    d.savedCode,d.savedEvents,d.savedInterval=d.code:GetText(),d.events:GetText(),d.interval:GetText()
+    d.observedCode,d.observedEvents,d.observedInterval=d.savedCode,d.savedEvents,d.savedInterval
+    d.loading=false;d.dirty=false;d.outcome=nil
+    d.message:SetText(RuntimeStatus(owner,entry))
     d:Show()
 end
