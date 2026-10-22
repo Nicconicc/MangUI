@@ -30,12 +30,13 @@ function O.ValidEntries(entries)
         if type(k)~="number"or k%1~=0 or k<1 or k>#entries or type(e)~="table"or not validTypes[e.type]then return false end
         if type(e.value)~="string"or #e.value>384 or not M.CustomMonitor.Valid(e)then return false end
         if e.slot~=nil and (type(e.slot)~="number"or e.slot%1~=0 or e.slot<1 or e.slot>19)then return false end
+        if e.displayWhen~=nil and e.displayWhen~="combat"and e.displayWhen~="boss"and e.displayWhen~="never"then return false end
         for _,field in ipairs({"glow","soundEnabled"})do if e[field]~=nil and type(e[field])~="boolean"then return false end end
         if e.glowColor~=nil and not Color(e.glowColor)then return false end
         for _,field in ipairs({"sound","soundPath","soundID"})do if e[field]~=nil and (type(e[field])~="string"or #e[field]>1024)then return false end end
         for field in pairs(e)do
             if field~="type"and field~="value"and field~="slot"and field~="glow"and field~="glowColor"and field~="soundEnabled"
-                and field~="sound"and field~="soundPath"and field~="soundID"and not M.CustomMonitor.fields[field]then return false end
+                and field~="sound"and field~="soundPath"and field~="soundID"and field~="displayWhen"and not M.CustomMonitor.fields[field]then return false end
         end
     end
     return true

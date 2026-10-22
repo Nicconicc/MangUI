@@ -719,6 +719,9 @@ english["装饰范围刷新"]="Decoration range refresh"
 english["点击区域刷新"]="Click area refresh"
 english["入场动画"]="Entry animation"
 english["主框体扫光"]="Main frame sweep"
+english["战斗中"]="In combat"
+english["首领战中"]="Boss encounters"
+english["不启动"]="Disabled"
 M:RebuildLocaleKeys()
 
 english["自定义代码"]="Custom code"

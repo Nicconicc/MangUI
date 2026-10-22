@@ -228,6 +228,16 @@ function O.BuildControls(e,parent)
                 row.glowColor:SetScript("OnClick",function(button)Flush();row.colorOwner,row.colorEntry=row.owner,row.entry;openColor(button)end)
                 row.play=W.Check(row,"播放声音",function(value)Flush();if Editable(row.owner,row.entry)then row.entry.soundEnabled=value==true;M:Commit()end end)
                 row.play:SetPoint("TOPLEFT",-4,-94)
+                row.displayChecks={}
+                for index,choice in ipairs({{"combat","战斗中"},{"boss","首领战中"},{"never","不启动"}})do
+                    local mode=choice[1]
+                    row.displayChecks[index]=W.Check(row,choice[2],function(value)
+                        Flush();if not Editable(row.owner,row.entry)then return end
+                        row.entry.displayWhen=value and mode or nil
+                        for i,button in ipairs(row.displayChecks)do button:SetChecked(row.entry.displayWhen==({"combat","boss","never"})[i])end
+                        M:Commit()
+                    end)
+                end
                 row.sound=Drop(row,"音效",300,O.Sounds,function()return row.entry.sound or "kit:8960"end,function(value)
                     if Editable(row.owner,row.entry)then row.entry.sound=value;M:Commit()end
                 end)
@@ -262,6 +272,10 @@ function O.BuildControls(e,parent)
             row.glow:ClearAllPoints();row.glow:SetPoint("TOPLEFT",width/3+48,-58);row.glow:SetChecked(entry.glow)
             row.glowColor:ClearAllPoints();row.glowColor:SetPoint("LEFT",row.glow.label,"RIGHT",12,0);row.glowColor:SetColor(entry.glowColor)
             row.play:SetChecked(entry.soundEnabled);row.sound:SetShown(entry.soundEnabled);row.sound:SetWidth(width*.65);row.sound:SetValue(entry.sound)
+            for i,button in ipairs(row.displayChecks)do
+                button:ClearAllPoints();button:SetPoint("TOPLEFT",width*.26+(i-1)*width*.74/3,-94)
+                button:SetChecked(entry.displayWhen==({"combat","boss","never"})[i])
+            end
             row.preview:ClearAllPoints();row.preview:SetPoint("LEFT",row.sound,"RIGHT",12,-11);row.preview:SetShown(entry.soundEnabled)
             row.pathLabel:SetShown(extended==true);row.pathLabel:SetText(entry.sound=="id"and "音效ID"or "声音文件路径")
             row.path:SetWidth(width-4);row.path:SetShown(entry.soundEnabled and entry.sound=="custom")

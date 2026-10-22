@@ -81,6 +81,27 @@ local function Count(text,value)
 end
 local function IsMissing(entry)return entry.type=="buffMissing"or entry.type=="debuffMissing"end
 local function IsTarget(entry)return entry.type=="debuffFound"or entry.type=="debuffMissing"end
+local function DisplayState(o)
+    local combat=M.Compat.Bool(Safe(InCombatLockdown))or M.Compat.Bool(Safe(UnitAffectingCombat,"player"))
+    local boss=o.encounterActive
+    if boss==nil then
+        boss=M.Compat.Bool(Safe(IsEncounterInProgress))
+        if not boss and combat then
+            for i=1,5 do if M.Compat.Bool(Safe(UnitExists,"boss"..i))then boss=true;break end end
+            if not boss then
+                local classification=Safe(UnitClassification,"target")
+                boss=Readable(classification)and classification=="worldboss"
+            end
+        end
+    end
+    return combat,boss==true
+end
+local function DisplayAllowed(entry,combat,boss)
+    if entry.displayWhen=="never"then return false end
+    if entry.displayWhen=="combat"then return combat end
+    if entry.displayWhen=="boss"then return boss end
+    return true
+end
 local function NativeFrame(slot,frame)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
@@ -384,6 +405,7 @@ local function Equipment(slot,auras,now,weaponAuras)
     slot.fixedCooldown=hasFixed;slot.condition=active;slot.show=true;slot.rawKnown=auras~=nil
 end
 local function Refresh(view,o,now)
+    local combat,boss=DisplayState(o)
     local player=Auras("player","HELPFUL")
     local targetExists=M.Compat.Bool(Safe(UnitExists,"target"));local target=targetExists and Auras("target","HARMFUL|PLAYER")or nil
     local equipmentDue=now>=(o.nextEquipment or 0)
@@ -412,7 +434,9 @@ local function Refresh(view,o,now)
     for _,slot in ipairs(o.otherIcons)do
         local entry=slot.entry
         if entry then
-            if entry.type=="custom"then M.CustomMonitor.Apply(o,slot,false)
+            if entry.type=="custom"then
+                if DisplayAllowed(entry,combat,boss)then M.CustomMonitor.Apply(o,slot,false)
+                else slot.show=false;slot.condition=false end
             elseif entry.type=="equipment"then Equipment(slot,player,now,weaponAuras)
             else
                 local auras=player;if IsTarget(entry)then auras=target end
@@ -427,8 +451,9 @@ local function Refresh(view,o,now)
             -- Protected aura existence never drives Lua sounds or hidden timers.
             local known=entry.type=="equipment"and player~=nil or (entry.type~="equipment"and slot.rawKnown)
             if known and entry.type~="custom"then
-                if slot.condition and not slot.wasCondition and o.frame:IsVisible()and not(view.preview or(M.editor and M.editor.window:IsShown()))then O.Play(entry)end
-                slot.wasCondition=slot.condition
+                local condition=slot.condition and DisplayAllowed(entry,combat,boss)
+                if condition and not slot.wasCondition and o.frame:IsVisible()and not(view.preview or(M.editor and M.editor.window:IsShown()))then O.Play(entry)end
+                slot.wasCondition=condition
             end
         end
     end
@@ -454,10 +479,12 @@ function O.Paint(view,o,animateOnly)
         if not equipment then entries=samples end
     end
     local displayed={}
+    local combat,boss=DisplayState(o)
     if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then Refresh(view,o,now);o.nextScan=now+.2 end
     for i,entry in ipairs(entries)do
         local slot=Icon(o,i);if slot.entry~=entry then Resolve(slot,entry)end
-        local custom=entry.type=="custom"and M.CustomMonitor.Apply(o,slot,view.preview)
+        local allowed=DisplayAllowed(entry,combat,boss)
+        local custom=entry.type=="custom"and (view.preview or allowed)and M.CustomMonitor.Apply(o,slot,view.preview)
         local rawWeapon=slot.sharedWeapon and slot.rawKnown
         local native=not view.preview and o.native and slot.nativeBound and not rawWeapon
         if slot.container then
@@ -467,7 +494,7 @@ function O.Paint(view,o,animateOnly)
             end
         end
         local eligible=not IsTarget(entry)or M.Compat.Bool(Safe(UnitExists,"target"))
-        local visible=view.preview or (native and eligible)or slot.show==true
+        local visible=view.preview or (allowed and ((native and eligible)or slot.show==true))
         slot:SetShown(visible);slot.base:SetAlpha(1);slot.annotations:SetAlpha(1)
         if visible then displayed[#displayed+1]=slot end
         if view.preview then
@@ -511,12 +538,16 @@ function O.Paint(view,o,animateOnly)
 end
 local events={UNIT_AURA=true,PLAYER_TARGET_CHANGED=true,PLAYER_ENTERING_WORLD=true,PLAYER_EQUIPMENT_CHANGED=true,
     UNIT_INVENTORY_CHANGED=true,BAG_UPDATE_COOLDOWN=true,BAG_UPDATE_DELAYED=true,SPELL_UPDATE_COOLDOWN=true,
-    GET_ITEM_INFO_RECEIVED=true,PLAYER_REGEN_ENABLED=true,SPELLS_CHANGED=true}
+    GET_ITEM_INFO_RECEIVED=true,PLAYER_REGEN_ENABLED=true,PLAYER_REGEN_DISABLED=true,SPELLS_CHANGED=true,
+    ENCOUNTER_START=true,ENCOUNTER_END=true,INSTANCE_ENCOUNTER_ENGAGE_UNIT=true}
 function O.Event(view,event,unit)
     if not events[event]or (event=="UNIT_AURA"and unit~="player"and unit~="target")then return end
     if event=="UNIT_INVENTORY_CHANGED"and unit~="player"then return end
     if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="BAG_UPDATE_DELAYED"then TrackEquipment(true)end
     local o=view.nodes.playerOtherMonitorIcons;if not o then return end
+    if event=="ENCOUNTER_START"then o.encounterActive=true
+    elseif event=="ENCOUNTER_END"then o.encounterActive=false
+    elseif event=="PLAYER_ENTERING_WORLD"or event=="PLAYER_REGEN_ENABLED"then o.encounterActive=nil end
     o.nextScan=0
     if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED"then o.nextEquipment=0 end
     if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED"then o.nextDiscovery=0 end
