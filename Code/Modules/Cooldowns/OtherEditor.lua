@@ -17,6 +17,7 @@ local function UpdateRowLock(row)
     row.lockShield:SetFrameLevel(row:GetFrameLevel()+40);row.lockShield:SetShown(locked)
     -- Leave the disabled checkbox above the mouse shield so it can unlock the row.
     row.displayChecks[3]:SetFrameLevel(row.lockShield:GetFrameLevel()+1)
+    row.displayChecks[3]:SetIgnoreParentAlpha(true);row.displayChecks[3]:SetAlpha(1)
     for _,button in ipairs({row.icon,row.handle,row.code,row.glow,row.glowColor,row.play,row.preview,row.remove,
         row.displayChecks[1],row.displayChecks[2]})do button:SetEnabled(not locked)end
     for _,edit in ipairs({row.edit,row.path,row.soundID})do
