@@ -32,9 +32,27 @@ function C.OpenEditor(owner,entry)
         local code=CreateFrame("EditBox",nil,scroll);d.code=code
         code:SetMultiLine(true);code:SetAutoFocus(false);code:SetMaxLetters(C.MAX_CODE);code:SetFontObject(GameFontHighlightSmall)
         code:SetTextInsets(4,4,4,4);code:SetSize(740,100);scroll:SetScrollChild(code)
-        scroll:SetScript("OnSizeChanged",function(self,width)code:SetWidth(math.max(100,width))end)
+        -- GetStringHeight belongs to FontString, not EditBox. Measure the
+        -- wrapped text in a separate font string with the same face and width.
+        local measure=area:CreateFontString(nil,"BACKGROUND");d.codeMeasure=measure
+        measure:SetWordWrap(true);measure:SetJustifyH("LEFT");measure:Hide()
+        if measure.SetNonSpaceWrap then measure:SetNonSpaceWrap(true)end
+        local function ResizeCode()
+            local font,size,flags=code:GetFont()
+            measure:SetFont(font,size,flags or "")
+            measure:SetWidth(math.max(1,code:GetWidth()-8))
+            -- Preserve literal pipes and a trailing blank line while measuring.
+            measure:SetText((code:GetText():gsub("|","||")).."\n ")
+            local height=math.max(100,measure:GetStringHeight()+12)
+            if code:GetHeight()~=height then code:SetHeight(height)end
+            if scroll.UpdateScrollChildRect then scroll:UpdateScrollChildRect()end
+        end
+        scroll:SetScript("OnSizeChanged",function(self,width)code:SetWidth(math.max(100,width));ResizeCode()end)
+        code:SetScript("OnSizeChanged",function(_,width)
+            if d.codeMeasureWidth~=width then d.codeMeasureWidth=width;ResizeCode()end
+        end)
         code:SetScript("OnTextChanged",function(self)
-            self:SetHeight(math.max(100,self:GetStringHeight()+20));d.message:SetText("代码尚未应用。")
+            ResizeCode();d.message:SetText("代码尚未应用。")
         end)
         code:SetScript("OnCursorChanged",function(_,_,y,_,height)
             local top=-y;local offset=scroll:GetVerticalScroll();local visible=scroll:GetHeight()
