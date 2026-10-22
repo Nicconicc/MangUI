@@ -834,8 +834,8 @@ function S.BuildControls(e,parent,Row)
     panel.dragText=panel.dragGhost:CreateFontString(nil,"OVERLAY");panel.dragText:SetFont(M:DefaultFontPath(),12,"")
     panel.dragText:SetPoint("LEFT",10,0);panel.dragText:SetWidth(200);panel.dragText:SetWordWrap(false)
     function panel:FinishDrag(apply)
-        self:EnableKeyboard(false);self:SetPropagateKeyboardInput(true)
         local drag=self.drag;if not drag then return end
+        W.SetEditorKeyboard(self,false,true)
         self.drag=nil;self.insertMarker:Hide();self.dragGhost:Hide()
         for _,row in ipairs(self.rows)do row.dragTint:Hide()end
         if not apply or not drag.valid or Current()~=drag.group or drag.entries~=drag.group.monitors or not Editable(drag.group,drag.entry)then return end
@@ -876,7 +876,7 @@ function S.BuildControls(e,parent,Row)
         local group,entry=row.group,row.entry;local index=S.EntryIndex(group,entry)
         self.drag={group=group,entry=entry,entries=group.monitors,count=#group.monitors,target=index,valid=false}
         row.dragTint:Show();self.dragText:SetText((entry.value~="" and entry.value or M:T("拖拽排序")):gsub("|","||"))
-        self.dragGhost:Show();self:EnableKeyboard(true);self:SetPropagateKeyboardInput(true);self:UpdateDrag(0)
+        self.dragGhost:Show();W.SetEditorKeyboard(self,true,true);self:UpdateDrag(0)
     end
     local function DragSurface(surface,row)
         surface:EnableMouse(true);surface:RegisterForDrag("LeftButton")
@@ -890,13 +890,13 @@ function S.BuildControls(e,parent,Row)
         if IsMouseButtonDown("RightButton")then self:FinishDrag(false)
         elseif not IsMouseButtonDown("LeftButton")then self:FinishDrag(true)end
     end)
-    panel:SetScript("OnKeyDown",function(self,key)
-        if not self.drag then self:SetPropagateKeyboardInput(true);return end
-        self:SetPropagateKeyboardInput(key~="ESCAPE")
-        if key=="ESCAPE"then self:FinishDrag(false);self:SetPropagateKeyboardInput(false)end
+    panel:SetScript("OnKeyDown",function(self,key)if InCombatLockdown()then self:FinishDrag(false);return end;
+        if not self.drag then W.SetEditorKeyboard(self,nil,true);return end
+        W.SetEditorKeyboard(self,nil,key~="ESCAPE")
+        if key=="ESCAPE"then self:FinishDrag(false);W.SetEditorKeyboard(self,nil,false)end
     end)
-    panel:EnableKeyboard(false);panel:SetPropagateKeyboardInput(true)
-    panel:SetScript("OnShow",function(self)if not self.drag then self:EnableKeyboard(false);self:SetPropagateKeyboardInput(true)end end)
+    W.SetEditorKeyboard(panel,false,true)
+    panel:SetScript("OnShow",function(self)if not self.drag then W.SetEditorKeyboard(self,false,true)end end)
     panel:SetScript("OnHide",function(self)
         self:FinishDrag(false)
         if M.configDialog and M.configDialog.scope then M.configDialog:Hide()end

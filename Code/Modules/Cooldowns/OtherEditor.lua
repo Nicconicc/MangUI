@@ -140,8 +140,8 @@ function O.BuildControls(e,parent)
     panel.ghost=W.Panel(e.window);panel.ghost:SetSize(220,32);panel.ghost:SetFrameStrata("TOOLTIP");panel.ghost:SetFrameLevel(9200);panel.ghost:Hide()
     panel.ghostText=W.Label(panel.ghost,"",12);panel.ghostText:SetPoint("LEFT",10,0);panel.ghostText:SetWidth(200);panel.ghostText:SetWordWrap(false)
     function panel:FinishDrag(apply)
-        self:EnableKeyboard(false);self:SetPropagateKeyboardInput(true)
         local drag=self.drag;if not drag then return end
+        W.SetEditorKeyboard(self,false,true)
         self.drag=nil;self.marker:Hide();self.ghost:Hide()
         for _,row in ipairs(self.rows)do row.dragTint:Hide()end
         if apply and drag.valid and Current()==drag.owner and drag.entries==MonitorEntries(drag.owner) and Editable(drag.owner,drag.entry)then
@@ -172,7 +172,7 @@ function O.BuildControls(e,parent)
         Flush();local owner,entry=row.owner,row.entry
         self.drag={owner=owner,entry=entry,entries=MonitorEntries(owner),target=Index(MonitorEntries(owner),entry),valid=false}
         row.dragTint:Show();self.ghostText:SetText((entry.value~=""and entry.value or ChoiceName(O.types,entry.type)):gsub("|","||"))
-        self.ghost:Show();self:EnableKeyboard(true);self:SetPropagateKeyboardInput(true);self:UpdateDrag(0)
+        self.ghost:Show();W.SetEditorKeyboard(self,true,true);self:UpdateDrag(0)
     end
     local function Drag(surface,row)
         surface:EnableMouse(true);surface:RegisterForDrag("LeftButton")
@@ -180,8 +180,8 @@ function O.BuildControls(e,parent)
         surface:SetScript("OnDragStop",function()panel:UpdateDrag(0);panel:FinishDrag(true)end)
         surface:SetScript("OnMouseUp",function(_,button)if button=="RightButton"then panel:FinishDrag(false)end end)
     end
-    panel:EnableKeyboard(false);panel:SetPropagateKeyboardInput(true)
-    panel:SetScript("OnKeyDown",function(self,key)if self.drag and key=="ESCAPE"then self:SetPropagateKeyboardInput(false);self:FinishDrag(false)else self:SetPropagateKeyboardInput(true)end end)
+    W.SetEditorKeyboard(panel,false,true)
+    panel:SetScript("OnKeyDown",function(self,key)if InCombatLockdown()then self:FinishDrag(false);return end;if self.drag and key=="ESCAPE"then W.SetEditorKeyboard(self,nil,false);self:FinishDrag(false)else W.SetEditorKeyboard(self,nil,true)end end)
     panel:SetScript("OnUpdate",function(self,elapsed)if self.drag then self:UpdateDrag(elapsed)end end)
     panel:SetScript("OnHide",function(self)self:FinishDrag(false);Flush()end)
     supplement:SetScript("OnHide",Flush)

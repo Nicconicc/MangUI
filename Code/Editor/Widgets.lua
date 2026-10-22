@@ -1,5 +1,31 @@
 local _,M=...
 local W={};M.Widgets=W
+local dragKeyboardPending=setmetatable({},{__mode="k"})
+local dragKeyboardEvents
+-- Keyboard propagation is protected during combat, even on an idle list's
+-- OnHide. Cancel visual drag state immediately and release input after combat.
+function W.SetEditorKeyboard(frame,enabled,propagate)
+    if InCombatLockdown()then
+        dragKeyboardPending[frame]=true
+        if not dragKeyboardEvents then
+            dragKeyboardEvents=CreateFrame("Frame")
+            dragKeyboardEvents:SetScript("OnEvent",function(self)
+                if InCombatLockdown()then return end
+                self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+                for pending in pairs(dragKeyboardPending)do
+                    dragKeyboardPending[pending]=nil
+                    pending:EnableKeyboard(false);pending:SetPropagateKeyboardInput(true)
+                end
+            end)
+        end
+        dragKeyboardEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+        return false
+    end
+    dragKeyboardPending[frame]=nil
+    if enabled~=nil then frame:EnableKeyboard(enabled)end
+    if propagate~=nil then frame:SetPropagateKeyboardInput(propagate)end
+    return true
+end
 local backdrop={bgFile="Interface\\ChatFrame\\ChatFrameBackground",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=16,edgeSize=16,insets={left=4,right=4,top=4,bottom=4}}
 function W.Panel(parent)
     local f=CreateFrame("Frame",nil,parent,"BackdropTemplate");f:SetBackdrop(backdrop)
@@ -217,14 +243,15 @@ function W.MediaMenu(anchor,items,kind,selectedPath,onSelect,selectedName)
         row:SetScript("OnClick",function()p:Hide();onSelect(item)end)
     end
     anchor.menu=p
-    p:EnableKeyboard(true);p:SetPropagateKeyboardInput(true)
+    W.SetEditorKeyboard(p,true,true)
     p:SetScript("OnKeyDown",function(self,key)
-        self:SetPropagateKeyboardInput(key~="ESCAPE")
+        if InCombatLockdown()then if key=="ESCAPE"then self:Hide()end;return end
+        W.SetEditorKeyboard(self,nil,key~="ESCAPE")
         if key=="ESCAPE" then self:Hide() end
     end)
     p:SetScript("OnHide",function()
         M:ReleaseLocaleScope(p)
-        dismiss:Hide();p:EnableKeyboard(false);if anchor.menu==p then anchor.menu=nil end
+        dismiss:Hide();W.SetEditorKeyboard(p,false,true);if anchor.menu==p then anchor.menu=nil end
     end)
     return p
 end
