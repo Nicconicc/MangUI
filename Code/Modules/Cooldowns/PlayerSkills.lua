@@ -57,7 +57,8 @@ function S.ValidEntries(entries)
     if type(entries)~="table" then return false end
     for key,entry in pairs(entries) do
         if type(key)~="number" or key%1~=0 or key<1 or key>#entries or type(entry)~="table" then return false end
-        if entry.type~="cooldown" and entry.type~="debuff" then return false end
+        if entry.type~="cooldown" and entry.type~="debuff" and entry.type~="custom"then return false end
+        if not M.CustomMonitor.Valid(entry)then return false end
         if type(entry.value)~="string" or #entry.value>384 then return false end
         if entry.showShortcut~=nil and type(entry.showShortcut)~="boolean" then return false end
         if entry.shortcut~=nil and (type(entry.shortcut)~="string" or #entry.shortcut>128) then return false end
@@ -70,7 +71,7 @@ function S.ValidEntries(entries)
             for k in pairs(entry.shortcutColor)do if type(k)~="number" or k%1~=0 or k<1 or k>4 then return false end end
         end
         for field in pairs(entry)do
-            if field~="type" and field~="value" and field~="showShortcut" and field~="shortcut" and field~="shortcutColor" then return false end
+            if field~="type" and field~="value" and field~="showShortcut" and field~="shortcut" and field~="shortcutColor" and not M.CustomMonitor.fields[field]then return false end
         end
     end
     for i=1,#entries do if type(entries[i])~="table" then return false end end
@@ -367,6 +368,7 @@ function M:EnsurePlayerSkillMonitor(design)
     group.growthDirection=S.Direction(group)
     for _,entry in ipairs(group.monitors)do
         entry.value=S.Input(entry.value);entry.shortcut=S.Input(entry.shortcut)
+        if entry.type=="custom"then M.CustomMonitor.Defaults(entry)end
         if entry.showShortcut==nil then entry.showShortcut=true end
         if entry.shortcutColor==nil then entry.shortcutColor={1,1,1,1} end
     end
@@ -394,7 +396,7 @@ M.moduleIDs.playerSkillMonitor=true
 function S.Entries(group)
     local result={}
     for _,entry in ipairs(group.monitors or {})do
-        if entry.value~="" then result[#result+1]=entry end
+        if entry.type=="custom"or entry.value~="" then result[#result+1]=entry end
     end
     return result
 end
@@ -581,7 +583,8 @@ local function Resolve(slot,entry)
     id=tonumber(entry.value) or id or Safe(C_Spell and C_Spell.GetSpellIDForSpellIdentifier,entry.value)
     if not Readable(id) then id=nil end
     slot.entry=entry;slot.spellID=id;slot.spellName=name or entry.value
-    slot.texture:SetTexture(icon or 134400);slot.needsInfo=not id or not icon;slot.nextInfo=GetTime()+1
+    slot.texture:SetTexture(icon or 134400);slot.customFallbackIcon=icon or 134400
+    slot.needsInfo=entry.type~="custom"and(not id or not icon);slot.nextInfo=GetTime()+1
 end
 local function BindAura(slot,enabled)
     if enabled==false or slot.entry.type~="debuff" or not slot.spellID then
@@ -611,6 +614,7 @@ function S.Configure(view,o)
         local slot=o.skillIcons[i];slot:Hide();slot.entry=nil
         if slot.nativeAuras then slot.nativeAuras:SetEnabled(false)end
     end
+    M.CustomMonitor.Sync(view,o,o.skillIcons,S.Paint)
 end
 local function Remaining(slot,seconds)
     slot.text:SetText(S.FormatCountdown(seconds))
@@ -720,6 +724,7 @@ function S.Paint(view,o,animateOnly)
         local slot=o.skillIcons[i]
         slot.shortcutFrame:SetAlpha(1)
         slot.texture:SetAlpha(1)
+        if slot.entry.type~="custom"and slot.customGlow then slot.customGlow:Hide()end
         for _,frame in ipairs(slot.nativeFrames or {})do
             if not view.preview and o.usesNativeAuras and slot.entry.type=="debuff" then
                 local present=Safe(frame.monitorPresence.IsVisible,frame.monitorPresence)
@@ -732,7 +737,14 @@ function S.Paint(view,o,animateOnly)
                 end
             else frame.shortcutGate:SetAlpha(1);frame.baseIconGate:SetAlpha(1)end
         end
-        if view.preview then
+        if slot.entry.type=="custom"then
+            ClearCooldown(slot.cooldown);slot.duration=nil
+            local result=M.CustomMonitor.Apply(o,slot,view.preview)
+            slot.texture:SetDesaturated(false);slot.texture:SetAlpha(1)
+            slot.text:SetText(result.text or S.FormatCountdown(result.expirationTime and result.expirationTime-now))
+            slot.count:SetText(result.count and tostring(result.count)or "")
+            M.CustomMonitor.Glow(slot,result.show and result.glow)
+        elseif view.preview then
             ClearCooldown(slot.cooldown);slot.texture:SetDesaturated(i%2==1 and not(slot.entry.type=="debuff"and M.Compat.interface==16001));slot.texture:SetAlpha(i%2==1 and .5 or 1);slot.text:SetText(tostring(30-i))
             slot.count:SetText(slot.entry.type=="debuff"and "3"or "2")
         elseif slot.duration then
@@ -780,7 +792,7 @@ end
 
 function S.BuildControls(e,parent,Row)
     local W=M.Widgets
-    local choices={{name="玩家技能冷却",path="cooldown"},{name="目标Debuff",path="debuff"}}
+    local choices={{name="玩家技能冷却",path="cooldown"},{name="目标Debuff",path="debuff"},{name="自定义代码",path="custom"}}
     local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);e.skillMonitorPanel=panel
     local sharing=CreateFrame("Frame",nil,parent);sharing:SetSize(470,56);e.skillMonitorSharing=sharing
     local function SectionTitle(frame,text)
@@ -938,13 +950,13 @@ function S.BuildControls(e,parent,Row)
                     local owner,item=row.group,row.entry
                     W.MediaMenu(row.drop,choices,"choice",item.type,function(choice)
                         Flush()
-                        if Editable(owner,item)then item.type=choice.path;M:Commit()end
+                        if Editable(owner,item)then item.type=choice.path;if item.type=="custom"then M.CustomMonitor.Defaults(item)end;M:Commit()end
                     end)
                 end)
                 row.drop:SetPoint("TOPLEFT",0,0);row.caption=row.drop.caption
                 function row.drop:SetValue(value)
                     self.value=value
-                    self:SetMedia(value=="debuff" and "目标Debuff" or "玩家技能冷却",value)
+                    self:SetMedia(value=="custom"and "自定义代码"or(value=="debuff"and "目标Debuff"or "玩家技能冷却"),value)
                 end
                 row.showShortcut=W.Check(row,"显示快捷键",function(enabled)
                     local owner,item=row.group,row.entry;Flush()
@@ -980,6 +992,7 @@ function S.BuildControls(e,parent,Row)
                     local index=owner and S.EntryIndex(owner,item)
                     if index and Editable(owner,item)then table.remove(owner.monitors,index);M:Commit()end
                 end)
+                row.code=W.Button(row,"编辑代码",100,function()Flush();if Editable(row.group,row.entry)then M.CustomMonitor.OpenEditor(row.group,row.entry)end end)
                 row.remove:SetPoint("TOPRIGHT",row,"TOPRIGHT",0,-53)
                 row.dragHandle:SetPoint("TOP",row.remove,"TOP",0,53)
             end
@@ -993,6 +1006,8 @@ function S.BuildControls(e,parent,Row)
             row.shortcutEdit:SetWidth(70)
             row.shortcutColor:ClearAllPoints();row.shortcutColor:SetPoint("LEFT",row.shortcutEdit,"RIGHT",12,0)
             row.edit:SetWidth(width/3);
+            row.code:ClearAllPoints();row.code:SetPoint("TOPLEFT",width/3+48,-53);row.code:SetShown(entry.type=="custom")
+            row.placeholder:SetText(entry.type=="custom"and "图标法术名称或ID（可选）"or "输入监控技能名或ID")
             if not row.edit:HasFocus()then W.SetInputValue(row.edit,entry.value)end
             if not row.shortcutEdit:HasFocus()then row.shortcutEdit:SetText(entry.shortcut or "")end
             row.showShortcut:SetChecked(entry.showShortcut~=false);row.shortcutColor:SetColor(entry.shortcutColor or {1,1,1,1})

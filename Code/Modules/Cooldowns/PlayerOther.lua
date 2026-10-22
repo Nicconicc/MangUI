@@ -2,7 +2,7 @@ local _,M=...
 local O={};M.PlayerOtherMonitor=O
 local S=M.PlayerSkillMonitor
 O.types={{name="玩家Buff已找到",path="buffFound"},{name="玩家Buff未找到",path="buffMissing"},
-    {name="目标Debuff已找到",path="debuffFound"},{name="目标Debuff未找到",path="debuffMissing"},{name="装备触发",path="equipment"}}
+    {name="目标Debuff已找到",path="debuffFound"},{name="目标Debuff未找到",path="debuffMissing"},{name="装备触发",path="equipment"},{name="自定义代码",path="custom"}}
 O.slots={{name="头部",path="1"},{name="颈部",path="2"},{name="肩部",path="3"},{name="衬衣",path="4"},
     {name="胸部",path="5"},{name="腰部",path="6"},{name="腿部",path="7"},{name="脚部",path="8"},{name="手腕",path="9"},
     {name="手套",path="10"},{name="戒指1",path="11"},{name="戒指2",path="12"},{name="饰品1",path="13"},{name="饰品2",path="14"},
@@ -23,19 +23,19 @@ local function Color(c)
     for k in pairs(c)do if type(k)~="number"or k%1~=0 or k<1 or k>4 then return false end end
     return true
 end
-local validTypes={buffFound=true,buffMissing=true,debuffFound=true,debuffMissing=true,equipment=true}
+local validTypes={buffFound=true,buffMissing=true,debuffFound=true,debuffMissing=true,equipment=true,custom=true}
 function O.ValidEntries(entries)
     if type(entries)~="table"or #entries>512 then return false end
     for k,e in pairs(entries)do
         if type(k)~="number"or k%1~=0 or k<1 or k>#entries or type(e)~="table"or not validTypes[e.type]then return false end
-        if type(e.value)~="string"or #e.value>384 then return false end
+        if type(e.value)~="string"or #e.value>384 or not M.CustomMonitor.Valid(e)then return false end
         if e.slot~=nil and (type(e.slot)~="number"or e.slot%1~=0 or e.slot<1 or e.slot>19)then return false end
         for _,field in ipairs({"glow","soundEnabled"})do if e[field]~=nil and type(e[field])~="boolean"then return false end end
         if e.glowColor~=nil and not Color(e.glowColor)then return false end
         for _,field in ipairs({"sound","soundPath","soundID"})do if e[field]~=nil and (type(e[field])~="string"or #e[field]>1024)then return false end end
         for field in pairs(e)do
             if field~="type"and field~="value"and field~="slot"and field~="glow"and field~="glowColor"and field~="soundEnabled"
-                and field~="sound"and field~="soundPath"and field~="soundID"then return false end
+                and field~="sound"and field~="soundPath"and field~="soundID"and not M.CustomMonitor.fields[field]then return false end
         end
     end
     return true
@@ -107,6 +107,7 @@ function M:EnsurePlayerOtherMonitor(design)
     if group.hideWithoutTarget==nil then group.hideWithoutTarget=false end
     group.growthDirection=S.Direction(group)
     for _,e in ipairs(group.otherMonitors)do
+        if e.type=="custom"then M.CustomMonitor.Defaults(e)end
         e.value=S.Input(e.value);e.slot=e.slot or 13;e.glow=e.glow==true;e.glowColor=e.glowColor or {1,.82,0,1}
         e.soundEnabled=e.soundEnabled==true;e.sound=e.sound or "kit:8960";e.soundPath=e.soundPath or "";e.soundID=e.soundID or ""
     end
@@ -137,7 +138,7 @@ function O.Entries(group)
         if entry.type=="equipment"then
             local item=O.Effects(entry.slot or 13)
             if item.id and next(item.effects)then entries[#entries+1]=entry end
-        elseif entry.value~=""then entries[#entries+1]=entry end
+        elseif entry.type=="custom"or entry.value~=""then entries[#entries+1]=entry end
     end
     return entries
 end

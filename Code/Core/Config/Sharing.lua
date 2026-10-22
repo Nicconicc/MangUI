@@ -7,20 +7,21 @@ local INVALID="配置字符串无效或已损坏，请检查是否完整复制�
 local function Libraries()
     return LibStub("LibSerialize"),LibStub("LibDeflate")
 end
-local function ValidTree(value,stack,depth,budget)
+local function ValidTree(value,stack,depth,budget,stringLimit)
     budget.count=budget.count+1
     if depth>16 or budget.count>100000 then return false end
     local kind=type(value)
     if kind=="number" then return value==value and math.abs(value)<=1000000000 end
     if kind=="boolean" then return true end
-    if kind=="string" then return #value<=4096 end
+    if kind=="string" then return #value<=(stringLimit or 4096)end
     if kind~="table" or stack[value] then return false end
     stack[value]=true
     for key,child in pairs(value) do
         if type(key)~="string" and type(key)~="number" then return false end
         if type(key)=="string" and #key>128 then return false end
         if type(key)=="number" and (key<1 or key>10000 or key%1~=0) then return false end
-        if not ValidTree(child,stack,depth+1,budget) then return false end
+        local limit=key=="customCode"and value.type=="custom"and M.CustomMonitor.MAX_CODE or nil
+        if not ValidTree(child,stack,depth+1,budget,limit)then return false end
     end
     stack[value]=nil;return true
 end

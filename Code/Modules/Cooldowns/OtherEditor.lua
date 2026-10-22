@@ -204,8 +204,9 @@ function O.BuildControls(e,parent)
                 row.handle=CreateFrame("Button",nil,row);row.handle:SetSize(110,18)
                 row.dragLabel=W.Label(row.handle,"",12);row.dragLabel:SetPoint("CENTER");row.dragLabel:SetTextColor(.65,.65,.65);row.dragLabel:SetWordWrap(false);Drag(row.handle,row)
                 row.type=Drop(row,"监控类型",215,O.types,function()return row.entry.type end,function(value)
-                    if Editable(row.owner,row.entry)then row.entry.type=value;M:Commit()end
+                    if Editable(row.owner,row.entry)then row.entry.type=value;if value=="custom"then M.CustomMonitor.Defaults(row.entry)end;M:Commit()end
                 end)
+                row.code=W.Button(row,"编辑代码",110,function()Flush();if Editable(row.owner,row.entry)then M.CustomMonitor.OpenEditor(row.owner,row.entry)end end)
                 row.slot=Drop(row,"装备位置",215,O.slots,function()return tostring(row.entry.slot or 13)end,function(value)
                     if Editable(row.owner,row.entry)then row.entry.slot=tonumber(value);row.entry.value="";M:Commit()end
                 end)
@@ -250,6 +251,8 @@ function O.BuildControls(e,parent)
             local dropWidth=(width-16)/2
             row.type:Show();row.type:SetWidth(dropWidth);row.type:SetPoint("TOPLEFT",0,0);row.type:SetValue(entry.type)
             row.slot:SetWidth(dropWidth);row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT",0,0);row.slot:SetValue(tostring(entry.slot or 13));row.slot:SetShown(entry.type=="equipment")
+            row.code:ClearAllPoints();row.code:SetPoint("TOPRIGHT",0,-23);row.code:SetShown(entry.type=="custom")
+            row.placeholder:SetText(entry.type=="custom"and "图标法术名称或ID（可选）"or "输入Buff或Debuff名称或ID")
             row.edit:SetWidth(width/3)
             if entry.type=="equipment"then row.edit:ClearFocus();row.edit:Disable()else row.edit:Enable()end
             row.edit.inputNameKind=entry.type~="equipment"and "spell"or nil

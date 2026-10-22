@@ -107,6 +107,7 @@ end
 local function BindNative(slot)
     slot.nativeDirty=nil
     local ids={};local entry=slot.entry
+    if entry.type=="custom"then if slot.container then slot.container:SetEnabled(false)end;slot.nativeBound=false;return end
     if entry.type=="equipment"then for id in pairs(slot.item.effects)do ids[id]=true end
     elseif slot.spellID then ids[slot.spellID]=true end
     if not next(ids)then if slot.container then slot.container:SetEnabled(false)end;slot.nativeBound=false;return end
@@ -147,7 +148,8 @@ local function Resolve(slot,entry)
     slot.entry=entry;slot.spellID=tonumber(entry.value)or id;slot.spellName=name or entry.value
     slot.item=entry.type=="equipment"and O.Effects(entry.slot or 13)or nil
     slot.texture:SetTexture(slot.item and slot.item.icon or icon or 134400)
-    slot.needsInfo=entry.type~="equipment"and (not icon or not slot.spellID)
+    slot.customFallbackIcon=icon or 134400
+    slot.needsInfo=entry.type~="custom"and entry.type~="equipment"and (not icon or not slot.spellID)
     slot.nextInfo=GetTime()+1
 end
 local function Icon(o,index)
@@ -244,6 +246,7 @@ function O.Configure(view,o)
         if o.native then if not InCombatLockdown()then BindNative(slot)else slot.nativeDirty=true end end
     end
     for i=#o.entries+1,#o.otherIcons do local slot=o.otherIcons[i];slot:Hide();slot.entry=nil;ResetNative(slot)end
+    M.CustomMonitor.Sync(view,o,o.otherIcons,O.Paint)
 end
 O.timers={}
 local function SaveTimer(key,record,now)
@@ -413,7 +416,8 @@ local function Refresh(view,o,now)
     for _,slot in ipairs(o.otherIcons)do
         local entry=slot.entry
         if entry then
-            if entry.type=="equipment"then Equipment(slot,player,now,weaponAuras)
+            if entry.type=="custom"then M.CustomMonitor.Apply(o,slot,false)
+            elseif entry.type=="equipment"then Equipment(slot,player,now,weaponAuras)
             else
                 local auras=player;if IsTarget(entry)then auras=target end
                 local aura=Find(auras,entry,slot.spellID);local present=aura~=nil
@@ -426,7 +430,7 @@ local function Refresh(view,o,now)
             if slot.nativeDirty and not InCombatLockdown()then BindNative(slot)end
             -- Protected aura existence never drives Lua sounds or hidden timers.
             local known=entry.type=="equipment"and player~=nil or (entry.type~="equipment"and slot.rawKnown)
-            if known then
+            if known and entry.type~="custom"then
                 if slot.condition and not slot.wasCondition and o.frame:IsVisible()and not(view.preview or(M.editor and M.editor.window:IsShown()))then O.Play(entry)end
                 slot.wasCondition=slot.condition
             end
@@ -460,6 +464,7 @@ function O.Paint(view,o,animateOnly)
         local slot=Icon(o,i);if slot.entry~=entry then Resolve(slot,entry)end
         local x=S.IconOffset(group,i,#entries)
         if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
+        local custom=entry.type=="custom"and M.CustomMonitor.Apply(o,slot,view.preview)
         local rawWeapon=slot.sharedWeapon and slot.rawKnown
         local native=not view.preview and o.native and slot.nativeBound and not rawWeapon
         if slot.container then
@@ -473,12 +478,14 @@ function O.Paint(view,o,animateOnly)
         slot:SetShown(visible);slot.base:SetAlpha(1);slot.annotations:SetAlpha(1)
         if view.preview then
             slot.texture:SetDesaturated(false);slot.texture:SetAlpha(1)
-            slot.time:SetText(IsMissing(entry)and ""or tostring(30-i));slot.count:SetText(IsMissing(entry)and ""or "2")
-            SetGlow(slot.glow,entry.glow,entry.glowColor,now)
+            slot.time:SetText(custom and (custom.text or "")or(IsMissing(entry)and ""or tostring(30-i)));slot.count:SetText(custom and tostring(custom.count or "")or(IsMissing(entry)and ""or "2"))
+            SetGlow(slot.glow,custom and custom.glow or entry.glow,entry.glowColor,now)
         else
             slot.texture:SetDesaturated(slot.faded==true);slot.texture:SetAlpha(slot.faded and .5 or 1)
-            Time(slot.time,slot.expires,now);Count(slot.count,slot.stacks)
-            SetGlow(slot.glow,entry.glow and slot.condition,entry.glowColor,now)
+            if custom and custom.text then slot.time:SetText(custom.text)else Time(slot.time,slot.expires,now)end
+            if custom then slot.count:SetText(tostring(custom.count or ""))else Count(slot.count,slot.stacks)end
+            local glow=entry.glow;if custom and custom.glow~=nil then glow=custom.glow end
+            SetGlow(slot.glow,glow and slot.condition,entry.glowColor,now)
             if native then
                 local found=not IsMissing(entry)and entry.type~="equipment"
                 if found then slot.base:SetAlpha(0);slot.annotations:SetAlpha(0)end

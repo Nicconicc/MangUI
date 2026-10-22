@@ -530,6 +530,7 @@ function R.Apply(view,design,unchanged)
             if o.spec.kind=="receivedbuffs"then M.ReceivedBuffs.Remove(view,o)end
             if o.spec.kind=="raidvulnerability"then M.RaidVulnerability.Remove(view,o)end
             if o.spec.kind=="commonitems"then M.CommonItems.Remove(view,o)end
+            if o.spec.kind=="skillmonitor"or o.spec.kind=="othermonitor"then M.CustomMonitor.Remove(o)end
             if o.spec.kind=="raidbuffs"then M.RaidBuffMonitor.Remove(view,o)end
             if o.portraitAnchor then
                 local anchor=o.portraitAnchor
