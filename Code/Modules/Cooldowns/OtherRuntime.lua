@@ -453,13 +453,10 @@ function O.Paint(view,o,animateOnly)
         for _,entry in ipairs(group.otherMonitors or {})do if entry.type=="equipment"then equipment=true;break end end
         if not equipment then entries=samples end
     end
-    o.rowCount=#entries;local width=math.max(1,#entries*44-4)
-    if width~=o.rowWidth then o.frame:SetSize(width,66);o.rowWidth=width end
+    local displayed={}
     if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then Refresh(view,o,now);o.nextScan=now+.2 end
     for i,entry in ipairs(entries)do
         local slot=Icon(o,i);if slot.entry~=entry then Resolve(slot,entry)end
-        local x=S.IconOffset(group,i,#entries)
-        if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
         local custom=entry.type=="custom"and M.CustomMonitor.Apply(o,slot,view.preview)
         local rawWeapon=slot.sharedWeapon and slot.rawKnown
         local native=not view.preview and o.native and slot.nativeBound and not rawWeapon
@@ -472,6 +469,7 @@ function O.Paint(view,o,animateOnly)
         local eligible=not IsTarget(entry)or M.Compat.Bool(Safe(UnitExists,"target"))
         local visible=view.preview or (native and eligible)or slot.show==true
         slot:SetShown(visible);slot.base:SetAlpha(1);slot.annotations:SetAlpha(1)
+        if visible then displayed[#displayed+1]=slot end
         if view.preview then
             slot.texture:SetDesaturated(false);slot.texture:SetAlpha(1)
             slot.time:SetText(custom and (custom.text or "")or(IsMissing(entry)and ""or tostring(30-i)));slot.count:SetText(custom and tostring(custom.count or "")or(IsMissing(entry)and ""or "2"))
@@ -501,6 +499,14 @@ function O.Paint(view,o,animateOnly)
                 end
             end
         end
+    end
+    -- Keep configured slots/buff bindings stable; only visible icons occupy
+    -- positions in the live row. Preview still includes every configured icon.
+    o.rowCount=#displayed;local width=math.max(1,#displayed*44-4)
+    if width~=o.rowWidth then o.frame:SetSize(width,66);o.rowWidth=width end
+    for index,slot in ipairs(displayed)do
+        local x=S.IconOffset(group,index,#displayed)
+        if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
     end
 end
 local events={UNIT_AURA=true,PLAYER_TARGET_CHANGED=true,PLAYER_ENTERING_WORLD=true,PLAYER_EQUIPMENT_CHANGED=true,
