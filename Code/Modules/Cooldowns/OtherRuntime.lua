@@ -8,14 +8,10 @@ local function Font(text,count)
     text:SetShadowColor(0,0,0,count and 0 or 1);text:SetShadowOffset(count and 0 or 1,count and 0 or -1)
 end
 local function Glow(parent)
-    local frame=CreateFrame("Frame",nil,parent);frame:SetAllPoints();frame:EnableMouse(false)
-    local edge=frame:CreateTexture(nil,"OVERLAY");edge:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
-    edge:SetBlendMode("ADD");edge:SetSize(72,72);edge:SetPoint("CENTER")
-    frame.edge=edge;frame:Hide();return frame
+    return M.CustomMonitor.CreateGlow(parent)
 end
 local function SetGlow(frame,enabled,color,now)
-    frame:SetShown(enabled==true)
-    if enabled then local c=color or {1,.82,0,1};frame.edge:SetVertexColor(c[1],c[2],c[3],c[4]);frame.edge:SetAlpha(.7+.25*math.sin(now*6))end
+    M.CustomMonitor.PaintGlow(frame,enabled,color,now)
 end
 local function NativeAvailable()
     local interface=M.Compat.interface or 0

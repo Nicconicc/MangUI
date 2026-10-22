@@ -216,11 +216,25 @@ function C.Apply(o,slot,preview)
     if record and not preview then Sound(slot,record,result)end
     return result
 end
+function C.CreateGlow(parent)
+    local frame=CreateFrame("Frame",nil,parent);frame:SetAllPoints();frame:EnableMouse(false)
+    local edge=frame:CreateTexture(nil,"OVERLAY");frame.edge=edge
+    edge:SetTexture("Interface\\Buttons\\UI-ActionButton-Border");edge:SetBlendMode("ADD")
+    edge:SetSize(72,72);edge:SetPoint("CENTER")
+    -- A soft inward band adds readable weight without filling the icon center.
+    local inner=frame:CreateTexture(nil,"OVERLAY");frame.inner=inner
+    inner:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\MonitorInnerGlow.tga");inner:SetBlendMode("ADD")
+    inner:SetPoint("TOPLEFT",-2,2);inner:SetPoint("BOTTOMRIGHT",2,-2)
+    frame:Hide();return frame
+end
+function C.PaintGlow(frame,enabled,color,now)
+    frame:SetShown(enabled==true)
+    if not enabled then return end
+    local c=color or {1,.82,0,1};local pulse=math.sin((now or GetTime())*6)
+    frame.edge:SetVertexColor(c[1],c[2],c[3],c[4]);frame.edge:SetAlpha(.7+.25*pulse)
+    frame.inner:SetVertexColor(c[1],c[2],c[3],c[4]);frame.inner:SetAlpha(.85+.12*pulse)
+end
 function C.Glow(slot,enabled)
-    if not slot.customGlow then
-        local g=CreateFrame("Frame",nil,slot);g:SetPoint("TOPLEFT",-3,3);g:SetPoint("BOTTOMRIGHT",3,-3)
-        local t=g:CreateTexture(nil,"OVERLAY");t:SetAllPoints();t:SetTexture("Interface\\Buttons\\UI-ActionButton-Border");t:SetBlendMode("ADD");t:SetVertexColor(1,.82,0,1)
-        g:EnableMouse(false);slot.customGlow=g
-    end
-    slot.customGlow:SetShown(enabled==true)
+    if not slot.customGlow then slot.customGlow=C.CreateGlow(slot)end
+    C.PaintGlow(slot.customGlow,enabled)
 end
