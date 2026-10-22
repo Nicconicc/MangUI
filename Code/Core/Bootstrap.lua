@@ -1,7 +1,7 @@
 local name, M = ...
 _G.MangUIUF = M
-M.name, M.version = name, "1.0.646"
-M.optionsTitle = "MangUI - V1.0.646 2026/10/22 0203"
+M.name, M.version = name, "1.0.647"
+M.optionsTitle = "MangUI - V1.0.647 2026/10/22 1112"
 M.errors, M.status = {}, "等待初始化"
 M.ART = "Interface\\AddOns\\MangUI\\Assets\\"
 M.MYRIAD = "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
@@ -131,6 +131,7 @@ local function Start()
     if ok then M.started=true; M.status=#M.errors==0 and "运行中" or "运行中（有错误）" end
 end
 events:SetScript("OnEvent",function(_,event,arg,action)
+    if (event=="ADDON_LOADED"or event=="PLAYER_LOGIN")and M.RegisterGameMenuEntry then M:Safe("Esc菜单入口",M.RegisterGameMenuEntry,M)end
     if (event=="ADDON_ACTION_BLOCKED" or event=="ADDON_ACTION_FORBIDDEN") and arg==name then
         M.blockedActions=M.blockedActions or {}
         local key=event..":"..tostring(action)
