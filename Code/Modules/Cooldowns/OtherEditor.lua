@@ -5,10 +5,33 @@ local function ChoiceName(choices,value)
     return choices[1]and choices[1].name or ""
 end
 local function Index(entries,entry)for i,current in ipairs(entries or {})do if current==entry then return i end end end
+local function UpdateRowLock(row)
+    local locked=row.entry.displayWhen=="never"
+    row:SetAlpha(locked and .4 or 1)
+    row.icon.texture:SetDesaturated(locked)
+    row.glowColor.swatch:SetDesaturated(locked)
+    if not row.lockShield then
+        row.lockShield=CreateFrame("Frame",nil,row)
+        row.lockShield:SetAllPoints();row.lockShield:EnableMouse(true)
+    end
+    row.lockShield:SetFrameLevel(row:GetFrameLevel()+40);row.lockShield:SetShown(locked)
+    -- Leave the disabled checkbox above the mouse shield so it can unlock the row.
+    row.displayChecks[3]:SetFrameLevel(row.lockShield:GetFrameLevel()+1)
+    for _,button in ipairs({row.icon,row.handle,row.code,row.glow,row.glowColor,row.play,row.preview,row.remove,
+        row.displayChecks[1],row.displayChecks[2]})do button:SetEnabled(not locked)end
+    for _,edit in ipairs({row.edit,row.path,row.soundID})do
+        if locked or (edit==row.edit and row.entry.type=="equipment")then edit:ClearFocus();edit:Disable()
+        else edit:Enable()end
+    end
+    if locked then
+        for _,drop in ipairs({row.type,row.slot,row.sound})do if drop.menu then drop.menu:Hide()end end
+    end
+end
 function O.BuildControls(e,parent)
     local W=M.Widgets
     local function Current()local n=M.byID[M.selection];return n and n.compound=="playerOtherMonitor"and n end
-    local function Editable(owner,entry)return owner and M.byID[owner.id]==owner and Index(owner.otherMonitors,entry)and M:CanEdit()end
+    local function Editable(owner,entry,allowDisabled)return owner and M.byID[owner.id]==owner and Index(owner.otherMonitors,entry)
+        and (allowDisabled or entry.displayWhen~="never")and M:CanEdit()end
     local function Property(frame,key,height)
         local row={height=height,controls={{frame,0,0}},kinds={},key=key};e.propRows[#e.propRows+1]=row;frame.propertyRow=row
     end
@@ -232,9 +255,10 @@ function O.BuildControls(e,parent)
                 for index,choice in ipairs({{"combat","战斗中"},{"boss","首领战中"},{"never","不启动"}})do
                     local mode=choice[1]
                     row.displayChecks[index]=W.Check(row,choice[2],function(value)
-                        Flush();if not Editable(row.owner,row.entry)then return end
+                        Flush();if not Editable(row.owner,row.entry,true)then return end
                         row.entry.displayWhen=value and mode or nil
                         for i,button in ipairs(row.displayChecks)do button:SetChecked(row.entry.displayWhen==({"combat","boss","never"})[i])end
+                        UpdateRowLock(row)
                         M:Commit()
                     end)
                 end
@@ -282,7 +306,7 @@ function O.BuildControls(e,parent)
             row.soundID:SetShown(entry.soundEnabled and entry.sound=="id")
             if not row.path:HasFocus()then row.path:SetText(entry.soundPath)end
             if not row.soundID:HasFocus()then row.soundID:SetText(entry.soundID)end
-            W.ShadeDragRow(row,i);row:Show()
+            W.ShadeDragRow(row,i);UpdateRowLock(row);row:Show()
         end
         for i=#entries+1,#self.rows do self.rows[i]:Hide()end
         self.contentHeight=offset;self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",0,-offset)
