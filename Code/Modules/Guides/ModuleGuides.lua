@@ -113,6 +113,7 @@ function G.Refresh(view,force)
                             -- Distance digits are centered in a fixed frame. Keep
                             -- connector geometry independent of the current glyphs.
                             local width=definition.mode=="distance"and owner.frame:GetWidth()or text:GetStringWidth()
+                            o.guideTextOffsetX=definition.mode=="distance"and (width-text:GetStringWidth())/2 or 0
                             local x=definition.mode=="distance"and 0 or (width-owner.frame:GetWidth())/2
                             local height=owner.frame:GetHeight();local y=0
                             if definition.mode=="distance"then
@@ -154,7 +155,7 @@ function G.PreviewBounds(view,id,geometry)
         local x,y=M.TargetDistance.NumberPreviewPosition(geometry)
         g={x=x,y=y,s=g.s}
     end
-    local x=g.x+frame.layoutCenter*g.s
+    local x=g.x+(frame.layoutCenter+(frame.layoutTextOffsetX or 0))*g.s
     local y=g.y+(frame.layoutCenterY-frame:GetHeight()+frame.layoutPixel/2)*g.s
     local w,h=frame.title:GetWidth()*g.s,frame.title:GetHeight()*g.s
     return x-w/2,y-h/2,x+w/2,y+h/2

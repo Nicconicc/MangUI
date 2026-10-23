@@ -138,6 +138,7 @@ local function LayoutDecoration(o,group,count)
     if frame.titleShadow:GetText()~=text then frame.titleShadow:SetText(text)end
     frame.title:SetShown(group.showGuideText~=false);frame.titleShadow:SetShown(group.showGuideText~=false)
     local bounds=o.guideBounds
+    local textOffset=o.guideTextOffsetX or 0
     local rowWidth=bounds and bounds.width or count*44-4
     local scale=math.max(.001,frame:GetEffectiveScale())
     local _,screenHeight=Safe(GetPhysicalScreenSize)
@@ -164,14 +165,14 @@ local function LayoutDecoration(o,group,count)
     local bodyHeight=bounds and bounds.height or 40
     if frame.layoutWidth~=width or frame.layoutRowWidth~=rowWidth or frame.layoutCenter~=center
         or frame.layoutPixel~=pixel or frame.layoutTextWidth~=textWidth
-        or frame.layoutCenterY~=centerY or frame.layoutBodyHeight~=bodyHeight then
+        or frame.layoutCenterY~=centerY or frame.layoutBodyHeight~=bodyHeight or frame.layoutTextOffsetX~=textOffset then
         local thickness,height=pixel,math.ceil((bodyHeight/2+16)/pixel)*pixel
         frame:ClearAllPoints();frame:SetPoint("TOP",o.frame,"CENTER",center,centerY);frame:SetSize(width,height)
-        frame.title:ClearAllPoints();frame.title:SetPoint("CENTER",frame,"BOTTOM",0,thickness/2)
+        frame.title:ClearAllPoints();frame.title:SetPoint("CENTER",frame,"BOTTOM",textOffset,thickness/2)
         frame.title:SetWidth(textWidth)
         frame.layoutWidth,frame.layoutRowWidth,frame.layoutCenter=width,rowWidth,center
         frame.layoutPixel,frame.layoutTextWidth=pixel,textWidth
-        frame.layoutCenterY,frame.layoutBodyHeight=centerY,bodyHeight
+        frame.layoutCenterY,frame.layoutBodyHeight=centerY,bodyHeight;frame.layoutTextOffsetX=textOffset
     end
     frame:Show()
 end
