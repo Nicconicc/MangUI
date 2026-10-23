@@ -44,7 +44,7 @@ local function Number(value)
 end
 local function Call(fn,...)
     if type(fn)~="function" then return end
-    local ok,a,b,c,d=pcall(fn,...);if ok then return a,b,c,d end
+    local ok,a,b=pcall(fn,...);if ok then return a,b end
 end
 function D.SpellInput(value)
     if type(value)~="string" then return "" end
@@ -299,25 +299,6 @@ local function FormatDistance(distance)
     if distance>40 then return "＞40" end
     return tostring(math.floor(math.max(0,distance)+.5))
 end
--- Coordinates are usable only when both units have readable positions in
--- the same world map. Never substitute map percentages or a nearest NPC.
-local function Position(unit)
-    local x,y,z,map=Call(UnitPosition,unit)
-    x,y,z,map=Number(x),Number(y),Number(z),Number(map)
-    if not x or not y or not z or not map or map<0 then return end
-    -- Some clients return a zero vector when the position is unavailable.
-    if x==0 and y==0 and z==0 then return end
-    return x,y,z,map
-end
-function D.ExactDistance()
-    local squared,valid=Call(UnitDistanceSquared,"target")
-    squared=Number(squared)
-    if squared and squared>=0 and RangeBoolean(valid)==true then return math.sqrt(squared) end
-    local px,py,pz,pm=Position("player")
-    local tx,ty,tz,tm=Position("target")
-    if not px or not tx or pm~=tm then return end
-    return Number(math.sqrt((tx-px)^2+(ty-py)^2+(tz-pz)^2))
-end
 function D.NumberState(group)
     if group.enabled==false or group.showDistanceNumber==false then return end
     if RangeBoolean(Call(UnitExists,"target"))~=true then return end
@@ -326,8 +307,9 @@ function D.NumberState(group)
         local reaction=Number(Call(UnitReaction,"target","player"))
         if RangeBoolean(Call(UnitIsFriend,"player","target"))==true or (reaction and reaction>=5)then return end
     end
-    local exact=D.ExactDistance()
-    if exact then return FormatDistance(exact) end
+    local squared,valid=Call(UnitDistanceSquared,"target")
+    squared=Number(squared)
+    if squared and squared>=0 and RangeBoolean(valid)==true then return FormatDistance(math.sqrt(squared)) end
     local lib=LibStub and LibStub("LibRangeCheck-3.0",true)
     if not lib then return end
     local minimum,maximum=Call(lib.GetRange,lib,"target",true,false,0)
@@ -355,7 +337,8 @@ function D.BuildNumber(view,o)
     o.distanceNumber:SetShadowColor(0,0,0,1);o.distanceNumber:SetShadowOffset(1,-1)
 end
 function D.ResetNumber(o)
-    o.nextNumberUpdate=nil;o.numberText=nil
+    o.nextNumberUpdate=nil;o.numberText=nil;o.numberEstimated=nil
+    o.numberValue=nil;o.numberGoal=nil;o.numberNextStep=nil
 end
 function D.ConfigureNumber(view,o)
     local group=o.module or {};local font=group.fontPath
@@ -378,14 +361,35 @@ function D.PaintNumber(view,o,animateOnly)
     end
     local now=GetTime()
     if view.preview then
-        o.numberText="25"
+        o.numberText="25";o.numberEstimated=nil
     elseif not animateOnly or not o.nextNumberUpdate or now>=o.nextNumberUpdate then
-        -- Display each measurement immediately, with no interpolated yards.
+        -- Range probes remain at 10 Hz. Animation does not query unit APIs.
         o.nextNumberUpdate=now+.1
         local text,estimated=D.NumberState(group)
-        o.numberText=text and ((estimated and "≈" or "")..text) or nil
+        if not text then
+            D.ResetNumber(o);o.nextNumberUpdate=now+.1
+            o.distanceNumber:SetText("");o.frame:Hide();return
+        end
+        if estimated then
+            local goal=tonumber(text)
+            if not o.numberEstimated or not o.numberValue then
+                o.numberValue=goal;o.numberNextStep=now+.025
+            end
+            o.numberEstimated=true;o.numberGoal=goal;o.numberText=nil
+        else
+            -- Exact distances and a confirmed >40 result are never delayed.
+            o.numberText=text;o.numberEstimated=nil;o.numberValue=nil;o.numberGoal=nil
+        end
     end
     local text=o.numberText
+    if o.numberEstimated then
+        if o.numberValue~=o.numberGoal and now>=(o.numberNextStep or 0)then
+            -- At most one yard per rendered step; no invented measurements.
+            o.numberValue=o.numberValue+(o.numberGoal>o.numberValue and 1 or -1)
+            o.numberNextStep=now+.025
+        end
+        text="≈"..tostring(o.numberValue)
+    end
     if o.distanceNumber:GetText()~=(text or "")then o.distanceNumber:SetText(text or "")end
     o.frame:SetShown(text~=nil)
 end
