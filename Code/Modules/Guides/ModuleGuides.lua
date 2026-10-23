@@ -110,7 +110,9 @@ function G.Refresh(view,force)
                         if definition.mode=="unit"then o.guideBounds=VisibleBounds(view,id,owner.frame)
                         elseif definition.mode=="threat"or definition.mode=="distance"then
                             local text=definition.mode=="distance"and owner.distanceNumber or owner.threatText
-                            local width=text:GetStringWidth()
+                            -- Distance digits are centered in a fixed frame. Keep
+                            -- connector geometry independent of the current glyphs.
+                            local width=definition.mode=="distance"and owner.frame:GetWidth()or text:GetStringWidth()
                             local x=definition.mode=="distance"and 0 or (width-owner.frame:GetWidth())/2
                             local height=owner.frame:GetHeight();local y=0
                             if definition.mode=="distance"then
