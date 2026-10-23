@@ -112,10 +112,24 @@ function G.Refresh(view,force)
                             local text=definition.mode=="distance"and owner.distanceNumber or owner.threatText
                             local width=text:GetStringWidth()
                             local x=definition.mode=="distance"and 0 or (width-owner.frame:GetWidth())/2
-                            -- Match threat's font-size + 4 body height. The distance
-                            -- mover's padded hit area must not push its caption down.
-                            local height=definition.mode=="distance"and (math.max(.1,group.fontSize or 20)+4)or owner.frame:GetHeight()
-                            o.guideBounds=width>0 and {x=x,y=0,width=width,height=height}or nil
+                            local height=owner.frame:GetHeight();local y=0
+                            if definition.mode=="distance"then
+                                height=math.max(.1,group.fontSize or 20)+4
+                                -- Compare visible text spacing in screen units: the
+                                -- two modules may have different effective scales.
+                                local threat=view.nodes.targetThreatDisplay
+                                local threatGroup=view.byID.targetThreat or {}
+                                local threatSize=math.max(.1,threatGroup.fontSize or 28)
+                                local threatHeight=threat and threat.frame:GetHeight()or threatSize+4
+                                local threatTextHeight=threat and threat.threatText:GetStringHeight()or 0
+                                if threatTextHeight<=0 then threatTextHeight=threatSize end
+                                local textHeight=text:GetStringHeight()
+                                if textHeight<=0 then textHeight=math.max(.1,group.fontSize or 20)end
+                                local ratio=threat and threat.frame:GetEffectiveScale()/math.max(.001,owner.frame:GetEffectiveScale())or 1
+                                local gap=(threatHeight/2+16-threatTextHeight/2)*ratio
+                                y=height/2+16-textHeight/2-gap
+                            end
+                            o.guideBounds=width>0 and {x=x,y=y,width=width,height=height}or nil
                         else
                             local size=owner.outerSize or 50;o.guideBounds={x=0,y=0,width=size,height=size}
                         end
