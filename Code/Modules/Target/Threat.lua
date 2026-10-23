@@ -43,10 +43,7 @@ local function Number(value)
     return value
 end
 function T.FormatNumber(value)
-    local suffix={"k","M","B"};local index=0
-    while math.abs(value)>=1000 and index<3 do value=value/1000;index=index+1 end
-    local text=string.format(value>=100 and "%.0f" or value>=10 and "%.1f" or "%.2f",value)
-    return text..(suffix[index] or "")
+    return string.format("%.0f",math.floor(value))
 end
 function T.State(preview,group)
     if preview then return 125,3 end
