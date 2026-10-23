@@ -84,10 +84,11 @@ function T.Paint(view,o,animateOnly)
     end
     if animateOnly and o.nextThreatUpdate and GetTime()<o.nextThreatUpdate then return end
     o.nextThreatUpdate=GetTime()+.1
-    local percentage,status=T.State(view.preview,o.module)
+    local percentage=T.State(view.preview,o.module)
     if percentage==nil then o.threatText:SetText("");o.frame:Hide();return end
-    if status==2 then o.threatText:SetTextColor(0,1,1,1)
-    elseif status==1 then o.threatText:SetTextColor(1,1,0,1)
+    if percentage<50 then o.threatText:SetTextColor(.5,.5,.5,1)
+    elseif percentage<70 then o.threatText:SetTextColor(0,1,0,1)
+    elseif percentage<90 then o.threatText:SetTextColor(1,1,0,1)
     else o.threatText:SetTextColor(1,0,0,1) end
     o.threatText:SetText(T.FormatNumber(percentage).."%");o.frame:Show()
 end
