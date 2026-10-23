@@ -333,7 +333,7 @@ function D.PreviewBounds(geometry)
 end
 function D.BuildNumber(view,o)
     o.distanceNumber=o.frame:CreateFontString(nil,"OVERLAY")
-    o.distanceNumber:SetPoint("CENTER");o.distanceNumber:SetJustifyH("CENTER");o.distanceNumber:SetWordWrap(false)
+    o.distanceNumber:SetPoint("RIGHT",o.frame,"RIGHT");o.distanceNumber:SetJustifyH("RIGHT");o.distanceNumber:SetWordWrap(false)
     o.distanceNumber:SetShadowColor(0,0,0,1);o.distanceNumber:SetShadowOffset(1,-1)
 end
 function D.ResetNumber(o)
