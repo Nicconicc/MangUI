@@ -64,7 +64,7 @@ function M:OpenDesigner()
         e.logo,e.logoBackground,e.logoMask=logo,background,mask
     end
     local nativeClose=f.CloseButton or _G[frameName.."CloseButton"]
-    if nativeClose then W.StyleButton(nativeClose);nativeClose:SetScript("OnClick",function()f:Hide()end) end
+    if nativeClose then nativeClose:SetScript("OnClick",function()f:Hide()end) end
     UISpecialFrames=UISpecialFrames or {};table.insert(UISpecialFrames,"MangUIUFOptions")
     M.FooterLinks.Attach(e)
     e.status=W.Label(f,"",11);e.status:SetPoint("BOTTOMLEFT",18,18);e.status:SetWidth(680);e.status:SetTextColor(.7,.75,.8)
