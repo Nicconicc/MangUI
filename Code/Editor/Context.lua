@@ -169,7 +169,7 @@ local function OrganizePropertyRows(n,rows)
     elseif n.compound=="targetCast"then profile={{"overallScale","x","y","castIconSize"},{"nameFont","castFontSize"},{"hideCastName"}}
     elseif n.compound=="playerCast"then profile=propertyCategories.cast
     elseif n.compound=="targetDistance"then
-        profile={{"showOnRing","showOnNameplate"},{"distanceIconSize","distanceX","distanceY"},{"showDistanceNumber","nameFont","fontSize","distanceNumberColor"},{"distanceTitle","distanceHint"}}
+        profile={{"showOnRing","showOnNameplate"},{"distanceIconSize","distanceX","distanceY"},{"showDistanceNumber","hideFriendlyDistanceNumber","nameFont","fontSize","distanceNumberColor"},{"distanceTitle","distanceHint"}}
         for _,class in ipairs(M.TargetDistance.classes)do profile[#profile+1]={"rangeSpell"..class[1],"rangeManual"..class[1]}end
     end
     local order,section={},{}

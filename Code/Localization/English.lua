@@ -744,3 +744,5 @@ english["已保存并应用：图标被模块显示条件隐藏。"]="Saved and 
 
 english["启动距离数字显示"]="Enable numeric distance display"
 english["目标距离数字"]="Target distance number"
+
+english["目标为友方时隐藏"]="Hide for friendly targets"

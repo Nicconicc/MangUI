@@ -52,6 +52,7 @@ function D.SpellInput(value)
 end
 local function FillRanges(group)
     if group.showDistanceNumber==nil then group.showDistanceNumber=true end
+    if group.hideFriendlyDistanceNumber==nil then group.hideFriendlyDistanceNumber=false end
     group.fontSize=M.Clamp(Number(group.fontSize) or 20,.1,10000)
     if type(group.distanceNumberColor)~="table" then group.distanceNumberColor={1,1,1,1} end
     if group.showOnRing==nil then group.showOnRing=true end
@@ -285,7 +286,10 @@ function D.Event(view,event)
         local o=view and view.nodes and view.nodes.targetDistanceDisplay
         if o then D.Paint(view,o,false) end
         local number=view and view.nodes and view.nodes.targetDistanceNumber
-        if number then number.nextNumberUpdate=nil;D.PaintNumber(view,number,false) end
+        if number then
+            if event=="PLAYER_TARGET_CHANGED"then D.ResetNumber(number)end
+            number.nextNumberUpdate=nil;D.PaintNumber(view,number,false)
+        end
     end
 end
 
@@ -298,7 +302,11 @@ end
 function D.NumberState(group)
     if group.enabled==false or group.showDistanceNumber==false then return end
     if RangeBoolean(Call(UnitExists,"target"))~=true then return end
-    if RangeBoolean(Call(UnitIsUnit,"player","target"))==true then return "0" end
+    if RangeBoolean(Call(UnitIsUnit,"player","target"))==true then return end
+    if group.hideFriendlyDistanceNumber==true then
+        local reaction=Number(Call(UnitReaction,"target","player"))
+        if RangeBoolean(Call(UnitIsFriend,"player","target"))==true or (reaction and reaction>=5)then return end
+    end
     local squared,valid=Call(UnitDistanceSquared,"target")
     squared=Number(squared)
     if squared and squared>=0 and RangeBoolean(valid)==true then return FormatDistance(math.sqrt(squared)) end
@@ -309,7 +317,7 @@ function D.NumberState(group)
     if not minimum or minimum<0 then return end
     -- The lower bound is exclusive. Only a proven >40 result gets this label.
     if minimum>=40 then return "＞40" end
-    if maximum and maximum>=minimum and maximum<=40 then return FormatDistance(maximum) end
+    if maximum and maximum>=minimum and maximum<=40 then return FormatDistance(maximum),true end
     -- Unknown or a bound spanning 40 yards must not be reported as >40.
 end
 -- The settings preview uses a fixed comparison row. Live and unlocked
@@ -328,6 +336,10 @@ function D.BuildNumber(view,o)
     o.distanceNumber:SetPoint("CENTER");o.distanceNumber:SetJustifyH("CENTER");o.distanceNumber:SetWordWrap(false)
     o.distanceNumber:SetShadowColor(0,0,0,1);o.distanceNumber:SetShadowOffset(1,-1)
 end
+function D.ResetNumber(o)
+    o.nextNumberUpdate=nil;o.numberText=nil;o.numberEstimated=nil
+    o.numberValue=nil;o.numberGoal=nil;o.numberNextStep=nil
+end
 function D.ConfigureNumber(view,o)
     local group=o.module or {};local font=group.fontPath
     if not font or font=="" then font=group.font=="Myriad" and M.MYRIAD or M:DefaultFontPath() end
@@ -339,17 +351,45 @@ function D.ConfigureNumber(view,o)
     if view.preview and not view.unlockMode then
         o.frame:ClearAllPoints();o.frame:SetPoint("CENTER",view.nodes.targetDistance.frame,"CENTER",230,0)
     end
-    o.nextNumberUpdate=nil
+    D.ResetNumber(o)
 end
 function D.PaintNumber(view,o,animateOnly)
     local group=o.module or {}
     if o.spec.enabled==false or group.enabled==false or group.showDistanceNumber==false
         or (view.hidden and view.hidden[o.spec.id]) then
-        o.distanceNumber:SetText("");o.frame:Hide();return
+        D.ResetNumber(o);o.distanceNumber:SetText("");o.frame:Hide();return
     end
     local now=GetTime()
-    if animateOnly and o.nextNumberUpdate and now<o.nextNumberUpdate then return end
-    o.nextNumberUpdate=now+.1
-    local text=view.preview and "25" or D.NumberState(group)
-    o.distanceNumber:SetText(text or "");o.frame:SetShown(text~=nil)
+    if view.preview then
+        o.numberText="25";o.numberEstimated=nil
+    elseif not animateOnly or not o.nextNumberUpdate or now>=o.nextNumberUpdate then
+        -- Range probes remain at 10 Hz. Animation does not query unit APIs.
+        o.nextNumberUpdate=now+.1
+        local text,estimated=D.NumberState(group)
+        if not text then
+            D.ResetNumber(o);o.nextNumberUpdate=now+.1
+            o.distanceNumber:SetText("");o.frame:Hide();return
+        end
+        if estimated then
+            local goal=tonumber(text)
+            if not o.numberEstimated or not o.numberValue then
+                o.numberValue=goal;o.numberNextStep=now+.025
+            end
+            o.numberEstimated=true;o.numberGoal=goal;o.numberText=nil
+        else
+            -- Exact distances and a confirmed >40 result are never delayed.
+            o.numberText=text;o.numberEstimated=nil;o.numberValue=nil;o.numberGoal=nil
+        end
+    end
+    local text=o.numberText
+    if o.numberEstimated then
+        if o.numberValue~=o.numberGoal and now>=(o.numberNextStep or 0)then
+            -- At most one yard per rendered step; no invented measurements.
+            o.numberValue=o.numberValue+(o.numberGoal>o.numberValue and 1 or -1)
+            o.numberNextStep=now+.025
+        end
+        text="≈"..tostring(o.numberValue)
+    end
+    if o.distanceNumber:GetText()~=(text or "")then o.distanceNumber:SetText(text or "")end
+    o.frame:SetShown(text~=nil)
 end

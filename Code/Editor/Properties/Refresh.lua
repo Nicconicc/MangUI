@@ -219,6 +219,7 @@ local function RefreshProperties(self)
         e.distanceRingCheck:SetChecked(n.showOnRing~=false)
         e.distanceNameplateCheck:SetChecked(n.showOnNameplate~=false)
         e.distanceNumberCheck:SetChecked(n.showDistanceNumber~=false)
+        e.distanceFriendlyCheck:SetChecked(n.hideFriendlyDistanceNumber==true)
         e.distanceNumberColor:SetColor(n.distanceNumberColor or {1,1,1,1})
         for _,class in ipairs(e.rangeClasses) do
             local token=class[1];local manual=n["rangeManual"..token]==true
@@ -449,7 +450,7 @@ local function RefreshProperties(self)
                 visible=row.key=="nameFont" or row.key=="fontSize" or row.key=="threatInstanceOnly"
             elseif n.compound=="targetDistance" then
                 visible=row.key=="showOnRing" or row.key=="showOnNameplate"
-                    or row.key=="showDistanceNumber" or row.key=="nameFont" or row.key=="fontSize" or row.key=="distanceNumberColor"
+                    or row.key=="showDistanceNumber" or row.key=="hideFriendlyDistanceNumber" or row.key=="nameFont" or row.key=="fontSize" or row.key=="distanceNumberColor"
                     or row.key=="distanceIconSize" or row.key=="distanceX" or row.key=="distanceY"
                     or row.key=="distanceTitle" or row.key=="distanceHint" or (row.key and row.key:find("^range")~=nil)
             elseif n.compound=="experienceBar" then

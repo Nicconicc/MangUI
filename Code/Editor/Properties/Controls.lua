@@ -215,6 +215,10 @@ local function BuildProperties(e)
         if Selected() and Selected().compound=="targetDistance" then Change("showDistanceNumber",enabled) end
     end)
     Row(32,{{e.distanceNumberCheck,-4,0}},{},"showDistanceNumber");y=y-32
+    e.distanceFriendlyCheck=W.Check(content,"目标为友方时隐藏",function(enabled)
+        if Selected() and Selected().compound=="targetDistance" then Change("hideFriendlyDistanceNumber",enabled) end
+    end)
+    Row(32,{{e.distanceFriendlyCheck,-4,0}},{},"hideFriendlyDistanceNumber");y=y-32
     local distanceColorLabel=W.Label(content,"颜色")
     e.distanceNumberColor=W.ColorSwatch(content,function(color)
         if Selected() and Selected().compound=="targetDistance" then Change("distanceNumberColor",M.Copy(color)) end
