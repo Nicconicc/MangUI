@@ -312,6 +312,17 @@ function D.NumberState(group)
     if maximum and maximum>=minimum and maximum<=40 then return FormatDistance(maximum) end
     -- Unknown or a bound spanning 40 yards must not be reported as >40.
 end
+-- The settings preview uses a fixed comparison row. Live and unlocked
+-- placement continue to use the saved numeric node/module coordinates.
+function D.NumberPreviewPosition(geometry)
+    local group=geometry.targetDistance
+    return group.x+230*group.s,group.y
+end
+function D.PreviewBounds(geometry)
+    local group=geometry.targetDistance;local number=geometry.targetDistanceNumber
+    return group.x-225*group.s,group.y-math.max(55,number.h/2)*group.s,
+        group.x+(230+number.w/2)*group.s,group.y+math.max(70,number.h/2)*group.s
+end
 function D.BuildNumber(view,o)
     o.distanceNumber=o.frame:CreateFontString(nil,"OVERLAY")
     o.distanceNumber:SetPoint("CENTER");o.distanceNumber:SetJustifyH("CENTER");o.distanceNumber:SetWordWrap(false)
@@ -325,6 +336,9 @@ function D.ConfigureNumber(view,o)
     local ok,loaded=pcall(o.distanceNumber.SetFont,o.distanceNumber,font,size,"OUTLINE")
     if not ok or loaded==false then o.distanceNumber:SetFont(M:DefaultFontPath(),size,"OUTLINE") end
     o.distanceNumber:SetTextColor(unpack(group.distanceNumberColor or {1,1,1,1}))
+    if view.preview and not view.unlockMode then
+        o.frame:ClearAllPoints();o.frame:SetPoint("CENTER",view.nodes.targetDistance.frame,"CENTER",230,0)
+    end
     o.nextNumberUpdate=nil
 end
 function D.PaintNumber(view,o,animateOnly)

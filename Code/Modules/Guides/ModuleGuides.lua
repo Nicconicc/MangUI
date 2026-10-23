@@ -14,6 +14,7 @@ G.definitions={
     raidVulnerability={label="团队易伤监控",anchor="raidVulnerabilityIcons",mode="icons"},
     raidBuffs={label="团队Buff缺失监控",mode="raid"},
     targetThreat={label="仇恨监控",anchor="targetThreatDisplay",mode="threat"},
+    targetDistance={label="距离监控",anchor="targetDistanceNumber",mode="distance"},
     mouseCircle={label="鼠标光圈提示",anchor="mouseCircleRings",mode="mouse"},
 }
 function G.Supports(group)return group and G.definitions[group.id]~=nil end
@@ -107,9 +108,11 @@ function G.Refresh(view,force)
                     if definition.mode=="mouse"or force or state.generation~=view.applyGeneration or now>=(state.nextBounds or 0)then
                         state.generation=view.applyGeneration;state.nextBounds=now+.1
                         if definition.mode=="unit"then o.guideBounds=VisibleBounds(view,id,owner.frame)
-                        elseif definition.mode=="threat"then
-                            local width=owner.threatText:GetStringWidth()
-                            o.guideBounds=width>0 and {x=(width-owner.frame:GetWidth())/2,y=0,width=width,height=owner.frame:GetHeight()}or nil
+                        elseif definition.mode=="threat"or definition.mode=="distance"then
+                            local text=definition.mode=="distance"and owner.distanceNumber or owner.threatText
+                            local width=text:GetStringWidth()
+                            local x=definition.mode=="distance"and 0 or (width-owner.frame:GetWidth())/2
+                            o.guideBounds=width>0 and {x=x,y=0,width=width,height=owner.frame:GetHeight()}or nil
                         else
                             local size=owner.outerSize or 50;o.guideBounds={x=0,y=0,width=size,height=size}
                         end
@@ -128,6 +131,10 @@ function G.PreviewBounds(view,id,geometry)
     local o=definition.mode=="raid"and view.nodes.raidBuffsIcons or state and state.o
     local frame=o and o.decoration;local g=geometry[anchorID]
     if not frame or not g or not frame:IsVisible()or not frame.title:IsShown()then return end
+    if definition.mode=="distance"and view.preview and not view.unlockMode then
+        local x,y=M.TargetDistance.NumberPreviewPosition(geometry)
+        g={x=x,y=y,s=g.s}
+    end
     local x=g.x+frame.layoutCenter*g.s
     local y=g.y+(frame.layoutCenterY-frame:GetHeight()+frame.layoutPixel/2)*g.s
     local w,h=frame.title:GetWidth()*g.s,frame.title:GetHeight()*g.s

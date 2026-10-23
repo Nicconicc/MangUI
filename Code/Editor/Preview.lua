@@ -38,6 +38,9 @@ function M:FitPreview()
     minx,miny,maxx,maxy=minx or -100,miny or -100,maxx or 100,maxy or 100
     e.fit=UIParent:GetEffectiveScale()/math.max(.001,e.canvas:GetEffectiveScale())
     local selected=Selected()
+    if PreviewModuleID(selected)=="targetDistance"then
+        minx,miny,maxx,maxy=M.TargetDistance.PreviewBounds(geo)
+    end
     if M.ModuleGuides.Supports(selected)then
         local left,bottom,right,top=M.ModuleGuides.PreviewBounds(e.view,selected.id,geo)
         if left then minx,miny,maxx,maxy=math.min(minx,left),math.min(miny,bottom),math.max(maxx,right),math.max(maxy,top)end
@@ -56,7 +59,7 @@ function M:FitPreview()
     end
     local portrait=e.mainPreview and geo.wabc757f81ee
     local cast=HasDedicatedPreview(selected) and geo[e.previewFocusID or selected.id]
-    if PreviewModuleID(selected)=="partyFrames" or PreviewModuleID(selected)=="bossFrames"or PreviewModuleID(selected)=="playerSkillMonitor" or PreviewModuleID(selected)=="playerOtherMonitor"or PreviewModuleID(selected)=="raidBuffs"or PreviewModuleID(selected)=="receivedBuffs"or PreviewModuleID(selected)=="raidVulnerability"or PreviewModuleID(selected)=="commonItems" then cast=nil end
+    if PreviewModuleID(selected)=="partyFrames" or PreviewModuleID(selected)=="bossFrames"or PreviewModuleID(selected)=="playerSkillMonitor" or PreviewModuleID(selected)=="playerOtherMonitor"or PreviewModuleID(selected)=="raidBuffs"or PreviewModuleID(selected)=="receivedBuffs"or PreviewModuleID(selected)=="raidVulnerability"or PreviewModuleID(selected)=="commonItems" or PreviewModuleID(selected)=="targetDistance" then cast=nil end
     e.centerX,e.centerY=portrait and portrait.x or (cast and cast.x or (minx+maxx)/2),
         portrait and portrait.y or (cast and cast.y or (miny+maxy)/2)
     e.view.root:SetScale(e.fit);e.view.root:ClearAllPoints()
