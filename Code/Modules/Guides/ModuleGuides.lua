@@ -113,7 +113,22 @@ function G.Refresh(view,force)
                             -- Distance digits are centered in a fixed frame. Keep
                             -- connector geometry independent of the current glyphs.
                             local width=definition.mode=="distance"and owner.frame:GetWidth()or text:GetStringWidth()
-                            o.guideTextOffsetX=definition.mode=="distance"and (width-text:GetStringWidth())/2 or 0
+                            o.guideTextOffsetX=0
+                            if definition.mode=="distance"then
+                                -- Mirror digits toward the connector when the module
+                                -- crosses the main frame; keep fixed connector bounds.
+                                local target=view.nodes[M.MainBarLayout.tokenID]
+                                local cx=owner.frame:GetCenter()
+                                local tx=target and target.frame:GetCenter()
+                                local side=1
+                                if cx and tx and tx*target.frame:GetEffectiveScale()<cx*owner.frame:GetEffectiveScale()then side=-1 end
+                                if o.guideTextSide~=side then
+                                    local edge=side<0 and "LEFT"or "RIGHT"
+                                    text:ClearAllPoints();text:SetPoint(edge,owner.frame,edge);text:SetJustifyH(edge)
+                                    o.guideTextSide=side
+                                end
+                                o.guideTextOffsetX=side*(width-text:GetStringWidth())/2
+                            end
                             local x=definition.mode=="distance"and 0 or (width-owner.frame:GetWidth())/2
                             local height=owner.frame:GetHeight();local y=0
                             if definition.mode=="distance"then
