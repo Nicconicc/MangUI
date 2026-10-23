@@ -167,7 +167,7 @@ local function RefreshProperties(self)
             end
             local value=n[field]
             if field=="scale" or field=="modelScale" then value=M:ScaleDisplayValue(n,field)end
-            if field=="fontSize" and (n.kind=="text" or n.compound=="chatButtons" or n.compound=="targetThreat") then
+            if field=="fontSize" and (n.kind=="text" or n.compound=="chatButtons" or n.compound=="targetThreat" or n.compound=="targetDistance") then
                 value=math.floor(M:FontDisplaySize(n)*100+.5)/100
                 edit.updating=true;edit:SetMinMaxValues(math.min(4,value),math.max(150,value));edit.updating=false
             end
@@ -218,6 +218,8 @@ local function RefreshProperties(self)
     if n.compound=="targetDistance" then
         e.distanceRingCheck:SetChecked(n.showOnRing~=false)
         e.distanceNameplateCheck:SetChecked(n.showOnNameplate~=false)
+        e.distanceNumberCheck:SetChecked(n.showDistanceNumber~=false)
+        e.distanceNumberColor:SetColor(n.distanceNumberColor or {1,1,1,1})
         for _,class in ipairs(e.rangeClasses) do
             local token=class[1];local manual=n["rangeManual"..token]==true
             local input=e.fields["rangeSpell"..token]
@@ -350,7 +352,7 @@ local function RefreshProperties(self)
             e.materialButton:SetMedia(bar and bar.materialName or "Solid",bar and (bar.materialPath or "Interface\\Buttons\\WHITE8X8"))
         end
     end
-    if MainTextElement(n) or n.compound=="chatButtons" or n.compound=="experienceBar" or n.compound=="targetThreat" then
+    if MainTextElement(n) or n.compound=="chatButtons" or n.compound=="experienceBar" or n.compound=="targetThreat" or n.compound=="targetDistance" then
         e.nameFontButton:SetMedia(FontChoiceName(n),FontPreviewPath(n))
     end
     e.unit:SetValue(n.unit or "player");e.binding:SetValue(n.binding or "static")
@@ -447,6 +449,7 @@ local function RefreshProperties(self)
                 visible=row.key=="nameFont" or row.key=="fontSize" or row.key=="threatInstanceOnly"
             elseif n.compound=="targetDistance" then
                 visible=row.key=="showOnRing" or row.key=="showOnNameplate"
+                    or row.key=="showDistanceNumber" or row.key=="nameFont" or row.key=="fontSize" or row.key=="distanceNumberColor"
                     or row.key=="distanceIconSize" or row.key=="distanceX" or row.key=="distanceY"
                     or row.key=="distanceTitle" or row.key=="distanceHint" or (row.key and row.key:find("^range")~=nil)
             elseif n.compound=="experienceBar" then

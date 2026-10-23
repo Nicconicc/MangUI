@@ -211,6 +211,15 @@ local function BuildProperties(e)
     masks.distanceIconSize={};Field("姓名板标记大小","distanceIconSize",true,1,256,1)
     masks.distanceX={};Field("姓名板标记X偏移","distanceX",true,-150,150,1)
     masks.distanceY={};Field("姓名板标记Y偏移","distanceY",true,-40,40,1)
+    e.distanceNumberCheck=W.Check(content,"启动距离数字显示",function(enabled)
+        if Selected() and Selected().compound=="targetDistance" then Change("showDistanceNumber",enabled) end
+    end)
+    Row(32,{{e.distanceNumberCheck,-4,0}},{},"showDistanceNumber");y=y-32
+    local distanceColorLabel=W.Label(content,"颜色")
+    e.distanceNumberColor=W.ColorSwatch(content,function(color)
+        if Selected() and Selected().compound=="targetDistance" then Change("distanceNumberColor",M.Copy(color)) end
+    end)
+    Row(32,{{distanceColorLabel,0,-3},{e.distanceNumberColor,0,0,distanceColorLabel}},{},"distanceNumberColor");y=y-32
     local distanceTitle=W.Label(content,"判定距离设置",13)
     Row(30,{{distanceTitle,0,-3}},{},"distanceTitle");y=y-30
     e.rangeManualChecks={}

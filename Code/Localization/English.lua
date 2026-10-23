@@ -741,3 +741,6 @@ english["已保存并应用：图标显示。"]="Saved and applied: icon shown."
 english["已保存并应用：当前条件不满足，图标隐藏。"]="Saved and applied: condition not met; icon hidden."
 english["已保存，等待运行配置刷新。"]="Saved; waiting for runtime configuration refresh."
 english["已保存并应用：图标被模块显示条件隐藏。"]="Saved and applied: icon hidden by module visibility settings."
+
+english["启动距离数字显示"]="Enable numeric distance display"
+english["目标距离数字"]="Target distance number"

@@ -127,7 +127,7 @@ function M:OpenFocusFontPicker()
     local selected=Selected()
     local name=selected and selected.compound=="partyFrames" and self.byID.party1Name or
         selected and selected.compound=="bossFrames" and self.byID.bossHPPercent or
-        ((MainTextElement(selected) or (selected and (selected.compound=="chatButtons" or selected.compound=="experienceBar" or selected.compound=="targetThreat"))) and selected or CompositeName(selected) or CastPart(selected,"waba76314011sub3"))
+        ((MainTextElement(selected) or (selected and (selected.compound=="chatButtons" or selected.compound=="experienceBar" or selected.compound=="targetThreat" or selected.compound=="targetDistance"))) and selected or CompositeName(selected) or CastPart(selected,"waba76314011sub3"))
     if not name or not self:CanEdit() then return end
     if self.materialWindow then self.materialWindow:Hide() end
     if self.fontWindow then self.fontWindow:Hide();return end
@@ -138,7 +138,7 @@ function M:OpenFocusFontPicker()
         local current=Selected()
         local currentName=current and current.compound=="partyFrames" and self.byID.party1Name or
             current and current.compound=="bossFrames" and self.byID.bossHPPercent or
-            ((MainTextElement(current) or (current and (current.compound=="chatButtons" or current.compound=="experienceBar" or current.compound=="targetThreat"))) and current or CompositeName(current) or CastPart(current,"waba76314011sub3"))
+            ((MainTextElement(current) or (current and (current.compound=="chatButtons" or current.compound=="experienceBar" or current.compound=="targetThreat" or current.compound=="targetDistance"))) and current or CompositeName(current) or CastPart(current,"waba76314011sub3"))
         if not current or current.id~=selected.id or not currentName or not M:CanEdit() then return end
         if current.compound=="partyFrames"then
             current.partyFontPath=item.path or item.preview or M:DefaultFontPath()

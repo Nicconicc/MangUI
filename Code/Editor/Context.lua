@@ -2,7 +2,7 @@ local _,M=...
 local W,R=M.Widgets,M.Renderer
 local unpack=unpack or table.unpack
 local topLevelFrames={"mainComposite","wa8d650f8d3a","petComposite","totComposite","focusComposite","partyFrames","bossFrames","playerSkillMonitor","playerOtherMonitor","cooldownMonitor","receivedBuffs","raidVulnerability","raidBuffs","commonItems","targetDistance","targetThreat","chatButtons","systemMenu","experienceBar","mouseCircle","combatNotices"}
-local unlockExcluded={mouseCircle=true,targetDistance=true,systemMenu=true}
+local unlockExcluded={mouseCircle=true,systemMenu=true}
 local function ModuleAvailable(id)
     local interface=M.Compat.interface or 0
     local classicEra=interface>=10000 and interface<20000 and interface~=16001
@@ -169,7 +169,7 @@ local function OrganizePropertyRows(n,rows)
     elseif n.compound=="targetCast"then profile={{"overallScale","x","y","castIconSize"},{"nameFont","castFontSize"},{"hideCastName"}}
     elseif n.compound=="playerCast"then profile=propertyCategories.cast
     elseif n.compound=="targetDistance"then
-        profile={{"showOnRing","showOnNameplate"},{"distanceIconSize","distanceX","distanceY"},{"distanceTitle","distanceHint"}}
+        profile={{"showOnRing","showOnNameplate"},{"distanceIconSize","distanceX","distanceY"},{"showDistanceNumber","nameFont","fontSize","distanceNumberColor"},{"distanceTitle","distanceHint"}}
         for _,class in ipairs(M.TargetDistance.classes)do profile[#profile+1]={"rangeSpell"..class[1],"rangeManual"..class[1]}end
     end
     local order,section={},{}

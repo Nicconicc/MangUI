@@ -51,6 +51,9 @@ function D.SpellInput(value)
     return (value:gsub("^%s+",""):gsub("%s+$",""))
 end
 local function FillRanges(group)
+    if group.showDistanceNumber==nil then group.showDistanceNumber=true end
+    group.fontSize=M.Clamp(Number(group.fontSize) or 20,.1,10000)
+    if type(group.distanceNumberColor)~="table" then group.distanceNumberColor={1,1,1,1} end
     if group.showOnRing==nil then group.showOnRing=true end
     if group.showOnNameplate==nil then group.showOnNameplate=true end
     group.distanceIconSize=M.Clamp(Number(group.distanceIconSize) or 20,1,256)
@@ -64,15 +67,16 @@ local function FillRanges(group)
     end
 end
 function D.SyncNodes(design)
-    local group,display
+    local group,display,number
     for _,n in ipairs(design.nodes) do
-        if n.id=="targetDistance" then group=n elseif n.id=="targetDistanceDisplay" then display=n end
+        if n.id=="targetDistance" then group=n elseif n.id=="targetDistanceDisplay" then display=n elseif n.id=="targetDistanceNumber" then number=n end
     end
     if not group then return end
     FillRanges(group)
     group.width=math.max(240,math.abs(group.distanceX)*2+group.distanceIconSize)
     group.height=math.max(70,math.abs(group.distanceY)*2+group.distanceIconSize)
     if display then display.width=group.width;display.height=group.height end
+    if number then number.width=math.max(80,group.fontSize*3);number.height=math.max(32,group.fontSize*1.5) end
 end
 local function Templates()
     local group={id="targetDistance",label="目标距离监控",kind="group",compound="targetDistance",scope="player",unit="player",
@@ -80,6 +84,8 @@ local function Templates()
         layer=950,rules={},conditions={}}
     FillRanges(group)
     return {group,
+        {id="targetDistanceNumber",label="目标距离数字",kind="targetdistancenumber",parent="targetDistance",internal=true,locked=true,
+            scope="player",unit="player",x=0,y=-55,width=80,height=32,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=952},
         {id="targetDistanceDisplay",label="目标距离监控",kind="targetdistance",parent="targetDistance",internal=true,locked=true,
             scope="player",unit="player",x=0,y=0,width=240,height=70,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=951},
     }
@@ -249,7 +255,7 @@ function D.Paint(view,o,animateOnly)
         o.anchoredPlate=nil;o.frame:Hide();return
     end
     if view.preview then
-        if view.unlockMode then o.distanceIcon:Show();o.frame:Show();return end
+        if view.unlockMode then o.distanceIcon:Hide();o.frame:Hide();return end
         local name=M:T("目标名称（姓名板）")
         o.distanceIcon:SetShown(not o.module or o.module.showOnNameplate~=false)
         o.previewName:SetText(name)
@@ -278,5 +284,58 @@ function D.Event(view,event)
         if M.Renderer and M.Renderer.UpdateDecorationRange then M.Renderer.UpdateDecorationRange(view,true) end
         local o=view and view.nodes and view.nodes.targetDistanceDisplay
         if o then D.Paint(view,o,false) end
+        local number=view and view.nodes and view.nodes.targetDistanceNumber
+        if number then number.nextNumberUpdate=nil;D.PaintNumber(view,number,false) end
     end
+end
+
+-- A readable coordinate distance is preferred. Spell/item range probes only
+-- provide bounds: their upper bound is an estimate, never an exact yard count.
+local function FormatDistance(distance)
+    if distance>40 then return "＞40" end
+    return tostring(math.floor(math.max(0,distance)+.5))
+end
+function D.NumberState(group)
+    if group.enabled==false or group.showDistanceNumber==false then return end
+    if RangeBoolean(Call(UnitExists,"target"))~=true then return end
+    if RangeBoolean(Call(UnitIsUnit,"player","target"))==true then return "0" end
+    local squared,valid=Call(UnitDistanceSquared,"target")
+    squared=Number(squared)
+    if squared and squared>=0 and RangeBoolean(valid)==true then return FormatDistance(math.sqrt(squared)) end
+    local lib=LibStub and LibStub("LibRangeCheck-3.0",true)
+    if not lib then return end
+    local minimum,maximum=Call(lib.GetRange,lib,"target",true,false,0)
+    minimum,maximum=Number(minimum),Number(maximum)
+    if not minimum or minimum<0 then return end
+    -- The lower bound is exclusive. Only a proven >40 result gets this label.
+    if minimum>=40 then return "＞40" end
+    if maximum and maximum>=minimum and maximum<=40 then return FormatDistance(maximum) end
+    -- Unknown or a bound spanning 40 yards must not be reported as >40.
+end
+function D.BuildNumber(view,o)
+    o.distanceNumber=o.frame:CreateFontString(nil,"OVERLAY")
+    o.distanceNumber:SetPoint("CENTER");o.distanceNumber:SetJustifyH("CENTER");o.distanceNumber:SetWordWrap(false)
+    o.distanceNumber:SetShadowColor(0,0,0,1);o.distanceNumber:SetShadowOffset(1,-1)
+end
+function D.ConfigureNumber(view,o)
+    local group=o.module or {};local font=group.fontPath
+    if not font or font=="" then font=group.font=="Myriad" and M.MYRIAD or M:DefaultFontPath() end
+    font=M:EffectiveFontPath(font)
+    local size=math.max(.1,group.fontSize or 20)
+    local ok,loaded=pcall(o.distanceNumber.SetFont,o.distanceNumber,font,size,"OUTLINE")
+    if not ok or loaded==false then o.distanceNumber:SetFont(M:DefaultFontPath(),size,"OUTLINE") end
+    o.distanceNumber:SetTextColor(unpack(group.distanceNumberColor or {1,1,1,1}))
+    o.nextNumberUpdate=nil
+end
+function D.PaintNumber(view,o,animateOnly)
+    local group=o.module or {}
+    if o.spec.enabled==false or group.enabled==false or group.showDistanceNumber==false
+        or (view.hidden and view.hidden[o.spec.id]) then
+        o.distanceNumber:SetText("");o.frame:Hide();return
+    end
+    local now=GetTime()
+    if animateOnly and o.nextNumberUpdate and now<o.nextNumberUpdate then return end
+    o.nextNumberUpdate=now+.1
+    local text=view.preview and "25" or D.NumberState(group)
+    o.distanceNumber:SetText(text or "");o.frame:SetShown(text~=nil)
 end

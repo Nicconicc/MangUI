@@ -99,6 +99,7 @@ local function Paint(view,o,animateOnly,visibleHint)
     if n.kind=="experiencebar" then M.ExperienceBar.Paint(view,o,animateOnly);return end
     if n.kind=="targetthreat" then M.TargetThreat.Paint(view,o,animateOnly);return end
     if n.kind=="targetdistance" then M.TargetDistance.Paint(view,o,animateOnly);return end
+    if n.kind=="targetdistancenumber" then M.TargetDistance.PaintNumber(view,o,animateOnly);return end
     if n.kind=="chatbuttons" then
         local shown=n.enabled~=false and not (view.hidden and view.hidden[n.id])
         if f:IsShown()~=shown then f:SetShown(shown) end

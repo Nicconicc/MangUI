@@ -251,6 +251,7 @@ local function Build(view,n)
     elseif n.kind=="experiencebar" then M.ExperienceBar.Build(view,o)
     elseif n.kind=="targetthreat" then M.TargetThreat.Build(view,o)
     elseif n.kind=="targetdistance" then M.TargetDistance.Build(view,o)
+    elseif n.kind=="targetdistancenumber" then M.TargetDistance.BuildNumber(view,o)
     elseif n.kind=="raidbuffs"then o.buffIcons={}
     elseif n.kind=="receivedbuffs"then o.buffIcons={}
     elseif n.kind=="raidvulnerability"then o.buffIcons={}
@@ -618,6 +619,7 @@ function R.Apply(view,design,unchanged)
             elseif n.kind=="experiencebar" then M.ExperienceBar.Configure(view,o)
             elseif n.kind=="targetthreat" then M.TargetThreat.Configure(view,o)
             elseif n.kind=="targetdistance" then M.TargetDistance.Configure(view,o)
+            elseif n.kind=="targetdistancenumber" then M.TargetDistance.ConfigureNumber(view,o)
             elseif o.text then
                 o.shadow:ClearAllPoints()
                 o.shadow:SetPoint("TOPLEFT",f,"TOPLEFT",n.shadowX or 6,n.shadowY or -6)

@@ -36,7 +36,8 @@ local function UnlockedBounds(group,geometry)
     if group.id=="mainComposite"then return MainCompositeMoveBounds(geometry)end
     local g=geometry[group.id]
     if group.id=="targetDistance"then
-        return (group.distanceX or -5)*g.s,(group.distanceY or 20)*g.s,200,90
+        local number=geometry.targetDistanceNumber
+        return number.x,number.y,math.max(100,number.w*number.s),math.max(40,number.h*number.s)
     end
     local x,y,width,height=FrameMoveBounds(group)
     return g.x+x*g.s,g.y+y*g.s,math.max(180,width*g.s),math.max(80,height*g.s)
@@ -199,7 +200,7 @@ function M:StartUnlockedMoveMode()
     local design={nodes={}};local ids={}
     for _,id in ipairs(topLevelFrames)do
         local group=self.byID[id]
-        if group and group.enabled~=false and not unlockExcluded[id] and private.ModuleAvailable(id)then ids[id]=true end
+        if group and group.enabled~=false and not unlockExcluded[id] and (id~="targetDistance" or group.showDistanceNumber~=false) and private.ModuleAvailable(id)then ids[id]=true end
     end
     for _,node in ipairs(self.db.design.nodes)do
         local moduleID=M:ModuleID(node)
@@ -235,14 +236,13 @@ function M:StartUnlockedMoveMode()
                     if UnlockedContains(mode.pickSelected,x/uiScale,y/uiScale)then self=mode.pickSelected end
                     mode.pickSelected=nil;SelectUnlockedMover(mode,self)
                     local node=self.node;local geo=M:Geometry()
-                    local drag={cursorX=x,cursorY=y,members={},distance=node.id=="targetDistance"}
+                    local drag={cursorX=x,cursorY=y,members={}}
                     drag.frameX,drag.frameY,drag.width,drag.height=UnlockedBounds(node,geo)
                     drag.centerX,drag.centerY=drag.frameX,drag.frameY
                     drag.appliedDX,drag.appliedDY=0,0
                     local anchor=node.id=="mainComposite"and geo.wabc757f81ee
                     if anchor then drag.centerX,drag.centerY=anchor.x,anchor.y end
                     if node.id=="mainComposite"then drag.main=true;drag.x=node.moveX or 0;drag.y=node.moveY or 0 end
-                    if drag.distance then drag.x=node.distanceX or -5;drag.y=node.distanceY or 20;drag.scale=geo[node.id].s end
                     for _,part in ipairs(node.id=="mainComposite"and MainCompositeRoots()or {node})do
                         drag.members[#drag.members+1]={node=part,x=part.x or 0,y=part.y or 0,scale=geo[part.id].s}
                     end
@@ -256,7 +256,7 @@ function M:StartUnlockedMoveMode()
                 mode.movers[count]=mover
             end
             mover.node=group;mover.groupColor=unlockModuleColors[id]
-            mover.drag=nil;mover.label:SetText(private.ModuleName(group));mover:EnableMouse(false)
+            mover.drag=nil;mover.label:SetText(id=="targetDistance" and "目标距离数字" or private.ModuleName(group));mover:EnableMouse(false)
             PositionUnlockedMover(mode,mover,geometry);mover:Show()
         end
     end
@@ -310,14 +310,6 @@ function M:StartUnlockedMoveMode()
                                 local object=mode.view.nodes[member.node.id]
                                 R.Position(mode.view,object.frame,object.spec,object.geometryParent)
                             end
-                        elseif drag.distance then
-                            local node=mover.node
-                            node.distanceX=M.Clamp(RoundOffset(drag.x+dx/drag.scale),-150,150)
-                            node.distanceY=M.Clamp(RoundOffset(drag.y+dy/drag.scale),-40,40)
-                            local copy=mode.view.byID[node.id];copy.x=node.distanceX;copy.y=node.distanceY
-                            copy.distanceX=node.distanceX;copy.distanceY=node.distanceY
-                            local object=mode.view.nodes[node.id];R.Position(mode.view,object.frame,copy,object.geometryParent)
-                            shiftX=(node.distanceX-drag.x)*drag.scale;shiftY=(node.distanceY-drag.y)*drag.scale
                         else
                             for _,member in ipairs(drag.members)do
                                 local node=member.node;node.x=member.x+dx/member.scale;node.y=member.y+dy/member.scale

@@ -221,10 +221,10 @@ local function TextureCoords(t,n)
     t:SetTexCoord(l,r,top,bottom)
 end
 local independentKinds={raidbuffs=true,receivedbuffs=true,raidvulnerability=true,commonitems=true,othermonitor=true,skillmonitor=true,cooldowns=true,chatbuttons=true,systemmenu=true,mousecircle=true,
-    experiencebar=true,combatnotice=true,targetthreat=true,targetdistance=true}
+    experiencebar=true,combatnotice=true,targetthreat=true,targetdistance=true,targetdistancenumber=true}
 local function Animated(n)
     return n.kind=="sprite" or n.kind=="combatnotice" or n.kind=="systemmenu" or n.kind=="mousecircle"
-        or n.kind=="experiencebar" or n.kind=="targetthreat" or n.kind=="targetdistance" or n.kind=="glow"
+        or n.kind=="experiencebar" or n.kind=="targetthreat" or n.kind=="targetdistance" or n.kind=="targetdistancenumber" or n.kind=="glow"
         or n.kind=="spark" or n.kind=="resources" or n.kind=="skillmonitor" or n.kind=="othermonitor" or n.kind=="raidbuffs" or n.kind=="receivedbuffs" or n.kind=="raidvulnerability" or n.kind=="commonitems" or n.kind=="cooldowns" or n.centerLogo or n.spinPeriod
         or n.smooth or n.binding=="cast" or n.binding=="castTime" or n.attackKind
 end
@@ -313,7 +313,7 @@ local function IndexUpdates(view)
                 if n.effectTrigger~="target" then AddUnit(deps,"player") end
             end
         elseif n.kind=="group" then TriggerUnits(deps,n)
-        elseif n.kind=="targetthreat" or n.kind=="targetdistance" then AddUnit(deps,"target") end
+        elseif n.kind=="targetthreat" or n.kind=="targetdistance" or n.kind=="targetdistancenumber" then AddUnit(deps,"target") end
         local ancestor=n.parent and view.byID[n.parent];local guard=0
         while ancestor and guard<100 do
             if ancestor.triggerAny then TriggerUnits(deps,ancestor) end

@@ -106,7 +106,7 @@ local function CleanNodes(nodes)
                 if type(value)~="number" or value<range[2]or value>range[3]then return end
             end
         end
-        for _,key in ipairs({"healthColor","healthGradientEnd","healthThresholdColor","rangedProgressColor","meleeProgressColor","partyHealthColor","partyHealthEndColor"}) do
+        for _,key in ipairs({"healthColor","healthGradientEnd","healthThresholdColor","rangedProgressColor","meleeProgressColor","partyHealthColor","partyHealthEndColor","distanceNumberColor"}) do
             local color=node[key]
             if color then
                 for i=1,4 do if type(color[i])~="number" or color[i]<0 or color[i]>1 then return end end
