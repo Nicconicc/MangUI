@@ -112,7 +112,10 @@ function G.Refresh(view,force)
                             local text=definition.mode=="distance"and owner.distanceNumber or owner.threatText
                             local width=text:GetStringWidth()
                             local x=definition.mode=="distance"and 0 or (width-owner.frame:GetWidth())/2
-                            o.guideBounds=width>0 and {x=x,y=0,width=width,height=owner.frame:GetHeight()}or nil
+                            -- Match threat's font-size + 4 body height. The distance
+                            -- mover's padded hit area must not push its caption down.
+                            local height=definition.mode=="distance"and (math.max(.1,group.fontSize or 20)+4)or owner.frame:GetHeight()
+                            o.guideBounds=width>0 and {x=x,y=0,width=width,height=height}or nil
                         else
                             local size=owner.outerSize or 50;o.guideBounds={x=0,y=0,width=size,height=size}
                         end
