@@ -203,13 +203,16 @@ local function UpdateConnector(view,o)
         if connector.joint then connector.joint:SetVertexColor(1,1,1,opacity)end
         connector.opacity=opacity
     end
+    -- The distance caption may move upward to match threat's screen gap.
+    -- Keep its connector anchored to the numeric center independently.
+    local rowOffset=group and group.id=="targetDistance"and -(frame.layoutCenterY or 0)or 0
     local horizontalLength=mouse and 0 or I.GuideHorizontalLength(group)
     if rx<=0 or ry<=0 or not pixel then HideConnector(connector);return end
     if connector.tx~=tx or connector.ty~=ty or connector.rx~=rx or connector.ry~=ry
         or connector.width~=width or connector.height~=height or connector.pixel~=pixel
-        or connector.rowWidth~=rowWidth or connector.length~=length or connector.horizontalLength~=horizontalLength or connector.mouse~=mouse then
+        or connector.rowWidth~=rowWidth or connector.length~=length or connector.horizontalLength~=horizontalLength or connector.mouse~=mouse or connector.rowOffset~=rowOffset then
         local side=tx<0 and -1 or 1
-        local innerX,y=side*width/2,height/2
+        local innerX,y=side*width/2,height/2+rowOffset
         local iconEdge=side*(rowWidth/2+8)
         innerX=iconEdge+(innerX-iconEdge)*horizontalLength
         local vx,vy=innerX-tx,y-ty
@@ -254,7 +257,7 @@ local function UpdateConnector(view,o)
         connector.tx,connector.ty,connector.rx,connector.ry=tx,ty,rx,ry
         connector.width,connector.height,connector.pixel,connector.rowWidth=width,height,pixel,rowWidth
         connector.length=length
-        connector.horizontalLength=horizontalLength;connector.mouse=mouse
+        connector.horizontalLength=horizontalLength;connector.mouse=mouse;connector.rowOffset=rowOffset
     end
     connector.row:SetShown(connector.outside and horizontalLength>0);connector.link:SetShown(connector.outside and length>0)
     if connector.joint then connector.joint:SetShown(connector.outside)end
