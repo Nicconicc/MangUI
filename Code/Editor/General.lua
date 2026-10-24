@@ -75,7 +75,7 @@ function M:OpenGeneral()
                 info.value=code;info.checked=M.db.language==code
                 local fontName="MangUILanguageFont"..code
                 local optionFont=_G[fontName]or CreateFont(fontName)
-                optionFont:SetFont(code=="koKR"and "Interface\\AddOns\\MangUI\\Assets\\Fonts\\NotoSerifCJKkr-Black.otf"or "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Client\\ARHei.TTF",M:ClientInterfaceFontSize(12),"")
+                optionFont:SetFont(M:LanguageFontPath(code),M:ClientInterfaceFontSize(12),"")
                 info.fontObject=optionFont
                 info.func=function()M:SetLanguage(code);CloseDropDownMenus()end
                 UIDropDownMenu_AddButton(info)

@@ -16,10 +16,9 @@ F.entries=ENTRIES
 
 local function text(zh, en)
     local language = M:EffectiveLanguage()
-    if language == "zhCN" or language == "zhTW" then return M:T(zh)end
-    if zh=="正在建设中"then return en end
-    local catalog=M.localeTables[language]
-    return catalog and catalog[zh] or en
+    local translated=M:T(zh)
+    if language=="zhCN"then return translated end
+    return translated~=zh and translated or en
 end
 
 local function chineseClient()
@@ -109,6 +108,7 @@ function F.Attach(editor)
     popup.hint:SetFont(popupFont, popupFontSize, popupFontFlags)
     popup.hint:SetTextColor(1, 1, 1)
     local address = CreateFrame("EditBox", nil, popup, "InputBoxTemplate")
+    popup.address=address
     address:SetPoint("TOPLEFT", popup.description, "BOTTOMLEFT", 4, -10)
     address:SetSize(388, 23)
     address:SetFont(popupFont, popupFontSize, popupFontFlags)
@@ -250,7 +250,7 @@ function F.Refresh(editor)
     end
     bar:SetWidth(math.max(32, (visible - 1) * 42 + 32))
     bar.label:SetFont(M:InterfaceFontPath(),M:ClientInterfaceFontSize(12),"")
-    for _,label in ipairs({bar.popup.title,bar.popup.description,bar.popup.hint})do
+    for _,label in ipairs({bar.popup.title,bar.popup.description,bar.popup.hint,bar.popup.address})do
         local _,size,flags=label:GetFont();label:SetFont(M:InterfaceFontPath(),size,flags or "")
     end
     GameTooltip:Hide()

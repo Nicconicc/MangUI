@@ -45,7 +45,7 @@ function U.Sample(sample)
     sample.percent=M.Clamp(used/(elapsed*10),0,100);return sample.percent
 end
 function U.Text(sample)
-    return "CPU Usage : |cffffffff"..(sample.percent and string.format("%.2f%%",sample.percent) or "--%").."|r"
+    return M:T("CPU使用率").." : |cffffffff"..(sample.percent and string.format("%.2f%%",sample.percent) or "--%").."|r"
 end
 function U.Update(editor)
     U.Sample(editor.cpuSample);editor.status:SetText(U.Text(editor.cpuSample))
@@ -68,7 +68,7 @@ function U.Attach(editor)
         sample.elapsed=0;U.Update(editor)
     end)
     driver:SetScript("OnEnter",function(self)
-        GameTooltip:SetOwner(self,"ANCHOR_TOPLEFT");GameTooltip:AddLine("CPU Usage",1,.82,0)
+        GameTooltip:SetOwner(self,"ANCHOR_TOPLEFT");GameTooltip:AddLine(M:T("CPU使用率"),1,.82,0)
         GameTooltip:AddLine(M:T("MangUI 的CPU使用率，每秒更新。"),1,1,1,true)
         GameTooltip:AddLine(M:T("按插件执行时间占单线程时间的比例计算。"),.8,.8,.8,true)
         local reason=editor.cpuSample.reason

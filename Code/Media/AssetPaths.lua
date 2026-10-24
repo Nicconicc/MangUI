@@ -255,9 +255,14 @@ function M:NormalizeAssetPaths(value,seen)
     end
     if self.NormalizeNodeTextures and value.nodes then self:NormalizeNodeTextures(value)end
 end
-function M:DefaultFontPath()
-    if self.EffectiveLanguage and self:EffectiveLanguage()=="koKR"then
+function M:LanguageFontPath(language)
+    if language=="ruRU"then
+        return "Interface\\AddOns\\MangUI\\Assets\\Fonts\\NotoSerif-Black.ttf"
+    elseif language=="koKR"then
         return "Interface\\AddOns\\MangUI\\Assets\\Fonts\\NotoSerifCJKkr-Black.otf"
     end
     return "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Client\\ARHei.TTF"
+end
+function M:DefaultFontPath()
+    return self:LanguageFontPath(self.EffectiveLanguage and self:EffectiveLanguage())
 end

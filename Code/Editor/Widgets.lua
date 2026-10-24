@@ -271,6 +271,7 @@ function W.Tab(parent,text,fn)
     highlight:SetPoint("LEFT",b,"LEFT",10,-4);highlight:SetPoint("RIGHT",b,"RIGHT",-10,-4)
     local _,labelSize=GameFontNormal:GetFont()
     b.label=W.Label(b,text,labelSize,true);b.label:SetPoint("CENTER",0,-2);b:SetScript("OnClick",fn)
+    b.label:SetJustifyH("CENTER");b.label:SetJustifyV("MIDDLE")
     M:FitLocaleText(b.label,82,9)
     function b:SetActive(active)self.label:SetTextColor(1,active and 1 or .82,active and 1 or 0)end
     b:SetActive(false)

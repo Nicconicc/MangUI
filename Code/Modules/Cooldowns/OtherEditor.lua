@@ -132,7 +132,7 @@ function O.BuildControls(e,parent)
                 row.icon=CreateFrame("Frame",nil,row);row.icon:SetSize(26,26)
                 row.icon.texture=row.icon:CreateTexture(nil,"ARTWORK");row.icon.texture:SetAllPoints()
                 for index,field in ipairs({"itemID","spellID","cooldown"})do
-                    row.captions[index]=W.Label(row,({"装备ID","Buff Spell ID","内置CD（秒）"})[index],11)
+                    row.captions[index]=W.Label(row,({"装备ID","增益法术ID","内置CD（秒）"})[index],11)
                     local edit=W.Edit(row,100);edit:SetMaxLetters(128);edit:SetTextInsets(6,6,0,0);row.edits[index]=edit
                     BindInput(row,edit,field,true)
                     if index==1 then edit:HookScript("OnTextChanged",function()RefreshSupplementIcon(row)end)end

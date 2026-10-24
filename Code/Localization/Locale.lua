@@ -114,7 +114,8 @@ function M:ResolveFontPath(path)
     if self:IsRetiredFont(path) then return self:DefaultFontPath() end
     path=self:ResolveAssetPath(path)
     if type(path)=="string" and (path:lower()==(fontRoot.."Client\\ARHei.TTF"):lower()
-        or path:lower()==(fontRoot.."NotoSerifCJKkr-Black.otf"):lower())then return self:DefaultFontPath()end
+        or path:lower()==(fontRoot.."NotoSerifCJKkr-Black.otf"):lower()
+        or path:lower()==(fontRoot.."NotoSerif-Black.ttf"):lower())then return self:DefaultFontPath()end
     if type(path)=="string" and path:lower():find("interface\\addons\\",1,true)==1
         and path:sub(1,#fontRoot):lower()~=fontRoot:lower() then return self:DefaultFontPath() end
     return path
