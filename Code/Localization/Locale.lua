@@ -1,32 +1,45 @@
 local _,M=...
 local english={}
-M.languageOptions={{code="zhCN",label="中文 (zhCN)"},{code="enUS",label="English (enUS)"}}
+M.languageOptions={
+    {code="enUS",label="English"},{code="deDE",label="Deutsch"},{code="frFR",label="Français"},
+    {code="esES",label="Español (EU)"},{code="esMX",label="Español (LatAm)"},
+    {code="itIT",label="Italiano"},{code="ptBR",label="Português (BR)"},
+    {code="ruRU",label="Русский"},{code="koKR",label="한국어 (Korean)"},
+    {code="zhCN",label="简体中文"},{code="zhTW",label="繁體中文"},
+}
 M.localeTables={enUS=english}
-function M:IsLanguageSupported(language)return language=="zhCN" or language=="enUS" end
+local supported={enGB=true}
+for _,option in ipairs(M.languageOptions)do supported[option.code]=true end
+function M:IsLanguageSupported(language)return supported[language]==true end
 function M:ClientLanguage()
     local locale=GetLocale and GetLocale() or "enUS"
-    return (locale=="zhCN" or locale=="zhTW") and "zhCN" or "enUS"
+    return self:IsLanguageSupported(locale) and (locale=="enGB" and "enUS" or locale) or "enUS"
 end
 function M:EffectiveLanguage()
     local language=self.db and self.db.language
-    return self:IsLanguageSupported(language) and language or self:ClientLanguage()
+    return self:IsLanguageSupported(language) and (language=="enGB" and "enUS" or language) or self:ClientLanguage()
 end
 local replacementKeys={}
 function M:RebuildLocaleKeys()
     replacementKeys={}
-    for source in pairs(english)do replacementKeys[#replacementKeys+1]=source end
-    table.sort(replacementKeys,function(a,b)return #a>#b end)
+    local seen={}
+    for _,catalog in pairs(self.localeTables)do for source in pairs(catalog)do
+        if not seen[source]then seen[source]=true;replacementKeys[#replacementKeys+1]=source end
+    end end
+    table.sort(replacementKeys,function(a,b)return #a==#b and a<b or #a>#b end)
 end
 M:RebuildLocaleKeys()
 function M:T(text)
     text=tostring(text or "")
     local language=self:EffectiveLanguage()
     if language=="zhCN" then return text end
+    local catalog=self.localeTables[language] or english
+    if catalog[text] then return catalog[text] end
     if english[text] then return english[text] end
     if not text:find("[\128-\255]") then return text end
     for _,key in ipairs(replacementKeys) do
         if text:find(key,1,true) then
-            text=text:gsub(key:gsub("([^%w])","%%%1"),function()return english[key] end)
+            text=text:gsub(key:gsub("([^%w])","%%%1"),function()return catalog[key] or english[key] or key end)
         end
     end
     return text
@@ -37,7 +50,7 @@ M.localizedText={}
 M.localizedInputs=setmetatable({},{__mode="k"})
 local fontRoot="Interface\\AddOns\\MangUI\\Assets\\Fonts\\"
 function M:InterfaceFontPath()
-    return STANDARD_TEXT_FONT or (GameFontHighlight and select(1,GameFontHighlight:GetFont())) or "Fonts\\FRIZQT__.TTF"
+    return self:DefaultFontPath()
 end
 function M:IsRetiredFont(value)
     if type(value)~="string" then return false end
@@ -72,23 +85,21 @@ function M:ControlPanelFontSize(object)
 end
 function M:FitLocaleText(label,width,minimum)
     if not label or not label.GetFont or not label.GetStringWidth or not width or width<=0 then return end
-    if self:ControlPanelFontSize(label)then
-        label.localeFitWidth=nil;label.localeFitCache=nil
-        self:ApplyLocaleFont(label,label:GetText());return
-    end
     local path,size,flags=label:GetFont();if not path or not size then return end
     path=self:ResolveFontPath(path)
     local cached=label.localeFitCache
     local text=label:GetText()
     if cached and cached.text==text and cached.width==width and cached.minimum==(minimum or 9)
         and cached.path==path and cached.size==size and cached.flags==(flags or "") then return end
-    label.localeFitSize=label.localeFitSize or size
+    local nominal=self:ControlPanelFontSize(label)or label.clientInterfaceNominalSize
+    label.localeFitSize=nominal and self:ClientInterfaceFontSize(nominal)or label.localeFitSize or size
     label.localeFitWidth=width;label.localeFitMinimum=minimum or 9
     label:SetFont(path,label.localeFitSize,flags or "")
     local measured=label.GetUnboundedStringWidth and label:GetUnboundedStringWidth()or label:GetStringWidth()
     if measured==measured and measured<math.huge and measured>width then
-        label:SetFont(path,math.max(label.localeFitMinimum,label.localeFitSize*width/measured),flags or "")
+        label:SetFont(path,math.max(1,math.min(label.localeFitSize,label.localeFitSize*(width-1)/measured)),flags or "")
     end
+    label:SetWidth(width);label:SetWordWrap(false)
     -- Rebuild the glyph run after changing its face/size. The client can otherwise
     -- retain a clipped run from the previous language in constrained FontStrings.
     if label.localeNativeSetText then
@@ -102,6 +113,8 @@ end
 function M:ResolveFontPath(path)
     if self:IsRetiredFont(path) then return self:DefaultFontPath() end
     path=self:ResolveAssetPath(path)
+    if type(path)=="string" and (path:lower()==(fontRoot.."Client\\ARHei.TTF"):lower()
+        or path:lower()==(fontRoot.."NotoSerifCJKkr-Black.otf"):lower())then return self:DefaultFontPath()end
     if type(path)=="string" and path:lower():find("interface\\addons\\",1,true)==1
         and path:sub(1,#fontRoot):lower()~=fontRoot:lower() then return self:DefaultFontPath() end
     return path
@@ -144,6 +157,7 @@ function M:RefreshClientInterfaceFonts()
         if label and (self:ControlPanelFontSize(object)or label.clientInterfaceNominalSize)then
             object.localeRenderCache=nil;object.localeFitCache=nil
             self:ApplyLocaleFont(object,object:GetText())
+            if label.localeFitWidth then self:FitLocaleText(label,label.localeFitWidth,label.localeFitMinimum)end
         end
     end
     for object in pairs(self.localizedText)do Refresh(object)end
@@ -189,8 +203,13 @@ function M:BindText(object)
             -- cache, including after SetNormalFontObject/hover/show updates.
             local set=buttonLabel.localeNativeSetText or buttonLabel.SetText
             set(buttonLabel,"");set(buttonLabel,translated)
+            M:FitLocaleText(buttonLabel,math.max(1,self:GetWidth()-14),9)
         end
         if self.localeFitWidth then M:FitLocaleText(self,self.localeFitWidth,self.localeFitMinimum)end
+        local parent=label.GetParent and label:GetParent()
+        if not buttonLabel and parent and parent.GetObjectType and parent:GetObjectType()=="EditBox"then
+            M:FitLocaleText(label,math.max(1,parent:GetWidth()-12),8)
+        end
         if label.GetFont then path,size,flags=label:GetFont() end
         self.localeRenderCache={path=path,size=size,flags=flags,preview=self.localePreviewFont,language=M:EffectiveLanguage()}
     end

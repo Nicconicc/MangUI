@@ -22,11 +22,12 @@ function M:RefreshOtherSettings()
     local panel=self.general
     if not panel then return end
     local selected=self:EffectiveLanguage()
-    local caption=selected=="zhCN" and "中文 (zhCN)" or "English (enUS)"
+    local caption="English"
+    for _,option in ipairs(self.languageOptions)do if option.code==selected then caption=option.label;break end end
     UIDropDownMenu_SetSelectedValue(panel.language,selected)
     UIDropDownMenu_SetText(panel.language,caption)
     local dropdownText=panel.language.Text or _G[panel.language:GetName().."Text"]
-    if dropdownText then self:SetLocaleLineHeight(dropdownText,18);self:ApplyLocaleFont(dropdownText,caption,true) end
+    if dropdownText then self:SetLocaleLineHeight(dropdownText,18);self:ApplyLocaleFont(dropdownText,caption,true);self:FitLocaleText(dropdownText,330,9) end
     panel.minimapCheck:SetChecked(not self.db.minimap.hide)
     panel.targetVisibilityCheck:SetChecked(self.db.hideWithoutTarget==true)
     panel.portrait3DCheck:SetChecked(self.db.portrait3D==true)
@@ -72,6 +73,10 @@ function M:OpenGeneral()
                 local code=option.code
                 local info=UIDropDownMenu_CreateInfo();info.text=option.label
                 info.value=code;info.checked=M.db.language==code
+                local fontName="MangUILanguageFont"..code
+                local optionFont=_G[fontName]or CreateFont(fontName)
+                optionFont:SetFont(code=="koKR"and "Interface\\AddOns\\MangUI\\Assets\\Fonts\\NotoSerifCJKkr-Black.otf"or "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Client\\ARHei.TTF",M:ClientInterfaceFontSize(12),"")
+                info.fontObject=optionFont
                 info.func=function()M:SetLanguage(code);CloseDropDownMenus()end
                 UIDropDownMenu_AddButton(info)
             end

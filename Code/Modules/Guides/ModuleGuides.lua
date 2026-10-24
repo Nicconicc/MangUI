@@ -245,7 +245,7 @@ function G.BuildControls(e,parent,flush,key)
     function guide.font:SetValue(value)
         self.value=value
         for _,choice in ipairs(fontChoices)do
-            if choice.path==value then self:SetMedia(choice.name,choice.path);return end
+            if M:ResolveFontPath(choice.path)==M:ResolveFontPath(value)then self:SetMedia(choice.name,M:ResolveFontPath(choice.path));return end
         end
         self:SetMedia(value or "",value)
     end

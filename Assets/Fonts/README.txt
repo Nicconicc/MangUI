@@ -1,4 +1,6 @@
-Settings labels and language controls use the client default UI font.
-Only Chinese and English are available; language is detected on addon load.
-The existing Myriad, Visitor, WenQuanYi and client font choices remain available for configured unit-frame text.
-Retired bundled language fonts in saved settings resolve to the default font.
+Default addon UI font: Client/ARHei.TTF (existing FangZheng CuHeiSong).
+Korean default: NotoSerifCJKkr-Black.otf from the official notofonts/noto-cjk Serif project.
+Noto Serif CJK is distributed under SIL Open Font License 1.1; see NotoSerifCJK-LICENSE.txt.
+The language is detected from GetLocale at login; the settings allow session-local selection.
+English, German, French, Spanish (EU/LatAm), Italian, Brazilian Portuguese, Russian, Korean, Simplified and Traditional Chinese are supported.
+Existing custom Myriad, Visitor and WenQuanYi choices remain available.

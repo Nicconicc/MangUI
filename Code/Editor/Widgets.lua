@@ -79,6 +79,7 @@ function W.StyleButton(b)
         text:ClearAllPoints();text:SetPoint("CENTER",self,"CENTER",self.panelButtonTextX or 0,self.panelButtonTextY or 0)
         text:SetSize(math.max(1,self:GetWidth()-10),self:GetHeight())
         text:SetJustifyH("CENTER");text:SetJustifyV("MIDDLE");text:SetWordWrap(false)
+        if self.localeRenderedText then M:FitLocaleText(text,math.max(1,self:GetWidth()-14),9)end
     end
     local function Paint(self)
         local hover=self.panelButtonHover and self:IsEnabled()
@@ -97,6 +98,7 @@ function W.StyleButton(b)
             local rendered=self.localeRenderedText or self:GetText()
             M:ApplyLocaleFont(self,rendered)
             if self.localeRenderedText then text:SetText(rendered)end
+            M:FitLocaleText(text,math.max(1,self:GetWidth()-14),9)
         end
     end
     function b:SetHoverTextColor(r,g,blue)
@@ -167,9 +169,11 @@ function W.MediaSelect(parent,label,width,kind,fn)
         text.localePreviewSize=defaultSize;text.localePreviewFlags=defaultFlags
         text:SetFont(M:ResolveFontPath(defaultFont),defaultSize,defaultFlags)
         text:SetText(value or "")
+        M:FitLocaleText(text,math.max(1,self:GetWidth()-32),9)
         preview:SetTexture(kind=="statusbar" and path or nil)
     end
     f:SetScript("OnHide",function(self)if self.menu then self.menu:Hide() end end)
+    f:HookScript("OnSizeChanged",function(self)M:FitLocaleText(text,math.max(1,self:GetWidth()-32),9)end)
     return f
 end
 function W.MediaMenu(anchor,items,kind,selectedPath,onSelect,selectedName)
@@ -240,6 +244,7 @@ function W.MediaMenu(anchor,items,kind,selectedPath,onSelect,selectedName)
             text.localePreviewFont=path;text.localePreviewSize=size;text.localePreviewFlags=""
         else text:SetFont(M:ResolveFontPath(font),size,"OUTLINE")end
         text:SetText(item.name)
+        M:FitLocaleText(text,math.max(1,contentWidth-24),9)
         row:SetScript("OnClick",function()p:Hide();onSelect(item)end)
     end
     anchor.menu=p
@@ -266,6 +271,7 @@ function W.Tab(parent,text,fn)
     highlight:SetPoint("LEFT",b,"LEFT",10,-4);highlight:SetPoint("RIGHT",b,"RIGHT",-10,-4)
     local _,labelSize=GameFontNormal:GetFont()
     b.label=W.Label(b,text,labelSize,true);b.label:SetPoint("CENTER",0,-2);b:SetScript("OnClick",fn)
+    M:FitLocaleText(b.label,82,9)
     function b:SetActive(active)self.label:SetTextColor(1,active and 1 or .82,active and 1 or 0)end
     b:SetActive(false)
     return b

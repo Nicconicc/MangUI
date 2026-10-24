@@ -16,7 +16,10 @@ F.entries=ENTRIES
 
 local function text(zh, en)
     local language = M:EffectiveLanguage()
-    return (language == "zhCN" or language == "zhTW") and zh or en
+    if language == "zhCN" or language == "zhTW" then return M:T(zh)end
+    if zh=="正在建设中"then return en end
+    local catalog=M.localeTables[language]
+    return catalog and catalog[zh] or en
 end
 
 local function chineseClient()
@@ -246,5 +249,9 @@ function F.Refresh(editor)
         end
     end
     bar:SetWidth(math.max(32, (visible - 1) * 42 + 32))
+    bar.label:SetFont(M:InterfaceFontPath(),M:ClientInterfaceFontSize(12),"")
+    for _,label in ipairs({bar.popup.title,bar.popup.description,bar.popup.hint})do
+        local _,size,flags=label:GetFont();label:SetFont(M:InterfaceFontPath(),size,flags or "")
+    end
     GameTooltip:Hide()
 end
