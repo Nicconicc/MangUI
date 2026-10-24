@@ -10,16 +10,17 @@ local ENTRIES = {
     { id = "afdian", zh = "爱发电", en = "Afdian", chinese = true, activeTexture = "afdian_color.tga", url = "https://ifdian.net/a/cardmaster" },
     { id = "patreon", zh = "Patreon", en = "Patreon", chinese = false, activeTexture = "patreon_color.tga", pending = true },
     { id = "cardmaster", zh = "CardMaster 卡牌大师", en = "CardMaster", fullColor = true, copyText = "CardMaster" },
-    { id = "github", zh = "GitHub", en = "GitHub", url = "https://github.com/Nicconicc/CardMaster" },
+    { id = "github", zh = "GitHub", en = "GitHub", url = "https://github.com/Nicconicc/MangUI" },
 }
 F.entries=ENTRIES
 
 local function text(zh, en)
-    return M:EffectiveLanguage() == "enUS" and en or zh
+    local language = M:EffectiveLanguage()
+    return (language == "zhCN" or language == "zhTW") and zh or en
 end
 
 local function chineseClient()
-    local locale = GetLocale and GetLocale() or "enUS"
+    local locale = M:EffectiveLanguage()
     return locale == "zhCN" or locale == "zhTW"
 end
 
@@ -32,7 +33,7 @@ local function description(entry)
         local total = F.cardCount
         return string.format(text("感谢您请我喝茶，我已绘制了%d张卡牌，您的支持是我开发和绘制下一套卡牌的绝对动力。", "Thank you for treating me to tea! I have drawn %d cards, and your support keeps me developing CardMaster and drawing the next set."), total)
     elseif entry.pending then
-        return text("创建中，请等待", "Coming soon, please wait")
+        return text("正在建设中", "Under construction")
     end
     return text("复制下方网址，在浏览器中打开。", "Copy the website address below and open it in your browser.")
 end
@@ -71,7 +72,7 @@ function F.Attach(editor)
     bar.label = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     bar.label:SetJustifyV("MIDDLE")
     bar.label:SetPoint("RIGHT", bar, "LEFT", -12, 0)
-    bar.label:SetText(text("在这里找到作者", "Community & Support"))
+    bar.label:SetText(text("加入社区与作者互动", "Community & Support"))
     bar.label:SetTextColor(0.7, 0.75, 0.8)
 
     local popup = panel(bar)
@@ -171,7 +172,7 @@ function F.Attach(editor)
         popup.title:SetText(text(entry.zh, entry.en))
         popup.description:SetHeight(0)
         popup.description:SetText(description(entry))
-        popup.copyText = entry.copyText or entry.url or text("创建中，请等待", "Coming soon, please wait")
+        popup.copyText = entry.copyText or entry.url or text("正在建设中", "Under construction")
         popup.hint:SetText(text("按 Ctrl+C 复制", "Press Ctrl+C to copy"))
         layoutPopup()
         if not sameOwner then address:ClearFocus() end
@@ -231,7 +232,7 @@ end
 function F.Refresh(editor)
     local bar = editor and editor.footerLinks
     if not bar then return end
-    bar.label:SetText(text("在这里找到作者", "Community & Support"))
+    bar.label:SetText(text("加入社区与作者互动", "Community & Support"))
     bar.popup:Hide()
     local chinese = chineseClient()
     local visible = 0
