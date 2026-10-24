@@ -53,7 +53,7 @@ end
 local function FillRanges(group)
     if group.showDistanceNumber==nil then group.showDistanceNumber=true end
     if group.hideFriendlyDistanceNumber==nil then group.hideFriendlyDistanceNumber=false end
-    group.fontSize=M.Clamp(Number(group.fontSize) or 20,.1,10000)
+    group.fontSize=M.Clamp(Number(group.fontSize) or 17,.1,10000)
     if type(group.distanceNumberColor)~="table" then group.distanceNumberColor={1,1,1,1} end
     if group.showOnRing==nil then group.showOnRing=true end
     if group.showOnNameplate==nil then group.showOnNameplate=true end
@@ -81,12 +81,15 @@ function D.SyncNodes(design)
 end
 local function Templates()
     local group={id="targetDistance",label="目标距离监控",kind="group",compound="targetDistance",scope="player",unit="player",
-        x=0,y=0,width=240,height=70,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,locked=true,
+        x=-190,y=-70,width=240,height=70,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,locked=true,
+        font="Myriad",fontName="Myriad",fontPath=M.MYRIAD,fontSize=17,
+        showGuideLines=true,guideLineLength=.3,guideOpacity=.6,guideHorizontalLength=.6,
+        showGuideText=true,guideText="Range",guideFontPath=M.MYRIAD,guideFontSize=12,
         layer=950,rules={},conditions={}}
     FillRanges(group)
     return {group,
         {id="targetDistanceNumber",label="目标距离数字",kind="targetdistancenumber",parent="targetDistance",internal=true,locked=true,
-            scope="player",unit="player",x=0,y=-55,width=80,height=32,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=952},
+            scope="player",unit="player",x=0,y=0,width=80,height=32,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=952},
         {id="targetDistanceDisplay",label="目标距离监控",kind="targetdistance",parent="targetDistance",internal=true,locked=true,
             scope="player",unit="player",x=0,y=0,width=240,height=70,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=951},
     }

@@ -81,6 +81,15 @@ function M:ResetUnlockedModulePositions()
                 elseif node.id=="receivedBuffs"then M.ReceivedBuffs.RestorePosition(node,ref)
                 elseif node.id=="raidVulnerability"then M.RaidVulnerability.RestorePosition(node,ref)
                 elseif node.id=="commonItems"then M.CommonItems.RestorePosition(node,ref)end
+                if node.id=="targetDistance"then
+                    local number=self.byID.targetDistanceNumber
+                    local numberRef=defaults.targetDistanceNumber
+                    if number and numberRef then
+                        number.x=numberRef.x or 0;number.y=numberRef.y or 0
+                        local copy=mode.view.byID.targetDistanceNumber
+                        if copy then copy.x=number.x;copy.y=number.y end
+                    end
+                end
                 if node.id=="mainComposite"then node.moveX=ref.moveX or 0;node.moveY=ref.moveY or 0 end
             end
         end
