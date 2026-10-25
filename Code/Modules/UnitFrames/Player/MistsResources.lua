@@ -74,50 +74,63 @@ local function Texture(parent,file,w,h,x,y,layer)
     t:SetSize(w,h);t:SetPoint("CENTER",parent,"CENTER",x or 0,y or 0)
     t:SetTexture(art..file);return t
 end
-local function Text(parent,size,y)
+local function Text(parent,spec)
     local t=parent:CreateFontString(nil,"OVERLAY")
-    t:SetPoint("CENTER",parent,"CENTER",0,y or 0)
-    M:ApplyRegionFont(t,M:EffectiveFontPath(M.MYRIAD),size,"THICKOUTLINE")
-    t:SetTextColor(1,1,1,1);return t
+    t:SetPoint(spec.selfPoint,parent,"CENTER",spec.xOffset,spec.yOffset)
+    M:ApplyRegionFont(t,M:EffectiveFontPath(M.MYRIAD),spec.fontSize,spec.outline)
+    t:SetTextColor(unpack(spec.color));t:SetJustifyH(spec.justify)
+    t:SetShadowColor(unpack(spec.shadowColor));t:SetShadowOffset(spec.shadowXOffset,spec.shadowYOffset)
+    return t
 end
-local function Rotate(t,degrees)
-    -- Same UV convention used by the existing imported combo-point art.
-    local angle=math.rad(degrees);local c,s=math.cos(angle),math.sin(angle)
-    local function corner(x,y)return .5+(x*c-y*s)*math.sqrt(2),.5+(x*s+y*c)*math.sqrt(2)end
-    if degrees==0 then t:SetTexCoord(0,1,0,1);return end
-    local a,b=corner(-.5,-.5);local d,e=corner(-.5,.5)
-    local g,h=corner(.5,-.5);local j,k=corner(.5,.5)
-    t:SetTexCoord(a,b,d,e,g,h,j,k)
+local function Rotate(t,degrees,canRotate,mirror)
+    local angle=math.rad(135-degrees)
+    local divisor=canRotate and 1 or math.sqrt(2)
+    local x,y=math.cos(angle)/divisor,math.sin(angle)/divisor
+    local a,b,c,d,e,f,g,h=.5+x,.5-y,.5-y,.5-x,.5+y,.5+x,.5-x,.5+y
+    if mirror then t:SetTexCoord(e,f,g,h,a,b,c,d)else t:SetTexCoord(a,b,c,d,e,f,g,h)end
 end
 local function BuildRow(o,key)
     local data=M.MistsResourceData[key]
-    local row={frame=Frame(o.frame,data.width,60),leaves={},data=data}
+    local row={frame=Frame(o.frame,data.width,60),leaves={},groups={},data=data}
     row.frame:SetPoint("CENTER")
+    for i,d in ipairs(data.groups)do
+        local parent=d.parent==0 and row.frame or row.groups[d.parent].frame
+        local f=Frame(parent,1,1);f:SetScale(d.scale)
+        row.groups[i]={frame=f,data=d}
+    end
     for i,d in ipairs(data.leaves)do
-        local f=Frame(row.frame,d.w,d.h,i+1);f:Hide()
+        local parent=d.parent==0 and row.frame or row.groups[d.parent].frame
+        local f=Frame(parent,d.w,d.h);f:SetFrameLevel(row.frame:GetFrameLevel()+d.layer)
+        f:SetScale(d.scale);f:SetPoint("CENTER",parent,"CENTER",d.x,d.y);f:Hide()
         local v=Frame(f,d.w,d.h);v:SetPoint("CENTER")
         local leaf={frame=f,visual=v,data=d};row.leaves[i]=leaf
         if d.kind=="model"then
             local model=CreateFrame("PlayerModel",nil,v);model:SetSize(d.w,d.h);model:SetPoint("CENTER")
             model:EnableMouse(false);model:SetFrameLevel(v:GetFrameLevel()+1)
             model.resourceFile=d.file;model.resourcePosition=d.position;model.resourceSequence=d.sequence or 0
+            model.resourceFacing=math.rad(d.rotation)
             if model.SetKeepModelOnHide then model:SetKeepModelOnHide(false)end
             model:SetScript("OnModelLoaded",I.ResourceModelLoaded)
             model:SetScript("OnShow",I.ResourceModelRestart);model:Hide();leaf.model=model
         else
             local t=Texture(v,d.file,d.w,d.h,0,0)
             t:SetBlendMode(d.blend);t:SetVertexColor(unpack(d.color))
+            t:SetDesaturated(d.desaturate)
             leaf.texture=t
         end
     end
-    if key=="arcane"then row.timer=Text(row.frame,20,-65)end
-    if key=="embers"then
+    if data.timer then row.timer=Text(row.frame,data.timer)end
+    if data.fill then
         row.fills={}
+        local d=data.fill
         for i=1,4 do
-            local f=Frame(row.frame,20,35,1);f:Hide()
-            local t=Texture(f,"EmberFill.tga",20,35)
+            local f=Frame(row.frame,d.width,d.height);f:SetFrameLevel(row.frame:GetFrameLevel()+d.layer);f:Hide()
+            local t=Texture(f,"EmberFill.tga",d.width,d.height)
             t:ClearAllPoints();t:SetPoint("BOTTOM",f,"BOTTOM",0,0)
-            row.fills[i]={frame=f,texture=t}
+            local spark=f:CreateTexture(nil,"OVERLAY");spark:SetTexture(d.sparkTexture)
+            spark:SetSize(d.sparkWidth,d.sparkHeight);spark:SetBlendMode(d.sparkBlendMode)
+            spark:SetVertexColor(unpack(d.sparkColor));spark:SetTexCoord(0,1,1,1,0,0,1,0)
+            row.fills[i]={frame=f,texture=t,spark=spark}
         end
     end
     return row
@@ -139,13 +152,18 @@ end
 local function UpdateRow(o,row,key,view,gap)
     local amount,maximum,expiration=State(key,view.preview)
     row.amount,row.maximum,row.expiration=amount,maximum,expiration
+    for _,group in ipairs(row.groups)do
+        local d=group.data
+        local offset=(d.slot-(row.data.count+1)/2)*gap/d.scale
+        I.CachedPoint(group,"point",group.frame,"CENTER",group.frame:GetParent(),"CENTER",d.x+offset,d.y)
+    end
     for _,leaf in ipairs(row.leaves)do
         local d=leaf.data
-        I.CachedPoint(leaf,"point",leaf.frame,"CENTER",row.frame,"CENTER",d.x+(d.slot-(row.data.count+1)/2)*gap,d.y)
-        local active=d.slot<=maximum and amount+1e-7>=d.threshold
+        local passes=d.op=="=="and math.abs(amount-d.threshold)<1e-7 or d.op==">="and amount+1e-7>=d.threshold
+        local active=d.slot<=maximum and passes
         if active~=leaf.active then
             local previous=leaf.active;leaf.active=active;leaf.at=GetTime()
-            leaf.phase=active and d.animate and "enter"or(previous and d.exit and "exit"or nil)
+            leaf.phase=active and d.enter and "enter"or(previous and d.exit and "exit"or nil)
             leaf.frame:SetShown(active or leaf.phase~=nil)
             if leaf.model then
                 R.SuppressMovementModel(view,leaf.model)
@@ -159,12 +177,16 @@ local function UpdateRow(o,row,key,view,gap)
     end
     if row.fills then
         local brimstone=Aura(108683)~=nil
+        local d=row.data.fill
         for i,fill in ipairs(row.fills)do
             local fraction=M.Clamp(amount-i+1,0,1)
-            I.CachedPoint(fill,"point",fill.frame,"CENTER",row.frame,"CENTER",(i-2.5)*(60+gap),0)
+            I.CachedPoint(fill,"point",fill.frame,"CENTER",row.frame,"CENTER",d.x+(i-1)*d.step+(i-2.5)*gap,d.y)
             fill.frame:SetShown(i<=maximum and fraction>0)
-            fill.texture:SetHeight(math.max(.001,35*fraction))
-            fill.texture:SetTexCoord(0,1,1-fraction,1)
+            fill.texture:SetHeight(math.max(.001,d.height*fraction))
+            -- WA rotates a vertical bar's horizontal status texture by 90 degrees.
+            fill.texture:SetTexCoord(1-fraction,1,1,1,1-fraction,0,1,0)
+            I.CachedPoint(fill,"sparkPoint",fill.spark,"CENTER",fill.frame,"CENTER",0,-d.height/2+d.height*fraction)
+            fill.spark:SetShown(fraction>0 and fraction<1)
             if brimstone then fill.texture:SetVertexColor(1,1,1,1)
             else fill.texture:SetVertexColor(.945098,1,.968628,1)end
         end
@@ -181,10 +203,12 @@ function P.Animate(o)
         if leaf.frame:IsShown()then
             local scale,alpha,angle=1,d.alpha,0
             if leaf.phase then
-                local progress=M.Clamp((now-leaf.at)/(leaf.phase=="enter"and .1 or .25),0,1)
-                scale=leaf.phase=="enter"and progress or 1-progress
-                alpha=alpha*(leaf.phase=="enter"and 1 or 1-progress)
-                angle=leaf.phase=="enter"and 90*(1-progress)or 0
+                local animation=leaf.phase=="enter"and d.enter or d.exit
+                local progress=M.Clamp((now-leaf.at)/animation.duration,0,1)
+                local factor=leaf.phase=="enter"and progress or 1-progress
+                if animation.scale then scale=factor end
+                if animation.alpha then alpha=alpha*factor end
+                angle=animation.angle*(leaf.phase=="enter"and 1-progress or progress)
                 if progress>=1 then
                     leaf.phase=nil
                     if not leaf.active then leaf.frame:Hide();if leaf.model then leaf.model:Hide()end end
@@ -198,9 +222,9 @@ function P.Animate(o)
                     local x,y=frame%d.columns,math.floor(frame/d.columns)
                     leaf.texture:SetTexCoord(x/d.columns,(x+1)/d.columns,y/d.rows,(y+1)/d.rows)
                     animating=true
-                elseif leaf.angle~=angle then Rotate(leaf.texture,d.rotation+angle);leaf.angle=angle end
+                elseif leaf.angle~=angle then Rotate(leaf.texture,d.rotation+angle,d.rotate,d.mirror);leaf.angle=angle end
             elseif leaf.model then
-                leaf.model.resourceFacing=math.rad(angle)
+                leaf.model.resourceFacing=math.rad(d.rotation+angle)
                 if not leaf.model.movementSuppressed then
                     I.CachedValue(leaf,"facing",leaf.model,"SetFacing",leaf.model.resourceFacing)
                     if resized and scale==1 then I.ResourceModelRestart(leaf.model)end
@@ -251,7 +275,8 @@ function P.Paint(view,o)
     local label=row.timer or row.text
     if label then
         local path=M:EffectiveFontPath(M.MYRIAD)
-        if row.font~=path and M:ApplyRegionFont(label,path,key=="arcane"and 20 or 18,key=="balance"and "MONOCHROME,THICKOUTLINE"or "THICKOUTLINE")then row.font=path end
+        local font=row.data and row.data.timer
+        if row.font~=path and M:ApplyRegionFont(label,path,font and font.fontSize or 18,font and font.outline or "MONOCHROME,THICKOUTLINE")then row.font=path end
     end
     if key=="balance"then UpdateBalance(o,row,view)
     else UpdateRow(o,row,key,view,gap)end
