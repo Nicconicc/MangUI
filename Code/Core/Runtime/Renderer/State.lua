@@ -9,8 +9,12 @@ local function State(view,unit)
     unit=unit or "player"
     if unit=="shared" and view.preview then unit=view.scene=="noTarget" and "player" or "target" end
     if not view.cache[unit] then
-        local state=(view.stateProvider or C.State)(unit,view.preview,view.scene,view.stateBuffers[unit],view.stateFields[unit])
-        if M.PartyFrames then M.PartyFrames.ExtendState(view,state) end
+        local state
+        if unit=="playerThirdResource"then state=M.ThirdResource.State(view,view.stateBuffers[unit])
+        else
+            state=(view.stateProvider or C.State)(unit,view.preview,view.scene,view.stateBuffers[unit],view.stateFields[unit])
+            if M.PartyFrames then M.PartyFrames.ExtendState(view,state) end
+        end
         view.stateBuffers[unit]=state;view.cache[unit]=state
     end
     return view.cache[unit]

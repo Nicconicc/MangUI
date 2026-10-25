@@ -277,7 +277,7 @@ local function FieldDependencies(o)
     if n.kind=="portrait" and n.unit=="pet" then AddUnit(fields.health,"pet") end
     if binding=="health" or binding=="healthText" or binding=="healthPercent" or (n.kind=="bar" and not binding) then AddUnit(fields.health,n.unit) end
     if binding=="power" or binding=="powerText" or binding=="powerPercent" or n.powerColor then AddUnit(fields.power,n.unit) end
-    if n.kind=="resources" then AddUnit(fields.power,"player") end
+    if n.kind=="resources"or n.thirdResource then AddUnit(fields.power,"player") end
     for _,rule in ipairs(n.rules or {}) do
         if healthFields[rule.test] then AddUnit(fields.health,rule.unit) end
         if powerFields[rule.test] then AddUnit(fields.power,rule.unit) end

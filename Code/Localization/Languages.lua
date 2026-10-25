@@ -9924,4 +9924,10 @@ M.localeTables.deDE={
     ["（将自动重试，其他模块继续运行）"]=" (automatischer Neuversuch; andere Module laufen weiter)",
     ["；测试数据未写入正式监控。"]="; Testdaten wurden nicht gespeichert.",
 }
+-- Shared class/spec resource bar; its display name is independent of its source.
+for locale,label in pairs({enUS="Third resource bar",deDE="Dritte Ressourcenleiste",frFR="Troisième barre de ressource",
+    esES="Tercera barra de recurso",esMX="Tercera barra de recurso",itIT="Terza barra risorsa",ptBR="Terceira barra de recurso",
+    ruRU="Третья полоса ресурса",koKR="세 번째 자원 바",zhTW="第三資源條"})do
+    M.localeTables[locale]["第三资源条"]=label
+end
 M:RebuildLocaleKeys()

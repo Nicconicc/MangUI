@@ -277,6 +277,9 @@ function M:Index(editing)
             return
         end
     end
+    for _,design in ipairs({self.defaults,self.recordedDefaults,self.db.design,self.db.moduleDefaults})do
+        self:EnsureThirdResource(design)
+    end
     self:NormalizeAssetPaths(self.defaults)
     self:NormalizeAssetPaths(self.recordedDefaults)
     self:NormalizeAssetPaths(self.db)

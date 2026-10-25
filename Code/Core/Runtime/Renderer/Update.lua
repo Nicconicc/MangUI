@@ -103,6 +103,7 @@ local function Invalidate(view,unit,fields)
     InvalidateState(view,unit,fields)
     if unit=="player" or unit=="vehicle" or unit=="shared" then
         InvalidateState(view,"player",fields);InvalidateState(view,"vehicle",fields);InvalidateState(view,"shared",fields)
+        view.cache.playerThirdResource=nil
     end
     if unit=="target" or unit=="shared" then
         InvalidateState(view,"target",fields);InvalidateState(view,"shared",fields)

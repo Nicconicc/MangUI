@@ -50,6 +50,7 @@ local function CleanNodes(nodes)
     M:NormalizeRetiredFonts(nodes)
     M:NormalizeCenterDecoration({nodes=nodes})
     M:EnsureCenterClassification({nodes=nodes})
+    M:EnsureThirdResource({nodes=nodes})
     if M.EnsurePetBuffs then M:EnsurePetBuffs({nodes=nodes}) end
     if M.EnsureCooldownModule then M:EnsureCooldownModule({nodes=nodes}) end
     if M.EnsurePlayerSkillMonitor then M:EnsurePlayerSkillMonitor({nodes=nodes}) end

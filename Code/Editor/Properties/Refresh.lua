@@ -335,10 +335,18 @@ local function RefreshProperties(self)
             e.healthThresholdColor:SetColor(healthBar.healthThresholdColor or {1,0,0,1})
         end
     end
+    if n.id=="playerThirdResource"then
+        e.thirdResourceEnabled:SetChecked(n.enabled~=false)
+        local bar=self.byID.playerThirdResourceFill
+        e.thirdResourceColor:SetColor(bar and bar.color or {.62,.33,1,1})
+    end
     if e.materialButton then
         local mainBar=MainBarPart(n)
         local bar=self.byID[mainBar and mainBar.bar or (n.compound=="focusMP" and "waeddad93083" or "wa916b193e98")]
-        if mainBar then
+        if n.id=="playerThirdResource"then
+            bar=self.byID.playerThirdResourceFill
+            e.materialButton:SetMedia(bar and bar.materialName or "默认",bar and bar.materialPath)
+        elseif mainBar then
             e.materialButton:SetMedia(bar and bar.materialName or "Solid",bar and (bar.materialPath or "Interface\\Buttons\\WHITE8X8"))
         elseif IsUnitComposite(n) then
             local parts=compositeParts[n.compound]
@@ -491,6 +499,10 @@ local function RefreshProperties(self)
         end
         if n.id=="centerClassification" then
             visible=row.key=="x" or row.key=="y" or row.key=="scale"
+        end
+        if n.id=="playerThirdResource"then
+            visible=row.key=="thirdResourceEnabled"or row.key=="x"or row.key=="y"or row.key=="scale"
+                or row.key=="hpMaterial"or row.key=="thirdResourceColor"
         end
         if n.id=="playerResources" then
             visible=row.key=="x" or row.key=="y" or row.key=="scale"

@@ -148,7 +148,8 @@ local function Paint(view,o,animateOnly,visibleHint)
     if (n.binding=="auraStacks" or n.binding=="auraTime") and not (view.preview and view.selected==n.id) then
         f:Hide();return
     end
-    local s=o.needsState and State(view,n.unit) or emptyState;local shown=n.enabled~=false
+    local s=n.thirdResource and State(view,"playerThirdResource")or o.needsState and State(view,n.unit)or emptyState
+    local shown=n.enabled~=false and (not n.thirdResource or s.resourceAvailable)
     if n.unit=="target" and n.binding=="powerText" and s.classification=="worldboss" then shown=false end
     if n.visibleUnit then shown=shown and State(view,n.visibleUnit).exists end
     for _,rule in ipairs(n.rules or {}) do shown=shown and Rule(view,rule) end

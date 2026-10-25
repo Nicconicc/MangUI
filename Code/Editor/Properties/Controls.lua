@@ -577,6 +577,16 @@ local function BuildProperties(e)
         Change("portraitNameOnly",enabled)
     end)
     Row(32,{{e.focusPortraitOnly,-4,0}},{},"focusPortraitOnly");y=y-32
+    e.thirdResourceEnabled=W.Check(content,"启动模块",function(enabled)
+        if Selected()and Selected().id=="playerThirdResource"then Change("enabled",enabled)end
+    end)
+    Row(32,{{e.thirdResourceEnabled,-4,0}},{},"thirdResourceEnabled");y=y-32
+    e.thirdResourceColorLabel=W.Label(content,"颜色")
+    e.thirdResourceColor=W.ColorSwatch(content,function(color)
+        local group=Selected();local bar=M.byID.playerThirdResourceFill
+        if group and group.id=="playerThirdResource"and bar and M:CanEdit()then bar.color=M.Copy(color);M:Commit()end
+    end)
+    Row(32,{{e.thirdResourceColorLabel,0,-3},{e.thirdResourceColor,110,-3}},{},"thirdResourceColor");y=y-32
     e.materialButton=W.MediaSelect(content,"进度条材质",propertyWidth,"statusbar",function()M:OpenBarMaterialPicker()end)
     e.materialButton:SetPoint("TOPLEFT",0,y)
     Row(53,{{e.materialButton,0,0}},nil,"hpMaterial");y=y-53

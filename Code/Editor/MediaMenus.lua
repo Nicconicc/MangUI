@@ -81,6 +81,8 @@ function M:OpenBarMaterialPicker()
     elseif selected.compound=="focusHP" or selected.compound=="focusMP" then
         local bar=self.byID[selected.compound=="focusMP" and "waeddad93083" or "wa916b193e98"]
         if bar then bars[1]=bar end
+    elseif selected.id=="playerThirdResource"then
+        if self.byID.playerThirdResourceFill then bars[1]=self.byID.playerThirdResourceFill end
     elseif MainBarPart(selected) then
         local bar=self.byID[MainBarPart(selected).bar]
         if bar then bars[1]=bar end
@@ -88,6 +90,7 @@ function M:OpenBarMaterialPicker()
     if #bars==0 then return end
     if self.materialWindow then self.materialWindow:Hide();return end
     local items={{name="Solid",path="Interface\\Buttons\\WHITE8X8"}}
+    if selected.id=="playerThirdResource"then table.insert(items,1,{name="默认"})end
     if selected.compound=="partyFrames"then
         table.insert(items,1,{name="默认",path=""})
         table.insert(items,2,{name="MangUI GlassB",path="Interface\\AddOns\\MangUI\\Assets\\Library\\PartyFrames\\MangUI_GlassB.tga"})
