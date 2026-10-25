@@ -1,12 +1,24 @@
 ﻿## Interface: 120100, 16001, 50504, 38001, 20506, 11509
-## Title: MangUI |cffffcc66Unit Frames|r
-## Title-zhCN: MangUI |cffffcc66单位框体|r
-## Title-zhTW: MangUI |cffffcc66單位框體|r
-## Notes: Customizable unit, party and boss frames with previews and a unified movement mode. Author: Nc.
-## Notes-zhCN: 可自定义的单位、队伍和首领框体，提供预览设置和统一移动模式。作者：Nc。
-## Notes-zhTW: 可自訂的單位、隊伍與首領框體，提供預覽設定及統一移動模式。作者：Nc。
+## Title: MangUI
+## Title-zhCN: MangUI
+## Title-zhTW: MangUI
+## Notes: Customizable unit frames, class resources, aura and cooldown monitors, with layout previews and drag positioning. Type /mui to open settings. Author: Nc.
+## Notes-zhCN: 自定义单位框体、职业资源、光环与冷却监控，支持布局预览和拖动定位。输入 /mui 打开设置。作者：Nc。
+## Notes-zhTW: 自訂單位框架、職業資源、光環與冷卻監控，支援佈局預覽和拖曳定位。輸入 /mui 開啟設定。作者：Nc。
+## Category: Unit Frames
+## Category-enUS: Unit Frames
+## Category-deDE: Einheitenfenster
+## Category-esES: Marcos de unidades
+## Category-esMX: Marcos de unidades
+## Category-frFR: Portraits d'unités
+## Category-itIT: Riquadri unità
+## Category-koKR: 유닛 프레임
+## Category-ptBR: Quadros de unidade
+## Category-ruRU: Рамки юнитов
+## Category-zhCN: 单位框体
+## Category-zhTW: 單位框架
 ## Author: Nc
-## Version: 1.0.699
+## Version: 1.0.700
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\MIcon.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB
