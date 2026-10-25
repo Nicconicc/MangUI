@@ -84,7 +84,7 @@ local function Templates()
         x=-190,y=-70,width=240,height=70,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,locked=true,
         font="Myriad",fontName="Myriad",fontPath=M.MYRIAD,fontSize=17,
         showGuideLines=true,guideLineLength=.3,guideOpacity=.6,guideHorizontalLength=.6,
-        showGuideText=true,guideText="Range",guideFontPath=M.MYRIAD,guideFontSize=12,
+        showGuideText=true,guideText="Range",guideFontPath=M:DefaultFontPath(),guideFontSize=12,
         layer=950,rules={},conditions={}}
     FillRanges(group)
     return {group,
