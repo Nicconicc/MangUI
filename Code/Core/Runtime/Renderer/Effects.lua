@@ -17,7 +17,9 @@ local function FillStart(view,n,barFrame)
         local edge=token.frame
         local barScale,edgeScale=barFrame:GetEffectiveScale(),edge:GetEffectiveScale()
         local barEdge=n.reverse and barFrame:GetRight() or barFrame:GetLeft()
-        local leftUV,rightUV=B.ContactUV(token.spec)
+        local _,tokenY=edge:GetCenter();local _,barY=barFrame:GetCenter()
+        local leftUV,rightUV=B.ContactAtHeight(token.spec,n,tokenY*edgeScale,edge:GetHeight()*edgeScale,
+            barY*barScale,barFrame:GetHeight()*barScale)
         local tokenEdge=edge:GetLeft()
         if tokenEdge then tokenEdge=tokenEdge+(n.reverse and leftUV or rightUV)*edge:GetWidth() end
         if not barEdge or not tokenEdge or not barScale or barScale<=0 then return 0 end

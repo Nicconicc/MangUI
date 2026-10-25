@@ -18,7 +18,7 @@ B.parts={
     waf0a666c0b7={bar="wa58141a60dd",original="PlayerPowerColor",side="LEFT"},
     waf465575a72={bar="wa385c615b2a",original="TargetHPColor",side="RIGHT"},
     wae608adf3d8={bar="wadb47b70c3f",original="TargetPowerColor",side="RIGHT"},
-    playerThirdResource={bar="playerThirdResourceFill",original="TargetHPColor",side="LEFT"},
+    playerThirdResource={bar="playerThirdResourceFill",original="TargetHPColor",side="LEFT",contactBand={24/128,104/128}},
 }
 B.bars={}
 for id,part in pairs(B.parts) do part.group=id;B.bars[part.bar]=part end
@@ -33,15 +33,17 @@ local tokenEdges={
     tokenframe_10_samurai={23,480},tokenframe_11_frostiron={14,500},
 }
 local edgeCache=setmetatable({},{__mode="k"})
+local function TextureName(spec)
+    local source=M:TextureSourcePath(spec.file)
+    local name=type(source)=="string"and source:lower():match("([^\\]+)$")or ""
+    return name:gsub("%.[^.]+$","")
+end
 function B.EdgeUV(spec)
     local cached=edgeCache[spec]
     if cached and cached.file==spec.file and cached.mirror==spec.mirror and cached.crop==spec.cropX then
         return cached.left,cached.right
     end
-    local source=M:TextureSourcePath(spec.file)
-    local name=type(source)=="string" and source:lower():match("([^\\]+)$") or ""
-    name=name:gsub("%.[^.]+$","")
-    local bounds=tokenEdges[name]
+    local bounds=tokenEdges[TextureName(spec)]
     local left,right=0,1
     if bounds then left,right=bounds[1]/512,bounds[2]/512 end
     if spec.mirror then left,right=1-right,1-left end
@@ -57,20 +59,61 @@ function B.ContactUV(spec)
     local inset=math.min(20/256,(right-left)/4)
     return left+inset,right-inset
 end
+local contactCache=setmetatable({},{__mode="k"})
+function B.ContactAtHeight(spec,bar,tokenY,tokenHeight,barY,barHeight)
+    local part=B.bars[bar.id];local band=part and part.contactBand
+    local legacyLeft,legacyRight=B.ContactUV(spec)
+    if not band then return legacyLeft,legacyRight end
+    local contours=M.MainBarContactContours and M.MainBarContactContours[TextureName(spec)]
+    if not contours or tokenHeight<=0 then return legacyLeft,legacyRight end
+    local top,bottom=band[1],band[2]
+    if bar.mirrorY then top,bottom=1-bottom,1-top end
+    local crop=1+(bar.cropY or 0)
+    top,bottom=.5+(top-.5)*crop,.5+(bottom-.5)*crop
+    top=.5-(barY+(.5-top)*barHeight-tokenY)/tokenHeight
+    bottom=.5-(barY+(.5-bottom)*barHeight-tokenY)/tokenHeight
+    local tokenCrop=1+(spec.cropY or 0)
+    top,bottom=.5+(top-.5)/tokenCrop,.5+(bottom-.5)/tokenCrop
+    if spec.mirrorY then top,bottom=1-bottom,1-top end
+    if bottom<0 or top>1 then return legacyLeft,legacyRight end
+    local first=math.max(1,math.floor(top*contours.height)+1)
+    local last=math.min(contours.height,math.ceil(bottom*contours.height))
+    local cached=contactCache[spec]
+    if cached and cached.contours==contours and cached.first==first and cached.last==last
+        and cached.cropX==spec.cropX and cached.mirror==spec.mirror then return cached.left,cached.right end
+    local left,right=-1,contours.width+1
+    for row=first,last do
+        local l,r=contours.left[row],contours.right[row]
+        if l and l>=0 then left=math.max(left,l)end
+        if r and r>=0 then right=math.min(right,r)end
+    end
+    if left<0 or right>contours.width then return legacyLeft,legacyRight end
+    -- Cover the visible frame/fill band and tuck four source pixels beneath
+    -- the opaque rim. A higher strip needs more insertion than the health bar.
+    left=math.min(.5,(left+4)/contours.width)
+    right=math.max(.5,(right-4)/contours.width)
+    if spec.mirror then left,right=1-right,1-left end
+    crop=1+(spec.cropX or 0)
+    left=math.max(legacyLeft,M.Clamp(.5+(left-.5)*crop,0,.5))
+    right=math.min(legacyRight,M.Clamp(.5+(right-.5)*crop,.5,1))
+    contactCache[spec]={contours=contours,first=first,last=last,cropX=spec.cropX,mirror=spec.mirror,left=left,right=right}
+    return left,right
+end
 local points={CENTER={0,0},LEFT={-1,0},RIGHT={1,0},TOP={0,1},BOTTOM={0,-1},
     TOPLEFT={-1,1},TOPRIGHT={1,1},BOTTOMLEFT={-1,-1},BOTTOMRIGHT={1,-1}}
 local function Geometry(index,id,cache,depth)
     if cache[id] then return cache[id] end
     local n=index[id]
-    if not n or depth>100 then return {x=0,s=1,w=2} end
-    local p=n.parent and Geometry(index,n.parent,cache,depth+1) or {x=0,s=1,w=2}
-    if points[n.screenAnchor] then p={x=0,s=1,w=UIParent:GetWidth()} end
+    if not n or depth>100 then return {x=0,y=0,s=1,w=2,h=2} end
+    local p=n.parent and Geometry(index,n.parent,cache,depth+1) or {x=0,y=0,s=1,w=2,h=2}
+    if points[n.screenAnchor] then p={x=0,y=0,s=1,w=UIParent:GetWidth(),h=UIParent:GetHeight()} end
     local scale=p.s*M.Clamp(M:NodeScale(n),.05,10)
     local anchor=points[n.screenAnchor or n.anchor] or points.CENTER
     local point=points[n.point] or points.CENTER
-    local width=n.width or 2
-    local g={x=p.x+anchor[1]*p.w*p.s/2+(n.x or 0)*scale-point[1]*width*scale/2,s=scale,w=width}
-    local moveX=M:MainModuleOffset(n,index);g.x=g.x+moveX
+    local width,height=n.width or 2,n.height or 2
+    local g={x=p.x+anchor[1]*p.w*p.s/2+(n.x or 0)*scale-point[1]*width*scale/2,
+        y=p.y+anchor[2]*p.h*p.s/2+(n.y or 0)*scale-point[2]*height*scale/2,s=scale,w=width,h=height}
+    local moveX,moveY=M:MainModuleOffset(n,index);g.x=g.x+moveX;g.y=g.y+moveY
     cache[id]=g;return g
 end
 function B.XRange(group,index,cache)
@@ -82,7 +125,7 @@ function B.XRange(group,index,cache)
     local bar=Geometry(index,part.bar,cache,0)
     local g=Geometry(index,group.id,cache,0)
     if g.s<=0 then return end
-    local leftUV,rightUV=B.ContactUV(index[B.tokenID])
+    local leftUV,rightUV=B.ContactAtHeight(index[B.tokenID],index[part.bar],token.y,token.h*token.s,bar.y,bar.h*bar.s)
     local tokenLeft=token.x+(leftUV-.5)*token.w*token.s
     local tokenRight=token.x+(rightUV-.5)*token.w*token.s
     local middle=(tokenLeft+tokenRight)/2
