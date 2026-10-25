@@ -171,7 +171,9 @@ function R.SuppressMovementModel(view,model)
         model:SetAlpha(0);model:Hide();model:ClearModel()
     elseif not hidden and model.movementSuppressed then
         model.movementSuppressed=nil
-        model:SetAlpha(model.movementAlpha or 1);model.movementAlpha=nil
+        local alpha=model.movementAlpha
+        if M.Compat.Readable(alpha)and alpha==nil then alpha=1 end
+        model:SetAlpha(alpha);model.movementAlpha=nil
     end
 end
 function R.SetMovementModelsHidden(view,hidden)
@@ -194,11 +196,13 @@ function R.SetMovementModelsHidden(view,hidden)
                 o.model:SetShown(o.model.movementWasShown~=false)
             end
         end
-        for _,row in pairs(o.mistsResources or {})do
-            for _,leaf in ipairs(row.leaves or {})do
-                if leaf.model then
-                    R.SuppressMovementModel(view,leaf.model)
-                    if not hidden and leaf.active then ResourceModelRestart(leaf.model)end
+        for _,rows in ipairs({o.mistsResources or {},o.retailResources or {}})do
+            for _,row in pairs(rows)do
+                for _,leaf in ipairs(row.leaves or {})do
+                    if leaf.model then
+                        R.SuppressMovementModel(view,leaf.model)
+                        if not hidden and(leaf.active or leaf.nativeMode)then ResourceModelRestart(leaf.model)end
+                    end
                 end
             end
         end

@@ -18,7 +18,7 @@
 ## Category-zhCN: 单位框体
 ## Category-zhTW: 單位框架
 ## Author: Nc
-## Version: 1.0.700
+## Version: 701
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\MIcon.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB
@@ -109,6 +109,8 @@ Code\Modules\UnitFrames\Player\ThirdResource.lua
 Code\Modules\UnitFrames\Player\MistsResourceData.lua
 Code\Modules\UnitFrames\Player\MistsBalance.lua
 Code\Modules\UnitFrames\Player\MistsResources.lua
+Code\Modules\UnitFrames\Player\RetailResourceData.lua
+Code\Modules\UnitFrames\Player\RetailResources.lua
 Code\Modules\UnitFrames\Player\Resources.lua
 Code\Core\Runtime\Renderer\Effects.lua
 Code\Core\Runtime\Renderer\Paint.lua
