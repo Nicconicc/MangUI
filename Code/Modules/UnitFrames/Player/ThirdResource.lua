@@ -3,13 +3,14 @@ local C=M.Compat
 local P={providers={}};M.ThirdResource=P
 local ART=M.ART.."Player\\ThirdResource\\"
 local width,height=512/math.sqrt(2),128/math.sqrt(2)
+local furyColor={.6196078658103943,.3333333432674408,1,1}
 -- A third bar is independent of the unit's primary power and discrete points.
 -- Future client/spec implementations register their own power source here.
 function P.Register(id,provider)
     provider.id=id;P.providers[id]=provider
 end
 P.Register("mistsDemonicFury",{class="WARLOCK",spec=266,minimum=50000,maximum=59999,
-    powerToken="DemonicFury",powerType=15,previewPower=650,previewMax=1000})
+    powerToken="DemonicFury",powerType=15,previewPower=650,previewMax=1000,color=furyColor})
 local function Query(fn,fallback,...)
     if type(fn)~="function"then return fallback end
     local ok,value=pcall(fn,...)
@@ -29,11 +30,6 @@ function P.Provider()
 end
 function P.State(view,out)
     local s=out or {};local provider=P.Provider()
-    -- An unsupported character can still select and arrange this reusable bar.
-    local selected=view.selected and view.byID[view.selected]
-    if not provider and view.preview and selected and (selected.id=="playerThirdResource"or selected.thirdResource)then
-        provider=P.providers.mistsDemonicFury
-    end
     local value,maximum,powerType=0,0,15
     if provider then
         powerType=Enum and Enum.PowerType and Enum.PowerType[provider.powerToken]or provider.powerType
@@ -46,6 +42,7 @@ function P.State(view,out)
     local readableValue,readableMax=C.Number(value),C.Number(maximum)
     s.unit="player";s.exists=true;s.cast=s.cast or {active=false}
     s.power,s.maxPower,s.powerType=value,maximum,powerType
+    s.powerColor=provider and provider.color or furyColor
     s.resourceAvailable=provider~=nil and (readableMax==nil or readableMax>0)
     s.powerRatio=readableValue and readableMax and readableMax>0 and M.Clamp(readableValue/readableMax,0,1)or nil
     s.provider=provider and provider.id or nil
@@ -64,43 +61,57 @@ function M:EnsureThirdResource(design)
     local hp=index.wa70b7aa5607
     if not hp then return end
     local templates={}
-    local group=Node("playerThirdResource","group",30)
+    -- Keep the entire strip, including the fill's child frames, below the
+    -- first player health layer. Glass/ramp/spark share a level in draw order.
+    local hpBack=math.huge
+    for _,n in ipairs(design.nodes)do
+        if n.parent==hp.id and n.kind~="hitbox"then hpBack=math.min(hpBack,n.layer or 11)end
+    end
+    local top=hpBack<math.huge and hpBack-1 or 10
+    local group=Node("playerThirdResource","group",top-4)
     group.parent=hp.parent;group.treeParent="mainComposite";group.internal=nil
     group.compound="thirdResource";group.thirdResource=nil;group.mirror=nil
     group.width,group.height=2,2
     group.scale=hp.scale or .6;group.scaleReference=hp.scaleReference or group.scale
     group.mainScaleFactor=hp.mainScaleFactor
-    -- Rebase the export's (50,-250) leaf origin into the editable group center.
-    group.x=(hp.x or -765)+85;group.y=(hp.y or -239)-161
+    group.x=-620;group.y=-430;group.thirdResourceLayoutRevision=1
     templates[#templates+1]=group
     local function Add(id,file,layer,color,alpha,blend)
         local n=Node(id,"texture",layer);n.file=ART..file
         n.color=color or n.color;n.alpha=alpha or 1;n.blend=blend or "BLEND"
         templates[#templates+1]=n;return n
     end
-    Add("playerThirdResourceShadow","TargetHPShadow",31,nil,.5)
-    Add("playerThirdResourceBackground","TargetHPBG",32)
-    local bar=Node("playerThirdResourceFill","bar",33)
+    Add("playerThirdResourceShadow","TargetHPShadow",top-3,nil,.5)
+    Add("playerThirdResourceBackground","TargetHPBG",top-3)
+    local bar=Node("playerThirdResourceFill","bar",top-2)
     bar.file=ART.."TargetHPColor";bar.binding="power";bar.reverse=true
-    bar.color={.6196078658103943,.3333333432674408,1,1}
+    bar.color=M.Copy(furyColor);bar.powerColor=true
     bar.smooth=true;bar.smoothDuration=.35;bar.alphaFill=true
     bar.fillExtent=1;bar.fillInset=0;bar.materialName="默认"
     templates[#templates+1]=bar
-    Add("playerThirdResourceRamp","TargetHPRamp",34,{1,1,1,0})
-    Add("playerThirdResourceGlass","TargetHPGlass",35,{1,1,1,.5117184817791},1,"ADD")
-    local spark=Node("playerThirdResourceSpark","spark",36)
+    Add("playerThirdResourceRamp","TargetHPRamp",top-1,{1,1,1,0})
+    Add("playerThirdResourceGlass","TargetHPGlass",top-1,{1,1,1,.5117184817791},1,"ADD")
+    local spark=Node("playerThirdResourceSpark","spark",top-1)
     spark.file="Interface\\CastingBar\\UI-CastingBar-Spark"
     spark.owner=bar.id;spark.binding="power";spark.followDisplay=true;spark.edgeOnly=true
     spark.width,spark.height=30,40;spark.y=-3;spark.blend="ADD";spark.desaturate=true
     spark.color={.98823535442352,1,1,1};templates[#templates+1]=spark
-    Add("playerThirdResourceFrame","TargetHPKuang",37)
+    Add("playerThirdResourceFrame","TargetHPKuang",top)
     for _,template in ipairs(templates)do
         local existing=index[template.id]
         if not existing then
             design.nodes[#design.nodes+1]=template
-        elseif template.thirdResource then
-            -- Old imports must not drop the class/spec resource binding.
-            existing.thirdResource=true
+        else
+            existing.layer=template.layer;existing.enabled=true
+            if template.thirdResource then existing.thirdResource=true end
+            if existing.id==group.id and existing.thirdResourceLayoutRevision~=1 then
+                -- Replace the shipped old position; retain a customized X.
+                local oldX=(hp.x or -765)+85
+                if not existing.x or math.abs(existing.x-oldX)<.001 then existing.x=group.x end
+                existing.y=group.y;existing.thirdResourceLayoutRevision=1
+            elseif existing.id==bar.id then
+                existing.color=M.Copy(furyColor);existing.powerColor=true
+            end
         end
     end
 end

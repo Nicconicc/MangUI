@@ -335,11 +335,6 @@ local function RefreshProperties(self)
             e.healthThresholdColor:SetColor(healthBar.healthThresholdColor or {1,0,0,1})
         end
     end
-    if n.id=="playerThirdResource"then
-        e.thirdResourceEnabled:SetChecked(n.enabled~=false)
-        local bar=self.byID.playerThirdResourceFill
-        e.thirdResourceColor:SetColor(bar and bar.color or {.62,.33,1,1})
-    end
     if e.materialButton then
         local mainBar=MainBarPart(n)
         local bar=self.byID[mainBar and mainBar.bar or (n.compound=="focusMP" and "waeddad93083" or "wa916b193e98")]
@@ -501,8 +496,7 @@ local function RefreshProperties(self)
             visible=row.key=="x" or row.key=="y" or row.key=="scale"
         end
         if n.id=="playerThirdResource"then
-            visible=row.key=="thirdResourceEnabled"or row.key=="x"or row.key=="y"or row.key=="scale"
-                or row.key=="hpMaterial"or row.key=="thirdResourceColor"
+            visible=row.key=="x"or row.key=="scale"or row.key=="hpMaterial"
         end
         if n.id=="playerResources" then
             visible=row.key=="x" or row.key=="y" or row.key=="scale"

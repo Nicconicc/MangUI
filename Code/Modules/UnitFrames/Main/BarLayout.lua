@@ -18,6 +18,7 @@ B.parts={
     waf0a666c0b7={bar="wa58141a60dd",original="PlayerPowerColor",side="LEFT"},
     waf465575a72={bar="wa385c615b2a",original="TargetHPColor",side="RIGHT"},
     wae608adf3d8={bar="wadb47b70c3f",original="TargetPowerColor",side="RIGHT"},
+    playerThirdResource={bar="playerThirdResourceFill",original="TargetHPColor",side="LEFT"},
 }
 B.bars={}
 for id,part in pairs(B.parts) do part.group=id;B.bars[part.bar]=part end
