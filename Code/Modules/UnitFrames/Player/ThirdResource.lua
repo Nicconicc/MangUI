@@ -66,7 +66,7 @@ function P.State(view,out)
     return s
 end
 local function Node(id,kind,layer)
-    return {id=id,label="第三资源条",kind=kind,parent="playerThirdResource",scope="player",unit="player",
+    return {id=id,label="玩家第三资源条",kind=kind,parent="playerThirdResource",scope="player",unit="player",
         enabled=true,internal=true,thirdResource=true,x=0,y=0,width=width,height=height,
         point="CENTER",anchor="CENTER",scale=1,scaleReference=1,modelScaleReference=1,
         alpha=1,binding="static",blend="BLEND",color={1,1,1,1},mirror=true,
