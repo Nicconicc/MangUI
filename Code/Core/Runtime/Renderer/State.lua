@@ -71,9 +71,9 @@ local function Appearance(view,n,s,o)
             else alpha=change.value end
         end end
     end
-    -- The separate player resource value is for mana; rage, energy and runic
+    -- The separate player resource value is for mana; rage, focus, energy and runic
     -- power already use the central resource value. Apply to saved layouts too.
-    if n.id=="wa8ee62b16d6" and (s.powerType==1 or s.powerType==3 or s.powerType==6)then alpha=0 end
+    if n.id=="wa8ee62b16d6" and (s.powerType==1 or s.powerType==2 or s.powerType==3 or s.powerType==6)then alpha=0 end
     if n.tapColor and s.tapped then col=tappedColor end
     if o.customHealthStyle then
         local start=n.healthColor or n.color or healthGreen
