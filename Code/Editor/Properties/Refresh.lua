@@ -496,7 +496,7 @@ local function RefreshProperties(self)
             visible=row.key=="x" or row.key=="y" or row.key=="scale"
         end
         if n.id=="playerThirdResource"then
-            visible=row.key=="x"or row.key=="scale"or row.key=="hpMaterial"
+            visible=row.key=="x"or row.key=="hpMaterial"
         end
         if n.id=="playerResources" then
             visible=row.key=="x" or row.key=="y" or row.key=="scale"
