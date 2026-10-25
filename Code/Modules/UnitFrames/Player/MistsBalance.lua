@@ -107,7 +107,8 @@ function B.Build(o)
     row.sun,row.sunEffect=Icon(row,'New 99');row.moon,row.moonEffect=Icon(row,'New 97')
     row.left=Texture(f,D.textures['L arrow'],"OVERLAY")
     row.right=Texture(f,D.textures['R arrow'],"OVERLAY")
-    local markers=Frame(f,240,60,5);markers:SetPoint("CENTER")
+    -- Eclipse glow reaches row level +13; keep the indicator and text above it.
+    local markers=Frame(f,240,60,16);markers:SetPoint("CENTER")
     local spark=D.bars.Spark
     row.marker=markers:CreateTexture(nil,"ARTWORK");row.marker:SetAtlas(spark.sparkTexture)
     row.marker:SetSize(spark.sparkWidth,spark.sparkHeight);row.marker:SetBlendMode(spark.sparkBlendMode)
