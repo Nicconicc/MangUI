@@ -122,36 +122,6 @@ local function BuildRow(o,key)
     end
     return row
 end
-local function BuildBalance(o)
-    local row={frame=Frame(o.frame,340,60)};row.frame:SetPoint("CENTER")
-    local f=row.frame
-    row.background=Texture(f,"Wglass.tga",240,15,0,1,"BACKGROUND")
-    row.background:SetVertexColor(.08,.08,.08,.8)
-    row.lunar=Texture(f,"Wglass.tga",240,15,0,1)
-    row.solar=Texture(f,"Wglass.tga",240,15,0,1)
-    if row.solar.SetGradient and CreateColor then
-        row.solar:SetGradient("HORIZONTAL",CreateColor(1,.09,.11,1),CreateColor(1,.6,.157,1))
-        row.lunar:SetGradient("HORIZONTAL",CreateColor(0,0,.427,1),CreateColor(1,0,.396,1))
-    elseif row.solar.SetGradientAlpha then
-        row.solar:SetGradientAlpha("HORIZONTAL",1,.09,.11,1,1,.6,.157,1)
-        row.lunar:SetGradientAlpha("HORIZONTAL",0,0,.427,1,1,0,.396,1)
-    else
-        row.solar:SetVertexColor(1,.35,.1,1);row.lunar:SetVertexColor(.35,.1,1,1)
-    end
-    row.border=Texture(f,"EclipseBar",512,200,7,5,"OVERLAY")
-    row.sunBase=Texture(f,"Sun",42,42,150,1);row.sunBase:SetVertexColor(0,0,0,1)
-    row.moonBase=Texture(f,"Moon",42,42,-150,1);row.moonBase:SetVertexColor(0,0,0,1)
-    row.sun=Texture(f,"Sun",38,38,150,1,"OVERLAY")
-    row.moon=Texture(f,"Moon",38,38,-150,1,"OVERLAY")
-    row.marker=f:CreateTexture(nil,"OVERLAY");row.marker:SetSize(30,30)
-    row.marker:SetAtlas("Gamepad_Shp_Circle_64")
-    row.left=f:CreateTexture(nil,"OVERLAY");row.left:SetSize(40,33)
-    row.left:SetAtlas("charactercreate-icon-requiredarrow");row.left:SetRotation(math.pi/2)
-    row.right=f:CreateTexture(nil,"OVERLAY");row.right:SetSize(32,32)
-    row.right:SetAtlas("charactercreate-icon-requiredarrow");row.right:SetRotation(math.pi*1.5)
-    row.text=Text(f,18,35)
-    return row
-end
 local function Hide(o)
     for _,row in pairs(o.mistsResources or {})do
         row.frame:Hide()
@@ -164,22 +134,7 @@ end
 local function UpdateBalance(o,row,view)
     local power,_,_,solar,lunar,both=State("balance",view.preview)
     if both then power=100 end
-    row.power=power
-    row.sun:SetShown(solar or both or power>=100)
-    row.moon:SetShown(lunar or both or power<=-100)
-    row.solar:SetShown(both or power>=100 or solar and power>0)
-    row.lunar:SetShown(both or power<=-100 or lunar and power<0)
-    -- A signed -100..100 axis; neither side depends on a selected target.
-    row.marker:ClearAllPoints();row.marker:SetPoint("CENTER",row.frame,"CENTER",power*1.2,1)
-    local fraction=both and 1 or math.abs(power)/100
-    row.solar:SetWidth(math.max(.001,240*fraction));row.solar:SetTexCoord(1-fraction,1,0,1)
-    row.solar:ClearAllPoints();row.solar:SetPoint("RIGHT",row.frame,"CENTER",120,1)
-    row.lunar:SetWidth(math.max(.001,240*fraction));row.lunar:SetTexCoord(0,fraction,0,1)
-    row.lunar:ClearAllPoints();row.lunar:SetPoint("LEFT",row.frame,"CENTER",-120,1)
-    row.text:SetText(tostring(math.floor(math.abs(power)+.5)))
-    local direction=Query(GetEclipseDirection)
-    row.left:SetShown(both or direction=="moon")
-    row.right:SetShown(both or direction=="sun")
+    M.MistsBalance.Update(o,row,view,power,solar,lunar,both)
 end
 local function UpdateRow(o,row,key,view,gap)
     local amount,maximum,expiration=State(key,view.preview)
@@ -218,13 +173,8 @@ end
 function P.Animate(o)
     local key=o.mistsResourceMode;local row=o.mistsResources and o.mistsResources[key]
     if not row or not row.frame:IsShown()then return end
+    if key=="balance"then M.MistsBalance.Animate(o,row);return end
     local now=GetTime()
-    if key=="balance"then
-        local x=100-200*((now%3)/3)
-        I.CachedPoint(row,"left",row.left,"CENTER",row.frame,"CENTER",x,2)
-        I.CachedPoint(row,"right",row.right,"CENTER",row.frame,"CENTER",-x,2)
-        return
-    end
     local animating=false
     for _,leaf in ipairs(row.leaves)do
         local d=leaf.data
@@ -284,7 +234,7 @@ function P.Paint(view,o)
     if not key then o.resourceAnimating=false;o.frame:Hide();return true end
     local row=o.mistsResources[key]
     if not row then
-        row=key=="balance"and BuildBalance(o)or BuildRow(o,key);o.mistsResources[key]=row
+        row=key=="balance"and M.MistsBalance.Build(o)or BuildRow(o,key);o.mistsResources[key]=row
     end
     local n,f=o.spec,o.frame
     local parent=view.nodes[n.parent]and view.nodes[n.parent].spec
@@ -301,7 +251,7 @@ function P.Paint(view,o)
     local label=row.timer or row.text
     if label then
         local path=M:EffectiveFontPath(M.MYRIAD)
-        if row.font~=path and M:ApplyRegionFont(label,path,key=="arcane"and 20 or 18,"THICKOUTLINE")then row.font=path end
+        if row.font~=path and M:ApplyRegionFont(label,path,key=="arcane"and 20 or 18,key=="balance"and "MONOCHROME,THICKOUTLINE"or "THICKOUTLINE")then row.font=path end
     end
     if key=="balance"then UpdateBalance(o,row,view)
     else UpdateRow(o,row,key,view,gap)end
