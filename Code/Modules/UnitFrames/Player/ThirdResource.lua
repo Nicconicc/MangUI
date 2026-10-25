@@ -122,6 +122,7 @@ function M:EnsureThirdResource(design)
             design.nodes[#design.nodes+1]=template
         else
             existing.layer=template.layer;existing.enabled=true
+            if existing.id==group.id then existing.label=group.label end
             if template.thirdResource then existing.thirdResource=true end
             if template.kind=="texture"or template.kind=="bar"then
                 existing.file=template.file
