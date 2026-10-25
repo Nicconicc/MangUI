@@ -1,9 +1,26 @@
 local _,M=...
 local C=M.Compat
 local P={providers={}};M.ThirdResource=P
-local ART=M.ART.."Player\\ThirdResource\\"
+local ART=M.ART.."Target\\Health\\"
 local width,height=512/math.sqrt(2),128/math.sqrt(2)
 local furyColor={.6196078658103943,.3333333432674408,1,1}
+-- Share the actual target health layers, not an independent copy of the art.
+-- Their canvas-side origin remains consistent after target texture revisions.
+local targetLayers={
+    TargetHPShadow={"wa1882259c81","Target_HP_shadow_TargetHPShadow"},
+    TargetHPBG={"wa385c615b2abg","Target_HP_bar_TargetHPBG"},
+    TargetHPColor={"wa385c615b2a","Target_HP_bar_TargetHPColor"},
+    TargetHPRamp={"wa8ba303231f","Target_HP_ramp_TargetHPRamp"},
+    TargetHPGlass={"wa6d7e5b3bf4","Target_HP_glass_TargetHPGlass"},
+    TargetHPKuang={"waae10175c53","Target_HP_frame_TargetHPKuang"},
+}
+local function TargetArt(index,node,name)
+    local route=targetLayers[name];local source=index[route[1]]
+    node.file=source and M:TexturePath(source,source.file)or ART..route[2]
+    node.cropX=source and source.cropX or 0;node.cropY=source and source.cropY or 0
+    node.mirror=not(source and source.mirror==true);node.mirrorY=source and source.mirrorY==true or false
+    return source
+end
 -- A third bar is independent of the unit's primary power and discrete points.
 -- Future client/spec implementations register their own power source here.
 function P.Register(id,provider)
@@ -77,17 +94,19 @@ function M:EnsureThirdResource(design)
     group.x=-620;group.y=-430;group.thirdResourceLayoutRevision=1
     templates[#templates+1]=group
     local function Add(id,file,layer,color,alpha,blend)
-        local n=Node(id,"texture",layer);n.file=ART..file
+        local n=Node(id,"texture",layer);TargetArt(index,n,file)
         n.color=color or n.color;n.alpha=alpha or 1;n.blend=blend or "BLEND"
         templates[#templates+1]=n;return n
     end
     Add("playerThirdResourceShadow","TargetHPShadow",top-3,nil,.5)
     Add("playerThirdResourceBackground","TargetHPBG",top-3)
     local bar=Node("playerThirdResourceFill","bar",top-2)
-    bar.file=ART.."TargetHPColor";bar.binding="power";bar.reverse=true
+    local targetBar=TargetArt(index,bar,"TargetHPColor");bar.binding="power";bar.reverse=true
     bar.color=M.Copy(furyColor);bar.powerColor=true
     bar.smooth=true;bar.smoothDuration=.35;bar.alphaFill=true
-    bar.fillExtent=1;bar.fillInset=0;bar.materialName="默认"
+    bar.fillExtent=targetBar and targetBar.fillExtent or 483/512
+    bar.fillInset=targetBar and (targetBar.fillInset or 0)*width/(targetBar.width or 512)or 0
+    bar.materialName="默认"
     templates[#templates+1]=bar
     Add("playerThirdResourceRamp","TargetHPRamp",top-1,{1,1,1,0})
     Add("playerThirdResourceGlass","TargetHPGlass",top-1,{1,1,1,.5117184817791},1,"ADD")
@@ -104,6 +123,11 @@ function M:EnsureThirdResource(design)
         else
             existing.layer=template.layer;existing.enabled=true
             if template.thirdResource then existing.thirdResource=true end
+            if template.kind=="texture"or template.kind=="bar"then
+                existing.file=template.file
+                existing.cropX,existing.cropY=template.cropX,template.cropY
+                existing.mirror,existing.mirrorY=template.mirror,template.mirrorY
+            end
             if existing.id==group.id and existing.thirdResourceLayoutRevision~=1 then
                 -- Replace the shipped old position; retain a customized X.
                 local oldX=(hp.x or -765)+85
@@ -111,6 +135,7 @@ function M:EnsureThirdResource(design)
                 existing.y=group.y;existing.thirdResourceLayoutRevision=1
             elseif existing.id==bar.id then
                 existing.color=M.Copy(furyColor);existing.powerColor=true
+                existing.fillExtent,existing.fillInset=bar.fillExtent,bar.fillInset
             end
         end
     end
