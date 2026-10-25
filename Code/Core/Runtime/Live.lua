@@ -83,8 +83,8 @@ function M:StartLive()
     self.live.fontSettleStarted=GetTime();self.live.fontSettleStep=1
     local f=CreateFrame("Frame");self.liveEvents=f
     for _,event in ipairs({"PLAYER_ENTERING_WORLD","UI_SCALE_CHANGED","PLAYER_STARTED_TURNING","PLAYER_STOPPED_TURNING","PLAYER_STARTED_LOOKING","PLAYER_STOPPED_LOOKING","PLAYER_REGEN_DISABLED","PLAYER_REGEN_ENABLED","PLAYER_TARGET_CHANGED","PLAYER_FOCUS_CHANGED","UNIT_PET","UNIT_TARGET",
-        "UNIT_HEALTH","UNIT_MAXHEALTH","UNIT_POWER_UPDATE","UNIT_MAXPOWER","UNIT_DISPLAYPOWER","UNIT_NAME_UPDATE","UNIT_LEVEL",
-        "RUNE_POWER_UPDATE","RUNE_TYPE_UPDATE","UNIT_THREAT_SITUATION_UPDATE","UNIT_THREAT_LIST_UPDATE",
+        "UNIT_HEALTH","UNIT_MAXHEALTH","UNIT_POWER_UPDATE","UNIT_POWER_FREQUENT","UNIT_MAXPOWER","UNIT_DISPLAYPOWER","UNIT_NAME_UPDATE","UNIT_LEVEL",
+        "RUNE_POWER_UPDATE","RUNE_TYPE_UPDATE","ECLIPSE_DIRECTION_CHANGE","UNIT_THREAT_SITUATION_UPDATE","UNIT_THREAT_LIST_UPDATE",
         "NAME_PLATE_UNIT_ADDED","NAME_PLATE_UNIT_REMOVED",
         "PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","UPDATE_EXPANSION_LEVEL","QUEST_LOG_UPDATE","UNIT_QUEST_LOG_CHANGED","TIME_PLAYED_MSG",
         "UNIT_SPELLCAST_SUCCEEDED","SPELL_UPDATE_COOLDOWN","SPELL_UPDATE_CHARGES","SPELLS_CHANGED","LEARNED_SPELL_IN_TAB",
@@ -127,6 +127,10 @@ function M:StartLive()
             local changed=M.PlayerSkillMonitor.RefreshProfileBindings()
             if not changed and M.editor and M.editor.window:IsShown()and (M.selection=="playerSkillMonitor"or M.selection=="playerOtherMonitor")then
                 M:RefreshProperties()
+            end
+            local preview=M.editor and M.editor.view
+            if preview and M.editor.window:IsShown()then
+                M:Safe("玩家资源专精预览刷新",R.Update,preview,{player=true})
             end
         end
         local profile=M.ModuleProfiler
@@ -209,7 +213,7 @@ function M:StartLive()
         elseif event=="UNIT_FACTION" and unit=="player" then
             for name in pairs(trackedUnits) do Unit(name) end
         elseif event=="UNIT_HEALTH" or event=="UNIT_MAXHEALTH" then Unit(unit,"health")
-        elseif event=="UNIT_POWER_UPDATE" or event=="UNIT_MAXPOWER" or event=="UNIT_DISPLAYPOWER" then Unit(unit,"power")
+        elseif event=="UNIT_POWER_UPDATE" or event=="UNIT_POWER_FREQUENT" or event=="UNIT_MAXPOWER" or event=="UNIT_DISPLAYPOWER" then Unit(unit,"power")
         elseif event:find("^UNIT_") then Unit(unit)
         else dirty=true end
         if started then profile.Total("event",debugprofilestop()-started) end

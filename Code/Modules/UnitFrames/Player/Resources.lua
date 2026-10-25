@@ -49,6 +49,7 @@ local function ResourceCoords(texture,degrees)
     texture:SetTexCoord(ulx,uly,llx,lly,urx,ury,lrx,lry)
 end
 local function ResourceAnimate(o)
+    if o.mistsResourceMode then M.MistsResources.Animate(o);return end
     if o.resourceAnimating==false then return end
     local now=GetTime()
     local animating=false
@@ -99,6 +100,7 @@ local function ResourceAuraStacks()
     return 0
 end
 local function ResourcePaint(view,o)
+    if M.MistsResources.Paint(view,o)then return end
     o.resourceAnimating=nil
     local n=o.spec;local f=o.frame
     local _,playerClass=UnitClass("player")

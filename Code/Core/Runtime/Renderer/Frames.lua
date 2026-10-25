@@ -194,6 +194,14 @@ function R.SetMovementModelsHidden(view,hidden)
                 o.model:SetShown(o.model.movementWasShown~=false)
             end
         end
+        for _,row in pairs(o.mistsResources or {})do
+            for _,leaf in ipairs(row.leaves or {})do
+                if leaf.model then
+                    R.SuppressMovementModel(view,leaf.model)
+                    if not hidden and leaf.active then ResourceModelRestart(leaf.model)end
+                end
+            end
+        end
         for _,slot in ipairs(o.resourceSlots or {}) do
             for j,model in ipairs(slot.models) do
                 R.SuppressMovementModel(view,model)
