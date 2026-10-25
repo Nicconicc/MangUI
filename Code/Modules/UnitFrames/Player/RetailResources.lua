@@ -102,10 +102,23 @@ local function Rotate(texture,degrees,rotate,mirror)
     local a,b,c,d,e,f,g,h=.5+x,.5-y,.5-y,.5-x,.5+y,.5+x,.5-x,.5+y
     if mirror then texture:SetTexCoord(e,f,g,h,a,b,c,d)else texture:SetTexCoord(a,b,c,d,e,f,g,h)end
 end
+local function ReferenceScale(data,key)
+    -- Match the existing resource row using the shared white diamond, whose
+    -- texture/UVs are identical in both renderers. Keep the WA's proportions.
+    local largest=0
+    for _,d in ipairs(data.leaves)do
+        if d.file=="Frame_Bar.blp"then largest=math.max(largest,d.w*d.scale*data.scale)end
+    end
+    local reference=50
+    if key=="blood"or key=="frost"or key=="unholy"then reference=reference/.9 end
+    return largest>0 and reference/largest or 1
+end
 local function Build(o,key)
     local data=M.RetailResourceData[key]
-    local row={frame=Frame(o.frame,data.width/data.scale,60/data.scale),leaves={},data=data}
-    row.frame:SetPoint("CENTER");row.frame:SetScale(data.scale)
+    local factor=ReferenceScale(data,key)
+    local row={frame=Frame(o.frame,data.width/data.scale,data.height/data.scale),leaves={},data=data,
+        sizeFactor=factor,scale=data.scale*factor}
+    row.frame:SetPoint("CENTER");row.frame:SetScale(row.scale)
     for _,d in ipairs(data.leaves)do
         local f=Frame(row.frame,d.w,d.h,row.frame:GetFrameLevel()+d.layer)
         f:SetScale(d.scale);f:Hide()
@@ -197,7 +210,7 @@ function P.Paint(view,o)
     local n,f=o.spec,o.frame;local data=row.data
     local parent=view.nodes[n.parent]and view.nodes[n.parent].spec
     local gap=M.Clamp(parent and parent.resourceSpacing or 0,-20,20)
-    I.CachedPair(o,"resourceSize",f,"SetSize",data.width+(data.count-1)*gap,data.height)
+    I.CachedPair(o,"resourceSize",f,"SetSize",data.width*row.sizeFactor+(data.count-1)*gap,data.height*row.sizeFactor)
     I.CachedValue(o,"resourceScale",f,"SetScale",M:NodeScale(n))
     if parent and parent.resourceOriginRevision==1 then I.CachedPoint(o,"resourcePoint",f,"CENTER",f:GetParent(),"CENTER",0,0)
     else I.CachedPoint(o,"resourcePoint",f,"LEFT",f:GetParent(),"CENTER",n.x or 122.22,n.y or -68.89)end
@@ -208,7 +221,7 @@ function P.Paint(view,o)
     for _,leaf in ipairs(row.leaves)do
         local d=leaf.data
         local alpha,file,y=Appearance(d,native and 0 or amount,spec)
-        local x=d.x+(d.slot and(d.slot-(data.count+1)/2)*gap/data.scale or -(data.count-1)*gap/data.scale/2)
+        local x=d.x+(d.slot and(d.slot-(data.count+1)/2)*gap/row.scale or -(data.count-1)*gap/row.scale/2)
         I.CachedPoint(leaf,"point",leaf.frame,"CENTER",row.frame,"CENTER",x,d.y+y)
         if leaf.text then
             local font=M:EffectiveFontPath(M.MYRIAD)
