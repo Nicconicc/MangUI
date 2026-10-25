@@ -233,7 +233,17 @@ local function BuildProperties(e)
         local spellKey="rangeSpell"..token;local manualKey="rangeManual"..token
         local caption=W.Label(content,class[2]);caption:SetWidth(80);caption:SetWordWrap(false)
         local icon=content:CreateTexture(nil,"ARTWORK");icon:SetSize(22,22);icon:SetTexture(M.TargetDistance.ClassIcon(token))
-        local edit=W.Edit(content,(propertyWidth-166)/2);edit:SetMaxLetters(128);edit:SetTextInsets(4,4,0,0)
+        local edit=W.Edit(content,(propertyWidth-166)/2-28);edit:SetMaxLetters(128);edit:SetTextInsets(4,4,0,0)
+        local skillIcon=CreateFrame("Button",nil,content);skillIcon:SetSize(22,22)
+        skillIcon.texture=skillIcon:CreateTexture(nil,"ARTWORK");skillIcon.texture:SetAllPoints()
+        edit.rangeSkillIcon=skillIcon
+        function edit:UpdateRangeSpellIcon()
+            local value=M.TargetDistance.SpellInput(W.InputValue(self))
+            local name,id,texture
+            if value~="" then name,id,texture=M.PetBuffs.SpellInfo(value)end
+            skillIcon.texture:SetTexture(name and texture or 134400)
+            W.SetIconTooltip(skillIcon,name and {name=name,id=tonumber(value)or id,icon=texture}or nil)
+        end
         local placeholder=W.Label(edit,"技能名称/技能ID",11)
         placeholder:SetPoint("LEFT",edit,"LEFT",4,0);placeholder:SetPoint("RIGHT",edit,"RIGHT",-4,0)
         placeholder:SetTextColor(.5,.5,.5);placeholder:SetWordWrap(false)
@@ -245,7 +255,7 @@ local function BuildProperties(e)
             local selected=Selected()
             local n=self.rangeOwner or (selected and selected.compound=="targetDistance" and selected)
             if not n or M.byID[n.id]~=n or n[manualKey]==true or not M:CanEdit() then return end
-            local value=M.TargetDistance.SpellInput(self:GetText())
+            local value=M.TargetDistance.SpellInput(W.InputValue(self))
             if n[spellKey]~=value then n[spellKey]=value;M:Commit() end
         end
         edit:SetScript("OnEditFocusGained",function(self)
@@ -254,11 +264,13 @@ local function BuildProperties(e)
         edit:SetScript("OnEditFocusLost",function(self)SaveSpell(self);self.rangeOwner=nil end)
         edit:SetScript("OnEnterPressed",function(self)SaveSpell(self);self:ClearFocus()end)
         edit:SetScript("OnEscapePressed",function(self)
-            if self.rangeOwner then self:SetText(self.rangeOwner[spellKey] or "") end
+            if self.rangeOwner then W.SetInputValue(self,self.rangeOwner[spellKey] or "") end
             self:ClearFocus()
         end)
+        W.NamedInput(edit,"spell")
+        edit:HookScript("OnTextChanged",function(self)self:UpdateRangeSpellIcon()end)
         edit:HookScript("OnHide",function(self)self:ClearFocus()end)
-        Row(32,{{icon,-6,0,caption,"RIGHT","LEFT"},{caption,28,-4},{edit,122,0}},{},spellKey);y=y-32
+        Row(32,{{icon,-6,0,caption,"RIGHT","LEFT"},{caption,28,-4},{skillIcon,122,0},{edit,150,0}},{},spellKey);y=y-32
         caption:SetTextColor(M.TargetDistance.ClassColor(token))
         local check=W.Check(content,"手动距离（码）",function(enabled)
             local n=Selected();if not n or n.compound~="targetDistance" then return end

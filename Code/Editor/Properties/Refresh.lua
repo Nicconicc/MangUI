@@ -172,7 +172,7 @@ local function RefreshProperties(self)
                 edit.updating=true;edit:SetMinMaxValues(math.min(4,value),math.max(150,value));edit.updating=false
             end
             if value==nil and (field=="scale" or field=="modelScale" or field=="alpha") then value=1 end
-            edit:SetText(tostring(value or ""))
+            if edit.inputNameKind then W.SetInputValue(edit,value)else edit:SetText(tostring(value or ""))end
         end
     end
     if n.compound=="cooldownMonitor" then e.cooldownBlacklist:SetBlacklist(n.blacklist or "") end
@@ -228,6 +228,8 @@ local function RefreshProperties(self)
             if manual then input:ClearFocus();input:Disable() else input:Enable() end
             input:SetTextColor(1,1,1)
             input:EnableMouse(not manual);input:SetAlpha(manual and .45 or 1)
+            input.rangeSkillIcon:SetAlpha(manual and .45 or 1)
+            input:UpdateRangeSpellIcon()
             e.fields["range"..token]:SetEnabled(manual)
         end
     end

@@ -53,7 +53,10 @@ local function LayoutEntry(menu,nativeLayout)
             -- Native AddButton/Reset/InitButtons and callbacks stay untouched.
             container=CreateFrame("Frame",nil,menu)
             container.ignoreInLayout=true;container:SetAllPoints(menu)
-            button=CreateFrame("Button","MangUIUFGameMenuButton",container,"UIPanelButtonTemplate")
+            -- Forever uses the modern three-slice art for its native menu.
+            -- Inherit only the button template; keep our own container/callback.
+            local template=M.Compat.interface==16001 and menu.buttonTemplate or nil
+            button=CreateFrame("Button","MangUIUFGameMenuButton",container,template or "UIPanelButtonTemplate")
             button:Hide();button:SetText("MangUI");button:SetScript("OnClick",OpenFromMenu)
             M.gameMenuButton=button
         end
