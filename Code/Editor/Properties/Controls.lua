@@ -353,6 +353,10 @@ local function BuildProperties(e)
     blacklistHint:SetWidth(propertyWidth-4);blacklistHint:SetWordWrap(true)
     Row(285,{{blacklistLabel,0,-3},{e.cooldownBlacklist,2,-22},{blacklistHint,2,-264}},{},"blacklist");y=y-285
     Field("元素间距","resourceSpacing",true,-20,20)
+    e.resourceHideWithoutTarget=W.Check(content,"无目标时隐藏",function(hidden)
+        local n=Selected();if n and n.id=="playerResources"then Change("hideWithoutTarget",hidden==true)end
+    end)
+    Row(32,{{e.resourceHideWithoutTarget,-4,0}},{},"resourceHideWithoutTarget");y=y-32
     local function BareSlider(width,minimum,maximum,step,parent)
         return W.SpinBox(parent or content,width/2,minimum,maximum,step)
     end

@@ -134,6 +134,10 @@ local function Paint(view,o,animateOnly,visibleHint)
     end
     if n.centerLogo then CenterLogo(view,o);return end
     if n.kind=="group" then
+        if n.id=="playerResources"then
+            f:SetShown(n.enabled~=false and(view.preview or not n.hideWithoutTarget or C.Bool(UnitExists("target"))))
+            return
+        end
         -- Tab isolation hides parent groups as well as their visuals. Restore
         -- those parents when revisiting a module without changing its settings.
         if view.preview then

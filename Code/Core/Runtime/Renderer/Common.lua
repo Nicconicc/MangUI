@@ -314,7 +314,9 @@ local function IndexUpdates(view)
                 if n.effectTrigger~="cast" then AddUnit(deps,"target") end
                 if n.effectTrigger~="target" then AddUnit(deps,"player") end
             end
-        elseif n.kind=="group" then TriggerUnits(deps,n)
+        elseif n.kind=="group" then
+            TriggerUnits(deps,n)
+            if n.id=="playerResources"then AddUnit(deps,"target")end
         elseif n.kind=="targetthreat" or n.kind=="targetdistance" or n.kind=="targetdistancenumber" then AddUnit(deps,"target") end
         local ancestor=n.parent and view.byID[n.parent];local guard=0
         while ancestor and guard<100 do

@@ -87,6 +87,7 @@ function M:UpgradePlayerResources(design)
     group.treeParent="mainComposite"
     group.locked=false
     group.resourceSpacing=self.Clamp(tonumber(group.resourceSpacing) or 0,-20,20)
+    group.hideWithoutTarget=group.hideWithoutTarget==true
     if not visual then
         visual={id="playerResourcesVisual",label="玩家资源图标",parent="playerResources",
             scope="player",kind="resources",x=122.22,y=-68.89,width=250,height=60,

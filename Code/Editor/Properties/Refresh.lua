@@ -380,6 +380,7 @@ local function RefreshProperties(self)
     for _,rule in ipairs(n.rules or {}) do rules[#rules+1]=(rule.invert and "非 " or "")..(rule.unit or "player").." · "..({casting="施法中",exists="单位存在",classification="分类",isPlayer="玩家",friendly="友方",leader="队长",afk="暂离",dead="死亡",hearth="炉石",raid="团队标记"})[rule.test] end
     e.ruleText:SetText(#rules>0 and table.concat(rules,"\n") or "跟随所属单位显示")
     M.MonitorSharing.RefreshControls(e,n)
+    if n.id=="playerResources"then e.resourceHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)end
     if M.ModuleGuides.Supports(n)and n.id~="raidBuffs"then e.moduleGuidePanel:Refresh(n)end
     if n.compound=="raidBuffs"then
         e.skillMonitorHideWithoutTarget:SetChecked(n.hideWithoutTarget==true)
@@ -505,7 +506,7 @@ local function RefreshProperties(self)
         end
         if n.id=="playerResources" then
             visible=row.key=="x" or row.key=="y" or row.key=="scale"
-                or row.key=="resourceSpacing"
+                or row.key=="resourceSpacing"or row.key=="resourceHideWithoutTarget"
         end
         if decoration then
             visible=row.key=="decorationHidden" or row.key=="x" or row.key=="y" or row.key=="scale"

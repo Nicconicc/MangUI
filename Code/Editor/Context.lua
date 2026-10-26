@@ -153,7 +153,7 @@ local propertyCategories={
     systemMenu={{"scale"}},mouseCircle={{"scale"},{"mouseColors"}},combatNotices={{"scale"},{"combatSound"}},
     portrait={{"overallScale"},{"portraitAvatarScale","portraitOuterScale","portraitFrameTexture"},
         {"portraitLightEnabled","portraitLightScale"},{"portraitGlassEnabled","portraitGlassScale","portraitGlassAlpha"}},
-    generic={{"scale","overallScale","x","y","width","height","alpha","layer","resourceSpacing"},
+    generic={{"scale","overallScale","x","y","width","height","alpha","layer","resourceSpacing","resourceHideWithoutTarget"},
         {"unit","binding"},{"hpMaterial","healthColors","healthThresholdEnabled","healthThreshold"},
         {"nameFont","fontSize","valueUnit","text"},{"auraFilter","debuffCount","debuffPerRow","buffCount","buffPerRow","count","spacing"},
         {"file","media","rotation","blend","colorTitle","color1","color2","color3","color4"},
