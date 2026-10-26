@@ -11,6 +11,7 @@ local modes={
     DEATHKNIGHT={[250]="blood",[251]="frost",[252]="unholy"},MONK={[269]="chi"},
     WARLOCK={[265]="shards",[266]="shards",[267]="shards"},
     EVOKER={[1467]="essence",[1468]="essence",[1473]="essence"},
+    DEMONHUNTER={[581]="vengeance"},
 }
 local powers={combo=4,arcane=16,holy=9,chi=12,shards=7,essence=19}
 local function Query(fn,...)
@@ -41,6 +42,7 @@ local function Amount(key,preview,limit)
     if preview then return key=="maelstrom"and 10 or limit end
     if key=="icicles"then return AuraStacks(205473)end
     if key=="maelstrom"then return AuraStacks(344179)end
+    if key=="vengeance"then return AuraStacks(203981)end
     if key=="blood"or key=="frost"or key=="unholy"then
         local count=0
         if GetRuneCooldown then
@@ -215,6 +217,7 @@ function P.Paint(view,o)
     for _,slot in ipairs(o.resourceSlots)do slot:Hide()end
     local _,class=UnitClass("player");local spec=Specialization()
     local key=modes[class]and modes[class][spec]
+    if M.VengeanceResources then M.VengeanceResources.Select(o,key)end
     if o.retailResourceMode~=key then Hide(o)end
     o.retailResourceMode=key
     if not key then o.frame:Hide();o.resourceAnimating=false;return true end
@@ -223,6 +226,7 @@ function P.Paint(view,o)
     if not row then row=Build(o,key);o.retailResources[key]=row end
     local n,f=o.spec,o.frame;local data=row.data
     local limit=class=="ROGUE"and spec==260 and 5 or data.count
+    if key=="vengeance"then limit=M.VengeanceResources.Maximum()end
     local layout=Layout(row,limit);row.pointLimit=limit
     local parent=view.nodes[n.parent]and view.nodes[n.parent].spec
     local gap=M.Clamp(parent and parent.resourceSpacing or 0,-20,20)
@@ -231,14 +235,16 @@ function P.Paint(view,o)
     if parent and parent.resourceOriginRevision==1 then I.CachedPoint(o,"resourcePoint",f,"CENTER",f:GetParent(),"CENTER",0,0)
     else I.CachedPoint(o,"resourcePoint",f,"LEFT",f:GetParent(),"CENTER",n.x or 122.22,n.y or -68.89)end
     row.frame:Show()
-    local amount=Amount(key,view.preview,limit);local native=not C.Readable(amount)
+    local nativeAura=key=="vengeance"and not view.preview and M.VengeanceResources.Bind(o,row)
+    local amount=nativeAura and limit or Amount(key,view.preview,limit);local native=nativeAura or not C.Readable(amount)
     if not native then amount=C.Number(amount,0)end
     row.amount=amount;row.nativeMode=native
+    if nativeAura then row.amount=nil end
     for _,leaf in ipairs(row.leaves)do
         local d=leaf.data
         local alpha,file,y=Appearance(d,native and 0 or amount,spec)
         local slot=d.slot and(layout.slots and layout.slots[d.slot]or d.slot)
-        local x=d.x+(slot and(slot-(layout.count+1)/2)*gap/row.scale or -(layout.count-1)*gap/row.scale/2)
+        local x=d.x+(data.limitOffset and data.limitOffset[limit]or 0)+(slot and(slot-(layout.count+1)/2)*gap/row.scale or -(layout.count-1)*gap/row.scale/2)
         I.CachedPoint(leaf,"point",leaf.frame,"CENTER",row.frame,"CENTER",x,d.y+y)
         if leaf.text then
             local font=M:EffectiveFontPath(M.MYRIAD)
