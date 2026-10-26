@@ -154,7 +154,7 @@ local function RefreshProperties(self)
     e.decorationHidden:SetChecked(n.enabled==false)
     if M.LargeValueUnits.Supports(n)then
         local unit=M.LargeValueUnits.Unit(n)
-        e.valueUnit:SetMedia(unit=="W" and "万（W）" or "千（K）",unit)
+        e.valueUnit:SetMedia(unit=="default"and "默认"or unit=="W"and "万（W）"or "千（K）",unit)
     end
     for field,edit in pairs(e.fields) do
         if not edit:HasFocus() then
@@ -591,6 +591,10 @@ local function RefreshProperties(self)
         caption:ClearAllPoints();caption:SetPoint("TOPLEFT",font,"TOPRIGHT",20,0);caption:Show()
         slider:SetWidth(half);slider:ClearAllPoints()
         slider:SetPoint("CENTER",font,"BOTTOMRIGHT",20+half/2,12);slider:Show()
+    end
+    if M.LargeValueUnits.Supports(n)then
+        e.valueUnit:SetWidth(e.nameFontButton:GetWidth())
+        M:FitLocaleText(e.valueUnit.caption,e.valueUnit:GetWidth(),9)
     end
     for _,pair in ipairs(offsetPairs)do
         local half=(e.props:GetWidth()-20)/2

@@ -187,10 +187,10 @@ end
 -- These four absolute values have independent display units. Percentages and
 -- the central non-mana resource number deliberately keep their existing format.
 local V={ids={wadb51e41246=true,wa8ee62b16d6=true,wa8492858a6d=true,wa074335b474=true},
-    choices={{name="千（K）",path="K"},{name="万（W）",path="W"}}}
+    choices={{name="默认",path="default"},{name="千（K）",path="K"},{name="万（W）",path="W"}}}
 M.LargeValueUnits=V
 function V.Supports(n)return n and n.kind=="text" and V.ids[n.id]==true end
-function V.Unit(n)return n.valueUnit=="W" and "W" or "K" end
+function V.Unit(n)return (n.valueUnit=="K"or n.valueUnit=="W")and n.valueUnit or "default" end
 local nativeOptions={}
 for unit,divisor in pairs({K=1000,W=10000})do
     local data={{breakpoint=divisor,abbreviation=unit,significandDivisor=divisor/10,
@@ -205,6 +205,7 @@ end
 function V.Format(n,value)
     if not V.Supports(n)then return value end
     local unit=V.Unit(n)
+    if unit=="default"then return value end
     -- A secret number/string must only flow through native formatting and text
     -- sinks: never compare, divide, concatenate or strip its trailing zero in Lua.
     if not Readable(value)then
