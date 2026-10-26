@@ -2,6 +2,8 @@ local _,M=...
 local C,P=M.Compat,M.ThirdResource
 local N={};P.Native=N
 local unpack=unpack or table.unpack
+local layerOrder={playerThirdResourceShadow={"BACKGROUND",-2},playerThirdResourceBackground={"BACKGROUND",-1},
+    playerThirdResourceRamp={"OVERLAY",0},playerThirdResourceGlass={"OVERLAY",1},playerThirdResourceFrame={"OVERLAY",2}}
 local function Query(fn,...)
     if type(fn)~="function"then return end
     local ok,value=pcall(fn,...);if ok then return value end
@@ -51,22 +53,26 @@ local function ConfigureArt(q,item)
     local I=M.RendererInternals
     if not item.bar then
         button:EnableMouse(false);button:EnableMouseMotion(false);button:SetSize(2,2)
+        local bar=CreateFrame("StatusBar",nil,button);item.bar=bar;bar:EnableMouse(false)
+        bar:SetFrameLevel(fill.frame:GetFrameLevel());bar:SetClipsChildren(false)
+        if bar.SetRenderMode and Enum.StatusBarRenderMode then bar:SetRenderMode(Enum.StatusBarRenderMode.Linear)end
+        if bar.SetFillStyle and Enum.StatusBarFillStyle then bar:SetFillStyle(Enum.StatusBarFillStyle.Standard)end
+        bar:SetStatusBarTexture(n.file)
+        -- All opaque backgrounds and the fill share one frame. Explicit draw
+        -- layers prevent a separate background frame from covering the fill.
         item.layers={}
         for _,o in ipairs(view.ordered)do
             local spec=o.spec
             if spec.thirdResource and spec.kind=="texture"then
-                local frame=Frame(button,o.frame:GetFrameLevel(),o.frame)
-                local texture=frame:CreateTexture(nil,"ARTWORK");texture:SetAllPoints()
-                item.layers[spec.id]={frame=frame,texture=texture}
+                local order=layerOrder[spec.id]or{"OVERLAY",0}
+                local texture=bar:CreateTexture(nil,order[1],nil,order[2]);texture:SetAllPoints(o.frame)
+                item.layers[spec.id]={texture=texture}
             end
         end
-        local bar=CreateFrame("StatusBar",nil,button);item.bar=bar;bar:EnableMouse(false)
-        bar:SetFrameLevel(fill.frame:GetFrameLevel());bar:SetStatusBarTexture(n.file)
         -- Cache the display texture before handing this bar to the native aura
         -- button. Do not query bound objects or draw through a transparent driver.
         item.fillTexture=bar:GetStatusBarTexture()
-        item.mask=bar:CreateMaskTexture();item.mask:SetAllPoints(fill.frame)
-        item.fillTexture:AddMaskTexture(item.mask)
+        item.fillTexture:SetDrawLayer("ARTWORK",0)
         local value=view.nodes.playerThirdResourceValue
         item.textFrame=Frame(button,value.frame:GetFrameLevel(),value.frame)
         item.text=item.textFrame:CreateFontString(nil,"OVERLAY");item.text:SetAllPoints()
@@ -77,19 +83,27 @@ local function ConfigureArt(q,item)
     end
     for id,layer in pairs(item.layers)do
         local o=view.nodes[id];local s=o.spec
-        layer.frame:SetFrameLevel(o.frame:GetFrameLevel());layer.frame:SetAllPoints(o.frame)
-        layer.frame:SetAlpha(s.alpha or 1)
+        layer.texture:SetAllPoints(o.frame);layer.texture:SetAlpha(s.alpha or 1)
         layer.texture:SetTexture(s.file);layer.texture:SetBlendMode(s.blend or "BLEND")
         layer.texture:SetVertexColor(unpack(s.color or {1,1,1,1}));I.TextureCoords(layer.texture,s)
     end
     -- The engine owns the value; the public geometry still uses the same
     -- TokenFrame contact point and full-canvas crop as every main strip.
-    local material=n.materialPath and n.materialPath~="Interface\\Buttons\\WHITE8X8"and n.materialPath
+    local material=n.materialPath and n.materialPath~=n.file and n.materialPath~="Interface\\Buttons\\WHITE8X8"and n.materialPath
     item.fillTexture:SetTexture(material or n.file);item.fillTexture:SetBlendMode(n.blend or "BLEND")
     item.fillTexture:SetAlpha(1);item.bar:SetStatusBarColor(unpack(q.color))
-    item.mask:SetAllPoints(fill.frame)
-    item.mask:SetTexture(n.file,"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
-    I.TextureCoords(item.mask,n)
+    -- The default artwork already carries its own irregular alpha. Do not mask
+    -- it a second time. Only rectangular custom materials need a shape mask.
+    if material then
+        if not item.mask then
+            item.mask=item.bar:CreateMaskTexture();item.mask:SetAllPoints(fill.frame)
+            item.fillTexture:AddMaskTexture(item.mask)
+        end
+        item.mask:SetAllPoints(fill.frame);item.mask:SetTexture(n.file,"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+        I.TextureCoords(item.mask,n);item.mask:Show()
+    elseif item.mask then
+        item.fillTexture:RemoveMaskTexture(item.mask);item.mask=nil
+    end
     item.start=nil;LayoutFill(q,item);item.bar:SetReverseFill(n.reverse==true)
     local v=view.nodes.playerThirdResourceValue.spec
     item.text:SetFont(I.Font(v),v.fontSize or 40,v.outline=="None"and""or(v.outline or "OUTLINE"))
