@@ -115,13 +115,14 @@ local function ReferenceScale(data,key)
     if key=="blood"or key=="frost"or key=="unholy"then reference=reference/.9 end
     return largest>0 and reference/largest or 1
 end
-local function Build(o,key)
+local function Build(o,key,parent,point)
     local data=M.RetailResourceData[key]
     local factor=ReferenceScale(data,key)
-    local row={frame=Frame(o.frame,data.width/data.scale,data.height/data.scale),leaves={},data=data,
+    local row={frame=Frame(parent or o.frame,data.width/data.scale,data.height/data.scale),leaves={},data=data,
         sizeFactor=factor,scale=data.scale*factor}
-    row.frame:SetPoint("CENTER");row.frame:SetScale(row.scale)
+    row.frame:SetPoint("CENTER");row.frame:SetScale(point and 1 or row.scale)
     for _,d in ipairs(data.leaves)do
+        if not point or d.slot==point then
         local f=Frame(row.frame,d.w,d.h,row.frame:GetFrameLevel()+d.layer)
         f:SetScale(d.scale);f:Hide()
         local v=Frame(f,d.w,d.h);v:SetPoint("CENTER")
@@ -160,9 +161,11 @@ local function Build(o,key)
                 end)}
             end
         end
+        end
     end
     return row
 end
+function P.BuildVengeancePoint(o,parent,point)return Build(o,"vengeance",parent,point)end
 local function Hide(o)
     if not o.retailResources then return end
     for _,row in pairs(o.retailResources)do
@@ -235,23 +238,30 @@ function P.Paint(view,o)
     if parent and parent.resourceOriginRevision==1 then I.CachedPoint(o,"resourcePoint",f,"CENTER",f:GetParent(),"CENTER",0,0)
     else I.CachedPoint(o,"resourcePoint",f,"LEFT",f:GetParent(),"CENTER",n.x or 122.22,n.y or -68.89)end
     row.frame:Show()
-    local nativeAura=key=="vengeance"and not view.preview and M.VengeanceResources.Bind(o,row)
-    local amount=nativeAura and limit or Amount(key,view.preview,limit);local native=nativeAura or not C.Readable(amount)
+    local amount,nativeAura
+    if key=="vengeance"and not view.preview then
+        local bound=M.VengeanceResources.Bind(o,row)
+        local value,known=M.VengeanceResources.Read()
+        amount=known and value or 0
+        nativeAura=bound and not known
+    else amount=Amount(key,view.preview,limit)end
+    local native=not C.Readable(amount)
     if not native then amount=C.Number(amount,0)end
-    row.amount=amount;row.nativeMode=native
+    row.amount=amount;row.nativeMode=nativeAura or native
     if nativeAura then row.amount=nil end
     for _,leaf in ipairs(row.leaves)do
         local d=leaf.data
         local alpha,file,y=Appearance(d,native and 0 or amount,spec)
         local slot=d.slot and(layout.slots and layout.slots[d.slot]or d.slot)
         local x=d.x+(data.limitOffset and data.limitOffset[limit]or 0)+(slot and(slot-(layout.count+1)/2)*gap/row.scale or -(layout.count-1)*gap/row.scale/2)
+        leaf.layoutX,leaf.layoutY=x,d.y+y
         I.CachedPoint(leaf,"point",leaf.frame,"CENTER",row.frame,"CENTER",x,d.y+y)
         if leaf.text then
             local font=M:EffectiveFontPath(M.MYRIAD)
             if leaf.font~=font then M:ApplyRegionFont(leaf.text,font,d.fontSize,d.outline);leaf.font=font end
             I.CachedValue(leaf,"text",leaf.text,"SetText",amount)
         end
-        if d.threshold>limit then
+        if nativeAura or d.threshold>limit then
             -- A specialization change must immediately remove unavailable
             -- points, including opaque-value leaves and any exit animation.
             leaf.phase=nil;leaf.active=false;leaf.nativeMode=nil;leaf.frame:Hide()
@@ -286,6 +296,7 @@ function P.Paint(view,o)
             end
         end
     end
+    if key=="vengeance"then M.VengeanceResources.PaintNative(view,o,row,nativeAura,limit)end
     P.Animate(o)
     return true
 end

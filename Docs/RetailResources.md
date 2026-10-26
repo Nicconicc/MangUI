@@ -39,3 +39,11 @@
 参考：
 - https://www.wowhead.com/spell=203981/soul-fragments
 - https://github.com/Gethe/wow-ui-source/blob/live/Interface/AddOns/Blizzard_AuraContainer/Blizzard_CustomAuraButton.lua （ApplyApplicationBar的原生门槛显隐）
+
+### 717：真实数量与原生图层隔离
+
+普通绘制不再以最大容量作为当前数量。GetPlayerAuraBySpellID(203981)可读取时，按实际applications显示，返回nil则为0；返回受限对象／层数或查询失败时不比较、不计算该值。准备完整的六个原生槽位后，才在受限状态启用独立的原生点；普通点全部隐藏，原生点始终是绑定条的后代。绑定未完成／失败不显示满点。初始化异常会报告“灵魂残片原生绑定”，不再将半完成状态视为成功。
+
+原生光环筛选单位固定为player，HELPFUL过滤仅含203981，不依赖系统资源光环的施法者标志。每个原生点直接在初始化回调里创建，原普通图层不再重设父框体。可读／受限切换时只显示其中一套；不会读取绑定对象的值、光环身份或显隐来重建状态。
+
+灵魂图案、背景模型与前景模型的宽高统一乘1.2。白线Frame_Bar.blp的宽高不变，不整体放大资源容器；间距和图层中心偏移不变。

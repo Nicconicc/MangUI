@@ -22,6 +22,19 @@ for i=1,6 do
     local glow=Add("model",1355191,11,small and 12 or 15,small and 65 or 80,.7)
     glow.position={-20,0,-10.9};glow.sequence=0
 end
+-- Grow only the soul artwork and models; shared white diamonds keep their size.
+for _,d in ipairs(data.leaves)do if d.file~="Frame_Bar.blp"then d.w=d.w*1.2;d.h=d.h*1.2 end end
+function P.Read()
+    local fn=C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID
+    if not fn then return nil,false end
+    local ok,a=pcall(fn,P.spellID)
+    if not ok or not C.Readable(a)then return nil,false end
+    if a==nil then return 0,true end
+    if type(a)~="table"or(canaccesstable and not canaccesstable(a))then return nil,false end
+    local count=a.applications
+    if not C.Readable(count)then return nil,false end
+    return C.Number(count,0),true
+end
 function P.Maximum()
     local fn=C_Spell and C_Spell.GetSpellMaxCumulativeAuraApplications
     if fn then
@@ -46,29 +59,57 @@ function P.Bind(o,row)
     local q=o.vengeanceAura
     if not q then
         if not Support()then return false end
-        q={items={},enabled=true};o.vengeanceAura=q
+        q={items={},enabled=true,ready=0};o.vengeanceAura=q
         local container=CreateFrame("AuraContainer",nil,row.frame,"CustomAuraContainerTemplate")
         q.container=container;container:SetUnit("player");container:SetEnabled(false)
         container:SetSize(2,2);container:SetPoint("CENTER")
-        -- The engine gates each complete point by stack threshold. Nothing in
-        -- addon Lua reads a bound bar, aura identity, visibility or secret count.
+        -- Native points are created inside their gates, never by reparenting
+        -- the public renderer's already visible leaves into a bound hierarchy.
         for i=1,data.count do
             local point=i;local key="soul"..point
             -- Slots allocate exactly one button; groups preallocate batches and
             -- must not repeatedly reparent a shared point into unused buttons.
-            container:AddAuraSlot(key,"HELPFUL|PLAYER",{candidateFilters={includeSpellIDs={[P.spellID]=true},isFromPlayerOrPlayerPet=true},initializeFrame=function(button)
+            container:AddAuraSlot(key,"HELPFUL",{candidateFilters={includeSpellIDs={[P.spellID]=true}},initializeFrame=function(button)
+                local ok,err=pcall(function()
                 button:EnableMouse(false);button:EnableMouseMotion(false);button:SetSize(2,2)
                 button:SetPoint("CENTER",row.frame,"CENTER",0,0)
                 local gate=CreateFrame("StatusBar",nil,button);gate:EnableMouse(false);gate:SetSize(2,2);gate:SetPoint("CENTER")
                 gate:SetFrameLevel(row.frame:GetFrameLevel()+1)
-                for _,leaf in ipairs(row.leaves)do
-                    if leaf.data.slot==point then leaf.frame:SetParent(gate);leaf.frame:SetFrameLevel(row.frame:GetFrameLevel()+leaf.data.layer)end
-                end
-                q.items[point]={button=button,gate=gate}
+                local art=M.RetailResources.BuildVengeancePoint(o,gate,point);art.frame:Hide()
                 button:SetApplicationBar(gate,{minApplications=point,maxApplications=data.count})
+                q.items[point]={button=button,gate=gate,art=art};q.ready=q.ready+1
+                end)
+                if not ok then q.failed=true;M:Report("灵魂残片原生绑定",err)end
             end})
         end
         container:SetEnabled(true)
     end
-    return q.enabled
+    return q.enabled and not q.failed and q.ready==data.count
+end
+function P.PaintNative(view,o,row,enabled,limit)
+    local q=o.vengeanceAura
+    if not q then return end
+    for _,item in pairs(q.items)do
+        item.art.frame:SetShown(not not enabled)
+        if enabled then
+            for _,leaf in ipairs(item.art.leaves)do
+                local d=leaf.data;local visible=d.threshold<=limit
+                -- Layout is public and shared with the readable-value row;
+                -- all presence/stack gating stays on the native parent bar.
+                for _,original in ipairs(row.leaves)do
+                    if original.data==d then
+                        M.RendererInternals.CachedPoint(leaf,"point",leaf.frame,"CENTER",item.art.frame,"CENTER",original.layoutX,original.layoutY)
+                        break
+                    end
+                end
+                leaf.visual:SetAlpha(d.alpha);leaf.frame:SetShown(visible)
+                if leaf.model then
+                    M.Renderer.SuppressMovementModel(view,leaf.model)
+                    if not leaf.model.movementSuppressed then leaf.model:SetShown(visible)end
+                end
+            end
+        else
+            for _,leaf in ipairs(item.art.leaves)do if leaf.model then leaf.model:Hide()end end
+        end
+    end
 end
