@@ -17,10 +17,14 @@ local function Known(id)
         C_SpellBook and C_SpellBook.IsSpellKnown or false})do
         if type(fn)=="function"then
             local value=Query(fn,id)
-            if C.Readable(value)and type(value)=="boolean"then return value end
+            if C.Readable(value)and value==true then return true end
         end
     end
     return false
+end
+local function FlurrySource()
+    if C.interface>=D.windwalker.chargeMinimum then return D.windwalker.chargeAura,D.windwalker.chargeMaximum end
+    return D.windwalker.aura,D.windwalker.maximum
 end
 function P.Refresh(s,preview)
     if preview or not s.thirdCustom or s.thirdTimeAt==GetTime()then return end
@@ -92,12 +96,15 @@ P.Register("retailStagger",{class="MONK",spec=D.stagger.spec,minimum=100000,maxi
         if maximum and maximum<=0 then s.resourceAvailable=false end
     end})
 P.Register("retailFlurryStrikes",{class="MONK",spec=D.windwalker.spec,minimum=110000,maximum=999999,retail=true,color=D.windwalker.color,
-    available=function()return Known(D.windwalker.knownSpell)end,
+    -- Hero passives are not consistently reported by every spell-known API.
+    -- An actual matching player aura also proves this resource is available.
+    available=function()local id=FlurrySource();return Known(D.windwalker.knownSpell)or Aura(id)~=nil end,
     state=function(view,s)
-        s.showThirdValue=true;s.thirdValueKind="stacks";s.maxPower=D.windwalker.maximum
-        if view.preview then s.power=160;s.powerRatio=160/D.windwalker.maximum;return end
-        local a=Aura(D.windwalker.aura)
+        local id,maximum=FlurrySource()
+        s.showThirdValue=true;s.thirdValueKind="stacks";s.maxPower=maximum
+        if view.preview then s.power=math.floor(maximum*2/3);s.powerRatio=s.power/maximum;return end
+        local a=Aura(id)
         if a then s.power=a.applications else s.power=0 end
         if C.Readable(s.power)and s.power==nil then s.power=0 end
-        -- Keep the user-approved mint color at every stack count, including >185.
+        -- The current charge counter and legacy energy counter share the mint color.
     end})
