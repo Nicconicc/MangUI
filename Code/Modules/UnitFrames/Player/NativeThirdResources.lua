@@ -35,6 +35,14 @@ local function LayoutFill(q,item)
         local anchor=n.reverse and "RIGHT"or"LEFT"
         item.bar:ClearAllPoints();item.bar:SetPoint(anchor,fill.frame,anchor,n.reverse and -inset-start or inset+start,0)
         item.bar:SetSize(width,n.height);item.start,item.width,item.height=start,width,n.height
+        local left=n.reverse and(n.width-inset-n.width*extent)/n.width or(inset+start)/n.width
+        local right=n.reverse and(n.width-inset-start)/n.width or(inset+n.width*extent)/n.width
+        local cx,cy=1+(n.cropX or 0),1+(n.cropY or 0)
+        left,right=.5+(left-.5)/cx,.5+(right-.5)/cx
+        local top,bottom=.5-.5/cy,.5+.5/cy
+        if n.mirror then left,right=right,left end
+        if n.mirrorY then top,bottom=bottom,top end
+        item.fillTexture:SetTexCoord(left,right,top,bottom)
     end
 end
 local function ConfigureArt(q,item)
@@ -53,12 +61,12 @@ local function ConfigureArt(q,item)
             end
         end
         local bar=CreateFrame("StatusBar",nil,button);item.bar=bar;bar:EnableMouse(false)
-        bar:SetFrameLevel(fill.frame:GetFrameLevel());bar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
-        bar:SetStatusBarColor(1,1,1,0);bar:GetStatusBarTexture():SetAlpha(0)
-        item.clip=Frame(bar,bar:GetFrameLevel()+1,bar:GetStatusBarTexture());item.clip:SetClipsChildren(true)
-        item.artFrame=Frame(item.clip,bar:GetFrameLevel()+2,fill.frame)
-        item.art=item.artFrame:CreateTexture(nil,"ARTWORK");item.art:SetAllPoints()
-        item.mask=item.artFrame:CreateMaskTexture();item.mask:SetAllPoints(item.art);item.art:AddMaskTexture(item.mask)
+        bar:SetFrameLevel(fill.frame:GetFrameLevel());bar:SetStatusBarTexture(n.file)
+        -- Cache the display texture before handing this bar to the native aura
+        -- button. Do not query bound objects or draw through a transparent driver.
+        item.fillTexture=bar:GetStatusBarTexture()
+        item.mask=bar:CreateMaskTexture();item.mask:SetAllPoints(fill.frame)
+        item.fillTexture:AddMaskTexture(item.mask)
         local value=view.nodes.playerThirdResourceValue
         item.textFrame=Frame(button,value.frame:GetFrameLevel(),value.frame)
         item.text=item.textFrame:CreateFontString(nil,"OVERLAY");item.text:SetAllPoints()
@@ -76,20 +84,21 @@ local function ConfigureArt(q,item)
     end
     -- The engine owns the value; the public geometry still uses the same
     -- TokenFrame contact point and full-canvas crop as every main strip.
-    item.start=nil;LayoutFill(q,item);item.bar:SetReverseFill(n.reverse==true)
-    item.artFrame:SetAllPoints(fill.frame)
     local material=n.materialPath and n.materialPath~="Interface\\Buttons\\WHITE8X8"and n.materialPath
-    item.art:SetTexture(material or n.file);item.art:SetBlendMode(n.blend or "BLEND")
-    I.TextureCoords(item.art,n);item.art:SetVertexColor(unpack(q.color))
-    item.mask:SetTexture(material and n.file or "Interface\\Buttons\\WHITE8X8","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+    item.fillTexture:SetTexture(material or n.file);item.fillTexture:SetBlendMode(n.blend or "BLEND")
+    item.fillTexture:SetAlpha(1);item.bar:SetStatusBarColor(unpack(q.color))
+    item.mask:SetAllPoints(fill.frame)
+    item.mask:SetTexture(n.file,"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
     I.TextureCoords(item.mask,n)
+    item.start=nil;LayoutFill(q,item);item.bar:SetReverseFill(n.reverse==true)
     local v=view.nodes.playerThirdResourceValue.spec
     item.text:SetFont(I.Font(v),v.fontSize or 40,v.outline=="None"and""or(v.outline or "OUTLINE"))
     item.text:SetTextColor(unpack(v.color or {1,1,1,1}));item.text:SetJustifyH(v.justify or "RIGHT")
     item.text:SetShadowColor(0,0,0,1);item.text:SetShadowOffset(v.shadowX or 3,v.shadowY or -3)
     local s=view.nodes.playerThirdResourceSpark.spec
     item.sparkFrame:SetSize(s.width,s.height);item.sparkFrame:ClearAllPoints()
-    item.sparkFrame:SetPoint("CENTER",item.bar:GetStatusBarTexture(),n.reverse and "LEFT"or"RIGHT",s.x or 0,s.y or 0)
+    item.sparkFrame:SetPoint("CENTER",item.fillTexture,n.reverse and "LEFT"or"RIGHT",s.x or 0,s.y or 0)
+    item.sparkFrame:SetAlpha(s.alpha or 1)
     item.spark:SetTexture(s.file);item.spark:SetBlendMode(s.blend or "ADD");item.spark:SetVertexColor(unpack(s.color))
     button:ClearApplicationBar();button:ClearApplicationCount();button:ClearDurationBar();button:ClearDurationText()
     if q.kind=="flurry"then
@@ -106,11 +115,6 @@ local function ConfigureArt(q,item)
             N.formatter:SetBreakpoints({{threshold=0,step=.1,format="%.1f"}})
         end
         button:SetDurationText(item.text,N.formatter and {textFormatter=N.formatter}or{})
-    end
-    if C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
-        item.sparkCurve=C_CurveUtil.CreateCurve();item.sparkCurve:SetType(Enum.LuaCurveType.Step)
-        item.sparkCurve:AddPoint(0,0);item.sparkCurve:AddPoint(.0000001,s.alpha or 1)
-        if q.maximum then item.sparkCurve:AddPoint(q.maximum,0)end
     end
 end
 function N.Configure(view)
@@ -162,6 +166,5 @@ function N.Animate(view)
     -- Recompute its contact band afterwards, without inspecting aura geometry.
     for _,item in ipairs(q.items)do
         LayoutFill(q,item)
-        if item.sparkCurve then item.sparkFrame:SetAlpha(item.sparkCurve:Evaluate(item.bar:GetValue()))end
     end
 end
