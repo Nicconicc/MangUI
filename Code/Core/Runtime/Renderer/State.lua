@@ -37,7 +37,7 @@ local tappedColor={.777,.777,.777,1}
 local healthGreen={0,1,.42745101451874,1}
 local function Appearance(view,n,s,o)
     local hidePlayerPower=n.id=="wa8ee62b16d6"and(s.powerType==1 or s.powerType==2 or s.powerType==3 or s.powerType==6
-        or C.retail and(s.powerType==11 or s.powerType==13))
+        or C.retail and(s.powerType==8 or s.powerType==11 or s.powerType==13 or s.powerType==17))
     if o.fixedAppearance then return n.color or white,hidePlayerPower and 0 or n.alpha or 1 end
     local col=n.color or white;local alpha=n.alpha or 1
     local tint=o.appearanceColor or {};o.appearanceColor=tint
@@ -74,7 +74,7 @@ local function Appearance(view,n,s,o)
         end end
     end
     -- Keep a single resource value for rage, focus, energy, runic power and
-    -- retail Maelstrom/Insanity. Apply to saved layouts and previews as well.
+    -- retail Astral Power/Maelstrom/Insanity/Fury. Apply to saved layouts and previews.
     if hidePlayerPower then alpha=0 end
     if n.tapColor and s.tapped then col=tappedColor end
     if o.customHealthStyle then
