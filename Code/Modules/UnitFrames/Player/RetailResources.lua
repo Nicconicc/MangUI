@@ -115,14 +115,14 @@ local function ReferenceScale(data,key)
     if key=="blood"or key=="frost"or key=="unholy"then reference=reference/.9 end
     return largest>0 and reference/largest or 1
 end
-local function Build(o,key,parent,point)
+local function Build(o,key,parent,point,kind)
     local data=M.RetailResourceData[key]
     local factor=ReferenceScale(data,key)
     local row={frame=Frame(parent or o.frame,data.width/data.scale,data.height/data.scale),leaves={},data=data,
         sizeFactor=factor,scale=data.scale*factor}
     row.frame:SetPoint("CENTER");row.frame:SetScale(point and 1 or row.scale)
     for _,d in ipairs(data.leaves)do
-        if not point or d.slot==point then
+        if not point or(d.slot==point and(not kind or d.kind==kind))then
         local f=Frame(row.frame,d.w,d.h,row.frame:GetFrameLevel()+d.layer)
         f:SetScale(d.scale);f:Hide()
         local v=Frame(f,d.w,d.h);v:SetPoint("CENTER")
@@ -165,7 +165,7 @@ local function Build(o,key,parent,point)
     end
     return row
 end
-function P.BuildVengeancePoint(o,parent,point)return Build(o,"vengeance",parent,point)end
+function P.BuildVengeancePoint(o,parent,point,kind)return Build(o,"vengeance",parent,point,kind)end
 local function Hide(o)
     if not o.retailResources then return end
     for _,row in pairs(o.retailResources)do
@@ -240,10 +240,9 @@ function P.Paint(view,o)
     row.frame:Show()
     local amount,nativeAura
     if key=="vengeance"and not view.preview then
-        local bound=M.VengeanceResources.Bind(o,row)
-        local value,known=M.VengeanceResources.Read()
-        amount=known and value or 0
-        nativeAura=bound and not known
+        nativeAura=M.VengeanceResources.Bind(o,row,limit)
+        if nativeAura then amount=0
+        else local value,known=M.VengeanceResources.Read();amount=known and value or 0 end
     else amount=Amount(key,view.preview,limit)end
     local native=not C.Readable(amount)
     if not native then amount=C.Number(amount,0)end
@@ -296,7 +295,7 @@ function P.Paint(view,o)
             end
         end
     end
-    if key=="vengeance"then M.VengeanceResources.PaintNative(view,o,row,nativeAura,limit)end
+    if key=="vengeance"then M.VengeanceResources.PaintNative(view,o,row,nativeAura,limit,gap)end
     P.Animate(o)
     return true
 end

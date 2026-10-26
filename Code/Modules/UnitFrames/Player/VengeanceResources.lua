@@ -2,7 +2,8 @@ local _,M=...
 local C=M.Compat
 local P={spellID=203981,specID=581};M.VengeanceResources=P
 -- A point has the same diamond, icon and two model layers as the Rogue row.
--- Reserve a sixth position for clients whose spell metadata allows six souls.
+-- Reserve all six thresholds: live stacks can reach six even when static spell
+-- metadata reports five (or no maximum). Capacity never implies actual stacks.
 local data={count=6,scale=1.2,width=186,height=60,limitOffset={[6]=-12.5},leaves={}}
 M.RetailResourceData.vengeance=data
 for i=1,6 do
@@ -36,12 +37,7 @@ function P.Read()
     return C.Number(count,0),true
 end
 function P.Maximum()
-    local fn=C_Spell and C_Spell.GetSpellMaxCumulativeAuraApplications
-    if fn then
-        local ok,n=pcall(fn,P.spellID)
-        if ok and C.Readable(n)and type(n)=="number"and n>=1 and n<=data.count then return math.floor(n)end
-    end
-    return 5
+    return data.count
 end
 local function Support()
     if not C.retail or C.interface<120000 or not(C_XMLUtil and C_XMLUtil.GetTemplateInfo)then return false end
@@ -50,66 +46,85 @@ local function Support()
     end
     return C_XMLUtil.GetTemplateInfo("CustomAuraContainerTemplate")~=nil
 end
+-- Public hosts/anchors are deliberately OUTSIDE every AuraContainer. The
+-- client denies ALL addon method calls on the adopted aura-button descendants
+-- while auras are secret, including harmless-looking SetShown/SetPoint calls.
+local function PublicFrame(parent)
+    local f=CreateFrame("Frame",nil,parent);f:EnableMouse(false);f:SetSize(2,2);f:SetPoint("CENTER");return f
+end
 function P.Select(o,key)
     local q=o.vengeanceAura
-    local enabled=key=="vengeance"
-    if q and q.enabled~=enabled then q.container:SetEnabled(enabled);q.enabled=enabled end
+    if not q then return end
+    q.enabled=key=="vengeance"
+    if not q.enabled then for _,v in pairs(q.variants)do v.host:Hide()end end
 end
-function P.Bind(o,row)
-    local q=o.vengeanceAura
-    if not q then
-        if not Support()then return false end
-        q={items={},enabled=true,ready=0};o.vengeanceAura=q
-        local container=CreateFrame("AuraContainer",nil,row.frame,"CustomAuraContainerTemplate")
-        q.container=container;container:SetUnit("player");container:SetEnabled(false)
-        container:SetSize(2,2);container:SetPoint("CENTER")
-        -- Native points are created inside their gates, never by reparenting
-        -- the public renderer's already visible leaves into a bound hierarchy.
-        for i=1,data.count do
-            local point=i;local key="soul"..point
-            -- Slots allocate exactly one button; groups preallocate batches and
-            -- must not repeatedly reparent a shared point into unused buttons.
-            container:AddAuraSlot(key,"HELPFUL",{candidateFilters={includeSpellIDs={[P.spellID]=true}},initializeFrame=function(button)
+local function BuildVariant(o,row,q,limit)
+    local v={host=PublicFrame(row.frame),anchors={},items={},ready=0}
+    v.host:Hide();v.modelHost=PublicFrame(v.host);q.variants[limit]=v
+    for point=1,limit do v.anchors[point]=PublicFrame(v.host)end
+    -- Two independent native trees allow movement mode to suppress only the
+    -- effects by hiding their public parent, without touching forbidden models.
+    for _,kind in ipairs({"texture","model"})do
+        local container=CreateFrame("AuraContainer",nil,kind=="model"and v.modelHost or v.host,"CustomAuraContainerTemplate")
+        container:SetUnit("player");container:SetEnabled(false);container:SetSize(2,2);container:SetPoint("CENTER")
+        for i=1,limit do
+            local point=i
+            container:AddAuraSlot("soul"..point,"HELPFUL",{candidateFilters={includeSpellIDs={[P.spellID]=true}},initializeFrame=function(button)
                 local ok,err=pcall(function()
-                button:EnableMouse(false);button:EnableMouseMotion(false);button:SetSize(2,2)
-                button:SetPoint("CENTER",row.frame,"CENTER",0,0)
-                local gate=CreateFrame("StatusBar",nil,button);gate:EnableMouse(false);gate:SetSize(2,2);gate:SetPoint("CENTER")
-                gate:SetFrameLevel(row.frame:GetFrameLevel()+1)
-                local art=M.RetailResources.BuildVengeancePoint(o,gate,point);art.frame:Hide()
-                button:SetApplicationBar(gate,{minApplications=point,maxApplications=data.count})
-                q.items[point]={button=button,gate=gate,art=art};q.ready=q.ready+1
+                    button:EnableMouse(false);button:EnableMouseMotion(false);button:SetSize(2,2);button:SetPoint("CENTER")
+                    local gate=CreateFrame("StatusBar",nil,button);gate:EnableMouse(false);gate:SetSize(2,2);gate:SetPoint("CENTER")
+                    local art=M.RetailResources.BuildVengeancePoint(o,gate,point,kind)
+                    art.frame:ClearAllPoints();art.frame:SetPoint("CENTER",v.anchors[point],"CENTER",0,0)
+                    for _,leaf in ipairs(art.leaves)do
+                        local d=leaf.data
+                        leaf.frame:SetPoint("CENTER",art.frame,"CENTER",d.x,d.y);leaf.visual:SetAlpha(d.alpha);leaf.frame:Show()
+                        if leaf.model then
+                            -- OnShow/OnModelLoaded addon callbacks would run on
+                            -- forbidden objects later. Configure once now and
+                            -- let the engine retain and play the model itself.
+                            leaf.model:SetScript("OnShow",nil);leaf.model:SetScript("OnModelLoaded",nil)
+                            if leaf.model.SetKeepModelOnHide then leaf.model:SetKeepModelOnHide(true)end
+                            M.RendererInternals.ResourceModelRestart(leaf.model);leaf.model:Show()
+                        end
+                    end
+                    art.frame:Show()
+                    button:SetApplicationBar(gate,{minApplications=point,maxApplications=limit})
+                    v.items[#v.items+1]={button=button,gate=gate,art=art,kind=kind,point=point};v.ready=v.ready+1
                 end)
-                if not ok then q.failed=true;M:Report("灵魂残片原生绑定",err)end
+                if not ok then v.failed=true;M:Report("灵魂残片原生绑定",err)end
             end})
         end
         container:SetEnabled(true)
     end
-    return q.enabled and not q.failed and q.ready==data.count
+    return v
 end
-function P.PaintNative(view,o,row,enabled,limit)
+function P.Bind(o,row,limit)
+    local q=o.vengeanceAura
+    if not q then
+        if not Support()then return false end
+        q={enabled=true,variants={}};o.vengeanceAura=q
+    end
+    local v=q.variants[limit]
+    if not v then
+        -- Native trees are configured before combat and remain immutable once
+        -- adopted. Never lazily create or edit them while their auras are secret.
+        if InCombatLockdown()then return false end
+        v=BuildVariant(o,row,q,limit)
+    end
+    return q.enabled and not v.failed and v.ready==limit*2
+end
+function P.PaintNative(view,o,row,enabled,limit,gap)
     local q=o.vengeanceAura
     if not q then return end
-    for _,item in pairs(q.items)do
-        item.art.frame:SetShown(not not enabled)
-        if enabled then
-            for _,leaf in ipairs(item.art.leaves)do
-                local d=leaf.data;local visible=d.threshold<=limit
-                -- Layout is public and shared with the readable-value row;
-                -- all presence/stack gating stays on the native parent bar.
-                for _,original in ipairs(row.leaves)do
-                    if original.data==d then
-                        M.RendererInternals.CachedPoint(leaf,"point",leaf.frame,"CENTER",item.art.frame,"CENTER",original.layoutX,original.layoutY)
-                        break
-                    end
-                end
-                leaf.visual:SetAlpha(d.alpha);leaf.frame:SetShown(visible)
-                if leaf.model then
-                    M.Renderer.SuppressMovementModel(view,leaf.model)
-                    if not leaf.model.movementSuppressed then leaf.model:SetShown(visible)end
-                end
+    for count,v in pairs(q.variants)do
+        local active=enabled and count==limit
+        v.host:SetShown(not not active)
+        if active then
+            v.modelHost:SetShown(not view.movementModelsHidden)
+            for point,anchor in ipairs(v.anchors)do
+                local x=(data.limitOffset[limit]or 0)+(point-(limit+1)/2)*gap/row.scale
+                M.RendererInternals.CachedPoint(anchor,"point",anchor,"CENTER",row.frame,"CENTER",x,0)
             end
-        else
-            for _,leaf in ipairs(item.art.leaves)do if leaf.model then leaf.model:Hide()end end
         end
     end
 end
