@@ -109,9 +109,9 @@ end
 function C.GetCast(unit,out)
     out=Clear(out or {});out.active=false
     local name,_,icon,startMS,endMS,_,_,uninterruptible=UnitCastingInfo(unit)
-    local channel=false
+    local channel,empowered,stages=false,nil,nil
     if type(name)~="string" then
-        name,_,icon,startMS,endMS,_,uninterruptible=UnitChannelInfo(unit); channel=true
+        name,_,icon,startMS,endMS,_,uninterruptible,_,empowered,stages=UnitChannelInfo(unit); channel=true
     end
     if type(name)~="string" then return out end
     local s,e=C.Number(startMS),C.Number(endMS)
@@ -120,6 +120,9 @@ function C.GetCast(unit,out)
     elseif not channel and UnitCastingDuration then duration=UnitCastingDuration(unit) end
     out.active,out.name,out.icon,out.start,out.finish=true,name,icon,s and s/1000,e and e/1000
     out.channel,out.duration,out.uninterruptible=channel,duration,C.Bool(uninterruptible)
+    if C.retail and channel and(unit=="player"or unit=="vehicle")and C.Bool(empowered)then
+        M.EmpowerCast.Decorate(out,unit,stages)
+    end
     return out
 end
 function C.State(unit,preview,scene,out,fields)
@@ -172,6 +175,7 @@ function C.State(unit,preview,scene,out,fields)
         if unit=="pet" then out.petHappiness=C.PetHappiness(true) end
         Clear(cast);cast.active=scene=="cast" or unit=="focus" or unit=="target"
         cast.name,cast.icon,cast.start,cast.finish,cast.channel=M:T("施法预览"),136048,GetTime()-1.5,GetTime()+1.5,false
+        if unit=="player"then M.EmpowerCast.Preview(cast)end
         return out
     end
     local exists=C.Bool(UnitExists(unit))

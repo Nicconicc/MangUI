@@ -223,6 +223,7 @@ end
 local independentKinds={raidbuffs=true,receivedbuffs=true,raidvulnerability=true,commonitems=true,othermonitor=true,skillmonitor=true,cooldowns=true,chatbuttons=true,systemmenu=true,mousecircle=true,
     experiencebar=true,combatnotice=true,targetthreat=true,targetdistance=true,targetdistancenumber=true}
 local function Animated(n)
+    if n.thirdResourceValue then return true end
     return n.kind=="sprite" or n.kind=="combatnotice" or n.kind=="systemmenu" or n.kind=="mousecircle"
         or n.kind=="experiencebar" or n.kind=="targetthreat" or n.kind=="targetdistance" or n.kind=="targetdistancenumber" or n.kind=="glow"
         or n.kind=="spark" or n.kind=="resources" or n.kind=="skillmonitor" or n.kind=="othermonitor" or n.kind=="raidbuffs" or n.kind=="receivedbuffs" or n.kind=="raidvulnerability" or n.kind=="commonitems" or n.kind=="cooldowns" or n.centerLogo or n.spinPeriod
@@ -278,6 +279,7 @@ local function FieldDependencies(o)
     if binding=="health" or binding=="healthText" or binding=="healthPercent" or (n.kind=="bar" and not binding) then AddUnit(fields.health,n.unit) end
     if binding=="power" or binding=="powerText" or binding=="powerPercent" or n.powerColor then AddUnit(fields.power,n.unit) end
     if n.kind=="resources"or n.thirdResource then AddUnit(fields.power,"player") end
+    if n.thirdResource then AddUnit(fields.health,"player")end
     for _,rule in ipairs(n.rules or {}) do
         if healthFields[rule.test] then AddUnit(fields.health,rule.unit) end
         if powerFields[rule.test] then AddUnit(fields.power,rule.unit) end

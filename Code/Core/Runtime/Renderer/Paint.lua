@@ -34,6 +34,11 @@ local DecorationTint=private.DecorationTint
 local nativeDriverColor={1,1,1,0}
 
 local function NativeSparkAlpha(o,s,alpha)
+    if o.spec.thirdResource and s.thirdCustom then
+        local value=M.ThirdResource.SparkAlpha(s,alpha)
+        if Readable(value)and value==nil then value=0 end
+        CachedValue(o,"frameAlpha",o.frame,"SetAlpha",value);return
+    end
     if not (C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor
         and Enum and Enum.LuaCurveType and Enum.LuaCurveType.Step) then return end
     if not Readable(alpha) or type(alpha)~="number" then return end
@@ -149,7 +154,14 @@ local function Paint(view,o,animateOnly,visibleHint)
         f:Hide();return
     end
     local s=n.thirdResource and State(view,"playerThirdResource")or o.needsState and State(view,n.unit)or emptyState
+    if n.thirdResource then
+        M.ThirdResource.Refresh(s,view.preview)
+        if o.thirdProvider~=s.provider then
+            o.thirdProvider=s.provider;o.smoothStart=nil;o.displayRatio=nil;o.nativeReady=nil
+        end
+    end
     local shown=n.enabled~=false and (not n.thirdResource or s.resourceAvailable)
+    if n.thirdResourceValue then shown=shown and s.showThirdValue end
     if n.unit=="target" and n.binding=="powerText" and s.classification=="worldboss" then shown=false end
     if n.visibleUnit then shown=shown and State(view,n.visibleUnit).exists end
     for _,rule in ipairs(n.rules or {}) do shown=shown and Rule(view,rule) end
@@ -266,7 +278,8 @@ local function Paint(view,o,animateOnly,visibleHint)
         -- it must not fall through to the unit's readable health percentage.
         local ratio
         if n.binding=="cast" then ratio=CastRatio(s)
-        elseif n.binding=="power" then ratio=s.powerRatio
+        elseif n.binding=="power" then
+            if not(n.thirdResource and s.thirdTimer and o.bar.SetTimerDuration)then ratio=s.powerRatio end
         else ratio=s.healthRatio end
         if n.binding=="static" then ratio=.75 end
         ratio=DisplayRatio(view,o,n,ratio,animateOnly)
@@ -297,14 +310,21 @@ local function Paint(view,o,animateOnly,visibleHint)
                 o.nativeReady=true
             end
         elseif n.binding=="power" then
-            if not (animateOnly and n.smooth) then
+            if n.thirdResource and s.thirdTimer and o.bar.SetTimerDuration and Enum and Enum.StatusBarTimerDirection then
+                if not animateOnly or not o.thirdTimerBound then o.bar:SetTimerDuration(s.thirdTimer,nil,Enum.StatusBarTimerDirection.RemainingTime)end
+                o.thirdTimerBound=true
+            elseif not (animateOnly and n.smooth) then
+                o.thirdTimerBound=nil
                 if o.nativePowerType~=s.powerType then
                     o.nativeReady=nil;o.nativePowerType=s.powerType;Cache(o).barValue=nil
                 end
-                CachedPair(o,"barRange",o.bar,"SetMinMaxValues",0,s.maxPower or 1)
+                local value,maximum=s.power,s.maxPower
+                if Readable(value)and value==nil then value=0 end
+                if Readable(maximum)and maximum==nil then maximum=1 end
+                CachedPair(o,"barRange",o.bar,"SetMinMaxValues",0,maximum)
                 local interpolation=n.smooth and s.powerRatio==nil and o.nativeReady and Enum and Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
-                if interpolation then o.bar:SetValue(s.power or 0,interpolation);Cache(o).barValue=nil
-                else CachedValue(o,"barValue",o.bar,"SetValue",s.power or 0) end
+                if interpolation then o.bar:SetValue(value,interpolation);Cache(o).barValue=nil
+                else CachedValue(o,"barValue",o.bar,"SetValue",value) end
                 o.nativeReady=true
             end
         elseif n.binding=="cast" then
@@ -325,7 +345,8 @@ local function Paint(view,o,animateOnly,visibleHint)
     elseif o.texture then
         if o.rangeDecoration then DecorationTint(view,o,col)
         else CachedColor(o,"textureColor",o.texture,"SetVertexColor",col) end
-        if n.castFill and not M.NativeDisplays.Cast(view,o,s,col,animateOnly) then
+        if n.castFill and not M.EmpowerCast.Paint(view,o,s,animateOnly)
+            and not M.NativeDisplays.Cast(view,o,s,col,animateOnly) then
             local ratio=CastRatio(s) or 0
             local width=math.max(.001,(n.width or 512)*ratio)
             CachedPoint(o,"castTexturePoint",o.texture,"LEFT",f,"LEFT",0,0)

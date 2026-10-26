@@ -42,11 +42,23 @@ function P.Provider()
     local interface=C.interface or 0
     for _,provider in pairs(P.providers)do
         if class==provider.class and spec==provider.spec
-            and interface>=provider.minimum and interface<=provider.maximum then return provider end
+            and interface>=provider.minimum and interface<=provider.maximum
+            and(not provider.retail or C.retail)
+            and(not provider.available or provider.available())then return provider end
     end
 end
 function P.State(view,out)
     local s=out or {};local provider=P.Provider()
+    s.thirdTimer=nil;s.thirdExpires=nil;s.thirdTotal=nil;s.thirdValueKind=nil;s.thirdCustom=nil;s.thirdTimeAt=nil
+    s.showThirdValue=false;s.provider=provider and provider.id or nil
+    s.unit="player";s.exists=true;s.cast=s.cast or {active=false}
+    s.powerColor=provider and provider.color or furyColor
+    if provider and provider.state then
+        s.power,s.maxPower,s.powerType,s.powerRatio=0,1,0,nil;s.resourceAvailable=true
+        s.thirdCustom=true;provider.state(view,s)
+        P.Refresh(s,view.preview)
+        return s
+    end
     local value,maximum,powerType=0,0,15
     if provider then
         powerType=Enum and Enum.PowerType and Enum.PowerType[provider.powerToken]or provider.powerType
@@ -57,7 +69,6 @@ function P.State(view,out)
         end
     end
     local readableValue,readableMax=C.Number(value),C.Number(maximum)
-    s.unit="player";s.exists=true;s.cast=s.cast or {active=false}
     s.power,s.maxPower,s.powerType=value,maximum,powerType
     s.powerColor=provider and provider.color or furyColor
     s.resourceAvailable=provider~=nil and (readableMax==nil or readableMax>0)
@@ -116,6 +127,12 @@ function M:EnsureThirdResource(design)
     spark.width,spark.height=30,40;spark.y=-3;spark.blend="ADD";spark.desaturate=true
     spark.color={.98823535442352,1,1,1};templates[#templates+1]=spark
     Add("playerThirdResourceFrame","TargetHPKuang",top)
+    local value=Node("playerThirdResourceValue","text",top)
+    value.parent=bar.id;value.thirdResourceValue=true;value.binding="thirdResourceValue"
+    value.width,value.height=200,60;value.x,value.y=-8,0
+    value.point,value.anchor="RIGHT","LEFT";value.font,value.fontSize="Myriad",40
+    value.outline,value.justify="OUTLINE","RIGHT";value.shadowX,value.shadowY=3,-3
+    value.mirror=nil;templates[#templates+1]=value
     for _,template in ipairs(templates)do
         local existing=index[template.id]
         if not existing then
@@ -124,6 +141,7 @@ function M:EnsureThirdResource(design)
             existing.layer=template.layer;existing.enabled=true
             if existing.id==group.id then existing.label=group.label end
             if template.thirdResource then existing.thirdResource=true end
+            if template.thirdResourceValue then existing.thirdResourceValue=true;existing.binding=template.binding end
             if template.kind=="texture"or template.kind=="bar"then
                 existing.file=template.file
                 existing.cropX,existing.cropY=template.cropX,template.cropY

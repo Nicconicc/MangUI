@@ -220,6 +220,7 @@ function V.Format(n,value)
 end
 local function Text(n,s)
     local b=n.binding
+    if b=="thirdResourceValue"then return M.ThirdResource.Value(s)end
     if n.partyName then return M.PartyFrames.Name(s.name or "") end
     if b=="name" then return s.name or "" end
     if b=="healthText" then return not s.connected and M:T("离线") or (s.dead and M:T("死亡") or V.Format(n,s.health or "")) end
