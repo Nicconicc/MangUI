@@ -184,12 +184,46 @@ local function RestrictedHealthThreshold(o,s,col)
     overlay:SetVertexColor(unpack(n.healthThresholdColor or {1,0,0,1}))
     overlay:SetAlpha(alpha);overlay:Show()
 end
+-- These four absolute values have independent display units. Percentages and
+-- the central non-mana resource number deliberately keep their existing format.
+local V={ids={wadb51e41246=true,wa8ee62b16d6=true,wa8492858a6d=true,wa074335b474=true},
+    choices={{name="千（K）",path="K"},{name="万（W）",path="W"}}}
+M.LargeValueUnits=V
+function V.Supports(n)return n and n.kind=="text" and V.ids[n.id]==true end
+function V.Unit(n)return n.valueUnit=="W" and "W" or "K" end
+local nativeOptions={}
+for unit,divisor in pairs({K=1000,W=10000})do
+    local data={{breakpoint=divisor,abbreviation=unit,significandDivisor=divisor/10,
+        fractionDivisor=10,abbreviationIsGlobal=false}}
+    local options={breakpointData=data,locale="enUS"}
+    if CreateAbbreviateConfig then
+        local ok,config=pcall(CreateAbbreviateConfig,data)
+        if ok then options.config=config end
+    end
+    nativeOptions[unit]=options
+end
+function V.Format(n,value)
+    if not V.Supports(n)then return value end
+    local unit=V.Unit(n)
+    -- A secret number/string must only flow through native formatting and text
+    -- sinks: never compare, divide, concatenate or strip its trailing zero in Lua.
+    if not Readable(value)then
+        if AbbreviateNumbers then return AbbreviateNumbers(value,nativeOptions[unit]) end
+        return value
+    end
+    if type(value)~="number"then return value end
+    local divisor=unit=="W" and 10000 or 1000
+    if value<divisor then return value end
+    local tenths=math.floor(value/(divisor/10))
+    if tenths%10==0 then return string.format("%.0f%s",tenths/10,unit) end
+    return string.format("%.1f%s",tenths/10,unit)
+end
 local function Text(n,s)
     local b=n.binding
     if n.partyName then return M.PartyFrames.Name(s.name or "") end
     if b=="name" then return s.name or "" end
-    if b=="healthText" then return not s.connected and M:T("离线") or (s.dead and M:T("死亡") or s.health or "") end
-    if b=="powerText" then return s.power or "" end
+    if b=="healthText" then return not s.connected and M:T("离线") or (s.dead and M:T("死亡") or V.Format(n,s.health or "")) end
+    if b=="powerText" then return V.Format(n,s.power or "") end
     if b=="healthPercent" then return s.healthRatio and string.format("%.0f%%",s.healthRatio*100) or "" end
     if b=="powerPercent" then
         if n.manaPercentOtherwiseValue and s.powerType~=0 then return s.power or "" end

@@ -155,7 +155,7 @@ local propertyCategories={
         {"portraitLightEnabled","portraitLightScale"},{"portraitGlassEnabled","portraitGlassScale","portraitGlassAlpha"}},
     generic={{"scale","overallScale","x","y","width","height","alpha","layer","resourceSpacing"},
         {"unit","binding"},{"hpMaterial","healthColors","healthThresholdEnabled","healthThreshold"},
-        {"nameFont","fontSize","text"},{"auraFilter","debuffCount","debuffPerRow","buffCount","buffPerRow","count","spacing"},
+        {"nameFont","fontSize","valueUnit","text"},{"auraFilter","debuffCount","debuffPerRow","buffCount","buffPerRow","count","spacing"},
         {"file","media","rotation","blend","colorTitle","color1","color2","color3","color4"},
         {"progressTitle","reverse","cropX","cropY","rows","columns","frames","fps","play"},
         {"model","modelScale","modelX","modelY","modelZ"},

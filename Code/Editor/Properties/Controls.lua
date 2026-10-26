@@ -721,6 +721,15 @@ local function BuildProperties(e)
     e.nameFontButton=W.MediaSelect(content,"字体",propertyWidth,"font",function()M:OpenFocusFontPicker()end)
     e.nameFontButton:SetPoint("TOPLEFT",0,y)
     Row(53,{{e.nameFontButton,0,0}},nil,"nameFont");y=y-53
+    e.valueUnit=W.MediaSelect(content,"大数值以单位显示",propertyWidth,"choice",function()
+        local owner=Selected();if not M.LargeValueUnits.Supports(owner)then return end
+        local drop=e.valueUnit
+        if drop.menu then drop.menu:Hide();return end
+        W.MediaMenu(drop,M.LargeValueUnits.choices,"choice",M.LargeValueUnits.Unit(owner),function(choice)
+            if Selected()==owner then Change("valueUnit",choice.path)end
+        end)
+    end)
+    Row(53,{{e.valueUnit,0,0}},{},"valueUnit");y=y-53
     e.nameSizeSlider,e.nameSizeLabel=NameSlider("字体大小","nameSize","fontSize",4,150,1)
     local function PlayerCastSlider(label,key,minimum,maximum)
         local caption=W.Label(content,label);caption:SetPoint("TOPLEFT",0,y-3)

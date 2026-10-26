@@ -152,6 +152,10 @@ local function RefreshProperties(self)
     e.coordXLabel:SetText("X偏移")
     e.coordYLabel:SetText("Y偏移")
     e.decorationHidden:SetChecked(n.enabled==false)
+    if M.LargeValueUnits.Supports(n)then
+        local unit=M.LargeValueUnits.Unit(n)
+        e.valueUnit:SetMedia(unit=="W" and "万（W）" or "千（K）",unit)
+    end
     for field,edit in pairs(e.fields) do
         if not edit:HasFocus() then
             local minimum,maximum=M.SettingRanges.Range(n,field)
@@ -476,6 +480,7 @@ local function RefreshProperties(self)
             visible=row.key=="x" or row.key=="y" or row.key=="fontSize" or row.key=="nameFont"
                 or (n.id=="playerHealthPercent" and row.key=="playerHealthPercentHidden")
         end
+        if row.key=="valueUnit"then visible=M.LargeValueUnits.Supports(n)end
         if n.id=="wa026b04c50e" then
             visible=row.key=="x" or row.key=="y" or row.key=="scale"
                 or row.key=="debuffCount" or row.key=="debuffPerRow"

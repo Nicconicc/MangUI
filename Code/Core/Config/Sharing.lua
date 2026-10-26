@@ -81,6 +81,7 @@ local function CleanNodes(nodes)
     fields.healthGradient={boolean=true};fields.healthColor={table=true};fields.healthGradientEnd={table=true}
     fields.healthThresholdEnabled={boolean=true};fields.healthThreshold={number=true};fields.healthThresholdColor={table=true}
     fields.targetDistanceHint={boolean=true}
+    fields.valueUnit={string=true}
     fields.hideUntimedBuffs={boolean=true}
     fields.onlyPlayerDebuffs={boolean=true}
     for _,key in ipairs({"scaleReference","modelScaleReference","mainScaleFactor","resourceOriginRevision","auraOriginRevision","castOriginRevision",
@@ -95,6 +96,7 @@ local function CleanNodes(nodes)
     for _,node in ipairs(nodes) do
         if type(node)~="table" or type(node.id)~="string" or not known[node.id] or known[node.id]~=node.kind or index[node.id] then return end
         for key,value in pairs(node) do if not fields[key] or not fields[key][type(value)] then return end end
+        if node.valueUnit~=nil and (not M.LargeValueUnits.Supports(node)or (node.valueUnit~="K"and node.valueUnit~="W"))then return end
         if node.healthThreshold and (node.healthThreshold<1 or node.healthThreshold>100 or node.healthThreshold%1~=0) then return end
         if node.id=="partyFrames"then
             for _,key in ipairs({"partyMaterialPath","partyMaterialName","partyFontPath","partyFontName"})do

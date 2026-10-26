@@ -9930,4 +9930,20 @@ for locale,label in pairs({enUS="Player third resource bar",deDE="Dritte Spieler
     ruRU="Третья полоса ресурса",koKR="세 번째 자원 바",zhTW="第三資源條"})do
     M.localeTables[locale]["玩家第三资源条"]=label
 end
+-- Keep the explicit K/W suffixes consistent across clients and display languages.
+for locale,labels in pairs({
+    enUS={"Large number units","Thousands (K)","Ten thousands (W)"},
+    deDE={"Einheiten für große Zahlen","Tausend (K)","Zehntausend (W)"},
+    frFR={"Unités des grands nombres","Milliers (K)","Dizaines de milliers (W)"},
+    esES={"Unidades de cifras grandes","Miles (K)","Decenas de miles (W)"},
+    esMX={"Unidades de cifras grandes","Miles (K)","Decenas de miles (W)"},
+    itIT={"Unità dei numeri grandi","Migliaia (K)","Decine di migliaia (W)"},
+    ptBR={"Unidades de números grandes","Milhares (K)","Dezenas de milhares (W)"},
+    ruRU={"Единицы больших чисел","Тысячи (K)","Десятки тысяч (W)"},
+    koKR={"큰 수 표시 단위","천 (K)","만 (W)"},
+    zhTW={"大數值以單位顯示","千（K）","萬（W）"},
+})do
+    local catalog=M.localeTables[locale]
+    catalog["大数值以单位显示"],catalog["千（K）"],catalog["万（W）"]=labels[1],labels[2],labels[3]
+end
 M:RebuildLocaleKeys()
