@@ -84,9 +84,9 @@ local function Ensure(o)
         local marker=boundary:CreateTexture(nil,"ARTWORK");marker:SetAllPoints();marker:SetColorTexture(1,1,1,.25)
         local flash=Frame(boundary,boundary:GetFrameLevel()+1);flash:SetAllPoints(boundary)
         local color=D.colors[i]
-        local glow=flash:CreateTexture(nil,"OVERLAY");glow:SetPoint("CENTER");glow:SetSize(62,38)
+        local glow=flash:CreateTexture(nil,"OVERLAY");glow:SetPoint("CENTER");glow:SetSize(124,76)
         glow:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark");glow:SetBlendMode("ADD");glow:SetVertexColor(unpack(color))
-        local core=flash:CreateTexture(nil,"OVERLAY");core:SetPoint("CENTER");core:SetSize(24,46)
+        local core=flash:CreateTexture(nil,"OVERLAY");core:SetPoint("CENTER");core:SetSize(48,92)
         core:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark");core:SetBlendMode("ADD");core:SetVertexColor(1,1,.9,1)
         flash:SetAlpha(0);boundary.flash=flash;a.boundaries[i]=boundary
     end
