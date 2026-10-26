@@ -172,6 +172,7 @@ function R.Update(view,units,modules,fields,objects)
     end
     if not view.preview and focus then M:RuntimeCall(view,"menuBounds","点击区域刷新",UpdateFocusMenuBounds,view)end
     M:RuntimeCall(view,"entryAnimations","入场动画",R.UpdateEntryAnimations,view)
+    if M.ThirdResource and M.ThirdResource.Native then M:RuntimeCall(view,"thirdResourceNative","玩家第三资源条",M.ThirdResource.Native.Animate,view)end
     if M.BossFrames then M:RuntimeCall(view,"bossAnimation","首领框体",M.BossFrames.Animate,view)end
     if M.PartyFrames then M:RuntimeCall(view,"partyHighlight","队伍框体",M.PartyFrames.RefreshHighlight,view)end
     if M.ModuleGuides then M:RuntimeCall(view,"guides:update","辅助线",M.ModuleGuides.Refresh,view,true)end
@@ -210,6 +211,7 @@ function R.Animate(view)
     end
     if M.ModuleGuides then M:RuntimeCall(view,"guides:animate","辅助线",M.ModuleGuides.Refresh,view)end
     M:RuntimeCall(view,"entryAnimations","入场动画",R.UpdateEntryAnimations,view,true)
+    if M.ThirdResource and M.ThirdResource.Native then M:RuntimeCall(view,"thirdResourceNative","玩家第三资源条",M.ThirdResource.Native.Animate,view)end
     if M.BossFrames and view.bossAnimating then M:RuntimeCall(view,"bossAnimation","首领框体",M.BossFrames.Animate,view)end
     if M.MainSweep then
         local profile=not view.preview and M.ModuleProfiler

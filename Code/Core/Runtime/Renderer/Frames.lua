@@ -795,6 +795,7 @@ function R.Apply(view,design,unchanged)
     view.applying=false
     if not view.preview then view.mainAnchorPending=true;R.SyncMainPortraitAnchor(view) end
     R.UpdateUnitMenuBounds(view)
+    if M.ThirdResource and M.ThirdResource.Native then M.ThirdResource.Native.Configure(view)end
     R.Update(view,nil,nil,nil,repaint)
     QueuePreviewFontRefresh(view)
     if M.MainSweep then

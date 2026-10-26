@@ -123,6 +123,7 @@ local function Paint(view,o,animateOnly,visibleHint)
         if f:IsVisible() then M.CooldownMonitor.Paint(view,o) end
         return
     end
+    if n.thirdResource and M.ThirdResource.Native and M.ThirdResource.Native.Paint(view,o)then return end
     -- Secure visibility layers refresh synchronously on show. Their hidden
     -- descendants need neither unit queries nor invisible particle playback.
     if not view.preview and not visibleHint and not f:GetParent():IsVisible() then
