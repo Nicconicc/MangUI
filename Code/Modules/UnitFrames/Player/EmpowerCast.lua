@@ -58,7 +58,9 @@ local function Ensure(o)
     a.root=Frame(f,f:GetFrameLevel()+1);a.root:SetAllPoints(f)
     a.backgrounds={};a.colors={}
     for i=1,6 do
-        local clip=Frame(a.root,a.root:GetFrameLevel()+1);clip:SetClipsChildren(true)
+        -- Keep each stage tint above the moving fill so completed segments
+        -- retain their individual colors. The spark and stage number sit above both.
+        local clip=Frame(a.root,a.root:GetFrameLevel()+5);clip:SetClipsChildren(true)
         Art(clip,f,n,D.overlays[i]);a.backgrounds[i]=clip
     end
     a.driver=CreateFrame("StatusBar",nil,a.root);a.driver:SetAllPoints(f);a.driver:EnableMouse(false)
@@ -66,7 +68,7 @@ local function Ensure(o)
     a.driver:SetStatusBarColor(1,1,1,0);a.driver:GetStatusBarTexture():SetAlpha(0)
     a.clip=Frame(a.root,a.root:GetFrameLevel()+3);a.clip:SetClipsChildren(true)
     for i,color in ipairs(D.colors)do a.colors[i]=Art(a.clip,f,n,color)end
-    a.foreground=Frame(a.root,a.root:GetFrameLevel()+6);a.foreground:SetAllPoints(f)
+    a.foreground=Frame(a.root,a.root:GetFrameLevel()+8);a.foreground:SetAllPoints(f)
     a.spark=a.foreground:CreateTexture(nil,"OVERLAY")
     a.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark");a.spark:SetBlendMode("ADD")
     a.spark:SetVertexColor(unpack(D.sparkColor));a.spark:SetSize(D.sparkWidth,D.sparkHeight)
