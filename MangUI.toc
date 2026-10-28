@@ -18,7 +18,7 @@
 ## Category-zhCN: 单位框体
 ## Category-zhTW: 單位框架
 ## Author: Nc
-## Version: 721
+## Version: 722
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\MIcon.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB

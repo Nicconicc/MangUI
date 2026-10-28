@@ -51,6 +51,17 @@ local function Art(parent,owner,n,color)
     line:SetPoint("LEFT",f,"LEFT",24,0);line:SetSize(math.max(.001,(n.width or 512)-48),7)
     f.art,f.line=t,line;return f
 end
+local function Boundary(parent,color)
+    local boundary=Frame(parent,parent:GetFrameLevel()+6)
+    boundary:SetSize(1,12)
+    local marker=boundary:CreateTexture(nil,"ARTWORK");marker:SetAllPoints();marker:SetColorTexture(1,1,1,.25)
+    local flash=Frame(boundary,boundary:GetFrameLevel()+1);flash:SetAllPoints(boundary)
+    local glow=flash:CreateTexture(nil,"OVERLAY");glow:SetPoint("CENTER");glow:SetSize(124,76)
+    glow:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark");glow:SetBlendMode("ADD");glow:SetVertexColor(unpack(color))
+    local core=flash:CreateTexture(nil,"OVERLAY");core:SetPoint("CENTER");core:SetSize(48,92)
+    core:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark");core:SetBlendMode("ADD");core:SetVertexColor(1,1,.9,1)
+    flash:SetAlpha(0);boundary.flash=flash;return boundary
+end
 local function Ensure(o)
     if o.empower then return o.empower end
     local f,n=o.frame,o.spec
@@ -78,18 +89,7 @@ local function Ensure(o)
     a.spark:SetVertexColor(1,1,.9,1);a.spark:SetSize(52,36)
     a.sparkCore=a.foreground:CreateTexture(nil,"OVERLAY")
     a.sparkCore:SetColorTexture(1,1,.9,1);a.sparkCore:SetBlendMode("ADD");a.sparkCore:SetSize(2,12)
-    for i=1,5 do
-        local boundary=Frame(a.root,a.root:GetFrameLevel()+6)
-        boundary:SetSize(1,12)
-        local marker=boundary:CreateTexture(nil,"ARTWORK");marker:SetAllPoints();marker:SetColorTexture(1,1,1,.25)
-        local flash=Frame(boundary,boundary:GetFrameLevel()+1);flash:SetAllPoints(boundary)
-        local color=D.colors[i]
-        local glow=flash:CreateTexture(nil,"OVERLAY");glow:SetPoint("CENTER");glow:SetSize(124,76)
-        glow:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark");glow:SetBlendMode("ADD");glow:SetVertexColor(unpack(color))
-        local core=flash:CreateTexture(nil,"OVERLAY");core:SetPoint("CENTER");core:SetSize(48,92)
-        core:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark");core:SetBlendMode("ADD");core:SetVertexColor(1,1,.9,1)
-        flash:SetAlpha(0);boundary.flash=flash;a.boundaries[i]=boundary
-    end
+    for i=1,5 do a.boundaries[i]=Boundary(a.root,D.colors[i])end
     a.label=a.foreground:CreateFontString(nil,"OVERLAY")
     a.label:SetFont(M.MYRIAD,D.stageFontSize,"OUTLINE")
     a.label:SetTextColor(1,1,1,1);a.label:SetShadowColor(0,0,0,1);a.label:SetShadowOffset(2,-2)
@@ -146,8 +146,59 @@ local function Evaluate(c,elapsed,curve,fallback)
     if C.Readable(value)and value==nil then return fallback end
     return value
 end
+-- Ordinary casts retain their original fill, tint and text. Only the three
+-- boundary flashes are shared with empowerment; there are no stage overlays.
+local function RegularPoints(o,c)
+    local a=o.castPoints
+    if not c.active or c.empowered then
+        if a then a.root:Hide()end
+        return
+    end
+    local total=c.start and c.finish and c.finish-c.start
+    if total and total<=0 then total=nil end
+    local elapsed=total and math.max(0,GetTime()-c.start)
+    local duration=c.duration
+    if not elapsed and not(duration and duration.EvaluateElapsedPercent)then
+        if a then a.root:Hide()end
+        return
+    end
+    if not a then
+        a={points={}};o.castPoints=a
+        a.root=Frame(o.frame,o.frame:GetFrameLevel()+1);a.root:SetAllPoints(o.frame)
+        for i=1,3 do a.points[i]=Boundary(a.root,D.colors[i])end
+    end
+    local width=o.spec.width or 512
+    if a.width~=width or a.total~=total or a.channel~=c.channel then
+        a.width,a.total,a.channel=width,total,c.channel
+        for i,point in ipairs(a.points)do
+            local fraction=i/4
+            point:ClearAllPoints();point:SetPoint("CENTER",o.frame,"LEFT",width*fraction,0)
+            point.crossing=c.channel and 1-fraction or fraction
+            -- Public timings use the exact .32s empower flash envelope. If a
+            -- native timer keeps total time secret, evaluate a normalized curve
+            -- in the engine instead of reading/comparing a restricted value.
+            local span=total or 4;local crossing=point.crossing
+            point.curve=Step({{0,0},{crossing,1},{crossing+.08/span,.65},
+                {crossing+.18/span,.25},{crossing+.32/span,0}})
+        end
+    end
+    if not a.root:IsShown()then a.root:Show()end
+    for _,point in ipairs(a.points)do
+        local alpha=0
+        if elapsed then
+            local age=elapsed-total*point.crossing
+            alpha=age>=0 and(age<.08 and 1 or age<.18 and .65 or age<.32 and .25 or 0)or 0
+        elseif point.curve then
+            local value=Query(duration.EvaluateElapsedPercent,duration,point.curve)
+            if not C.Readable(value)or value~=nil then alpha=value end
+        end
+        -- The only sink for an opaque curve result is the native alpha setter.
+        M.RendererInternals.CachedValue(point,"flashAlpha",point.flash,"SetAlpha",alpha)
+    end
+end
 function E.Paint(view,o,s,animateOnly)
     local c=s.cast
+    if o.spec.unit=="player"or o.spec.unit=="vehicle"then RegularPoints(o,c)end
     if not c.active or not c.empowered or not c.empowerStages then
         if o.empower then o.empower.root:Hide();o.empower.bound=nil end
         return false
