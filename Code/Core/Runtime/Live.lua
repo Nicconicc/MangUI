@@ -119,7 +119,9 @@ function M:StartLive()
         end
     end
     local function Module(id) dirtyModules[id]=true;pending=true end
-    f:SetScript("OnEvent",function(_,event,unit,...)
+    local function OnEvent(_,event,unit,...)
+        M.Compat.InvalidateAuraSnapshots()
+        M.live.nativeThirdSelectionGeneration=(M.live.nativeThirdSelectionGeneration or 0)+1
         if event=="UI_SCALE_CHANGED" then M:QueueUIScale();return end
         if event=="PLAYER_ENTERING_WORLD" then M:QueueUIScale()
         elseif event=="PLAYER_REGEN_ENABLED" and M.pendingUIScale then M:ApplyUIScale() end
@@ -220,6 +222,10 @@ function M:StartLive()
         elseif event:find("^UNIT_") then Unit(unit)
         else dirty=true end
         if started then profile.Total("event",debugprofilestop()-started) end
+    end
+    f:SetScript("OnEvent",function(...)
+        local ok,err=M.Compat.RunWithAuraSnapshots(OnEvent,...)
+        if not ok then error(err)end
     end)
     -- Reuse the protected callback instead of allocating a closure every frame.
     local function Refresh()
@@ -248,7 +254,7 @@ function M:StartLive()
         polled=polled+dt
         local profile=M.ModuleProfiler
         local started=profile and profile.active and debugprofilestop()
-        local ok,err=pcall(Refresh)
+        local ok,err=M.Compat.RunWithAuraSnapshots(Refresh)
         if started then profile.Total("frame",debugprofilestop()-started) end
         if not ok then
             dirty=true;pending=false;polled=0;ResetDirty()

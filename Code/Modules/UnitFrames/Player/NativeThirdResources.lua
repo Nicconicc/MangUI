@@ -134,6 +134,7 @@ end
 function N.Configure(view)
     if not view or view.preview or InCombatLockdown()then return end
     local kind,id,maximum,color=Selected()
+    view.nativeThirdSelection={kind=kind,time=GetTime(),generation=view.nativeThirdSelectionGeneration}
     local q=view.nativeThird
     if not kind or not Support(true)then
         if q then q.enabled=false;q.kind=kind;q.container:SetEnabled(false)end
@@ -165,7 +166,11 @@ function N.Configure(view)
 end
 function N.Paint(view,o)
     if view.preview then return false end
-    local kind=Selected();local q=view.nativeThird
+    local now=GetTime();local selection=view.nativeThirdSelection
+    if not selection or selection.time~=now or selection.generation~=view.nativeThirdSelectionGeneration then
+        selection={kind=Selected(),time=now,generation=view.nativeThirdSelectionGeneration};view.nativeThirdSelection=selection
+    end
+    local kind=selection.kind;local q=view.nativeThird
     if not InCombatLockdown()and((q and q.kind~=kind)or(not q and kind and Support(false)))then N.Configure(view);q=view.nativeThird end
     if not(q and q.enabled and q.kind==kind)then return false end
     -- Do not query an aura, inspect native visibility, read duration/count text,

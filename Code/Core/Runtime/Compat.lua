@@ -230,6 +230,41 @@ function C.Aura(unit,index,filter,out)
         return a
     end
 end
+-- Monitor consumers share only a single frame's readable aura enumeration.
+-- Own each record: some clients reuse the table returned by the aura API.
+-- Events and explicit renderer updates invalidate before any consumer runs.
+local auraSnapshots,auraSnapshotTime,auraSnapshotDepth={},nil,0
+function C.InvalidateAuraSnapshots()
+    auraSnapshotTime=nil
+end
+-- Scope sharing to one renderer/event callback. Direct calls outside the live
+-- loop must still see immediately changed data, even within the same frame.
+function C.RunWithAuraSnapshots(fn,...)
+    if auraSnapshotDepth==0 then C.InvalidateAuraSnapshots() end
+    auraSnapshotDepth=auraSnapshotDepth+1
+    local ok,result=pcall(fn,...)
+    auraSnapshotDepth=auraSnapshotDepth-1
+    if auraSnapshotDepth==0 then C.InvalidateAuraSnapshots() end
+    return ok,result
+end
+function C.AuraSnapshot(unit,filter)
+    local now=GetTime()
+    if auraSnapshotTime~=now then auraSnapshots={};auraSnapshotTime=now end
+    local units=auraSnapshots[unit]
+    if not units then units={};auraSnapshots[unit]=units end
+    local key=filter or "HELPFUL";local result=units[key]
+    if auraSnapshotDepth>0 and result then return result end
+    result={}
+    for index=1,255 do
+        local a=C.Aura(unit,index,filter)
+        if not a then break end
+        result[index]={name=a.name,icon=a.icon,applications=a.applications,
+            dispelName=a.dispelName,duration=a.duration,expirationTime=a.expirationTime,
+            sourceUnit=a.sourceUnit,spellId=a.spellId,spellID=a.spellID,auraInstanceID=a.auraInstanceID}
+    end
+    if auraSnapshotDepth>0 then units[key]=result end
+    return result
+end
 function C.Auras(unit,filter,count,out,hideUntimed,onlyPlayer)
     local result=out or {};local used=0
     -- Apply the display limit after filtering so permanent auras do not consume slots.

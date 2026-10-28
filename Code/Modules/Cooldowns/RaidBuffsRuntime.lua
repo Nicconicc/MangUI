@@ -274,7 +274,7 @@ function I.Configure(view,o)
     for index,entry in ipairs(o.entries)do
         local slot=Icon(o,index);slot.entry=entry;ResolveSlot(slot,entry)
         slot.time:SetFont(M:EffectiveFontPath(M.MYRIAD),16,"OUTLINE")
-        slot.time:SetText("");slot.timerGate:SetAlpha(1)
+        M.CustomMonitor.SetText(slot.time,"");slot.timerGate:SetAlpha(1)
         if not view.preview then
             if InCombatLockdown()then slot.pending=true
             elseif o.native and not slot.weapon then Bind(slot)
@@ -298,8 +298,7 @@ local function Auras()
         if not Readable(secret)or secret==true then return end
     end
     local byID,byName={},{}
-    for index=1,255 do
-        local aura=M.Compat.Aura("player",index,"HELPFUL");if not aura then break end
+    for index,aura in ipairs(M.Compat.AuraSnapshot("player","HELPFUL"))do
         I.RememberBuffAura(aura)
         local id=aura.spellId;if type(id)=="nil"then id=aura.spellID end
         if Readable(id)and type(id)=="number"then byID[id]=aura end
@@ -341,7 +340,9 @@ function I.Paint(view,o,animateOnly)
     if animateOnly and now<(o.nextScan or 0)then UpdateConnector(view,o);return end
     o.nextScan=now+.1
     local byID,byName;if not view.preview then byID,byName=Auras()end
-    local displayed={};local snapshot,lines=W.Snapshot(),{}
+    local displayed=o.displayedIcons or {};o.displayedIcons=displayed
+    for index=#displayed,1,-1 do displayed[index]=nil end
+    local snapshot,lines=W.Snapshot(),{}
     for _,slot in ipairs(o.buffIcons or {})do
         if slot.entry then
             if now>=(o.nextInfo or 0)then
@@ -362,7 +363,7 @@ function I.Paint(view,o,animateOnly)
             end
             slot:SetShown(visible)
             slot.remaining=remaining;slot.timerGate:SetAlpha(1)
-            slot.time:SetText(S.FormatCountdown(view.preview and 80 or visible and remaining or nil))
+            M.CustomMonitor.SetText(slot.time,S.FormatCountdown(view.preview and 80 or visible and remaining or nil))
             if visible then displayed[#displayed+1]=slot end
             slot.texture:SetDesaturated(false);slot.texture:SetAlpha(1)
             if o.native and slot.bound then
@@ -377,7 +378,7 @@ function I.Paint(view,o,animateOnly)
                 local first=slot.nativeFrames and slot.nativeFrames[1]
                 if first and first.nativeTime then
                     first.nativeTime:SetAlpha(0)
-                    slot.time:SetText(first.nativeTime:GetText())
+                    M.CustomMonitor.SetText(slot.time,first.nativeTime:GetText())
                     local present=first:IsShown()
                     if slot.timerGate.SetAlphaFromBoolean then slot.timerGate:SetAlphaFromBoolean(present,1,0)
                     elseif Readable(present)then slot.timerGate:SetAlpha(present and 1 or 0)end

@@ -460,9 +460,9 @@ local function CountFont(label)
     Font(label);label:SetShadowColor(0,0,0,0);label:SetShadowOffset(0,0)
 end
 local function CountText(label,value,showSingle,hideZero)
-    if not Readable(value)then label:SetFormattedText("%d",value);return end
+    if not Readable(value)then label.monitorTextValid=nil;label:SetFormattedText("%d",value);return end
     local count=Number(value)
-    label:SetText(count and count>=(hideZero and 1 or 0)and (showSingle or count>1)and tostring(count)or "")
+    M.CustomMonitor.SetText(label,count and count>=(hideZero and 1 or 0)and (showSingle or count>1)and tostring(count)or "")
 end
 -- Summon abilities use their live guardian count in the same place as spell
 -- charges. Register only verified client mechanics; other spells keep charges.
@@ -602,8 +602,8 @@ function S.Configure(view,o)
     o.entries=S.Entries(view.byID[o.spec.parent]);o.usesNativeAuras=not view.preview and NativeAurasAvailable()
     for i,entry in ipairs(o.entries)do
         local slot=Icon(o,i);Resolve(slot,entry);slot.duration=nil;slot.expires=nil;slot.active=false;slot.stacks=nil
-        CountFont(slot.count);slot.count:SetText("")
-        slot.text:SetText("");ClearCooldown(slot.cooldown);slot.texture:SetDesaturated(false)
+        CountFont(slot.count);M.CustomMonitor.SetText(slot.count,"")
+        M.CustomMonitor.SetText(slot.text,"");ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
         Font(slot.text)
         Shortcut(slot,entry)
         if slot.nativeTime then Font(slot.nativeTime)end
@@ -617,7 +617,7 @@ function S.Configure(view,o)
     M.CustomMonitor.Sync(view,o,o.skillIcons,S.Paint)
 end
 local function Remaining(slot,seconds)
-    slot.text:SetText(S.FormatCountdown(seconds))
+    M.CustomMonitor.SetText(slot.text,S.FormatCountdown(seconds))
 end
 local function Cooldown(entry,slot)
     local key=slot.spellID or entry.value
@@ -628,11 +628,11 @@ local function Cooldown(entry,slot)
     else charges,maximum,chargeStart,chargeDuration,chargeRate=Safe(GetSpellCharges,key)end
     local summons=S.SummonCount(slot)
     if summons~=nil then CountText(slot.count,summons,true,true)
-    elseif Number(maximum)and maximum<=1 then slot.count:SetText("")else CountText(slot.count,charges,true)end
+    elseif Number(maximum)and maximum<=1 then M.CustomMonitor.SetText(slot.count,"")else CountText(slot.count,charges,true)end
     if C_Spell and C_Spell.GetSpellCooldownDuration then
         local duration=Safe(C_Spell.GetSpellChargeDuration,key) or Safe(C_Spell.GetSpellCooldownDuration,key,true)
         if duration and slot.cooldown.SetCooldownFromDurationObject then
-            slot.duration=duration;slot.expires=nil;slot.text:SetText("")
+            slot.duration=duration;slot.expires=nil;M.CustomMonitor.SetText(slot.text,"")
             slot.cooldown:SetCooldownFromDurationObject(duration,true);return
         end
     end
@@ -664,8 +664,7 @@ local function TargetAuras(o)
         if slot.entry and slot.entry.type=="debuff" then slot.active=false;slot.expires=nil;slot.stacks=nil;needed=true end
     end
     if not needed or o.usesNativeAuras then return end
-    for index=1,255 do
-        local aura=M.Compat.Aura("target",index,"HARMFUL");if not aura then break end
+    for index,aura in ipairs(M.Compat.AuraSnapshot("target","HARMFUL"))do
         local id=aura.spellId;if type(id)=="nil" then id=aura.spellID end
         for _,slot in ipairs(o.skillIcons)do
             local entry=slot.entry
@@ -722,8 +721,7 @@ function S.Paint(view,o,animateOnly)
     end
     for i=1,#entries do
         local slot=o.skillIcons[i]
-        slot.shortcutFrame:SetAlpha(1)
-        slot.texture:SetAlpha(1)
+        local textureAlpha,shortcutAlpha=1,1
         if slot.entry.type~="custom"and slot.customGlow then slot.customGlow:Hide()end
         for _,frame in ipairs(slot.nativeFrames or {})do
             if not view.preview and o.usesNativeAuras and slot.entry.type=="debuff" then
@@ -740,39 +738,41 @@ function S.Paint(view,o,animateOnly)
         if slot.entry.type=="custom"then
             ClearCooldown(slot.cooldown);slot.duration=nil
             local result=M.CustomMonitor.Apply(o,slot,view.preview)
-            slot.texture:SetDesaturated(false);slot.texture:SetAlpha(1)
-            slot.text:SetText(result.text or S.FormatCountdown(result.expirationTime and result.expirationTime-now))
-            slot.count:SetText(result.count and tostring(result.count)or "")
+            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);textureAlpha=1
+            M.CustomMonitor.SetText(slot.text,result.text or S.FormatCountdown(result.expirationTime and result.expirationTime-now))
+            M.CustomMonitor.SetText(slot.count,result.count and tostring(result.count)or "")
             M.CustomMonitor.Glow(slot,result.show and result.glow)
         elseif view.preview then
-            ClearCooldown(slot.cooldown);slot.texture:SetDesaturated(i%2==1 and not(slot.entry.type=="debuff"and M.Compat.interface==16001));slot.texture:SetAlpha(i%2==1 and .5 or 1);slot.text:SetText(tostring(30-i))
-            slot.count:SetText(slot.entry.type=="debuff"and "3"or "2")
+            ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",i%2==1 and not(slot.entry.type=="debuff"and M.Compat.interface==16001));textureAlpha=i%2==1 and .5 or 1;M.CustomMonitor.SetText(slot.text,tostring(30-i))
+            M.CustomMonitor.SetText(slot.count,slot.entry.type=="debuff"and "3"or "2")
         elseif slot.duration then
             local desat=DesaturationCurve()
             if desat and slot.duration.EvaluateRemainingDuration and slot.texture.SetDesaturation then
                 -- The engine consumes this potentially secret number directly.
-                slot.texture:SetDesaturation(slot.duration:EvaluateRemainingDuration(desat,0))
-                slot.texture:SetAlpha(slot.duration:EvaluateRemainingDuration(FadeCurve(),1))
-                slot.shortcutFrame:SetAlpha(slot.duration:EvaluateRemainingDuration(ShortcutCurve(),1))
+                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturation",slot.duration:EvaluateRemainingDuration(desat,0))
+                textureAlpha=slot.duration:EvaluateRemainingDuration(FadeCurve(),1)
+                shortcutAlpha=slot.duration:EvaluateRemainingDuration(ShortcutCurve(),1)
             else
                 local remaining=Number(Safe(slot.duration.GetRemainingDuration,slot.duration))
                 if remaining then
-                    slot.texture:SetDesaturated(remaining>0);Remaining(slot,remaining)
-                    slot.texture:SetAlpha(remaining>0 and .5 or 1)
-                    slot.shortcutFrame:SetAlpha(remaining>0 and 0 or 1)
+                    M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",remaining>0);Remaining(slot,remaining)
+                    textureAlpha=remaining>0 and .5 or 1
+                    shortcutAlpha=remaining>0 and 0 or 1
                 end
             end
         elseif slot.entry.type=="debuff" and o.usesNativeAuras then
-            slot.texture:SetDesaturated(false);slot.text:SetText("");slot.count:SetText("")
+            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
             -- Native aura frames draw a half-opacity icon and countdown while
             -- present. The colored base icon remains visible when absent.
         else
             local active=slot.active and (not slot.expires or slot.expires>now)
-            slot.texture:SetDesaturated(active==true and not(slot.entry.type=="debuff"and M.Compat.interface==16001));Remaining(slot,active and slot.expires and slot.expires-now or nil)
-            slot.texture:SetAlpha(active and .5 or 1)
-            slot.shortcutFrame:SetAlpha(active and 0 or 1)
+            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",active==true and not(slot.entry.type=="debuff"and M.Compat.interface==16001));Remaining(slot,active and slot.expires and slot.expires-now or nil)
+            textureAlpha=active and .5 or 1
+            shortcutAlpha=active and 0 or 1
             if slot.entry.type=="debuff"then CountText(slot.count,active and slot.stacks or nil,false)end
         end
+        M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",textureAlpha)
+        M.CustomMonitor.SetVisual(slot.shortcutFrame,"SetAlpha",shortcutAlpha)
     end
 end
 local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,

@@ -31,8 +31,7 @@ local repeatedAuraIDs={player={},target={}}
 local function Auras(unit,filter)
     if not CanRead(unit)then return nil end
     local result={byID={},byName={},instancesByID={}}
-    for index=1,255 do
-        local raw=M.Compat.Aura(unit,index,filter);if not raw then break end
+    for index,raw in ipairs(M.Compat.AuraSnapshot(unit,filter))do
         -- Own the record: compatibility APIs may reuse a temporary result table.
         local aura={name=raw.name,spellId=raw.spellId,spellID=raw.spellID,sourceUnit=raw.sourceUnit,
             expirationTime=raw.expirationTime,duration=raw.duration,applications=raw.applications,
@@ -74,10 +73,10 @@ local function Find(auras,entry,spellID)
 end
 local function Time(text,expires,now)
     local remaining=expires and expires-now
-    text:SetText(S.FormatCountdown(remaining))
+    M.CustomMonitor.SetText(text,S.FormatCountdown(remaining))
 end
 local function Count(text,value)
-    local count=Number(value);text:SetText(count and count>1 and tostring(count)or "")
+    local count=Number(value);M.CustomMonitor.SetText(text,count and count>1 and tostring(count)or "")
 end
 local function IsMissing(entry)return entry.type=="buffMissing"or entry.type=="debuffMissing"end
 local function IsTarget(entry)return entry.type=="debuffFound"or entry.type=="debuffMissing"end
@@ -258,7 +257,7 @@ function O.Configure(view,o)
     for i,entry in ipairs(o.entries)do
         local slot=Icon(o,i)
         if slot.entry~=entry then slot.wasCondition=nil end
-        ResetNative(slot);Resolve(slot,entry);slot.time:SetText("");slot.count:SetText("");Font(slot.time);Font(slot.count,true)
+        ResetNative(slot);Resolve(slot,entry);M.CustomMonitor.SetText(slot.time,"");M.CustomMonitor.SetText(slot.count,"");Font(slot.time);Font(slot.count,true)
         if slot.item then slot.fingerprint=ItemFingerprint(slot.item)end
         if o.native then if not InCombatLockdown()then BindNative(slot)else slot.nativeDirty=true end end
     end
@@ -478,7 +477,8 @@ function O.Paint(view,o,animateOnly)
         for _,entry in ipairs(group.otherMonitors or {})do if entry.type=="equipment"then equipment=true;break end end
         if not equipment then entries=samples end
     end
-    local displayed={}
+    local displayed=o.displayedIcons or {};o.displayedIcons=displayed
+    for index=#displayed,1,-1 do displayed[index]=nil end
     local combat,boss=DisplayState(o)
     if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then Refresh(view,o,now);o.nextScan=now+.2 end
     for i,entry in ipairs(entries)do
@@ -495,21 +495,21 @@ function O.Paint(view,o,animateOnly)
         end
         local eligible=not IsTarget(entry)or M.Compat.Bool(Safe(UnitExists,"target"))
         local visible=view.preview or (allowed and ((native and eligible)or slot.show==true))
-        slot:SetShown(visible);slot.base:SetAlpha(1);slot.annotations:SetAlpha(1)
+        slot:SetShown(visible)
+        local baseAlpha=native and not IsMissing(entry)and entry.type~="equipment"and 0 or 1
+        M.CustomMonitor.SetVisual(slot.base,"SetAlpha",baseAlpha);M.CustomMonitor.SetVisual(slot.annotations,"SetAlpha",baseAlpha)
         if visible then displayed[#displayed+1]=slot end
         if view.preview then
-            slot.texture:SetDesaturated(false);slot.texture:SetAlpha(1)
-            slot.time:SetText(custom and (custom.text or "")or(IsMissing(entry)and ""or tostring(30-i)));slot.count:SetText(custom and tostring(custom.count or "")or(IsMissing(entry)and ""or "2"))
+            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",1)
+            M.CustomMonitor.SetText(slot.time,custom and (custom.text or "")or(IsMissing(entry)and ""or tostring(30-i)));M.CustomMonitor.SetText(slot.count,custom and tostring(custom.count or "")or(IsMissing(entry)and ""or "2"))
             SetGlow(slot.glow,custom and custom.glow or entry.glow,entry.glowColor,now)
         else
-            slot.texture:SetDesaturated(slot.faded==true);slot.texture:SetAlpha(slot.faded and .5 or 1)
-            if custom and custom.text then slot.time:SetText(custom.text)else Time(slot.time,slot.expires,now)end
-            if custom then slot.count:SetText(tostring(custom.count or ""))else Count(slot.count,slot.stacks)end
+            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",slot.faded==true);M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",slot.faded and .5 or 1)
+            if custom and custom.text then M.CustomMonitor.SetText(slot.time,custom.text)else Time(slot.time,slot.expires,now)end
+            if custom then M.CustomMonitor.SetText(slot.count,tostring(custom.count or ""))else Count(slot.count,slot.stacks)end
             local glow=entry.glow;if custom and custom.glow~=nil then glow=custom.glow end
             SetGlow(slot.glow,glow and slot.condition,entry.glowColor,now)
             if native then
-                local found=not IsMissing(entry)and entry.type~="equipment"
-                if found then slot.base:SetAlpha(0);slot.annotations:SetAlpha(0)end
                 for _,frame in ipairs(slot.nativeFrames or {})do
                     if frame.baseGate.SetAlphaFromBoolean then
                         frame.baseGate:SetAlphaFromBoolean(frame:IsShown(),0,1);frame.timeGate:SetAlphaFromBoolean(frame:IsShown(),0,1)

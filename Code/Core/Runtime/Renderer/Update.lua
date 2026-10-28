@@ -129,8 +129,10 @@ local function QueueBucket(list,bucket,generation)
     end
     return 1
 end
-function R.Update(view,units,modules,fields,objects)
+local function Update(view,units,modules,fields,objects)
     if not view.ordered then return end
+    C.InvalidateAuraSnapshots()
+    view.nativeThirdSelectionGeneration=(view.nativeThirdSelectionGeneration or 0)+1
     M:RuntimeCall(view,"decorationRange","装饰范围刷新",R.UpdateDecorationRange,view)
     for unit in pairs(view.stateFields) do view.stateFields[unit]=nil end
     local list=view.ordered;local focus=not units and not modules and not objects
@@ -176,6 +178,10 @@ function R.Update(view,units,modules,fields,objects)
     if M.BossFrames then M:RuntimeCall(view,"bossAnimation","首领框体",M.BossFrames.Animate,view)end
     if M.PartyFrames then M:RuntimeCall(view,"partyHighlight","队伍框体",M.PartyFrames.RefreshHighlight,view)end
     if M.ModuleGuides then M:RuntimeCall(view,"guides:update","辅助线",M.ModuleGuides.Refresh,view,true)end
+end
+function R.Update(...)
+    local ok,err=C.RunWithAuraSnapshots(Update,...)
+    if not ok then error(err) end
 end
 local function NeedsAnimation(view,o)
     if view.preview then return true end

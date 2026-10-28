@@ -8,6 +8,25 @@ C.defaultCode=[[function(state, event, ...)
     return {show = true, icon = 136219, count = 1, glow = false}
 end]]
 local function Public(v)return not issecretvalue or not issecretvalue(v)end
+-- Use only for ordinary monitor-owned regions; native-managed regions keep
+-- their original setters. Secret alpha/desaturation values bypass comparison.
+function C.SetVisual(region,method,value)
+    local cache=region.monitorVisualValues
+    if not cache then cache={};region.monitorVisualValues=cache end
+    if method=="SetDesaturated"then cache.SetDesaturation=nil
+    elseif method=="SetDesaturation"then cache.SetDesaturated=nil end
+    if not Public(value)then cache[method]=nil;region[method](region,value);return end
+    if cache[method]~=nil and cache[method]==value then return end
+    region[method](region,value);cache[method]=value
+end
+-- Native-managed labels remain untouched; opaque text always reaches the sink.
+function C.SetText(label,value)
+    if not Public(value)then
+        label.monitorTextValid=nil;label:SetText(value);return
+    end
+    if label.monitorTextValid and label.monitorText==value then return end
+    label:SetText(value);label.monitorText=value;label.monitorTextValid=true
+end
 local function Number(v)return Public(v)and type(v)=="number"and v==v and math.abs(v)<1000000000000 and v or nil end
 function C.Valid(entry)
     if entry.customCode~=nil and (type(entry.customCode)~="string"or #entry.customCode>C.MAX_CODE)then return false end
@@ -231,8 +250,13 @@ function C.PaintGlow(frame,enabled,color,now)
     frame:SetShown(enabled==true)
     if not enabled then return end
     local c=color or {1,.82,0,1};local pulse=math.sin((now or GetTime())*6)
-    frame.edge:SetVertexColor(c[1],c[2],c[3],c[4]);frame.edge:SetAlpha(.7+.25*pulse)
-    frame.inner:SetVertexColor(c[1],c[2],c[3],c[4]);frame.inner:SetAlpha(.85+.12*pulse)
+    local prior=frame.monitorGlowColor
+    if not prior or prior[1]~=c[1]or prior[2]~=c[2]or prior[3]~=c[3]or prior[4]~=c[4]then
+        frame.edge:SetVertexColor(c[1],c[2],c[3],c[4]);frame.inner:SetVertexColor(c[1],c[2],c[3],c[4])
+        prior=prior or {};frame.monitorGlowColor=prior
+        prior[1],prior[2],prior[3],prior[4]=c[1],c[2],c[3],c[4]
+    end
+    frame.edge:SetAlpha(.7+.25*pulse);frame.inner:SetAlpha(.85+.12*pulse)
 end
 function C.Glow(slot,enabled)
     if not slot.customGlow then slot.customGlow=C.CreateGlow(slot)end
