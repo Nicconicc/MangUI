@@ -40,7 +40,11 @@ function E.Preview(c)
     c.start=GetTime()-1.5;c.finish=c.start+4
 end
 local function Frame(parent,level)
-    local f=CreateFrame("Frame",nil,parent,"DisableUntrustedLayoutScriptsTemplate")
+    -- Classic clients need an ordinary frame: this retail layout template may
+    -- not exist at all. Query before inheriting; never fail by probing CreateFrame.
+    local name="DisableUntrustedLayoutScriptsTemplate"
+    local supported=C_XMLUtil and Query(C_XMLUtil.GetTemplateInfo,name)
+    local f=CreateFrame("Frame",nil,parent,supported and name or nil)
     f:EnableMouse(false);f:SetFrameLevel(level);return f
 end
 local function Art(parent,owner,n,color)
@@ -62,11 +66,19 @@ local function Boundary(parent,color)
     core:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark");core:SetBlendMode("ADD");core:SetVertexColor(1,1,.9,1)
     flash:SetAlpha(0);boundary.flash=flash;return boundary
 end
+local function Ready(o,key)
+    local a=o[key]
+    if a and not a.ready then
+        if a.root then a.root:Hide()end
+        o[key]=nil;a=nil
+    end
+    return a
+end
 local function Ensure(o)
-    if o.empower then return o.empower end
+    local existing=Ready(o,"empower");if existing then return existing end
     local f,n=o.frame,o.spec
-    local a={};o.empower=a
-    a.root=Frame(f,f:GetFrameLevel()+1);a.root:SetAllPoints(f)
+    local a={}
+    a.root=Frame(f,f:GetFrameLevel()+1);a.root:Hide();a.root:SetAllPoints(f)
     a.backgrounds={};a.dimmed={};a.colors={};a.boundaries={}
     for i=1,6 do
         -- Both layers use the same stage color and crop of the full artwork.
@@ -94,6 +106,9 @@ local function Ensure(o)
     a.label:SetFont(M.MYRIAD,D.stageFontSize,"OUTLINE")
     a.label:SetTextColor(1,1,1,1);a.label:SetShadowColor(0,0,0,1);a.label:SetShadowOffset(2,-2)
     a.label:SetPoint("CENTER",f,"CENTER",0,30)
+    -- Publish only a complete tree. A failed child allocation remains hidden
+    -- and cannot poison the next retry with a partial object.
+    a.ready=true;o.empower=a
     return a
 end
 local function Step(points)
@@ -149,7 +164,7 @@ end
 -- Ordinary casts retain their original fill, tint and text. Only the three
 -- boundary flashes are shared with empowerment; there are no stage overlays.
 local function RegularPoints(o,c)
-    local a=o.castPoints
+    local a=Ready(o,"castPoints")
     if not c.active or c.empowered then
         if a then a.root:Hide()end
         return
@@ -163,9 +178,10 @@ local function RegularPoints(o,c)
         return
     end
     if not a then
-        a={points={}};o.castPoints=a
-        a.root=Frame(o.frame,o.frame:GetFrameLevel()+1);a.root:SetAllPoints(o.frame)
+        a={points={}}
+        a.root=Frame(o.frame,o.frame:GetFrameLevel()+1);a.root:Hide();a.root:SetAllPoints(o.frame)
         for i=1,3 do a.points[i]=Boundary(a.root,D.colors[i])end
+        a.ready=true;o.castPoints=a
     end
     local width=o.spec.width or 512
     if a.width~=width or a.total~=total or a.channel~=c.channel then
@@ -198,6 +214,7 @@ local function RegularPoints(o,c)
 end
 function E.Paint(view,o,s,animateOnly)
     local c=s.cast
+    Ready(o,"empower")
     if o.spec.unit=="player"or o.spec.unit=="vehicle"then RegularPoints(o,c)end
     if not c.active or not c.empowered or not c.empowerStages then
         if o.empower then o.empower.root:Hide();o.empower.bound=nil end
