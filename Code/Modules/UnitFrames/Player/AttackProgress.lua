@@ -210,8 +210,9 @@ function A.Paint(view,o,player)
         and not (view.hidden and view.hidden[n.id]) and (view.preview or Active(kind) and chosen==kind) or false
     if view.preview and group and group.showRangedProgress and group.showMeleeProgress then visible=visible and kind=="ranged" end
     if o.frame:IsShown()~=visible then o.frame:SetShown(visible) end
-    if not visible or n.attackFrame then return end
+    if not visible or n.attackFrame then M.EmpowerCast.AttackPoints(o,false);return end
     local s=state[kind];local now=GetTime()
+    M.EmpowerCast.AttackPoints(o,true,view.preview and 2.6 or(s.paused or now)-s.start,view.preview and 4 or s.speed)
     local ratio=view.preview and .65 or M.Clamp(((s.paused or now)-s.start)/s.speed,0,1)
     if o.attackRatio==ratio then return end
     o.attackRatio=ratio

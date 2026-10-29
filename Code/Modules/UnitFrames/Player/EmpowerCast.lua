@@ -163,7 +163,7 @@ local function Evaluate(c,elapsed,curve,fallback)
 end
 -- Ordinary casts retain their original fill, tint and text. Only the three
 -- boundary flashes are shared with empowerment; there are no stage overlays.
-local function RegularPoints(o,c)
+local function RegularPoints(o,c,elapsedOverride)
     local a=Ready(o,"castPoints")
     if not c.active or c.empowered then
         if a then a.root:Hide()end
@@ -171,7 +171,7 @@ local function RegularPoints(o,c)
     end
     local total=c.start and c.finish and c.finish-c.start
     if total and total<=0 then total=nil end
-    local elapsed=total and math.max(0,GetTime()-c.start)
+    local elapsed=total and(elapsedOverride or math.max(0,GetTime()-c.start))
     local duration=c.duration
     if not elapsed and not(duration and duration.EvaluateElapsedPercent)then
         if a then a.root:Hide()end
@@ -211,6 +211,19 @@ local function RegularPoints(o,c)
         -- The only sink for an opaque curve result is the native alpha setter.
         M.RendererInternals.CachedValue(point,"flashAlpha",point.flash,"SetAlpha",alpha)
     end
+end
+function E.AttackPoints(o,active,elapsed,total)
+    if not active then
+        local a=Ready(o,"castPoints");if a then a.root:Hide()end
+        return
+    end
+    -- Attack timers already expose validated public elapsed/total values.
+    -- Reuse the ordinary cast's exact three-point art and flash envelope,
+    -- including pause/resume timing, without changing the attack fill.
+    local c=o.attackPointTiming
+    if not c then c={active=true,start=0,channel=false};o.attackPointTiming=c end
+    c.finish=total
+    RegularPoints(o,c,math.max(0,elapsed))
 end
 function E.Paint(view,o,s,animateOnly)
     local c=s.cast
