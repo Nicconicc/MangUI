@@ -1,5 +1,5 @@
 local _,M=...
-local U={};M.EditorUndo=U
+local U={sessions={}};M.EditorUndo=U
 local function Context()
     local e=M.editor
     if not e or not e.window or not e.canvas or not e.window:IsShown() or not e.canvas:IsShown() or M.moveMode
@@ -39,7 +39,9 @@ function U.UpdateButton()
     b:SetEnabled(enabled);b.icon:SetDesaturated(not enabled)
     b.icon:SetVertexColor(enabled and 1 or .55,enabled and 1 or .55,enabled and 1 or .55,enabled and 1 or .65)
 end
-function U.Clear()
+function U.Suspend()
+    local s=U.session
+    if s and s.transaction then U.Finish(s.transaction)end
     U.session=nil
     if U.colorSource then
         U.colorSource=nil
@@ -47,23 +49,36 @@ function U.Clear()
     end
     U.UpdateButton()
 end
+function U.Clear()
+    U.Suspend();U.sessions={};U.UpdateButton()
+end
 function U.Sync()
+    if U.syncing or(U.session and U.session.finishing)then U.UpdateButton();return end
     local key,module=Context()
-    if not key then U.Clear();return end
+    if not key then U.Suspend();return end
     local s=U.session
     if not s or s.key~=key or s.module~=module then
-        U.Clear()
-        U.session={key=key,module=module,stack={},baseline=Snapshot(module)}
+        U.syncing=true
+        U.Suspend()
+        local saved=U.sessions[module]
+        -- A fresh active wrapper invalidates stale picker/drag callbacks while
+        -- preserving this module's stack across selections and tab visits.
+        s={key=key,module=module,stack=saved and saved.stack or {},baseline=Snapshot(module)}
+        U.sessions[module]=s;U.session=s
+        U.syncing=nil
     else
         -- Renderer synchronization can update derived geometry after Commit.
-        s.baseline=Snapshot(module)
+        if not(s.transaction and M.commitRefreshToken)then s.baseline=Snapshot(module)end
     end
     U.UpdateButton()
 end
 function U.Record()
     local key,module=Context();local s=U.session
-    if not key then U.Clear();return end
-    if not s or s.key~=key or s.module~=module then U.Sync();return end
+    -- A deferred drag/picker commit may finish after selection has changed.
+    -- Record it against the original transaction's module before switching.
+    if s and s.transaction then module=s.module
+    elseif not key then U.Suspend();return
+    elseif not s or s.key~=key or s.module~=module then U.Sync();return end
     if s.replaying then return end
     local current=Snapshot(module)
     if Equal(current,s.baseline) then return end
@@ -78,15 +93,17 @@ function U.Record()
     s.baseline=current;U.UpdateButton()
 end
 function U.Begin(source)
+    local active=U.session
+    if active and active.transaction then U.Finish(active.transaction)end
     U.Sync();local s=U.session
     if not s then return end
-    if s.transaction then U.Finish(s.transaction) end
     s.transaction=source;s.transactionOriginal=s.baseline;s.transactionPushed=false;s.transactionDropped=nil
     U.UpdateButton()
 end
 function U.Finish(source)
     local s=U.session
-    if not s or s.transaction~=source then return end
+    if not s or s.transaction~=source or s.finishing then return end
+    s.finishing=true
     if M.commitRefreshToken then M:FlushCommit() end
     -- A cancelled picker/drag that returns to its start adds no undo action.
     if s.transactionPushed and Equal(s.baseline,s.transactionOriginal) then
@@ -94,6 +111,7 @@ function U.Finish(source)
         if s.transactionDropped then table.insert(s.stack,1,s.transactionDropped) end
     end
     s.transaction=nil;s.transactionOriginal=nil;s.transactionPushed=nil;s.transactionDropped=nil
+    s.finishing=nil
     U.UpdateButton()
 end
 function U.Undo()
@@ -122,7 +140,7 @@ function U.Attach(e)
     button:SetScript("OnEnter",function(self)
         GameTooltip:SetOwner(self,"ANCHOR_LEFT")
         GameTooltip:SetText(M:T("撤销"))
-        GameTooltip:AddLine(M:T("最多保留10次调节；切换元素或tab后清空。"),1,1,1,true)
+        GameTooltip:AddLine(M:T("每个模块保留10次调节；切换子分类或页签后保留，关闭设置后清空。"),1,1,1,true)
         GameTooltip:Show()
     end)
     button:SetScript("OnLeave",function()GameTooltip:Hide()end)

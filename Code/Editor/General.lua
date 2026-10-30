@@ -52,7 +52,7 @@ function M:OpenGlobalFontPicker()
     menu:HookScript("OnHide",function()if anchor.menu==menu then anchor.menu=nil end end)
 end
 function M:OpenGeneral()
-    M.EditorUndo.Clear()
+    M.EditorUndo.Suspend()
     local editor=self.editor
     if not self.general then
         local panel=W.Panel(editor.window);self.general=panel;panel.controlPanelTextSize=12
