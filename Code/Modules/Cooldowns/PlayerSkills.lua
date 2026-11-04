@@ -164,13 +164,48 @@ function S.ValidTalentKey(key)
     local value=key:match("^talent:(%d+)$")or key:match("^spec:(%d+)$")
     return value~=nil and tonumber(value)>0 and tonumber(value)<=1000000000
 end
+local function SameCharacter(owner,character,name,class)
+    if not S.ValidCharacter(owner.character)then return false end
+    if owner.class and class and owner.class~=class then return false end
+    if owner.character==character then return true end
+    -- A GUID may be unavailable during early login. Only use the name alias
+    -- when at least one identity is a fallback; two different GUIDs never match.
+    return (owner.character:sub(1,5)=="char:"or character:sub(1,5)=="char:")
+        and name~=nil and owner.name==name
+end
+local function GuardCharacterStore(root)
+    local character=S.CurrentCharacter();if not character then return end
+    local name,class=CharacterNameKey(),CurrentClass()
+    local owner=root.owner
+    local same=type(owner)=="table"and SameCharacter(owner,character,name,class)
+    if type(owner)=="table"and not same then
+        -- Preserve the foreign lists in the character file, but never bind or
+        -- save the visible account layout over them on this character.
+        if type(root.quarantinedMonitors)~="table"then root.quarantinedMonitors={}end
+        root.quarantinedMonitors[#root.quarantinedMonitors+1]={owner=M.Copy(owner),monitors=M.Copy(root.monitors)}
+        root.monitors={}
+        for _,id in ipairs(characterModules)do
+            root.monitors[id]={migrated=true,profiles={},template={}}
+        end
+        S.profileBindings={}
+        if M.Print then M:Print("监控存档所属角色或职业不匹配，原列表已隔离保留。请为当前角色重新配置或使用配置导入。")end
+    end
+    -- Untagged legacy files are claimed without guessing their spell class or
+    -- replacing existing lists. Explicit imports remain the portable path.
+    if same and character:sub(1,5)=="char:"and owner.character:sub(1,5)~="char:"then
+        owner.name=name or owner.name;owner.class=class or owner.class
+    else
+        root.owner={character=character,name=name or(same and owner.name or nil),class=class or(same and owner.class or nil)}
+    end
+end
 function S.InitCharacterStore()
     local loaded=type(MangUICharacterDB)=="table"
     if type(MangUICharacterDB)~="table"then MangUICharacterDB={}end
     local root=MangUICharacterDB
-    if type(root.schema)=="number"and root.schema>2 then error("角色配置由更新版本创建，请更新 MangUI；现有配置未修改。")end
-    root.schema=2;if type(root.monitors)~="table"then root.monitors={}end
+    if type(root.schema)=="number"and root.schema>3 then error("角色配置由更新版本创建，请更新 MangUI；现有配置未修改。")end
+    root.schema=3;if type(root.monitors)~="table"then root.monitors={}end
     if M.characterDB~=root then M.characterDB=root;S.profileBindings={};S.characterStorageLoaded=loaded end
+    GuardCharacterStore(root)
     if not M.characterSaveEvents then
         local frame=CreateFrame("Frame");M.characterSaveEvents=frame;frame:RegisterEvent("PLAYER_LOGOUT")
         frame:SetScript("OnEvent",function()
@@ -226,11 +261,13 @@ local function LegacyCharacterProfiles(id,config,store,portable)
         elseif identities[identity]and S.ValidTalentKey(profile)then store.profiles[profile]=M.Copy(group[d.list])end
     end
     local class=CurrentClass();local legacy=config[d.legacy]
-    local preset=CharacterGroup(id,config.moduleDefaults)
     if not store.template then
         local candidate=type(legacy)=="table"and legacy[class]
-        if not candidate and group and config[d.profiles]==nil and config[d.legacy]==nil then candidate=group[d.list]end
-        if not candidate and preset then candidate=preset[d.list]end
+        local owned=identities[owner]or (type(owner)=="string"and identities[owner:match("^(.-)#")])
+        if not candidate and group and config[d.profiles]==nil and config[d.legacy]==nil
+            and (portable or owned or (owner==nil and config[d.class]==class and class~=nil))then candidate=group[d.list]end
+        -- Account-wide module reset presets have no character ownership.
+        -- Never seed a new character from another character's reset list.
         store.template=M.Copy(d.api.ValidEntries(candidate)and candidate or {d.api.NewEntry()})
     end
     return consumed
