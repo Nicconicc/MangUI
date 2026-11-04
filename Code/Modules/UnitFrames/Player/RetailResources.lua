@@ -228,7 +228,7 @@ function P.Paint(view,o)
     local row=o.retailResources[key]
     if not row then row=Build(o,key);o.retailResources[key]=row end
     local n,f=o.spec,o.frame;local data=row.data
-    local limit=class=="ROGUE"and spec==260 and 5 or data.count
+    local limit=data.count
     if key=="vengeance"then limit=M.VengeanceResources.Maximum()end
     local layout=Layout(row,limit);row.pointLimit=limit
     local parent=view.nodes[n.parent]and view.nodes[n.parent].spec
