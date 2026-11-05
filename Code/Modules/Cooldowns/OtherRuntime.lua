@@ -191,9 +191,13 @@ local function Resolve(slot,entry)
     slot.needsInfo=entry.type~="custom"and entry.type~="equipment"and (not icon or not slot.spellID)
     slot.nextInfo=GetTime()+1
 end
+local layoutTemplate="DisableUntrustedLayoutScriptsTemplate"
+local function CompactSupported(o)
+    return o.native and M.Compat.interface==16001 and C_XMLUtil.GetTemplateInfo(layoutTemplate)~=nil
+end
 local function Icon(o,index)
     local slot=o.otherIcons[index];if slot then return slot end
-    slot=CreateFrame("Frame",nil,o.frame);slot:SetSize(40,40);slot:EnableMouse(true)
+    slot=CreateFrame("Frame",nil,o.frame,o.nativeCompact and layoutTemplate or nil);slot:SetSize(40,40);slot:EnableMouse(true)
     slot.base=CreateFrame("Frame",nil,slot);slot.base:SetAllPoints();slot.base:EnableMouse(false)
     slot.texture=slot.base:CreateTexture(nil,"ARTWORK");slot.texture:SetAllPoints();slot.glow=Glow(slot.base)
     slot.annotations=CreateFrame("Frame",nil,slot);slot.annotations:SetAllPoints();slot.annotations:EnableMouse(false)
@@ -211,6 +215,88 @@ local function Icon(o,index)
     end)
     slot:SetScript("OnLeave",function()GameTooltip:Hide()end)
     o.otherIcons[index]=slot;return slot
+end
+local function LayoutKind(entry)
+    local kind=entry.type
+    if kind=="buffFound"or kind=="debuffFound"or kind=="buffMissing"then return kind end
+    return "fixed"
+end
+-- A native link contributes one icon step or zero. Its empty width is one
+-- unit, which the anchors subtract. For missing-buff links the game grows
+-- back toward the start, consuming the step when the buff is found.
+local function AnchorLinks(o,links,entries,previous,edge,direction,step,placeIcons)
+    for i,entry in ipairs(entries)do
+        local kind=LayoutKind(entry);local inverse=kind=="buffMissing"
+        local link=links[i]
+        if not link then
+            local frame=CreateFrame("AuraContainer",nil,o.frame,"CustomAuraContainerTemplate,"..layoutTemplate)
+            link={frame=frame};links[i]=link
+        end
+        local frame=link.frame
+        frame:SetShown(true)
+        if placeIcons then
+            local slot=o.otherIcons[i]
+            slot:ClearAllPoints();slot:SetPoint(direction==1 and "TOPLEFT"or "TOPRIGHT",previous,edge)
+            slot.rowX=nil
+        end
+        local grow=inverse and -direction or direction
+        local startEdge=grow==1 and "TOPLEFT"or "TOPRIGHT"
+        frame:ClearAllPoints()
+        frame:SetPoint(startEdge,previous,edge,direction*(inverse and step+1 or -1),0)
+        frame:SetFlowLayoutAnchorPoint(startEdge)
+        frame:SetFlowLayoutGrowthDirection(grow==1 and AnchorUtil.FlowDirection.Right or AnchorUtil.FlowDirection.Left,AnchorUtil.FlowDirection.Down)
+        frame:SetFlowLayoutMaximumLineSize(step+1.001)
+        if kind~="fixed"then
+            local filter=kind=="debuffFound"and "HARMFUL|PLAYER"or "HELPFUL"
+            if not link.filter then
+                frame:AddAuraGroup("spacing",filter,{maxFrameCount=1,layout={elementWidth=step,elementHeight=1},
+                    initializeFrame=function(button)button:SetSize(1,1);button:EnableMouse(false);button:EnableMouseMotion(false)end})
+            elseif link.filter~=filter then frame:SetAuraGroupFilterString("spacing",filter)end
+            if link.kind~=kind then link.spellID=nil end
+            link.filter=filter
+            frame:SetUnit(kind=="debuffFound"and "target"or "player")
+        end
+        link.kind=kind;link.inverse=inverse;link.step=step;link.padding=nil;link.measuring=nil
+        previous=frame;edge=grow==1 and "TOPRIGHT"or "TOPLEFT"
+    end
+    for i=#entries+1,#links do
+        local link=links[i]
+        if link.filter then link.frame:SetEnabled(false)end
+        link.frame:Hide()
+    end
+    return previous,edge
+end
+local function CompactRow(o,entries,direction)
+    if not o.nativeCompact then return end
+    local row=o.compactRow
+    if row and row.direction==direction and row.count==#entries then
+        local same=true
+        for i,entry in ipairs(entries)do if row.full[i].kind~=LayoutKind(entry)then same=false;break end end
+        if same then return row end
+    end
+    if not row then
+        row={full={},half={},origin=CreateFrame("Frame",nil,o.frame,layoutTemplate)};o.compactRow=row
+        row.origin:SetSize(1,1)
+    end
+    local centered=direction=="CENTER";local left=direction=="LEFT"
+    row.origin:ClearAllPoints();row.origin:SetPoint("TOPLEFT",o.frame,"CENTER",centered and 2 or (left and 20 or -20),13)
+    local anchor,edge=AnchorLinks(o,row.half,centered and entries or {},row.origin,"TOPLEFT",-1,22,false)
+    AnchorLinks(o,row.full,entries,anchor,edge,left and -1 or 1,44,true)
+    row.direction=direction;row.count=#entries;row.centered=centered
+    return row
+end
+local function SizeLink(link,spellID,visible)
+    local frame=link.frame
+    local measuring=spellID~=nil and link.kind~="fixed"
+    if measuring and link.spellID~=spellID then
+        frame:SetAuraGroupCandidateFilters("spacing",{includeSpellIDs={[spellID]=true}})
+        link.spellID=spellID
+    end
+    if link.filter and link.measuring~=measuring then
+        frame:SetEnabled(measuring);link.measuring=measuring
+    end
+    local padding=not measuring and (not not visible)~=link.inverse and link.step+1 or 1
+    if link.padding~=padding then frame:SetFlowLayoutPadding(padding,0,0,0);link.padding=padding end
 end
 local function ItemFingerprint(item)
     local ids={};for id in pairs(item.effects)do ids[#ids+1]=id end;table.sort(ids)
@@ -277,6 +363,7 @@ local TrackEquipment
 function O.Configure(view,o)
     if not view.preview then TrackEquipment(false)end
     o.otherIcons=o.otherIcons or {};o.entries=O.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
+    o.nativeCompact=CompactSupported(o)
     o.nextScan=0;o.nextEquipment=0;o.nextDiscovery=GetTime()+1
     for i,entry in ipairs(o.entries)do
         local slot=Icon(o,i)
@@ -508,6 +595,7 @@ function O.Paint(view,o,animateOnly)
     for index=#displayed,1,-1 do displayed[index]=nil end
     local combat,boss=DisplayState(o)
     if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then Refresh(view,o,now);o.nextScan=now+.2 end
+    local row=not view.preview and CompactRow(o,entries,S.Direction(group))
     for i,entry in ipairs(entries)do
         local slot=Icon(o,i);if slot.entry~=entry then Resolve(slot,entry)end
         local allowed=DisplayAllowed(entry,combat,boss)
@@ -522,16 +610,22 @@ function O.Paint(view,o,animateOnly)
         end
         local eligible=not IsTarget(entry)or M.Compat.Bool(Safe(UnitExists,"target"))
         local nativeMissing=native and entry.type=="buffMissing" and slot.missingBackdrop~=nil
+        local nativeFound=row and native and eligible and (entry.type=="buffFound"or entry.type=="debuffFound")
         local visible=view.preview or (allowed and (slot.show==true or
-            (native and not IsMissing(entry) and not slot.rawKnown and eligible)))
+            nativeFound or (native and not IsMissing(entry) and not slot.rawKnown and eligible)))
         if not view.preview and entry.type=="buffMissing"then
             -- The native backdrop follows the live buff. When the template is
             -- unavailable, retain the last readable result instead.
-            visible=allowed and ((nativeMissing and not slot.rawKnown)or slot.missingBuffVisible==true)
+            visible=allowed and ((nativeMissing and (row~=nil or not slot.rawKnown))or slot.missingBuffVisible==true)
+        end
+        if row then
+            local spellID=visible and (nativeMissing or nativeFound) and slot.spellID or nil
+            SizeLink(row.full[i],spellID,visible)
+            if row.centered then SizeLink(row.half[i],spellID,visible)end
         end
         slot:SetShown(visible)
         local baseAlpha=native and not IsMissing(entry)and entry.type~="equipment"and 0 or 1
-        M.CustomMonitor.SetVisual(slot,"EnableMouse",not nativeMissing)
+        M.CustomMonitor.SetVisual(slot,"EnableMouse",not (nativeMissing or nativeFound))
         if slot.missingHost then
             M.CustomMonitor.SetVisual(slot.missingHost,"SetShown",nativeMissing)
             if nativeMissing then SetGlow(slot.missingGlow,entry.glow,entry.glowColor,now);baseAlpha=0 end
@@ -562,6 +656,7 @@ function O.Paint(view,o,animateOnly)
     -- positions in the live row. Preview still includes every configured icon.
     o.rowCount=#displayed;local width=math.max(1,#displayed*44-4)
     if width~=o.rowWidth then o.frame:SetSize(width,66);o.rowWidth=width end
+    if row then return end
     for index,slot in ipairs(displayed)do
         local x=S.IconOffset(group,index,#displayed)
         if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
@@ -582,7 +677,18 @@ function O.Event(view,event,unit)
     o.nextScan=0
     if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED"then o.nextEquipment=0 end
     if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED"then o.nextDiscovery=0 end
-    if event=="PLAYER_TARGET_CHANGED"then for _,slot in ipairs(o.otherIcons or {})do if slot.entry and slot.container and IsTarget(slot.entry)then slot.container:UpdateAllAuras()end end end
+    if event=="PLAYER_TARGET_CHANGED"then
+        for _,slot in ipairs(o.otherIcons or {})do if slot.entry and slot.container and IsTarget(slot.entry)then slot.container:UpdateAllAuras()end end
+        local row=o.compactRow
+        if row then
+            for i=1,row.count do
+                if row.full[i].kind=="debuffFound"then
+                    row.full[i].frame:UpdateAllAuras()
+                    if row.centered then row.half[i].frame:UpdateAllAuras()end
+                end
+            end
+        end
+    end
     if event=="SPELLS_CHANGED"or event=="PLAYER_REGEN_ENABLED"or event=="PLAYER_ENTERING_WORLD"then
         for _,slot in ipairs(o.otherIcons or {})do
             if slot.entry and slot.entry.type~="equipment"then
