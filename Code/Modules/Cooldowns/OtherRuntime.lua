@@ -220,7 +220,8 @@ local function Icon(o,index)
     slot.count=slot.annotations:CreateFontString(nil,"OVERLAY");Font(slot.count,true);slot.count:SetPoint("BOTTOM",slot,"TOP",0,29)
     slot:SetScript("OnEnter",function(anchor)
         local self=slot
-        GameTooltip:SetOwner(anchor,"ANCHOR_RIGHT")
+        if o.nativeCompact or anchor~=slot then GameTooltip:SetOwner(UIParent,"ANCHOR_CURSOR")
+        else GameTooltip:SetOwner(anchor,"ANCHOR_RIGHT")end
         if self.item and self.item.id and GameTooltip.SetInventoryItem then GameTooltip:SetInventoryItem("player",self.entry.slot)
         elseif self.auraIndex and GameTooltip.SetUnitAura then GameTooltip:SetUnitAura(IsTarget(self.entry)and "target"or "player",self.auraIndex,IsTarget(self.entry)and "HARMFUL|PLAYER"or "HELPFUL")
         elseif self.spellID and GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(self.spellID)else GameTooltip:AddLine(self.spellName or "",1,1,1)end
