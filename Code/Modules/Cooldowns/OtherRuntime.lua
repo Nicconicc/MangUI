@@ -102,6 +102,10 @@ local function DisplayAllowed(entry,combat,boss)
     return true
 end
 local function NativeFrame(slot,frame)
+    if slot.missingBackdrop then
+        frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(false)
+        return
+    end
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
     frame.icon=frame:CreateTexture(nil,"ARTWORK");frame.icon:SetAllPoints()
@@ -134,16 +138,32 @@ local function BindNative(slot)
     local styleKey=table.concat(style,":")
     if slot.container and slot.nativeStyle~=styleKey then
         slot.container:SetEnabled(false);slot.container:Hide();slot.container=nil
+        if slot.missingHost then
+            slot.missingHost:Hide()
+            slot.missingHost,slot.missingBackdrop,slot.missingIcon,slot.missingGlow=nil,nil,nil,nil
+        end
         slot.texture:SetParent(slot.base);slot.glow:SetParent(slot.base);slot.time:SetParent(slot.annotations);slot.count:SetParent(slot.annotations)
         slot.lastGate,slot.lastTimeGate=nil,nil
     end
     if not slot.container then
         local container=CreateFrame("AuraContainer",nil,slot,"CustomAuraContainerTemplate")
         container:SetEnabled(false);container:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0);slot.container=container;slot.nativeGates={};slot.nativeStyle=styleKey
+        if entry.type=="buffMissing" and M.Compat.interface==16001 then
+            local host=CreateFrame("Frame",nil,slot);host:SetAllPoints()
+            local backdrop=S.CreateAuraBackdrop(host,container)
+            if backdrop then
+                slot.missingHost=host;slot.missingBackdrop=backdrop
+                slot.missingIcon=backdrop:CreateTexture(nil,"ARTWORK");slot.missingIcon:SetAllPoints();slot.missingIcon:SetTexture(slot.customFallbackIcon)
+                slot.missingGlow=Glow(backdrop)
+                backdrop:EnableMouse(true)
+                backdrop:SetScript("OnEnter",slot:GetScript("OnEnter"));backdrop:SetScript("OnLeave",slot:GetScript("OnLeave"))
+            end
+        end
+        local width=slot.missingBackdrop and S.auraBackdropLayoutWidth or 40
         container:AddAuraGroup("monitor",IsTarget(entry)and "HARMFUL|PLAYER"or "HELPFUL",{maxFrameCount=0,initializeFrame=function(frame)NativeFrame(slot,frame)end})
         container:SetFlowLayoutAnchorPoint("TOPLEFT");container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
-        container:SetFlowLayoutMaximumLineSize(40.001)
-        container:SetAuraGroupLayout("monitor",{elementSpacing=0,lineSpacing=0,elementWidth=40,elementHeight=40})
+        container:SetFlowLayoutMaximumLineSize(width+.001)
+        container:SetAuraGroupLayout("monitor",{elementSpacing=0,lineSpacing=0,elementWidth=width,elementHeight=40})
     end
     slot.container:SetEnabled(false);slot.container:SetUnit(IsTarget(entry)and "target"or "player")
     slot.boundType=entry.type
@@ -167,6 +187,7 @@ local function Resolve(slot,entry)
     slot.item=entry.type=="equipment"and O.Effects(entry.slot or 13)or nil
     slot.texture:SetTexture(slot.item and slot.item.icon or icon or 134400)
     slot.customFallbackIcon=icon or 134400
+    if slot.missingBackdrop then slot.missingIcon:SetTexture(slot.customFallbackIcon)end
     slot.needsInfo=entry.type~="custom"and entry.type~="equipment"and (not icon or not slot.spellID)
     slot.nextInfo=GetTime()+1
 end
@@ -179,8 +200,9 @@ local function Icon(o,index)
     slot.annotations:SetFrameLevel(slot:GetFrameLevel()+20)
     slot.time=slot.annotations:CreateFontString(nil,"OVERLAY");Font(slot.time);slot.time:SetPoint("BOTTOM",slot,"TOP",0,7)
     slot.count=slot.annotations:CreateFontString(nil,"OVERLAY");Font(slot.count,true);slot.count:SetPoint("BOTTOM",slot,"TOP",0,29)
-    slot:SetScript("OnEnter",function(self)
-        GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
+    slot:SetScript("OnEnter",function(anchor)
+        local self=slot
+        GameTooltip:SetOwner(anchor,"ANCHOR_RIGHT")
         if self.item and self.item.id and GameTooltip.SetInventoryItem then GameTooltip:SetInventoryItem("player",self.entry.slot)
         elseif self.auraIndex and GameTooltip.SetUnitAura then GameTooltip:SetUnitAura(IsTarget(self.entry)and "target"or "player",self.auraIndex,IsTarget(self.entry)and "HARMFUL|PLAYER"or "HELPFUL")
         elseif self.spellID and GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(self.spellID)else GameTooltip:AddLine(self.spellName or "",1,1,1)end
@@ -499,14 +521,21 @@ function O.Paint(view,o,animateOnly)
             end
         end
         local eligible=not IsTarget(entry)or M.Compat.Bool(Safe(UnitExists,"target"))
+        local nativeMissing=native and entry.type=="buffMissing" and slot.missingBackdrop~=nil
         local visible=view.preview or (allowed and (slot.show==true or
             (native and not IsMissing(entry) and not slot.rawKnown and eligible)))
         if not view.preview and entry.type=="buffMissing"then
-            -- An unreadable aura list does not invalidate the last known state.
-            visible=allowed and slot.missingBuffVisible==true
+            -- The native backdrop follows the live buff. When the template is
+            -- unavailable, retain the last readable result instead.
+            visible=allowed and ((nativeMissing and not slot.rawKnown)or slot.missingBuffVisible==true)
         end
         slot:SetShown(visible)
         local baseAlpha=native and not IsMissing(entry)and entry.type~="equipment"and 0 or 1
+        M.CustomMonitor.SetVisual(slot,"EnableMouse",not nativeMissing)
+        if slot.missingHost then
+            M.CustomMonitor.SetVisual(slot.missingHost,"SetShown",nativeMissing)
+            if nativeMissing then SetGlow(slot.missingGlow,entry.glow,entry.glowColor,now);baseAlpha=0 end
+        end
         M.CustomMonitor.SetVisual(slot.base,"SetAlpha",baseAlpha);M.CustomMonitor.SetVisual(slot.annotations,"SetAlpha",baseAlpha)
         if visible then displayed[#displayed+1]=slot end
         if view.preview then

@@ -542,13 +542,25 @@ function S.SummonCount(slot)
         end
     end
 end
+-- Keep the visual the same size. The aura group's right edge is one unit
+-- from its origin while empty and moves off screen on a match. Only the
+-- inactive artwork follows that edge; no clip or secret geometry read.
+S.auraBackdropLayoutWidth=16384
+function S.CreateAuraBackdrop(parent,container)
+    if not C_XMLUtil.GetTemplateInfo("DisableUntrustedLayoutScriptsTemplate")then return end
+    local backdrop=CreateFrame("Frame",nil,parent,"DisableUntrustedLayoutScriptsTemplate")
+    backdrop:SetSize(40,40);backdrop:EnableMouse(false)
+    local ok=pcall(backdrop.SetPoint,backdrop,"TOPLEFT",container,"TOPRIGHT",-1,0)
+    if ok then return backdrop end
+    backdrop:Hide()
+end
 local function StyleNativeAura(slot,frame)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
     local forever=slot.nativeHost~=nil
     if forever then frame:SetFrameLevel(slot.baseIconFrame:GetFrameLevel()+2)end
     frame.monitorIcon=frame:CreateTexture(nil,"ARTWORK");frame.monitorIcon:SetAllPoints();frame.monitorIcon:SetDesaturated(true)
-    if forever then
+    if forever and not slot.nativeBackdrop then
         -- The provider owns visibility. An opaque, dimmed icon covers the
         -- colored base even when the client forbids reading aura visibility.
         frame.monitorIcon:SetVertexColor(.5,.5,.5,1)
@@ -587,11 +599,19 @@ local function NativeAura(slot)
     local container=CreateFrame("AuraContainer",nil,parent,"CustomAuraContainerTemplate")
     container:SetEnabled(false);container:SetUnit("target");container:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0)
     slot.nativeFrames={};slot.nativeAuras=container
+    if slot.nativeHost then
+        local backdrop=S.CreateAuraBackdrop(slot.nativeHost,container)
+        if backdrop then
+            slot.nativeBackdrop=backdrop:CreateTexture(nil,"ARTWORK");slot.nativeBackdrop:SetAllPoints()
+            slot.nativeBackdrop:SetTexture(slot.customFallbackIcon)
+        end
+    end
+    local width=slot.nativeBackdrop and S.auraBackdropLayoutWidth or 40
     container:AddAuraGroup("monitor","HARMFUL|PLAYER",{maxFrameCount=0,initializeFrame=function(frame)StyleNativeAura(slot,frame)end})
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
-    container:SetFlowLayoutMaximumLineSize(40.001)
-    container:SetAuraGroupLayout("monitor",{elementSpacing=0,lineSpacing=0,elementWidth=40,elementHeight=40})
+    container:SetFlowLayoutMaximumLineSize(width+.001)
+    container:SetAuraGroupLayout("monitor",{elementSpacing=0,lineSpacing=0,elementWidth=width,elementHeight=40})
 end
 local function Icon(o,i)
     local slot=o.skillIcons[i];if slot then return slot end
@@ -636,6 +656,7 @@ local function Resolve(slot,entry)
     if not Readable(id) then id=nil end
     slot.entry=entry;slot.spellID=id;slot.spellName=name or entry.value
     slot.texture:SetTexture(icon or 134400);slot.customFallbackIcon=icon or 134400
+    if slot.nativeBackdrop then slot.nativeBackdrop:SetTexture(slot.customFallbackIcon)end
     slot.needsInfo=entry.type~="custom"and(not id or not icon);slot.nextInfo=GetTime()+1
 end
 local function BindAura(slot,enabled)
@@ -713,7 +734,10 @@ end
 local function TargetAuras(o)
     local needed=false
     for _,slot in ipairs(o.skillIcons)do
-        if slot.entry and slot.entry.type=="debuff" then slot.active=false;slot.expires=nil;slot.stacks=nil;needed=true end
+        if slot.entry and slot.entry.type=="debuff" then
+            slot.active=false;slot.expires=nil;slot.stacks=nil
+            if not slot.nativeBackdrop then needed=true end
+        end
     end
     if not needed or (o.usesNativeAuras and M.Compat.interface~=16001) then return end
     if o.usesNativeAuras and C_Secrets and M.Compat.Bool(Safe(C_Secrets.ShouldAurasBeSecret,"target")) then return end
@@ -721,7 +745,7 @@ local function TargetAuras(o)
         local id=aura.spellId;if type(id)=="nil" then id=aura.spellID end
         for _,slot in ipairs(o.skillIcons)do
             local entry=slot.entry
-            if entry and entry.type=="debuff" then
+            if entry and entry.type=="debuff" and not slot.nativeBackdrop then
                 local requested=tonumber(entry.value)
                 local match=requested and Readable(id) and id==requested or (not requested and Readable(aura.name) and aura.name==entry.value)
                 local source=aura.sourceUnit
@@ -779,7 +803,11 @@ function S.Paint(view,o,animateOnly)
         -- when the native button's inherited visibility is inaccessible.
         local readableDebuff=not view.preview and slot.nativeHost and slot.entry.type=="debuff"
             and slot.active and (not slot.expires or slot.expires>now)
-        if slot.nativeHost then slot.nativeHost:SetAlpha(readableDebuff and 0 or 1)end
+        local useNative=not view.preview and o.usesNativeAuras and slot.entry.type=="debuff" and slot.spellID~=nil and not readableDebuff
+        if slot.nativeHost then
+            M.CustomMonitor.SetVisual(slot.nativeHost,"SetAlpha",useNative and 1 or 0)
+            M.CustomMonitor.SetVisual(slot.baseIconFrame,"SetAlpha",useNative and slot.nativeBackdrop and 0 or 1)
+        end
         if slot.entry.type~="custom"and slot.customGlow then slot.customGlow:Hide()end
         for _,frame in ipairs(slot.nativeFrames or {})do
             if not view.preview and o.usesNativeAuras and slot.entry.type=="debuff" and not readableDebuff then
