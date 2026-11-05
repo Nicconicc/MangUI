@@ -235,8 +235,10 @@ function E.AttackPoints(o,active,elapsed,total)
 end
 function E.Paint(view,o,s,animateOnly)
     local c=s.cast
+    local group=M.byID and M.byID[o.spec.parent]
+    local playSound=not view.preview and o.spec.unit=="player" and (not group or group.castStageSound~=false)
     Ready(o,"empower")
-    if o.spec.unit=="player"or o.spec.unit=="vehicle"then RegularPoints(o,c,nil,not view.preview and o.spec.unit=="player")end
+    if o.spec.unit=="player"or o.spec.unit=="vehicle"then RegularPoints(o,c,nil,playSound)end
     if not c.active or not c.empowered or not c.empowerStages then
         if o.empower then o.empower.root:Hide();o.empower.bound=nil end
         return false
@@ -272,7 +274,7 @@ function E.Paint(view,o,s,animateOnly)
             alpha=age>=0 and(age<.08 and 1 or age<.18 and .65 or age<.32 and .25 or 0)or 0
         end
         alpha=Evaluate(c,elapsed,a.flashCurves[i],alpha)
-        PlayBoundarySound(boundary,c,alpha,not view.preview and o.spec.unit=="player")
+        PlayBoundarySound(boundary,c,alpha,playSound)
         boundary.flash:SetAlpha(alpha)
     end
     local stage=0

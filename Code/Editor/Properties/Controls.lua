@@ -419,9 +419,11 @@ local function BuildProperties(e)
         return swatch
     end
     e.castColor=PlayerCastColorSwatch("color")
+    e.castStageSound=W.Check(content,"开启分段音效",function(enabled)Change("castStageSound",enabled)end)
     local castColorLabel=W.Label(content,"施法条颜色")
     castColorLabel.whitePropertyLabel=true;M:SetLocaleLineHeight(castColorLabel,16.8)
     Row(30,{{castColorLabel,0,-3.6},{e.castColor,0,0,castColorLabel}},{},"castColor");y=y-30
+    Row(32,{{e.castStageSound,-4,0}},nil,"castStageSound");y=y-32
     local function SetPortraitTextureEnabled(id,enabled)
         local group=Selected();local part=M.byID[id]
         if not group or group.id~="wabc757f81ee" or not part or part.parent~=group.id or not M:CanEdit() then

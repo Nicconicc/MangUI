@@ -90,6 +90,7 @@ local function CleanNodes(nodes)
     for _,key in ipairs({"decorationBaseX","decorationBaseY","decorationPivotRevision"}) do fields[key]={number=true} end
     fields.classificationPivotRevision={number=true}
     fields.portraitNameOnly={boolean=true}
+    fields.castStageSound={boolean=true}
     fields.showRangedProgress={boolean=true};fields.showMeleeProgress={boolean=true}
     for _,key in ipairs({"resourceSpacing","debuffCount","debuffPerRow","buffCount","buffPerRow","moveX","moveY"}) do fields[key]={number=true} end
     for key in pairs(nodes) do if type(key)~="number" or key<1 or key>#nodes or key%1~=0 then return end end
