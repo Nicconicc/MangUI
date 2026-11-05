@@ -159,6 +159,10 @@ local function ResetNative(slot)
 end
 local function Resolve(slot,entry)
     local name,id,icon=M.PetBuffs.SpellInfo(entry.value)
+    if entry.type~="buffMissing" or slot.missingBuffValue~=entry.value then
+        slot.missingBuffVisible=nil
+    end
+    slot.missingBuffValue=entry.type=="buffMissing" and entry.value or nil
     slot.entry=entry;slot.spellID=tonumber(entry.value)or id;slot.spellName=name or entry.value
     slot.item=entry.type=="equipment"and O.Effects(entry.slot or 13)or nil
     slot.texture:SetTexture(slot.item and slot.item.icon or icon or 134400)
@@ -443,6 +447,9 @@ local function Refresh(view,o,now)
                 slot.show=slot.condition and auras~=nil;slot.faded=false;slot.expires=not IsMissing(entry)and aura and Number(aura.expirationTime)or nil
                 slot.stacks=not IsMissing(entry)and aura and aura.applications or nil;slot.auraIndex=aura and aura.monitorIndex
                 slot.rawKnown=auras~=nil
+                if entry.type=="buffMissing" and slot.rawKnown then
+                    slot.missingBuffVisible=slot.show
+                end
             end
             if slot.nativeDirty and not InCombatLockdown()then BindNative(slot)end
             -- Protected aura existence never drives Lua sounds or hidden timers.
@@ -492,8 +499,12 @@ function O.Paint(view,o,animateOnly)
             end
         end
         local eligible=not IsTarget(entry)or M.Compat.Bool(Safe(UnitExists,"target"))
-        local visible=view.preview or (allowed and ((native and eligible)or slot.show==true))
-        if native and IsMissing(entry)then visible=allowed and slot.rawKnown==true and slot.show==true end
+        local visible=view.preview or (allowed and (slot.show==true or
+            (native and not IsMissing(entry) and not slot.rawKnown and eligible)))
+        if not view.preview and entry.type=="buffMissing"then
+            -- An unreadable aura list does not invalidate the last known state.
+            visible=allowed and slot.missingBuffVisible==true
+        end
         slot:SetShown(visible)
         local baseAlpha=native and not IsMissing(entry)and entry.type~="equipment"and 0 or 1
         M.CustomMonitor.SetVisual(slot.base,"SetAlpha",baseAlpha);M.CustomMonitor.SetVisual(slot.annotations,"SetAlpha",baseAlpha)
