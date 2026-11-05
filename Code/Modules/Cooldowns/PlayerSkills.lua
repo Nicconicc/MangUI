@@ -545,7 +545,7 @@ end
 local function StyleNativeAura(slot,frame)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
-    frame.monitorIcon=frame:CreateTexture(nil,"ARTWORK");frame.monitorIcon:SetAllPoints();frame.monitorIcon:SetDesaturated(M.Compat.interface~=16001)
+    frame.monitorIcon=frame:CreateTexture(nil,"ARTWORK");frame.monitorIcon:SetAllPoints();frame.monitorIcon:SetDesaturated(true)
     frame.monitorIcon:SetAlpha(.5)
     frame.monitorTime=frame:CreateFontString(nil,"OVERLAY");Font(frame.monitorTime)
     frame.monitorTime:SetPoint("BOTTOM",frame,"TOP",0,7)
@@ -569,7 +569,13 @@ local function StyleNativeAura(slot,frame)
     slot.nativeFrames[#slot.nativeFrames+1]=frame
 end
 local function NativeAura(slot)
-    local container=CreateFrame("AuraContainer",nil,slot,"CustomAuraContainerTemplate")
+    local parent=slot
+    if M.Compat.interface==16001 then
+        slot.nativeHost=CreateFrame("Frame",nil,slot)
+        slot.nativeHost:SetAllPoints()
+        parent=slot.nativeHost
+    end
+    local container=CreateFrame("AuraContainer",nil,parent,"CustomAuraContainerTemplate")
     container:SetEnabled(false);container:SetUnit("target");container:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0)
     slot.nativeFrames={};slot.nativeAuras=container
     container:AddAuraGroup("monitor","HARMFUL|PLAYER",{maxFrameCount=0,initializeFrame=function(frame)StyleNativeAura(slot,frame)end})
@@ -644,7 +650,9 @@ function S.Configure(view,o)
         Font(slot.text)
         Shortcut(slot,entry)
         if slot.nativeTime then Font(slot.nativeTime)end
-        for _,frame in ipairs(slot.nativeFrames or {})do Font(frame.monitorTime);CountFont(frame.monitorCount)end
+        if M.Compat.interface~=16001 then
+            for _,frame in ipairs(slot.nativeFrames or {})do Font(frame.monitorTime);CountFont(frame.monitorCount)end
+        end
         if o.usesNativeAuras then BindAura(slot,view.byID[o.spec.parent].enabled~=false)end
     end
     for i=#o.entries+1,#o.skillIcons do
@@ -700,7 +708,8 @@ local function TargetAuras(o)
     for _,slot in ipairs(o.skillIcons)do
         if slot.entry and slot.entry.type=="debuff" then slot.active=false;slot.expires=nil;slot.stacks=nil;needed=true end
     end
-    if not needed or o.usesNativeAuras then return end
+    if not needed or (o.usesNativeAuras and M.Compat.interface~=16001) then return end
+    if o.usesNativeAuras and C_Secrets and M.Compat.Bool(Safe(C_Secrets.ShouldAurasBeSecret,"target")) then return end
     for index,aura in ipairs(M.Compat.AuraSnapshot("target","HARMFUL"))do
         local id=aura.spellId;if type(id)=="nil" then id=aura.spellID end
         for _,slot in ipairs(o.skillIcons)do
@@ -759,9 +768,14 @@ function S.Paint(view,o,animateOnly)
     for i=1,#entries do
         local slot=o.skillIcons[i]
         local textureAlpha,shortcutAlpha=1,1
+        -- On Forever, a readable match can draw the complete faded icon even
+        -- when the native button's inherited visibility is inaccessible.
+        local readableDebuff=not view.preview and slot.nativeHost and slot.entry.type=="debuff"
+            and slot.active and (not slot.expires or slot.expires>now)
+        if slot.nativeHost then slot.nativeHost:SetAlpha(readableDebuff and 0 or 1)end
         if slot.entry.type~="custom"and slot.customGlow then slot.customGlow:Hide()end
         for _,frame in ipairs(slot.nativeFrames or {})do
-            if not view.preview and o.usesNativeAuras and slot.entry.type=="debuff" then
+            if not view.preview and o.usesNativeAuras and slot.entry.type=="debuff" and not readableDebuff then
                 local present=Safe(frame.monitorPresence.IsVisible,frame.monitorPresence)
                 if type(present)=="nil"then
                     frame.shortcutGate:SetAlpha(1);frame.baseIconGate:SetAlpha(1)
@@ -780,7 +794,7 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetText(slot.count,result.count and tostring(result.count)or "")
             M.CustomMonitor.Glow(slot,result.show and result.glow)
         elseif view.preview then
-            ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",i%2==1 and not(slot.entry.type=="debuff"and M.Compat.interface==16001));textureAlpha=i%2==1 and .5 or 1;M.CustomMonitor.SetText(slot.text,tostring(30-i))
+            ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",i%2==1);textureAlpha=i%2==1 and .5 or 1;M.CustomMonitor.SetText(slot.text,tostring(30-i))
             M.CustomMonitor.SetText(slot.count,slot.entry.type=="debuff"and "3"or "2")
         elseif slot.duration then
             local desat=DesaturationCurve()
@@ -797,13 +811,13 @@ function S.Paint(view,o,animateOnly)
                     shortcutAlpha=remaining>0 and 0 or 1
                 end
             end
-        elseif slot.entry.type=="debuff" and o.usesNativeAuras then
+        elseif slot.entry.type=="debuff" and o.usesNativeAuras and not readableDebuff then
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
             -- Native aura frames draw a half-opacity icon and countdown while
             -- present. The colored base icon remains visible when absent.
         else
             local active=slot.active and (not slot.expires or slot.expires>now)
-            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",active==true and not(slot.entry.type=="debuff"and M.Compat.interface==16001));Remaining(slot,active and slot.expires and slot.expires-now or nil)
+            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",active==true);Remaining(slot,active and slot.expires and slot.expires-now or nil)
             textureAlpha=active and .5 or 1
             shortcutAlpha=active and 0 or 1
             if slot.entry.type=="debuff"then CountText(slot.count,active and slot.stacks or nil,false)end
