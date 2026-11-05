@@ -161,9 +161,16 @@ local function Evaluate(c,elapsed,curve,fallback)
     if C.Readable(value)and value==nil then return fallback end
     return value
 end
+local function PlayBoundarySound(point,c,alpha,enabled)
+    if not enabled or not PlaySoundFile or not C.Readable(alpha) or not c.start then return end
+    if alpha>0 and (point.soundStart~=c.start or point.soundChannel~=c.channel) then
+        point.soundStart,point.soundChannel=c.start,c.channel
+        PlaySoundFile(M.ART.."Player\\CastStage.ogg","SFX")
+    end
+end
 -- Ordinary casts retain their original fill, tint and text. Only the three
 -- boundary flashes are shared with empowerment; there are no stage overlays.
-local function RegularPoints(o,c,elapsedOverride)
+local function RegularPoints(o,c,elapsedOverride,playSound)
     local a=Ready(o,"castPoints")
     if not c.active or c.empowered then
         if a then a.root:Hide()end
@@ -209,6 +216,7 @@ local function RegularPoints(o,c,elapsedOverride)
             if not C.Readable(value)or value~=nil then alpha=value end
         end
         -- The only sink for an opaque curve result is the native alpha setter.
+        PlayBoundarySound(point,c,alpha,playSound)
         M.RendererInternals.CachedValue(point,"flashAlpha",point.flash,"SetAlpha",alpha)
     end
 end
@@ -228,7 +236,7 @@ end
 function E.Paint(view,o,s,animateOnly)
     local c=s.cast
     Ready(o,"empower")
-    if o.spec.unit=="player"or o.spec.unit=="vehicle"then RegularPoints(o,c)end
+    if o.spec.unit=="player"or o.spec.unit=="vehicle"then RegularPoints(o,c,nil,not view.preview and o.spec.unit=="player")end
     if not c.active or not c.empowered or not c.empowerStages then
         if o.empower then o.empower.root:Hide();o.empower.bound=nil end
         return false
@@ -263,7 +271,9 @@ function E.Paint(view,o,s,animateOnly)
             local age=elapsed-stage.finish
             alpha=age>=0 and(age<.08 and 1 or age<.18 and .65 or age<.32 and .25 or 0)or 0
         end
-        boundary.flash:SetAlpha(Evaluate(c,elapsed,a.flashCurves[i],alpha))
+        alpha=Evaluate(c,elapsed,a.flashCurves[i],alpha)
+        PlayBoundarySound(boundary,c,alpha,not view.preview and o.spec.unit=="player")
+        boundary.flash:SetAlpha(alpha)
     end
     local stage=0
     if elapsed then for i,v in ipairs(c.empowerStages)do if elapsed>=v.finish then stage=i end end end
