@@ -68,8 +68,9 @@ local function Auras(unit,filter)
 end
 local function Find(auras,entry,spellID)
     if not auras then return end
-    local id=tonumber(entry.value)or spellID
-    return id and auras.byID[id]or auras.byName[entry.value]
+    local id=tonumber(entry.value)
+    if id then return auras.byID[id]end
+    return auras.byName[entry.value] or auras.byID[spellID]
 end
 local function Time(text,expires,now)
     local remaining=expires and expires-now
@@ -126,12 +127,22 @@ local function NativeFrame(slot,frame)
         frame:SetDurationText(frame.time,S.DurationTextOptions());frame:SetApplicationCount(frame.count,{})
     end
 end
+local battleShoutRanks={[6673]=true,[5242]=true,[6192]=true,[11549]=true,[11550]=true,[11551]=true,[25289]=true,[2048]=true,[47436]=true}
 local function BindNative(slot)
     slot.nativeDirty=nil
     local ids={};local entry=slot.entry
+    slot.nativeAuraIDs=nil
     if entry.type=="custom"then if slot.container then slot.container:SetEnabled(false)end;slot.nativeBound=false;return end
     if entry.type=="equipment"then for id in pairs(slot.item.effects)do ids[id]=true end
-    elseif slot.spellID then ids[slot.spellID]=true end
+    else
+        if slot.spellID then ids[slot.spellID]=true end
+        if M.Compat.interface==16001 and not tonumber(entry.value)then
+            if not IsTarget(entry) and battleShoutRanks[slot.spellID]then
+                for id in pairs(battleShoutRanks)do ids[id]=true end
+            end
+            if slot.observedAuraID then ids[slot.observedAuraID]=true end
+        end
+    end
     if not next(ids)then if slot.container then slot.container:SetEnabled(false)end;slot.nativeBound=false;return end
     local style={entry.type,tostring(slot.item and slot.item.icon or ""),tostring(entry.glow)}
     for _,v in ipairs(entry.glowColor or {})do style[#style+1]=tostring(v)end
@@ -168,6 +179,7 @@ local function BindNative(slot)
     slot.container:SetEnabled(false);slot.container:SetUnit(IsTarget(entry)and "target"or "player")
     slot.boundType=entry.type
     slot.container:SetAuraGroupCandidateFilters("monitor",{includeSpellIDs=ids})
+    slot.nativeAuraIDs=ids
     slot.container:SetAuraGroupMaxFrameCount("monitor",1)
     slot.container:SetEnabled(true);slot.container:UpdateAllAuras();slot.nativeBound=true
 
@@ -179,6 +191,8 @@ local function ResetNative(slot)
 end
 local function Resolve(slot,entry)
     local name,id,icon=M.PetBuffs.SpellInfo(entry.value)
+    if slot.auraInput~=entry.value or slot.auraType~=entry.type then slot.observedAuraID=nil end
+    slot.auraInput,slot.auraType=entry.value,entry.type
     if entry.type~="buffMissing" or slot.missingBuffValue~=entry.value then
         slot.missingBuffVisible=nil
     end
@@ -252,7 +266,7 @@ local function AnchorLinks(o,links,entries,previous,edge,direction,step,placeIco
                 frame:AddAuraGroup("spacing",filter,{maxFrameCount=1,layout={elementWidth=step,elementHeight=1},
                     initializeFrame=function(button)button:SetSize(1,1);button:EnableMouse(false);button:EnableMouseMotion(false)end})
             elseif link.filter~=filter then frame:SetAuraGroupFilterString("spacing",filter)end
-            if link.kind~=kind then link.spellID=nil end
+            if link.kind~=kind then link.spellIDs=nil end
             link.filter=filter
             frame:SetUnit(kind=="debuffFound"and "target"or "player")
         end
@@ -285,12 +299,12 @@ local function CompactRow(o,entries,direction)
     row.direction=direction;row.count=#entries;row.centered=centered
     return row
 end
-local function SizeLink(link,spellID,visible)
+local function SizeLink(link,spellIDs,visible)
     local frame=link.frame
-    local measuring=spellID~=nil and link.kind~="fixed"
-    if measuring and link.spellID~=spellID then
-        frame:SetAuraGroupCandidateFilters("spacing",{includeSpellIDs={[spellID]=true}})
-        link.spellID=spellID
+    local measuring=spellIDs~=nil and link.kind~="fixed"
+    if measuring and link.spellIDs~=spellIDs then
+        frame:SetAuraGroupCandidateFilters("spacing",{includeSpellIDs=spellIDs})
+        link.spellIDs=spellIDs
     end
     if link.filter and link.measuring~=measuring then
         frame:SetEnabled(measuring);link.measuring=measuring
@@ -551,6 +565,12 @@ local function Refresh(view,o,now)
             else
                 local auras=player;if IsTarget(entry)then auras=target end
                 local aura=Find(auras,entry,slot.spellID);local present=aura~=nil
+                if aura and o.nativeCompact and not tonumber(entry.value)then
+                    local id=Number(aura.spellId) or Number(aura.spellID)
+                    if id and not (slot.nativeAuraIDs and slot.nativeAuraIDs[id])then
+                        slot.observedAuraID=id;slot.nativeDirty=true
+                    end
+                end
                 slot.active=present;slot.condition=IsMissing(entry)and not present or (not IsMissing(entry)and present)
                 if IsTarget(entry)and not targetExists then slot.condition=false end
                 slot.show=slot.condition and auras~=nil;slot.faded=false;slot.expires=not IsMissing(entry)and aura and Number(aura.expirationTime)or nil
@@ -601,10 +621,11 @@ function O.Paint(view,o,animateOnly)
         local allowed=DisplayAllowed(entry,combat,boss)
         local custom=entry.type=="custom"and (view.preview or allowed)and M.CustomMonitor.Apply(o,slot,view.preview)
         local rawWeapon=slot.sharedWeapon and slot.rawKnown
-        local native=not view.preview and o.native and slot.nativeBound and not rawWeapon
+        local rawAura=row and slot.rawKnown and entry.type~="equipment"and entry.type~="custom"
+        local native=not view.preview and o.native and slot.nativeBound and not (rawWeapon or rawAura)
         if slot.container then
-            slot.container:SetAlpha(rawWeapon and 0 or 1)
-            if rawWeapon then
+            slot.container:SetAlpha((rawWeapon or rawAura)and 0 or 1)
+            if rawWeapon or rawAura then
                 for _,gate in ipairs(slot.nativeGates or {})do gate.base:SetAlpha(1);gate.time:SetAlpha(1)end
             end
         end
@@ -619,9 +640,9 @@ function O.Paint(view,o,animateOnly)
             visible=allowed and ((nativeMissing and (row~=nil or not slot.rawKnown))or slot.missingBuffVisible==true)
         end
         if row then
-            local spellID=visible and (nativeMissing or nativeFound) and slot.spellID or nil
-            SizeLink(row.full[i],spellID,visible)
-            if row.centered then SizeLink(row.half[i],spellID,visible)end
+            local spellIDs=visible and (nativeMissing or nativeFound) and slot.nativeAuraIDs or nil
+            SizeLink(row.full[i],spellIDs,visible)
+            if row.centered then SizeLink(row.half[i],spellIDs,visible)end
         end
         slot:SetShown(visible)
         local baseAlpha=native and not IsMissing(entry)and entry.type~="equipment"and 0 or 1
