@@ -13,6 +13,9 @@ end
 local function SetGlow(frame,enabled,color,now)
     M.CustomMonitor.PaintGlow(frame,enabled,color,now)
 end
+local function Accessible(frame)
+    return not(frame.IsForbidden and frame:IsForbidden())
+end
 local function NativeAvailable()
     local interface=M.Compat.interface or 0
     if interface~=16001 and interface<120000 then return false end
@@ -114,6 +117,8 @@ local function NativeFrame(slot,frame)
     slot.lastTimeGate=frame.timeGate;slot.time:SetParent(frame.timeGate);slot.count:SetParent(frame.timeGate)
     slot.nativeFrames[#slot.nativeFrames+1]=frame
     local entry=slot.entry
+    frame.icon:SetDesaturated(false);frame.icon:SetAlpha(1)
+    SetGlow(frame.glow,not IsMissing(entry)and entry.glow,entry.glowColor,GetTime())
     frame.icon:SetShown(not IsMissing(entry));frame.time:SetShown(not IsMissing(entry));frame.count:SetShown(not IsMissing(entry))
     if not IsMissing(entry)then
         if entry.type=="equipment"then frame.icon:SetTexture(slot.item.icon or 134400)else frame:SetIcon(frame.icon)end
@@ -146,18 +151,23 @@ local function BindNative(slot)
     slot.container:SetAuraGroupMaxFrameCount("monitor",1)
     slot.container:SetEnabled(true);slot.container:UpdateAllAuras();slot.nativeBound=true
     for _,frame in ipairs(slot.nativeFrames)do
+        if Accessible(frame)then
         frame.icon:SetShown(not IsMissing(entry));frame.time:SetShown(not IsMissing(entry));frame.count:SetShown(not IsMissing(entry))
         if not IsMissing(entry)then
             if entry.type=="equipment"then frame.icon:SetTexture(slot.item.icon or 134400)
             else frame:SetIcon(frame.icon)end
             frame:SetDurationText(frame.time,S.DurationTextOptions());frame:SetApplicationCount(frame.count,{})
         end
+        end
     end
 end
 local function ResetNative(slot)
     if slot.container then slot.container:SetEnabled(false)end
     slot.nativeBound=false
-    for _,frame in ipairs(slot.nativeFrames or {})do frame.baseGate:SetAlpha(1);frame.timeGate:SetAlpha(1);frame.glow:Hide()end
+    for _,frame in ipairs(slot.nativeFrames or {})do
+        frame.baseGate:SetAlpha(1);frame.timeGate:SetAlpha(1)
+        if Accessible(frame)then frame.glow:Hide()end
+    end
 end
 local function Resolve(slot,entry)
     local name,id,icon=M.PetBuffs.SpellInfo(entry.value)
@@ -487,6 +497,8 @@ function O.Paint(view,o,animateOnly)
         local custom=entry.type=="custom"and (view.preview or allowed)and M.CustomMonitor.Apply(o,slot,view.preview)
         local rawWeapon=slot.sharedWeapon and slot.rawKnown
         local native=not view.preview and o.native and slot.nativeBound and not rawWeapon
+        local restricted=false
+        if native then for _,frame in ipairs(slot.nativeFrames or {})do if not Accessible(frame)then restricted=true;break end end end
         if slot.container then
             slot.container:SetAlpha(rawWeapon and 0 or 1)
             if rawWeapon then
@@ -495,6 +507,7 @@ function O.Paint(view,o,animateOnly)
         end
         local eligible=not IsTarget(entry)or M.Compat.Bool(Safe(UnitExists,"target"))
         local visible=view.preview or (allowed and ((native and eligible)or slot.show==true))
+        if restricted and IsMissing(entry)then visible=allowed and slot.rawKnown==true and slot.show==true end
         slot:SetShown(visible)
         local baseAlpha=native and not IsMissing(entry)and entry.type~="equipment"and 0 or 1
         M.CustomMonitor.SetVisual(slot.base,"SetAlpha",baseAlpha);M.CustomMonitor.SetVisual(slot.annotations,"SetAlpha",baseAlpha)
@@ -511,6 +524,7 @@ function O.Paint(view,o,animateOnly)
             SetGlow(slot.glow,glow and slot.condition,entry.glowColor,now)
             if native then
                 for _,frame in ipairs(slot.nativeFrames or {})do
+                    if Accessible(frame)then
                     if frame.baseGate.SetAlphaFromBoolean then
                         frame.baseGate:SetAlphaFromBoolean(frame:IsShown(),0,1);frame.timeGate:SetAlphaFromBoolean(frame:IsShown(),0,1)
                     else
@@ -523,6 +537,13 @@ function O.Paint(view,o,animateOnly)
                     if entry.type=="equipment"then frame.icon:SetTexture(slot.item.icon or 134400)end
                     SetGlow(frame.glow,not IsMissing(entry)and entry.glow,entry.glowColor,now)
                     if IsMissing(entry)then SetGlow(slot.glow,entry.glow,entry.glowColor,now)end
+                    else
+                        -- Only these gates are public siblings of the native
+                        -- tree. Never query or mutate an adopted descendant.
+                        local present=slot.rawKnown and slot.active
+                        frame.baseGate:SetAlpha(present and 0 or 1)
+                        frame.timeGate:SetAlpha(present and 0 or 1)
+                    end
                 end
             end
         end
