@@ -13,9 +13,6 @@ end
 local function SetGlow(frame,enabled,color,now)
     M.CustomMonitor.PaintGlow(frame,enabled,color,now)
 end
-local function Accessible(frame)
-    return not(frame.IsForbidden and frame:IsForbidden())
-end
 local function NativeAvailable()
     local interface=M.Compat.interface or 0
     if interface~=16001 and interface<120000 then return false end
@@ -115,7 +112,7 @@ local function NativeFrame(slot,frame)
     slot.lastGate=frame.baseGate;slot.texture:SetParent(frame.baseGate);slot.glow:SetParent(frame.baseGate)
     frame.timeGate=CreateFrame("Frame",nil,slot.lastTimeGate or slot.annotations);frame.timeGate:SetAllPoints();frame.timeGate:EnableMouse(false)
     slot.lastTimeGate=frame.timeGate;slot.time:SetParent(frame.timeGate);slot.count:SetParent(frame.timeGate)
-    slot.nativeFrames[#slot.nativeFrames+1]=frame
+    slot.nativeGates[#slot.nativeGates+1]={base=frame.baseGate,time=frame.timeGate}
     local entry=slot.entry
     frame.icon:SetDesaturated(false);frame.icon:SetAlpha(1)
     SetGlow(frame.glow,not IsMissing(entry)and entry.glow,entry.glowColor,GetTime())
@@ -132,14 +129,17 @@ local function BindNative(slot)
     if entry.type=="equipment"then for id in pairs(slot.item.effects)do ids[id]=true end
     elseif slot.spellID then ids[slot.spellID]=true end
     if not next(ids)then if slot.container then slot.container:SetEnabled(false)end;slot.nativeBound=false;return end
-    if slot.container and slot.boundType~=entry.type then
+    local style={entry.type,tostring(slot.item and slot.item.icon or ""),tostring(entry.glow)}
+    for _,v in ipairs(entry.glowColor or {})do style[#style+1]=tostring(v)end
+    local styleKey=table.concat(style,":")
+    if slot.container and slot.nativeStyle~=styleKey then
         slot.container:SetEnabled(false);slot.container:Hide();slot.container=nil
         slot.texture:SetParent(slot.base);slot.glow:SetParent(slot.base);slot.time:SetParent(slot.annotations);slot.count:SetParent(slot.annotations)
         slot.lastGate,slot.lastTimeGate=nil,nil
     end
     if not slot.container then
         local container=CreateFrame("AuraContainer",nil,slot,"CustomAuraContainerTemplate")
-        container:SetEnabled(false);container:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0);slot.container=container;slot.nativeFrames={}
+        container:SetEnabled(false);container:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0);slot.container=container;slot.nativeGates={};slot.nativeStyle=styleKey
         container:AddAuraGroup("monitor",IsTarget(entry)and "HARMFUL|PLAYER"or "HELPFUL",{maxFrameCount=0,initializeFrame=function(frame)NativeFrame(slot,frame)end})
         container:SetFlowLayoutAnchorPoint("TOPLEFT");container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
         container:SetFlowLayoutMaximumLineSize(40.001)
@@ -150,24 +150,12 @@ local function BindNative(slot)
     slot.container:SetAuraGroupCandidateFilters("monitor",{includeSpellIDs=ids})
     slot.container:SetAuraGroupMaxFrameCount("monitor",1)
     slot.container:SetEnabled(true);slot.container:UpdateAllAuras();slot.nativeBound=true
-    for _,frame in ipairs(slot.nativeFrames)do
-        if Accessible(frame)then
-        frame.icon:SetShown(not IsMissing(entry));frame.time:SetShown(not IsMissing(entry));frame.count:SetShown(not IsMissing(entry))
-        if not IsMissing(entry)then
-            if entry.type=="equipment"then frame.icon:SetTexture(slot.item.icon or 134400)
-            else frame:SetIcon(frame.icon)end
-            frame:SetDurationText(frame.time,S.DurationTextOptions());frame:SetApplicationCount(frame.count,{})
-        end
-        end
-    end
+
 end
 local function ResetNative(slot)
     if slot.container then slot.container:SetEnabled(false)end
     slot.nativeBound=false
-    for _,frame in ipairs(slot.nativeFrames or {})do
-        frame.baseGate:SetAlpha(1);frame.timeGate:SetAlpha(1)
-        if Accessible(frame)then frame.glow:Hide()end
-    end
+    for _,gate in ipairs(slot.nativeGates or {})do gate.base:SetAlpha(1);gate.time:SetAlpha(1)end
 end
 local function Resolve(slot,entry)
     local name,id,icon=M.PetBuffs.SpellInfo(entry.value)
@@ -497,17 +485,15 @@ function O.Paint(view,o,animateOnly)
         local custom=entry.type=="custom"and (view.preview or allowed)and M.CustomMonitor.Apply(o,slot,view.preview)
         local rawWeapon=slot.sharedWeapon and slot.rawKnown
         local native=not view.preview and o.native and slot.nativeBound and not rawWeapon
-        local restricted=false
-        if native then for _,frame in ipairs(slot.nativeFrames or {})do if not Accessible(frame)then restricted=true;break end end end
         if slot.container then
             slot.container:SetAlpha(rawWeapon and 0 or 1)
             if rawWeapon then
-                for _,frame in ipairs(slot.nativeFrames or {})do frame.baseGate:SetAlpha(1);frame.timeGate:SetAlpha(1)end
+                for _,gate in ipairs(slot.nativeGates or {})do gate.base:SetAlpha(1);gate.time:SetAlpha(1)end
             end
         end
         local eligible=not IsTarget(entry)or M.Compat.Bool(Safe(UnitExists,"target"))
         local visible=view.preview or (allowed and ((native and eligible)or slot.show==true))
-        if restricted and IsMissing(entry)then visible=allowed and slot.rawKnown==true and slot.show==true end
+        if native and IsMissing(entry)then visible=allowed and slot.rawKnown==true and slot.show==true end
         slot:SetShown(visible)
         local baseAlpha=native and not IsMissing(entry)and entry.type~="equipment"and 0 or 1
         M.CustomMonitor.SetVisual(slot.base,"SetAlpha",baseAlpha);M.CustomMonitor.SetVisual(slot.annotations,"SetAlpha",baseAlpha)
@@ -523,27 +509,11 @@ function O.Paint(view,o,animateOnly)
             local glow=entry.glow;if custom and custom.glow~=nil then glow=custom.glow end
             SetGlow(slot.glow,glow and slot.condition,entry.glowColor,now)
             if native then
-                for _,frame in ipairs(slot.nativeFrames or {})do
-                    if Accessible(frame)then
-                    if frame.baseGate.SetAlphaFromBoolean then
-                        frame.baseGate:SetAlphaFromBoolean(frame:IsShown(),0,1);frame.timeGate:SetAlphaFromBoolean(frame:IsShown(),0,1)
-                    else
-                        local present=frame:IsShown()
-                        if Readable(present)then frame.baseGate:SetAlpha(present and 0 or 1);frame.timeGate:SetAlpha(present and 0 or 1)end
-                    end
-                    -- Native aura frames only render while the effect is active.
-                    -- Keep them colored even when the underlying item has a CD.
-                    frame.icon:SetDesaturated(false);frame.icon:SetAlpha(1)
-                    if entry.type=="equipment"then frame.icon:SetTexture(slot.item.icon or 134400)end
-                    SetGlow(frame.glow,not IsMissing(entry)and entry.glow,entry.glowColor,now)
-                    if IsMissing(entry)then SetGlow(slot.glow,entry.glow,entry.glowColor,now)end
-                    else
-                        -- Only these gates are public siblings of the native
-                        -- tree. Never query or mutate an adopted descendant.
-                        local present=slot.rawKnown and slot.active
-                        frame.baseGate:SetAlpha(present and 0 or 1)
-                        frame.timeGate:SetAlpha(present and 0 or 1)
-                    end
+                -- Gates are ordinary siblings outside the native tree. Use
+                -- only readable aura conditions; never query native buttons.
+                local present=slot.rawKnown and slot.active
+                for _,gate in ipairs(slot.nativeGates or {})do
+                    gate.base:SetAlpha(present and 0 or 1);gate.time:SetAlpha(present and 0 or 1)
                 end
             end
         end
