@@ -217,18 +217,21 @@ end
 function C.Aura(unit,index,filter,out)
     if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
         local ok,a=pcall(C_UnitAuras.GetAuraDataByIndex,unit,index,filter)
-        if not ok or not C.Readable(a) or type(a)~="table" then return end
-        if canaccesstable and not canaccesstable(a) then return end
+        if not ok or not C.Readable(a) then return nil,false end
+        if a==nil then return nil,true end
+        if type(a)~="table" or (canaccesstable and not canaccesstable(a)) then return nil,false end
         return a
     elseif UnitAura then
         local ok,name,icon,stacks,dispel,duration,expiration,sourceUnit,_,_,spellID=pcall(UnitAura,unit,index,filter)
-        if not ok or not C.Readable(name) or not name then return end
+        if not ok or not C.Readable(name) then return nil,false end
+        if not name then return nil,true end
         local a=out or {}
         a.name,a.icon,a.applications,a.dispelName=name,icon,stacks,dispel
         a.duration,a.expirationTime,a.sourceUnit,a.spellId=duration,expiration,sourceUnit,spellID
         a.auraInstanceID=nil
         return a
     end
+    return nil,false
 end
 -- Monitor consumers share only a single frame's readable aura enumeration.
 -- Own each record: some clients reuse the table returned by the aura API.
@@ -254,10 +257,10 @@ function C.AuraSnapshot(unit,filter)
     if not units then units={};auraSnapshots[unit]=units end
     local key=filter or "HELPFUL";local result=units[key]
     if auraSnapshotDepth>0 and result then return result end
-    result={}
+    result={complete=true}
     for index=1,255 do
-        local a=C.Aura(unit,index,filter)
-        if not a then break end
+        local a,available=C.Aura(unit,index,filter)
+        if not a then result.complete=available~=false;break end
         result[index]={name=a.name,icon=a.icon,applications=a.applications,
             dispelName=a.dispelName,duration=a.duration,expirationTime=a.expirationTime,
             sourceUnit=a.sourceUnit,spellId=a.spellId,spellID=a.spellID,auraInstanceID=a.auraInstanceID}

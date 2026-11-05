@@ -30,14 +30,17 @@ end
 local repeatedAuraIDs={player={},target={}}
 local function Auras(unit,filter)
     if not CanRead(unit)then return nil end
-    local result={byID={},byName={},instancesByID={}}
-    for index,raw in ipairs(M.Compat.AuraSnapshot(unit,filter))do
+    local snapshot=M.Compat.AuraSnapshot(unit,filter)
+    local result={byID={},byName={},instancesByID={},complete=snapshot.complete~=false}
+    for index,raw in ipairs(snapshot)do
         -- Own the record: compatibility APIs may reuse a temporary result table.
         local aura={name=raw.name,spellId=raw.spellId,spellID=raw.spellID,sourceUnit=raw.sourceUnit,
             expirationTime=raw.expirationTime,duration=raw.duration,applications=raw.applications,
             icon=raw.icon,auraInstanceID=raw.auraInstanceID}
         local id=aura.spellId;if type(id)=="nil"then id=aura.spellID end
-        if Readable(aura.name)and Readable(id)then
+        if not Readable(aura.name)or not Readable(id)or (unit=="target" and not Readable(aura.sourceUnit))then
+            result.complete=false
+        else
             if unit~="target"or (Readable(aura.sourceUnit)and (aura.sourceUnit=="player"or
                 (aura.sourceUnit and M.Compat.Bool(Safe(UnitIsUnit,aura.sourceUnit,"player")))))then
                 local key=Number(id)
@@ -66,8 +69,17 @@ local function Auras(unit,filter)
     end
     return result
 end
+local battleShoutRanks={6673,5242,6192,11549,11550,11551,25289,2048,47436}
+local function IsBattleShout(id)
+    if M.Compat.interface~=16001 then return false end
+    for _,rank in ipairs(battleShoutRanks)do if rank==id then return true end end
+    return false
+end
 local function Find(auras,entry,spellID)
     if not auras then return end
+    if IsBattleShout(spellID) and (entry.type=="buffFound"or entry.type=="buffMissing")then
+        for _,rank in ipairs(battleShoutRanks)do if auras.byID[rank]then return auras.byID[rank]end end
+    end
     local id=tonumber(entry.value)
     if id then return auras.byID[id]end
     return auras.byName[entry.value] or auras.byID[spellID]
@@ -96,7 +108,8 @@ local function DisplayState(o)
     end
     return combat,boss==true
 end
-local function DisplayAllowed(entry,combat,boss)
+function O.SoundAllowed(o,entry,combat,boss)
+    if combat==nil then combat,boss=DisplayState(o)end
     if entry.displayWhen=="never"then return false end
     if entry.displayWhen=="combat"then return combat end
     if entry.displayWhen=="boss"then return boss end
@@ -127,7 +140,6 @@ local function NativeFrame(slot,frame)
         frame:SetDurationText(frame.time,S.DurationTextOptions());frame:SetApplicationCount(frame.count,{})
     end
 end
-local battleShoutRanks={[6673]=true,[5242]=true,[6192]=true,[11549]=true,[11550]=true,[11551]=true,[25289]=true,[2048]=true,[47436]=true}
 local function BindNative(slot)
     slot.nativeDirty=nil
     local ids={};local entry=slot.entry
@@ -136,12 +148,10 @@ local function BindNative(slot)
     if entry.type=="equipment"then for id in pairs(slot.item.effects)do ids[id]=true end
     else
         if slot.spellID then ids[slot.spellID]=true end
-        if M.Compat.interface==16001 and not tonumber(entry.value)then
-            if not IsTarget(entry) and battleShoutRanks[slot.spellID]then
-                for id in pairs(battleShoutRanks)do ids[id]=true end
-            end
-            if slot.observedAuraID then ids[slot.observedAuraID]=true end
+        if not IsTarget(entry) and IsBattleShout(slot.spellID)then
+            for _,id in ipairs(battleShoutRanks)do ids[id]=true end
         end
+        if M.Compat.interface==16001 and not tonumber(entry.value) and slot.observedAuraID then ids[slot.observedAuraID]=true end
     end
     if not next(ids)then if slot.container then slot.container:SetEnabled(false)end;slot.nativeBound=false;return end
     local style={entry.type,tostring(slot.item and slot.item.icon or ""),tostring(entry.glow)}
@@ -159,7 +169,7 @@ local function BindNative(slot)
     if not slot.container then
         local container=CreateFrame("AuraContainer",nil,slot,"CustomAuraContainerTemplate")
         container:SetEnabled(false);container:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0);slot.container=container;slot.nativeGates={};slot.nativeStyle=styleKey
-        if entry.type=="buffMissing" and M.Compat.interface==16001 then
+        if IsMissing(entry) and M.Compat.interface==16001 then
             local host=CreateFrame("Frame",nil,slot);host:SetAllPoints()
             local backdrop=S.CreateAuraBackdrop(host,container)
             if backdrop then
@@ -193,10 +203,6 @@ local function Resolve(slot,entry)
     local name,id,icon=M.PetBuffs.SpellInfo(entry.value)
     if slot.auraInput~=entry.value or slot.auraType~=entry.type then slot.observedAuraID=nil end
     slot.auraInput,slot.auraType=entry.value,entry.type
-    if entry.type~="buffMissing" or slot.missingBuffValue~=entry.value then
-        slot.missingBuffVisible=nil
-    end
-    slot.missingBuffValue=entry.type=="buffMissing" and entry.value or nil
     slot.entry=entry;slot.spellID=tonumber(entry.value)or id;slot.spellName=name or entry.value
     slot.item=entry.type=="equipment"and O.Effects(entry.slot or 13)or nil
     slot.texture:SetTexture(slot.item and slot.item.icon or icon or 134400)
@@ -233,7 +239,7 @@ local function Icon(o,index)
 end
 local function LayoutKind(entry)
     local kind=entry.type
-    if kind=="buffFound"or kind=="debuffFound"or kind=="buffMissing"then return kind end
+    if kind=="buffFound"or kind=="debuffFound"or kind=="buffMissing"or kind=="debuffMissing"or kind=="equipment"then return kind end
     return "fixed"
 end
 -- A native link contributes one icon step or zero. Its empty width is one
@@ -241,7 +247,7 @@ end
 -- back toward the start, consuming the step when the buff is found.
 local function AnchorLinks(o,links,entries,previous,edge,direction,step,placeIcons)
     for i,entry in ipairs(entries)do
-        local kind=LayoutKind(entry);local inverse=kind=="buffMissing"
+        local kind=LayoutKind(entry);local inverse=IsMissing(entry)
         local link=links[i]
         if not link then
             local frame=CreateFrame("AuraContainer",nil,o.frame,"CustomAuraContainerTemplate,"..layoutTemplate)
@@ -262,14 +268,15 @@ local function AnchorLinks(o,links,entries,previous,edge,direction,step,placeIco
         frame:SetFlowLayoutGrowthDirection(grow==1 and AnchorUtil.FlowDirection.Right or AnchorUtil.FlowDirection.Left,AnchorUtil.FlowDirection.Down)
         frame:SetFlowLayoutMaximumLineSize(step+1.001)
         if kind~="fixed"then
-            local filter=kind=="debuffFound"and "HARMFUL|PLAYER"or "HELPFUL"
+            local target=IsTarget(entry)
+            local filter=target and "HARMFUL|PLAYER"or "HELPFUL"
             if not link.filter then
                 frame:AddAuraGroup("spacing",filter,{maxFrameCount=1,layout={elementWidth=step,elementHeight=1},
                     initializeFrame=function(button)button:SetSize(1,1);button:EnableMouse(false);button:EnableMouseMotion(false)end})
             elseif link.filter~=filter then frame:SetAuraGroupFilterString("spacing",filter)end
             if link.kind~=kind then link.spellIDs=nil end
             link.filter=filter
-            frame:SetUnit(kind=="debuffFound"and "target"or "player")
+            frame:SetUnit(target and "target"or "player")
         end
         link.kind=kind;link.inverse=inverse;link.step=step;link.padding=nil;link.measuring=nil
         previous=frame;edge=grow==1 and "TOPRIGHT"or "TOPLEFT"
@@ -527,11 +534,12 @@ local function Equipment(slot,auras,now,weaponAuras)
     end
     slot.active=active;slot.expires=active and expires or cdExpires;slot.stacks=active and stacks or nil
     slot.faded=not active and hasFixed and cdExpires~=nil and cdExpires>now or false
-    slot.fixedCooldown=hasFixed;slot.condition=active;slot.show=true;slot.rawKnown=auras~=nil
+    slot.fixedCooldown=hasFixed;slot.condition=active;slot.show=active or slot.faded;slot.rawKnown=auras~=nil
 end
 local function Refresh(view,o,now)
     local combat,boss=DisplayState(o)
     local player=Auras("player","HELPFUL")
+    local equipmentAuras=player and player.complete and player or nil
     local targetExists=M.Compat.Bool(Safe(UnitExists,"target"));local target=targetExists and Auras("target","HARMFUL|PLAYER")or nil
     local equipmentDue=now>=(o.nextEquipment or 0)
     if equipmentDue then TrackEquipment(true)end
@@ -555,14 +563,14 @@ local function Refresh(view,o,now)
             end
         end
     end
-    local weaponAuras=WeaponAuras(o,player)
+    local weaponAuras=WeaponAuras(o,equipmentAuras)
     for _,slot in ipairs(o.otherIcons)do
         local entry=slot.entry
         if entry then
             if entry.type=="custom"then
-                if DisplayAllowed(entry,combat,boss)then M.CustomMonitor.Apply(o,slot,false)
+                if entry.displayWhen~="never"then M.CustomMonitor.Apply(o,slot,false)
                 else slot.show=false;slot.condition=false end
-            elseif entry.type=="equipment"then Equipment(slot,player,now,weaponAuras)
+            elseif entry.type=="equipment"then Equipment(slot,equipmentAuras,now,weaponAuras)
             else
                 local auras=player;if IsTarget(entry)then auras=target end
                 local aura=Find(auras,entry,slot.spellID);local present=aura~=nil
@@ -574,18 +582,15 @@ local function Refresh(view,o,now)
                 end
                 slot.active=present;slot.condition=IsMissing(entry)and not present or (not IsMissing(entry)and present)
                 if IsTarget(entry)and not targetExists then slot.condition=false end
-                slot.show=slot.condition and auras~=nil;slot.faded=false;slot.expires=not IsMissing(entry)and aura and Number(aura.expirationTime)or nil
+                slot.rawKnown=present or (auras and auras.complete)or false
+                slot.show=slot.condition and slot.rawKnown;slot.faded=false;slot.expires=not IsMissing(entry)and aura and Number(aura.expirationTime)or nil
                 slot.stacks=not IsMissing(entry)and aura and aura.applications or nil;slot.auraIndex=aura and aura.monitorIndex
-                slot.rawKnown=auras~=nil
-                if entry.type=="buffMissing" and slot.rawKnown then
-                    slot.missingBuffVisible=slot.show
-                end
             end
             if slot.nativeDirty and not InCombatLockdown()then BindNative(slot)end
             -- Protected aura existence never drives Lua sounds or hidden timers.
-            local known=entry.type=="equipment"and player~=nil or (entry.type~="equipment"and slot.rawKnown)
+            local known=slot.rawKnown
             if known and entry.type~="custom"then
-                local condition=slot.condition and DisplayAllowed(entry,combat,boss)
+                local condition=slot.condition and O.SoundAllowed(o,entry,combat,boss)
                 if condition and not slot.wasCondition and o.frame:IsVisible()and not(view.preview or(M.editor and M.editor.window:IsShown()))then O.Play(entry)end
                 slot.wasCondition=condition
             end
@@ -614,40 +619,32 @@ function O.Paint(view,o,animateOnly)
     end
     local displayed=o.displayedIcons or {};o.displayedIcons=displayed
     for index=#displayed,1,-1 do displayed[index]=nil end
-    local combat,boss=DisplayState(o)
     if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then Refresh(view,o,now);o.nextScan=now+.2 end
     local row=not view.preview and CompactRow(o,entries,S.Direction(group))
     for i,entry in ipairs(entries)do
         local slot=Icon(o,i);if slot.entry~=entry then Resolve(slot,entry)end
-        local allowed=DisplayAllowed(entry,combat,boss)
+        local allowed=entry.displayWhen~="never"
         local custom=entry.type=="custom"and (view.preview or allowed)and M.CustomMonitor.Apply(o,slot,view.preview)
-        local rawWeapon=slot.sharedWeapon and slot.rawKnown
-        local rawAura=row and slot.rawKnown and entry.type~="equipment"and entry.type~="custom"
-        local native=not view.preview and o.native and slot.nativeBound and not (rawWeapon or rawAura)
+        local raw=slot.rawKnown
+        local native=not view.preview and o.native and slot.nativeBound and not raw
         if slot.container then
-            slot.container:SetAlpha((rawWeapon or rawAura)and 0 or 1)
-            if rawWeapon or rawAura then
+            slot.container:SetAlpha(raw and 0 or 1)
+            if raw then
                 for _,gate in ipairs(slot.nativeGates or {})do gate.base:SetAlpha(1);gate.time:SetAlpha(1)end
             end
         end
         local eligible=not IsTarget(entry)or M.Compat.Bool(Safe(UnitExists,"target"))
-        local nativeMissing=native and entry.type=="buffMissing" and slot.missingBackdrop~=nil
-        local nativeFound=row and native and eligible and (entry.type=="buffFound"or entry.type=="debuffFound")
-        local visible=view.preview or (allowed and (slot.show==true or
-            nativeFound or (native and not IsMissing(entry) and not slot.rawKnown and eligible)))
-        if not view.preview and entry.type=="buffMissing"then
-            -- The native backdrop follows the live buff. When the template is
-            -- unavailable, retain the last readable result instead.
-            visible=allowed and ((nativeMissing and (row~=nil or not slot.rawKnown))or slot.missingBuffVisible==true)
-        end
+        local nativeMissing=native and eligible and IsMissing(entry) and slot.missingBackdrop~=nil
+        local nativeFound=native and eligible and not IsMissing(entry) and not slot.rawKnown
+        local visible=view.preview or (allowed and eligible and (slot.show==true or nativeFound or nativeMissing))
         if row then
-            local spellIDs=visible and (nativeMissing or nativeFound) and slot.nativeAuraIDs or nil
+            local spellIDs=visible and (nativeMissing or (nativeFound and not slot.show)) and slot.nativeAuraIDs or nil
             SizeLink(row.full[i],spellIDs,visible)
             if row.centered then SizeLink(row.half[i],spellIDs,visible)end
         end
         slot:SetShown(visible)
-        local baseAlpha=native and not IsMissing(entry)and entry.type~="equipment"and 0 or 1
-        M.CustomMonitor.SetVisual(slot,"EnableMouse",not (nativeMissing or nativeFound))
+        local baseAlpha=native and not IsMissing(entry)and (entry.type~="equipment"or not slot.show)and 0 or 1
+        M.CustomMonitor.SetVisual(slot,"EnableMouse",not (nativeMissing or (nativeFound and not slot.show)))
         if slot.missingHost then
             M.CustomMonitor.SetVisual(slot.missingHost,"SetShown",nativeMissing)
             if nativeMissing then SetGlow(slot.missingGlow,entry.glow,entry.glowColor,now);baseAlpha=0 end
@@ -704,7 +701,7 @@ function O.Event(view,event,unit)
         local row=o.compactRow
         if row then
             for i=1,row.count do
-                if row.full[i].kind=="debuffFound"then
+                if row.full[i].kind=="debuffFound"or row.full[i].kind=="debuffMissing"then
                     row.full[i].frame:UpdateAllAuras()
                     if row.centered then row.half[i].frame:UpdateAllAuras()end
                 end

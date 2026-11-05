@@ -232,7 +232,10 @@ function C.Apply(o,slot,preview)
     slot:SetShown(result.show)
     slot.expires=result.expirationTime;slot.stacks=result.count;slot.faded=false;slot.rawKnown=true
     slot.texture:SetTexture(result.icon or slot.customFallbackIcon or 134400)
-    if record and not preview then Sound(slot,record,result)end
+    if record and not preview then
+        if o.spec.parent~="playerOtherMonitor" or M.PlayerOtherMonitor.SoundAllowed(o,record.entry)then Sound(slot,record,result)
+        else record.wasShown=false end
+    end
     return result
 end
 function C.CreateGlow(parent)

@@ -262,6 +262,14 @@ function O.BuildControls(e,parent)
                         UpdateRowLock(row)
                         M:Commit()
                     end)
+                    if mode~="never"then
+                        local label=choice[2]
+                        row.displayChecks[index]:HookScript("OnEnter",function(button)
+                            GameTooltip:SetOwner(button,"ANCHOR_RIGHT")
+                            GameTooltip:SetText(M:T("播放声音").." · "..M:T(label));GameTooltip:Show()
+                        end)
+                        row.displayChecks[index]:HookScript("OnLeave",function()GameTooltip:Hide()end)
+                    end
                 end
                 row.sound=Drop(row,"音效",300,O.Sounds,function()return row.entry.sound or "kit:8960"end,function(value)
                     if Editable(row.owner,row.entry)then row.entry.sound=value;M:Commit()end
