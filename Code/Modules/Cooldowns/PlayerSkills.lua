@@ -545,13 +545,22 @@ end
 local function StyleNativeAura(slot,frame)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
+    local forever=slot.nativeHost~=nil
+    if forever then frame:SetFrameLevel(slot.baseIconFrame:GetFrameLevel()+2)end
     frame.monitorIcon=frame:CreateTexture(nil,"ARTWORK");frame.monitorIcon:SetAllPoints();frame.monitorIcon:SetDesaturated(true)
-    frame.monitorIcon:SetAlpha(.5)
+    if forever then
+        -- The provider owns visibility. An opaque, dimmed icon covers the
+        -- colored base even when the client forbids reading aura visibility.
+        frame.monitorIcon:SetVertexColor(.5,.5,.5,1)
+    else
+        frame.monitorIcon:SetAlpha(.5)
+    end
     frame.monitorTime=frame:CreateFontString(nil,"OVERLAY");Font(frame.monitorTime)
     frame.monitorTime:SetPoint("BOTTOM",frame,"TOP",0,7)
     frame:SetIcon(frame.monitorIcon);frame:SetDurationText(frame.monitorTime,S.DurationTextOptions())
     frame.monitorCount=frame:CreateFontString(nil,"OVERLAY");CountFont(frame.monitorCount)
     frame.monitorCount:SetPoint("BOTTOM",frame,"TOP",0,29);frame:SetApplicationCount(frame.monitorCount,{})
+    if forever then return end
     -- The provider denies direct access to its AuraButtons once auras become
     -- secret. Our own child exposes inherited visibility as a secret boolean;
     -- pass it straight to the alpha setter without querying the AuraButton.
@@ -650,9 +659,7 @@ function S.Configure(view,o)
         Font(slot.text)
         Shortcut(slot,entry)
         if slot.nativeTime then Font(slot.nativeTime)end
-        if M.Compat.interface~=16001 then
-            for _,frame in ipairs(slot.nativeFrames or {})do Font(frame.monitorTime);CountFont(frame.monitorCount)end
-        end
+        for _,frame in ipairs(slot.nativeFrames or {})do Font(frame.monitorTime);CountFont(frame.monitorCount)end
         if o.usesNativeAuras then BindAura(slot,view.byID[o.spec.parent].enabled~=false)end
     end
     for i=#o.entries+1,#o.skillIcons do
@@ -813,8 +820,8 @@ function S.Paint(view,o,animateOnly)
             end
         elseif slot.entry.type=="debuff" and o.usesNativeAuras and not readableDebuff then
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
-            -- Native aura frames draw a half-opacity icon and countdown while
-            -- present. The colored base icon remains visible when absent.
+            -- The native provider draws the active icon and countdown. The
+            -- colored base icon is visible when the aura is absent.
         else
             local active=slot.active and (not slot.expires or slot.expires>now)
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",active==true);Remaining(slot,active and slot.expires and slot.expires-now or nil)
