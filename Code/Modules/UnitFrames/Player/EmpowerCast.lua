@@ -59,7 +59,7 @@ local function Boundary(parent,color)
     local boundary=Frame(parent,parent:GetFrameLevel()+6)
     boundary:SetSize(1,12)
     local marker=boundary:CreateTexture(nil,"ARTWORK");marker:SetAllPoints();marker:SetColorTexture(1,1,1,.25)
-    local flash=Frame(boundary,boundary:GetFrameLevel()+1);flash:SetAllPoints(boundary)
+    local flash=Frame(boundary,boundary:GetFrameLevel()+1);flash:SetSize(1,12);flash:SetPoint("CENTER",boundary,"CENTER",0,0)
     local glow=flash:CreateTexture(nil,"OVERLAY");glow:SetPoint("CENTER");glow:SetSize(124,76)
     glow:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark");glow:SetBlendMode("ADD");glow:SetVertexColor(unpack(color))
     local core=flash:CreateTexture(nil,"OVERLAY");core:SetPoint("CENTER");core:SetSize(48,92)
@@ -170,7 +170,7 @@ local function PlayBoundarySound(point,c,alpha,enabled)
 end
 -- Ordinary casts retain their original fill, tint and text. Only the three
 -- boundary flashes are shared with empowerment; there are no stage overlays.
-local function RegularPoints(o,c,elapsedOverride,playSound)
+local function RegularPoints(o,c,elapsedOverride,playSound,fillEdge)
     local a=Ready(o,"castPoints")
     if not c.active or c.empowered then
         if a then a.root:Hide()end
@@ -207,6 +207,11 @@ local function RegularPoints(o,c,elapsedOverride,playSound)
     end
     if not a.root:IsShown()then a.root:Show()end
     for _,point in ipairs(a.points)do
+        if fillEdge then
+            -- The stage marker stays at the crossing; the flash follows the
+            -- same clipped texture that the player sees during its fade.
+            M.RendererInternals.CachedPoint(point,"flashPoint",point.flash,"CENTER",fillEdge,"RIGHT",0,0)
+        end
         local alpha=0
         if elapsed then
             local age=elapsed-total*point.crossing
@@ -238,7 +243,13 @@ function E.Paint(view,o,s,animateOnly)
     local group=M.byID and M.byID[o.spec.parent]
     local playSound=not view.preview and o.spec.unit=="player" and (not group or group.castStageSound~=false)
     Ready(o,"empower")
-    if o.spec.unit=="player"or o.spec.unit=="vehicle"then RegularPoints(o,c,nil,playSound)end
+    if o.spec.unit=="player"or o.spec.unit=="vehicle"then
+        local edge=o.texture
+        if not view.preview and o.nativeCast and c.duration and M.RendererInternals.CastRatio(s)==nil then
+            edge=o.nativeCast.timer:GetStatusBarTexture()
+        end
+        RegularPoints(o,c,nil,playSound,edge)
+    end
     if not c.active or not c.empowered or not c.empowerStages then
         if o.empower then o.empower.root:Hide();o.empower.bound=nil end
         return false
