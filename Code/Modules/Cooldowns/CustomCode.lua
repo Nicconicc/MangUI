@@ -225,9 +225,9 @@ function C.Sync(view,o,slots,paint)
     end or nil)
     if next(records)then owner.driver:Show()else C.Remove(o)end
 end
-function C.Apply(o,slot,preview)
+function C.Apply(o,slot,preview,loaded)
     local record=o.customOwner and o.customOwner.records[slot]
-    local result=preview and {show=true,glow=false,count=1}or (record and record.result)or {show=false}
+    local result=preview and {show=true,glow=false,count=1}or (loaded~=false and record and record.result)or {show=false}
     slot.customResult=result;slot.show=result.show;slot.condition=result.show;slot.active=result.show
     slot:SetShown(result.show)
     slot.expires=result.expirationTime;slot.stacks=result.count;slot.faded=false;slot.rawKnown=true

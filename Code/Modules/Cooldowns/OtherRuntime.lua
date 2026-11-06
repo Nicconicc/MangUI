@@ -93,8 +93,14 @@ local function Count(text,value)
 end
 local function IsMissing(entry)return entry.type=="buffMissing"or entry.type=="debuffMissing"end
 local function IsTarget(entry)return entry.type=="debuffFound"or entry.type=="debuffMissing"end
-local function DisplayState(o)
-    local combat=M.Compat.Bool(Safe(InCombatLockdown))or M.Compat.Bool(Safe(UnitAffectingCombat,"player"))
+local function CombatActive(o)
+    if o.combatActive~=nil then return o.combatActive end
+    return M.Compat.Bool(Safe(InCombatLockdown))or M.Compat.Bool(Safe(UnitAffectingCombat,"player"))
+end
+local function LoadAllowed(entry,combat)
+    return entry.displayWhen~="never" and (entry.displayWhen~="combat" or combat)
+end
+local function BossActive(o,combat)
     local boss=o.encounterActive
     if boss==nil then
         boss=M.Compat.Bool(Safe(IsEncounterInProgress))
@@ -106,14 +112,14 @@ local function DisplayState(o)
             end
         end
     end
-    return combat,boss==true
+    return boss==true
 end
 function O.SoundAllowed(o,entry,combat,boss)
-    if combat==nil then combat,boss=DisplayState(o)end
-    if entry.displayWhen=="never"then return false end
-    if entry.displayWhen=="combat"then return combat end
-    if entry.displayWhen=="boss"then return boss end
-    return true
+    if combat==nil then combat=CombatActive(o)end
+    if not LoadAllowed(entry,combat) then return false end
+    if entry.displayWhen~="boss"then return true end
+    if boss==nil then boss=BossActive(o,combat)end
+    return boss
 end
 local function NativeFrame(slot,frame)
     if slot.missingBackdrop then
@@ -536,8 +542,8 @@ local function Equipment(slot,auras,now,weaponAuras)
     slot.faded=not active and hasFixed and cdExpires~=nil and cdExpires>now or false
     slot.fixedCooldown=hasFixed;slot.condition=active;slot.show=active or slot.faded;slot.rawKnown=auras~=nil
 end
-local function Refresh(view,o,now)
-    local combat,boss=DisplayState(o)
+local function Refresh(view,o,now,combat)
+    local boss=BossActive(o,combat)
     local player=Auras("player","HELPFUL")
     local equipmentAuras=player and player.complete and player or nil
     local targetExists=M.Compat.Bool(Safe(UnitExists,"target"));local target=targetExists and Auras("target","HARMFUL|PLAYER")or nil
@@ -567,11 +573,8 @@ local function Refresh(view,o,now)
     for _,slot in ipairs(o.otherIcons)do
         local entry=slot.entry
         if entry then
-            if entry.type=="custom"then
-                if entry.displayWhen~="never"then M.CustomMonitor.Apply(o,slot,false)
-                else slot.show=false;slot.condition=false end
-            elseif entry.type=="equipment"then Equipment(slot,equipmentAuras,now,weaponAuras)
-            else
+            if entry.type=="equipment"then Equipment(slot,equipmentAuras,now,weaponAuras)
+            elseif entry.type~="custom"then
                 local auras=player;if IsTarget(entry)then auras=target end
                 local aura=Find(auras,entry,slot.spellID);local present=aura~=nil
                 if aura and o.nativeCompact and not tonumber(entry.value)then
@@ -589,10 +592,14 @@ local function Refresh(view,o,now)
             if slot.nativeDirty and not InCombatLockdown()then BindNative(slot)end
             -- Protected aura existence never drives Lua sounds or hidden timers.
             local known=slot.rawKnown
-            if known and entry.type~="custom"then
-                local condition=slot.condition and O.SoundAllowed(o,entry,combat,boss)
-                if condition and not slot.wasCondition and o.frame:IsVisible()and not(view.preview or(M.editor and M.editor.window:IsShown()))then O.Play(entry)end
-                slot.wasCondition=condition
+            if entry.type~="custom"then
+                local soundAllowed=O.SoundAllowed(o,entry,combat,boss)
+                if not soundAllowed then slot.wasCondition=false
+                elseif known then
+                    local condition=slot.condition
+                    if condition and not slot.wasCondition and o.frame:IsVisible()and not(view.preview or(M.editor and M.editor.window:IsShown()))then O.Play(entry)end
+                    slot.wasCondition=condition
+                end
             end
         end
     end
@@ -619,16 +626,17 @@ function O.Paint(view,o,animateOnly)
     end
     local displayed=o.displayedIcons or {};o.displayedIcons=displayed
     for index=#displayed,1,-1 do displayed[index]=nil end
-    if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then Refresh(view,o,now);o.nextScan=now+.2 end
+    local combat=not view.preview and CombatActive(o)
+    if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then Refresh(view,o,now,combat);o.nextScan=now+.2 end
     local row=not view.preview and CompactRow(o,entries,S.Direction(group))
     for i,entry in ipairs(entries)do
         local slot=Icon(o,i);if slot.entry~=entry then Resolve(slot,entry)end
-        local allowed=entry.displayWhen~="never"
-        local custom=entry.type=="custom"and (view.preview or allowed)and M.CustomMonitor.Apply(o,slot,view.preview)
+        local allowed=LoadAllowed(entry,combat)
+        local custom=entry.type=="custom"and M.CustomMonitor.Apply(o,slot,view.preview,allowed)
         local raw=slot.rawKnown
-        local native=not view.preview and o.native and slot.nativeBound and not raw
+        local native=not view.preview and allowed and o.native and slot.nativeBound and not raw
         if slot.container then
-            slot.container:SetAlpha(raw and 0 or 1)
+            slot.container:SetAlpha(allowed and not raw and 1 or 0)
             if raw then
                 for _,gate in ipairs(slot.nativeGates or {})do gate.base:SetAlpha(1);gate.time:SetAlpha(1)end
             end
@@ -690,6 +698,9 @@ function O.Event(view,event,unit)
     if event=="UNIT_INVENTORY_CHANGED"and unit~="player"then return end
     if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="BAG_UPDATE_DELAYED"then TrackEquipment(true)end
     local o=view.nodes.playerOtherMonitorIcons;if not o then return end
+    if event=="PLAYER_REGEN_DISABLED" then o.combatActive=true
+    elseif event=="PLAYER_REGEN_ENABLED" then o.combatActive=false
+    elseif event=="PLAYER_ENTERING_WORLD" then o.combatActive=nil end
     if event=="ENCOUNTER_START"then o.encounterActive=true
     elseif event=="ENCOUNTER_END"then o.encounterActive=false
     elseif event=="PLAYER_ENTERING_WORLD"or event=="PLAYER_REGEN_ENABLED"then o.encounterActive=nil end

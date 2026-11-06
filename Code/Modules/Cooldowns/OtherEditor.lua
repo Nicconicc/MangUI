@@ -262,7 +262,7 @@ function O.BuildControls(e,parent)
                         UpdateRowLock(row)
                         M:Commit()
                     end)
-                    if mode~="never"then
+                    if mode=="boss"then
                         local label=choice[2]
                         row.displayChecks[index]:HookScript("OnEnter",function(button)
                             GameTooltip:SetOwner(button,"ANCHOR_RIGHT")
