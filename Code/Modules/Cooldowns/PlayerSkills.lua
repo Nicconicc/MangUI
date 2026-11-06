@@ -773,9 +773,20 @@ local function Cooldown(entry,slot)
     else slot.expires=nil end
     slot.active=slot.expires~=nil and slot.expires>GetTime()
 end
-local function Usable(entry,slot,now)
+local activationEvents={}
+local function HasSpellActivation(id)
+    local query=C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed or IsSpellOverlayed
+    local active=Safe(query,id)
+    if Readable(active) and type(active)=="boolean" then return active end
+    return activationEvents[id]==true
+end
+local function Usable(slot,now)
     slot.usableReady=false;slot.usableCooldown=nil
-    local key=slot.spellID or entry.value
+    local id=slot.spellID
+    if not id then return end
+    local override=Number(Safe(C_Spell and C_Spell.GetOverrideSpell or FindSpellOverrideByID,id))
+    local key=override and override>0 and override or id
+    if not HasSpellActivation(key) and (key==id or not HasSpellActivation(id)) then return end
     local usable=Safe(C_Spell and C_Spell.IsSpellUsable or IsUsableSpell,key)
     if not Readable(usable) or usable~=true then return end
     local charges,maximum=SpellCharges(key)
@@ -851,7 +862,7 @@ function S.Paint(view,o,animateOnly)
                 if o.usesNativeAuras and not InCombatLockdown() then BindAura(slot,group.enabled~=false)end
             end
             if not view.preview and entry.type=="cooldown" then Cooldown(entry,slot)end
-            if not view.preview and entry.type=="usable" then Usable(entry,slot,now)end
+            if not view.preview and entry.type=="usable" then Usable(slot,now)end
         end
         if not view.preview then ScanAuras(o,"buff");ScanAuras(o,"debuff")end
         local version=view.targetRefreshGeneration or 0
@@ -966,12 +977,17 @@ function S.Paint(view,o,animateOnly)
 end
 local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,
     SPELL_UPDATE_USABLE=true,ACTIONBAR_UPDATE_USABLE=true,
+    SPELL_ACTIVATION_OVERLAY_GLOW_SHOW=true,SPELL_ACTIVATION_OVERLAY_GLOW_HIDE=true,
     SPELLS_CHANGED=true,LEARNED_SPELL_IN_TAB=true,PLAYER_ENTERING_WORLD=true,PLAYER_REGEN_ENABLED=true,UNIT_SPELLCAST_SUCCEEDED=true}
 function S.Event(view,event,unit)
     if not events[event] or (event=="UNIT_AURA" and unit~="target"and unit~="player") or (event=="UNIT_SPELLCAST_SUCCEEDED" and unit~="player")then return end
+    local activation=event=="SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" or event=="SPELL_ACTIVATION_OVERLAY_GLOW_HIDE"
+    if activation and Number(unit) then
+        activationEvents[unit]=event=="SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" or nil
+    elseif event=="PLAYER_ENTERING_WORLD" then activationEvents={} end
     local o=view.nodes.playerSkillMonitorIcons
     if o then
-        if event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" then
+        if activation or event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" then
             for _,entry in ipairs(o.entries or {})do
                 if entry.type=="usable" then o.nextScan=0;break end
             end
