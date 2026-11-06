@@ -70,14 +70,23 @@ end
 function N.ConfigureAuras(view,o)
     local n=o.spec
     local pet=M.PetBuffs and n.id==M.PetBuffs.nodeID
-    if view.preview or (n.unit~="target" and not pet) or not AuraSupport() then return end
+    local party=n.partyBuffs and view.byID.partyFrames
+    if view.preview or (n.unit~="target" and not pet and not party) then return end
+    -- The native PLAYER filter also matches pets and vehicles. For the
+    -- character-only filter, use the readable caster token instead.
+    o.partyBuffsUseLua=party and party.partyBuffsOnlyPlayer==true
+    if o.partyBuffsUseLua then
+        if o.nativeAuras then o.nativeAuras:SetEnabled(false);o.nativeAuras:Hide() end
+        return
+    end
+    if not AuraSupport() then return end
     local parent=view.nodes[n.parent] and view.nodes[n.parent].spec
     local debuff=parent and parent.id=="wa026b04c50e"
     local buff=parent and parent.id=="wa88e7259b1c"
-    if not debuff and not buff and not pet then return end
+    if not debuff and not buff and not pet and not party then return end
     N.RefreshAuraFonts(view,o,false)
     local count=pet and 5 or math.max(1,(debuff and parent.debuffCount or parent.buffCount) or n.count or 8)
-    local perRow=math.max(1,(debuff and parent.debuffPerRow or parent.buffPerRow) or count)
+    local perRow=math.max(1,(debuff and parent.debuffPerRow or parent.buffPerRow) or (party and n.perRow) or count)
     local gap=n.spacing or 4
     local container=o.nativeAuras
     if not container then
@@ -86,7 +95,8 @@ function N.ConfigureAuras(view,o)
         container:SetEnabled(false)
         container:SetUnit(n.unit)
         container:AddAuraGroup("main",n.filter or "HARMFUL",{maxFrameCount=0,initializeFrame=function(frame)
-            o.nativeAuraFrames[#o.nativeAuraFrames+1]=frame;StyleAura(view,o,frame)
+            if not party then o.nativeAuraFrames[#o.nativeAuraFrames+1]=frame end
+            StyleAura(view,o,frame)
         end})
     end
     container:SetEnabled(false)
@@ -100,25 +110,27 @@ function N.ConfigureAuras(view,o)
     container:SetFlowLayoutMaximumLineSize(perRow*n.width+(perRow-1)*gap+.001)
     container:SetAuraGroupLayout("main",{elementSpacing=gap,lineSpacing=gap,elementWidth=n.width,elementHeight=n.height})
     container:SetAuraGroupFilterString("main",(n.filter or "HARMFUL")..(debuff and parent.onlyPlayerDebuffs==true and "|PLAYER" or ""))
-    local candidates=buff and parent.hideUntimedBuffs==true and {maxDuration=math.huge} or {}
+    local timedOnly=(buff and parent.hideUntimedBuffs==true) or (party and party.partyBuffsTimedOnly==true)
+    local candidates=timedOnly and {maxDuration=math.huge} or {}
     if pet then
         candidates,o.nativePetFilterKey=M.PetBuffs.NativeFilters(parent,CanStyleAuras())
         o.nativePetFilterAt=GetTime()+1
     end
     container:SetAuraGroupCandidateFilters("main",candidates)
     container:SetAuraGroupMaxFrameCount("main",count)
-    o.nativeAuraStylePending=true
-    if CanStyleAuras() then
+    o.nativeAuraStylePending=not party
+    if not party and CanStyleAuras() then
         for _,frame in ipairs(o.nativeAuraFrames) do StyleAura(view,o,frame) end
         o.nativeAuraStylePending=nil
     end
     for _,icon in ipairs(o.icons or {}) do icon:Hide() end
+    if party then container:Show() end
     container:SetEnabled(n.enabled~=false and parent.enabled~=false and (not o.module or o.module.enabled~=false))
     o.nativeAuraVersion=nil
 end
 function N.Auras(view,o,s)
     local container=o.nativeAuras
-    if view.preview or not container then return false end
+    if view.preview or not container or o.partyBuffsUseLua then return false end
     if o.nativeAuraStylePending and CanStyleAuras() then
         for _,frame in ipairs(o.nativeAuraFrames) do StyleAura(view,o,frame) end
         o.nativeAuraStylePending=nil
@@ -136,7 +148,10 @@ function N.Auras(view,o,s)
     -- UNIT_AURA is consumed by the native container. Only a target-token change
     -- needs an explicit refresh; no full native rescan on the regular .2s poll.
     local pet=M.PetBuffs and o.spec.id==M.PetBuffs.nodeID
-    local version=pet and (view.auraVersions and view.auraVersions.pet or 0) or (view.targetRefreshGeneration or 0)
+    local version
+    if pet then version=view.auraVersions and view.auraVersions.pet or 0
+    elseif o.spec.partyBuffs then version=view.auraRosterVersion or 0
+    else version=view.targetRefreshGeneration or 0 end
     if o.nativeAuraVersion~=version then
         container:UpdateAllAuras();o.nativeAuraVersion=version
     end

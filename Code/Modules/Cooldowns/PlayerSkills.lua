@@ -1,6 +1,10 @@
 local _,M=...
 local S={};M.PlayerSkillMonitor=S
 local samples={{type="cooldown",value="116"},{type="debuff",value="172"},{type="cooldown",value="133"}}
+local auraTypes={
+    buff={unit="player",filter="HELPFUL"},
+    debuff={unit="target",filter="HARMFUL|PLAYER"},
+}
 local function Readable(v)return not issecretvalue or not issecretvalue(v)end
 local function Number(v)return Readable(v) and type(v)=="number" and v or nil end
 local function Safe(fn,...)
@@ -57,7 +61,7 @@ function S.ValidEntries(entries)
     if type(entries)~="table" then return false end
     for key,entry in pairs(entries) do
         if type(key)~="number" or key%1~=0 or key<1 or key>#entries or type(entry)~="table" then return false end
-        if entry.type~="cooldown" and entry.type~="debuff" and entry.type~="custom"then return false end
+        if entry.type~="cooldown" and not auraTypes[entry.type] and entry.type~="custom"then return false end
         if not M.CustomMonitor.Valid(entry)then return false end
         if type(entry.value)~="string" or #entry.value>384 then return false end
         if entry.showShortcut~=nil and type(entry.showShortcut)~="boolean" then return false end
@@ -589,7 +593,7 @@ local function StyleNativeAura(slot,frame)
     slot.baseIconGate=frame.baseIconGate;slot.texture:SetParent(frame.baseIconGate)
     slot.nativeFrames[#slot.nativeFrames+1]=frame
 end
-local function NativeAura(slot)
+local function NativeAura(slot,aura)
     local parent=slot
     if M.Compat.interface==16001 then
         slot.nativeHost=CreateFrame("Frame",nil,slot)
@@ -597,7 +601,7 @@ local function NativeAura(slot)
         parent=slot.nativeHost
     end
     local container=CreateFrame("AuraContainer",nil,parent,"CustomAuraContainerTemplate")
-    container:SetEnabled(false);container:SetUnit("target");container:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0)
+    container:SetEnabled(false);container:SetUnit(aura.unit);container:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0)
     slot.nativeFrames={};slot.nativeAuras=container
     if slot.nativeHost then
         local backdrop=S.CreateAuraBackdrop(slot.nativeHost,container)
@@ -607,7 +611,7 @@ local function NativeAura(slot)
         end
     end
     local width=slot.nativeBackdrop and S.auraBackdropLayoutWidth or 40
-    container:AddAuraGroup("monitor","HARMFUL|PLAYER",{maxFrameCount=0,initializeFrame=function(frame)StyleNativeAura(slot,frame)end})
+    container:AddAuraGroup("monitor",aura.filter,{maxFrameCount=0,initializeFrame=function(frame)StyleNativeAura(slot,frame)end})
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
     container:SetFlowLayoutMaximumLineSize(width+.001)
@@ -660,14 +664,22 @@ local function Resolve(slot,entry)
     slot.needsInfo=entry.type~="custom"and(not id or not icon);slot.nextInfo=GetTime()+1
 end
 local function BindAura(slot,enabled)
-    if enabled==false or slot.entry.type~="debuff" or not slot.spellID then
+    local aura=auraTypes[slot.entry.type]
+    if enabled==false or not aura or not slot.spellID then
+        slot.nativeSpellID=nil
         if slot.nativeAuras then slot.nativeAuras:SetEnabled(false)end
         return
     end
-    if not slot.nativeAuras then NativeAura(slot)end
+    if not slot.nativeAuras then NativeAura(slot,aura);slot.nativeAuraType=slot.entry.type end
     slot.nativeAuras:SetEnabled(false)
+    if slot.nativeAuraType~=slot.entry.type then
+        slot.nativeAuras:SetUnit(aura.unit)
+        slot.nativeAuras:SetAuraGroupFilterString("monitor",aura.filter)
+        slot.nativeAuraType=slot.entry.type
+    end
     slot.nativeAuras:SetAuraGroupCandidateFilters("monitor",{includeSpellIDs={[slot.spellID]=true}})
     slot.nativeAuras:SetAuraGroupMaxFrameCount("monitor",1)
+    slot.nativeSpellID=slot.spellID
     slot.nativeAuras:SetEnabled(true);slot.nativeAuras:UpdateAllAuras()
 end
 function S.Configure(view,o)
@@ -731,27 +743,33 @@ local function Cooldown(entry,slot)
     else slot.expires=nil end
     slot.active=slot.expires~=nil and slot.expires>GetTime()
 end
-local function TargetAuras(o)
+local function NeedsAuraScan(o,slot)
+    if not o.usesNativeAuras or not slot.nativeSpellID then return true end
+    return M.Compat.interface==16001 and not slot.nativeBackdrop
+end
+local function ScanAuras(o,kind)
+    local auraType=auraTypes[kind]
+    local debuff=kind=="debuff"
     local needed=false
     for _,slot in ipairs(o.skillIcons)do
-        if slot.entry and slot.entry.type=="debuff" then
+        if slot.entry and slot.entry.type==kind then
             slot.active=false;slot.expires=nil;slot.stacks=nil
-            if not slot.nativeBackdrop then needed=true end
+            if NeedsAuraScan(o,slot) then needed=true end
         end
     end
-    if not needed or (o.usesNativeAuras and M.Compat.interface~=16001) then return end
-    if o.usesNativeAuras and C_Secrets and M.Compat.Bool(Safe(C_Secrets.ShouldAurasBeSecret,"target")) then return end
-    for index,aura in ipairs(M.Compat.AuraSnapshot("target","HARMFUL"))do
+    if not needed then return end
+    if o.usesNativeAuras and C_Secrets and M.Compat.Bool(Safe(C_Secrets.ShouldAurasBeSecret,auraType.unit)) then return end
+    for _,aura in ipairs(M.Compat.AuraSnapshot(auraType.unit,debuff and "HARMFUL" or "HELPFUL"))do
         local id=aura.spellId;if type(id)=="nil" then id=aura.spellID end
         for _,slot in ipairs(o.skillIcons)do
             local entry=slot.entry
-            if entry and entry.type=="debuff" and not slot.nativeBackdrop then
+            if entry and entry.type==kind and NeedsAuraScan(o,slot) then
                 local requested=tonumber(entry.value)
                 local match=requested and Readable(id) and id==requested or (not requested and Readable(aura.name) and aura.name==entry.value)
                 local source=aura.sourceUnit
-                local own=Readable(source) and (source=="player" or
-                    (source~=nil and UnitIsUnit and M.Compat.Bool(Safe(UnitIsUnit,source,"player"))))
-                if match and own then
+                local accepted=not debuff or (Readable(source) and (source=="player" or
+                    (source~=nil and UnitIsUnit and M.Compat.Bool(Safe(UnitIsUnit,source,"player")))))
+                if match and accepted then
                     slot.active=true
                     local stacks=Number(aura.applications)
                     if stacks and (not slot.stacks or stacks>slot.stacks)then slot.stacks=stacks end
@@ -789,7 +807,7 @@ function S.Paint(view,o,animateOnly)
             if not slot:IsShown() then slot:Show()end
             if not view.preview and entry.type=="cooldown" then Cooldown(entry,slot)end
         end
-        if not view.preview then TargetAuras(o)end
+        if not view.preview then ScanAuras(o,"buff");ScanAuras(o,"debuff")end
         local version=view.targetRefreshGeneration or 0
         if not view.preview and o.nativeTargetGeneration~=version then
             for _,slot in ipairs(o.skillIcons)do if slot.nativeAuras and slot.entry and slot.entry.type=="debuff" then slot.nativeAuras:UpdateAllAuras()end end
@@ -801,16 +819,18 @@ function S.Paint(view,o,animateOnly)
         local textureAlpha,shortcutAlpha=1,1
         -- On Forever, a readable match can draw the complete faded icon even
         -- when the native button's inherited visibility is inaccessible.
-        local readableDebuff=not view.preview and slot.nativeHost and slot.entry.type=="debuff"
+        local isAura=auraTypes[slot.entry.type]~=nil
+        local readableAura=not view.preview and slot.nativeHost and isAura
             and slot.active and (not slot.expires or slot.expires>now)
-        local useNative=not view.preview and o.usesNativeAuras and slot.entry.type=="debuff" and slot.spellID~=nil and not readableDebuff
+        local useNative=not view.preview and o.usesNativeAuras and isAura and slot.spellID~=nil
+            and slot.nativeSpellID==slot.spellID and not readableAura
         if slot.nativeHost then
             M.CustomMonitor.SetVisual(slot.nativeHost,"SetAlpha",useNative and 1 or 0)
             M.CustomMonitor.SetVisual(slot.baseIconFrame,"SetAlpha",useNative and slot.nativeBackdrop and 0 or 1)
         end
         if slot.entry.type~="custom"and slot.customGlow then slot.customGlow:Hide()end
         for _,frame in ipairs(slot.nativeFrames or {})do
-            if not view.preview and o.usesNativeAuras and slot.entry.type=="debuff" and not readableDebuff then
+            if useNative then
                 local present=Safe(frame.monitorPresence.IsVisible,frame.monitorPresence)
                 if type(present)=="nil"then
                     frame.shortcutGate:SetAlpha(1);frame.baseIconGate:SetAlpha(1)
@@ -830,7 +850,7 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.Glow(slot,result.show and result.glow)
         elseif view.preview then
             ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",i%2==1);textureAlpha=i%2==1 and .5 or 1;M.CustomMonitor.SetText(slot.text,tostring(30-i))
-            M.CustomMonitor.SetText(slot.count,slot.entry.type=="debuff"and "3"or "2")
+            M.CustomMonitor.SetText(slot.count,isAura and "3"or "2")
         elseif slot.duration then
             local desat=DesaturationCurve()
             if desat and slot.duration.EvaluateRemainingDuration and slot.texture.SetDesaturation then
@@ -846,7 +866,7 @@ function S.Paint(view,o,animateOnly)
                     shortcutAlpha=remaining>0 and 0 or 1
                 end
             end
-        elseif slot.entry.type=="debuff" and o.usesNativeAuras and not readableDebuff then
+        elseif useNative then
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
             -- The native provider draws the active icon and countdown. The
             -- colored base icon is visible when the aura is absent.
@@ -855,7 +875,7 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",active==true);Remaining(slot,active and slot.expires and slot.expires-now or nil)
             textureAlpha=active and .5 or 1
             shortcutAlpha=active and 0 or 1
-            if slot.entry.type=="debuff"then CountText(slot.count,active and slot.stacks or nil,false)end
+            if isAura then CountText(slot.count,active and slot.stacks or nil,false)end
         end
         M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",textureAlpha)
         M.CustomMonitor.SetVisual(slot.shortcutFrame,"SetAlpha",shortcutAlpha)
@@ -878,7 +898,9 @@ end
 
 function S.BuildControls(e,parent,Row)
     local W=M.Widgets
-    local choices={{name="玩家技能冷却",path="cooldown"},{name="目标Debuff",path="debuff"},{name="自定义代码",path="custom"}}
+    local choices={{name="玩家技能冷却",path="cooldown"},{name="玩家Buff",path="buff"},
+        {name="目标Debuff",path="debuff"},{name="自定义代码",path="custom"}}
+    local typeLabels={};for _,choice in ipairs(choices)do typeLabels[choice.path]=choice.name end
     local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);e.skillMonitorPanel=panel
     local sharing=CreateFrame("Frame",nil,parent);sharing:SetSize(470,56);e.skillMonitorSharing=sharing
     local function SectionTitle(frame,text)
@@ -1042,7 +1064,7 @@ function S.BuildControls(e,parent,Row)
                 row.drop:SetPoint("TOPLEFT",0,0);row.caption=row.drop.caption
                 function row.drop:SetValue(value)
                     self.value=value
-                    self:SetMedia(value=="custom"and "自定义代码"or(value=="debuff"and "目标Debuff"or "玩家技能冷却"),value)
+                    self:SetMedia(typeLabels[value] or typeLabels.cooldown,value)
                 end
                 row.showShortcut=W.Check(row,"显示快捷键",function(enabled)
                     local owner,item=row.group,row.entry;Flush()
@@ -1093,7 +1115,8 @@ function S.BuildControls(e,parent,Row)
             row.shortcutColor:ClearAllPoints();row.shortcutColor:SetPoint("LEFT",row.shortcutEdit,"RIGHT",12,0)
             row.edit:SetWidth(width/3);
             row.code:ClearAllPoints();row.code:SetPoint("TOPLEFT",width/3+48,-53);row.code:SetShown(entry.type=="custom")
-            row.placeholder:SetText(entry.type=="custom"and "图标法术名称或ID（可选）"or "输入监控技能名或ID")
+            row.placeholder:SetText(entry.type=="custom"and "图标法术名称或ID（可选）"
+                or (entry.type=="buff"and "输入Buff名称或ID"or "输入监控技能名或ID"))
             if not row.edit:HasFocus()then W.SetInputValue(row.edit,entry.value)end
             if not row.shortcutEdit:HasFocus()then row.shortcutEdit:SetText(entry.shortcut or "")end
             row.showShortcut:SetChecked(entry.showShortcut~=false);row.shortcutColor:SetColor(entry.shortcutColor or {1,1,1,1})

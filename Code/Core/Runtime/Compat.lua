@@ -268,8 +268,9 @@ function C.AuraSnapshot(unit,filter)
     if auraSnapshotDepth>0 then units[key]=result end
     return result
 end
-function C.Auras(unit,filter,count,out,hideUntimed,onlyPlayer)
+function C.Auras(unit,filter,count,out,hideUntimed,onlyPlayer,strictTiming)
     local result=out or {};local used=0
+    local now=strictTiming and GetTime()
     -- Apply the display limit after filtering so permanent auras do not consume slots.
     for i=1,(hideUntimed or onlyPlayer) and 255 or count do
         local a=C.Aura(unit,i,filter,result[used+1])
@@ -277,8 +278,12 @@ function C.Auras(unit,filter,count,out,hideUntimed,onlyPlayer)
         local untimed=false
         if hideUntimed then
             local duration,expiration=C.Number(a.duration),C.Number(a.expirationTime)
-            untimed=(duration~=nil and duration<=0) or (expiration~=nil and expiration<=0)
-                or (C.Readable(a.duration) and C.Readable(a.expirationTime) and a.duration==nil and a.expirationTime==nil)
+            if strictTiming then
+                untimed=not (duration and duration>0 and expiration and expiration>now)
+            else
+                untimed=(duration~=nil and duration<=0) or (expiration~=nil and expiration<=0)
+                    or (C.Readable(a.duration) and C.Readable(a.expirationTime) and a.duration==nil and a.expirationTime==nil)
+            end
         end
         -- Unknown protected values are retained rather than treated as permanent.
         local own=not onlyPlayer or (C.Readable(a.sourceUnit) and

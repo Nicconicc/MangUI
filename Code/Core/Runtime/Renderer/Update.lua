@@ -71,7 +71,10 @@ function R.InvalidateAuras(view,unit)
     local versions=view.auraVersions
     if unit then versions[unit]=(versions[unit] or 0)+1
     else
-        for _,name in ipairs({"player","target","targettarget","focus","pet"}) do versions[name]=(versions[name] or 0)+1 end
+        for _,name in ipairs({"player","target","targettarget","focus","pet","party1","party2","party3","party4"}) do
+            versions[name]=(versions[name] or 0)+1
+        end
+        view.auraRosterVersion=(view.auraRosterVersion or 0)+1
     end
 end
 function R.RefreshTarget(view,moduleID)

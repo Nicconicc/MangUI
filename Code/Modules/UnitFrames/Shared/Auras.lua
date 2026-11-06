@@ -47,8 +47,9 @@ local function Auras(view,o,s)
     local pet=M.PetBuffs and n.id==M.PetBuffs.nodeID
     local debuff=parent and parent.id=="wa026b04c50e"
     local buff=parent and parent.id=="wa88e7259b1c"
-    local hideUntimed=buff and parent.hideUntimedBuffs==true or false
-    local onlyPlayer=debuff and parent.onlyPlayerDebuffs==true or false
+    local party=n.partyBuffs and view.byID.partyFrames
+    local hideUntimed=(buff and parent.hideUntimedBuffs==true) or (party and party.partyBuffsTimedOnly==true) or false
+    local onlyPlayer=(debuff and parent.onlyPlayerDebuffs==true) or (party and party.partyBuffsOnlyPlayer==true) or false
     local count=math.max(1,math.floor(((debuff and parent.debuffCount) or (buff and parent.buffCount) or n.count) or 8))
     local perRow=math.max(1,math.floor(((debuff and parent.debuffPerRow) or (buff and parent.buffPerRow) or n.perRow) or count))
     local filter=n.filter or "HELPFUL";local now=GetTime()
@@ -67,14 +68,23 @@ local function Auras(view,o,s)
     elseif pet then data=view.preview and M.PetBuffs.Preview(parent) or M.PetBuffs.Read(parent,o.auraData)
     elseif view.preview then
         data={}
-        local previewCount=(debuff or buff) and count or math.min(4,count)
+        local previewCount=(debuff or buff) and count or math.min(party and 5 or 4,count)
         for i=1,previewCount do
             local iconIndex=((i-1)+(debuff and 20 or 0))%#auraPreviewIcons+1
-            local icon=n.partyIndex~=nil and M.PartyFrames.PreviewDebuff(n.partyIndex,i)
-                or "Interface\\Icons\\"..auraPreviewIcons[iconIndex]
-            data[i]={icon=icon,applications=i==1 and 3 or 0}
+            if party then
+                local timed,own=i~=2 and i~=4,i<=2 or i==5
+                if (not hideUntimed or timed) and (not onlyPlayer or own) then
+                    local duration=timed and 30+i*5 or 0
+                    data[#data+1]={icon="Interface\\Icons\\"..auraPreviewIcons[iconIndex],duration=duration,
+                        expirationTime=timed and now+duration or 0}
+                end
+            else
+                local icon=n.partyIndex~=nil and M.PartyFrames.PreviewDebuff(n.partyIndex,i)
+                    or "Interface\\Icons\\"..auraPreviewIcons[iconIndex]
+                data[i]={icon=icon,applications=i==1 and 3 or 0}
+            end
         end
-    else data=C.Auras(s.unit,filter,count,o.auraData,hideUntimed,onlyPlayer) end
+    else data=C.Auras(s.unit,filter,count,o.auraData,hideUntimed,onlyPlayer,party and hideUntimed) end
     if scan then
         o.auraData=data;o.auraUnit=s.unit;o.auraFilter=filter;o.auraLimit=count;o.auraHideUntimed=hideUntimed;o.auraOnlyPlayer=onlyPlayer;o.auraVersion=version;o.nextAuraScan=now+.2;o.petBuffKey=petKey
     end

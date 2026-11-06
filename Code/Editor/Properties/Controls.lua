@@ -134,6 +134,14 @@ local function BuildProperties(e)
         if Selected() and Selected().compound=="partyFrames"then Change("hidePartyPlayer",hidden)end
     end)
     Row(32,{{e.partyHidePlayer,-4,0}},{},"partyHidePlayer");y=y-32
+    e.partyBuffsTimedOnly=W.Check(content,"仅显示有倒计时的Buff",function(enabled)
+        if Selected() and Selected().compound=="partyFrames"then Change("partyBuffsTimedOnly",enabled)end
+    end)
+    Row(32,{{e.partyBuffsTimedOnly,-4,0}},{},"partyBuffsTimedOnly");y=y-32
+    e.partyBuffsOnlyPlayer=W.Check(content,"仅显示来源于玩家的Buff",function(enabled)
+        if Selected() and Selected().compound=="partyFrames"then Change("partyBuffsOnlyPlayer",enabled)end
+    end)
+    Row(32,{{e.partyBuffsOnlyPlayer,-4,0}},{},"partyBuffsOnlyPlayer");y=y-32
     PartyField("玩家框体X偏移","partyPlayerX",-150,150,1)
     e.partyMaterialButton=W.MediaSelect(content,"生命与能量条材质",propertyWidth,"statusbar",function()M:OpenBarMaterialPicker()end)
     Row(53,{{e.partyMaterialButton,0,0}},{},"partyMaterial");y=y-53
