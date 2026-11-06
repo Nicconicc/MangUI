@@ -275,8 +275,13 @@ local function Build(view,n)
         f:SetScript("OnHide",function()M.CooldownMonitor.Reset(o)end)
     elseif n.kind=="resources" then
         o.resourceSlots={}
+        local _,class=UnitClass("player")
+        o.foreverRogueComboPoints=C.interface==16001 and class=="ROGUE"
         for i=1,6 do
             local slot=CreateFrame("Frame",nil,f);slot:SetSize(50,50);slot:EnableMouse(false)
+            -- The smaller combo slots can flash when their model viewport
+            -- shrinks and reloads during the entry animation on Forever.
+            slot.fixedModelViewport=o.foreverRogueComboPoints and (i==2 or i==4)
             slot.visual=CreateFrame("Frame",nil,slot);slot.visual:SetSize(50,50);slot.visual:SetPoint("CENTER")
             slot.visual:EnableMouse(false)
             slot.base=slot.visual:CreateTexture(nil,"ARTWORK");slot.base:SetSize(50,50)
@@ -290,9 +295,10 @@ local function Build(view,n)
                 local model=CreateFrame("PlayerModel",nil,slot.visual);model:SetPoint("CENTER")
                 model:EnableMouse(false)
                 if model.SetPortraitZoom then model:SetPortraitZoom(0) end
-                if model.SetKeepModelOnHide then model:SetKeepModelOnHide(false) end
+                local keepModel=slot.fixedModelViewport and model.SetKeepModelOnHide~=nil
+                if model.SetKeepModelOnHide then model:SetKeepModelOnHide(keepModel) end
                 model:SetScript("OnModelLoaded",ResourceModelLoaded)
-                model:SetScript("OnShow",ResourceModelRestart)
+                if not keepModel then model:SetScript("OnShow",ResourceModelRestart) end
                 model:Hide();slot.models[j]=model
             end
             slot.artFrame=CreateFrame("Frame",nil,slot.visual)

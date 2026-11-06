@@ -124,12 +124,17 @@ local function ResourcePaint(view,o)
     local targetChanged=not view.preview and view.resourceTargetChanged
     if targetChanged then view.resourceTargetChanged=nil end
     local targetExists=UnitExists("target")
+    local targetDead=not view.preview and o.foreverRogueComboPoints and targetExists
+        and C.Bool(UnitIsDeadOrGhost("target"))
+    local clearCombo=targetChanged or not targetExists or targetDead
     if view.preview then amount=style.count
     elseif class=="ROGUE" or class=="DRUID" then
-        if targetExists and not targetChanged and GetComboPoints then
-            amount=C.Number(GetComboPoints("player","target"),0)
-        elseif targetExists and not targetChanged then
-            amount=C.Number(UnitPower("player",4),0)
+        if not clearCombo then
+            if GetComboPoints then
+                amount=C.Number(GetComboPoints("player","target"),0)
+            else
+                amount=C.Number(UnitPower("player",4),0)
+            end
         end
     elseif class=="SHAMAN" then amount=ResourceAuraStacks() end
     for i,slot in ipairs(o.resourceSlots) do
@@ -152,12 +157,16 @@ local function ResourcePaint(view,o)
             end
         end
         if not exists then slot.resourcePhase=nil;slot.resourceActive=false
-        elseif (class=="ROGUE" or class=="DRUID") and not view.preview and (targetChanged or not targetExists) then
+        elseif (class=="ROGUE" or class=="DRUID") and not view.preview and clearCombo then
             slot.resourcePhase=nil;slot.resourceActive=false
         elseif slot.resourceActive~=active then
             local previous=slot.resourceActive
             slot.resourceActive=active
-            slot.resourcePhase=active and "enter" or (previous==true and "exit" or nil)
+            if slot.fixedModelViewport then
+                slot.resourcePhase=nil
+            else
+                slot.resourcePhase=active and "enter" or (previous==true and "exit" or nil)
+            end
             slot.resourcePhaseAt=GetTime()
         end
         slot.resourceKeepSlot=class=="DEATHKNIGHT"

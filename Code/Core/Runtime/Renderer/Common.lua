@@ -279,6 +279,7 @@ local function FieldDependencies(o)
     if binding=="health" or binding=="healthText" or binding=="healthPercent" or (n.kind=="bar" and not binding) then AddUnit(fields.health,n.unit) end
     if binding=="power" or binding=="powerText" or binding=="powerPercent" or n.powerColor then AddUnit(fields.power,n.unit) end
     if n.kind=="resources"or n.thirdResource then AddUnit(fields.power,"player") end
+    if o.foreverRogueComboPoints then AddUnit(fields.health,"target") end
     if n.thirdResource then AddUnit(fields.health,"player")end
     for _,rule in ipairs(n.rules or {}) do
         if healthFields[rule.test] then AddUnit(fields.health,rule.unit) end
