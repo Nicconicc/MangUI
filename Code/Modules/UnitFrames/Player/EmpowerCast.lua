@@ -238,8 +238,98 @@ function E.AttackPoints(o,active,elapsed,total)
     c.finish=total
     RegularPoints(o,c,math.max(0,elapsed))
 end
+local playerCastFill="waba76314011"
+local interruptColor={1,.13,.12,1}
+local function RememberPlayerCast(view,o,c,s)
+    if view.preview or o.spec.id~=playerCastFill or not c.active then return end
+    local cast=view.interruptCast or {}
+    view.interruptCast=cast
+    cast.seenAt=GetTime();cast.unit=s.unit;cast.start=c.start;cast.finish=c.finish
+    cast.channel,cast.empowered,cast.icon=c.channel,c.empowered,c.icon
+end
+local function InterruptVisual(view,cast,now)
+    local o=view.nodes[playerCastFill]
+    if not o or o.removed or o.spec.enabled==false or (o.module and o.module.enabled==false) then return end
+    local frame=o.frame
+    local a=o.interruptVisual
+    if not a then
+        local root=Frame(frame:GetParent(),frame:GetFrameLevel()+10);root:Hide()
+        a={root=root,background=root:CreateTexture(nil,"BACKGROUND"),
+            line=root:CreateTexture(nil,"ARTWORK",nil,-1),fill=root:CreateTexture(nil,"ARTWORK"),
+            icon=root:CreateTexture(nil,"OVERLAY")}
+        o.interruptVisual=a;view.interruptVisual=a
+        root:SetScript("OnUpdate",function(self)
+            local age=GetTime()-a.started
+            if age>=.45 then self:Hide();return end
+            local shake=math.max(0,1-age/.22)
+            local x=math.sin(age*math.pi*32)*7*shake
+            self:ClearAllPoints();self:SetPoint("CENTER",frame,"CENTER",x,0)
+            self:SetAlpha(1-M.Clamp((age-.16)/.29,0,1))
+        end)
+    end
+    local root=a.root
+    local width,height=o.spec.width or 512,o.spec.height or 128
+    local ratio=1
+    if cast.start and cast.finish and cast.finish>cast.start then
+        ratio=M.Clamp((now-cast.start)/(cast.finish-cast.start),0,1)
+        if cast.channel then ratio=1-ratio end
+    end
+    root:SetScale(frame:GetScale());root:SetSize(width,height)
+    root:SetFrameLevel(frame:GetFrameLevel()+10)
+    root:ClearAllPoints();root:SetPoint("CENTER",frame,"CENTER",0,0)
+    local background=view.nodes.wa1537213e27
+    if background and not background.removed and background.spec.enabled~=false then
+        a.background:SetAllPoints(root);a.background:SetTexture(background.spec.file)
+        M.RendererInternals.TextureCoords(a.background,background.spec)
+        a.background:Show()
+    else a.background:Hide() end
+    a.fill:SetTexture(o.spec.file);a.fill:SetBlendMode(o.spec.blend or "BLEND")
+    a.fill:SetVertexColor(unpack(interruptColor));a.fill:SetTexCoord(0,ratio,0,1)
+    a.fill:SetPoint("LEFT",root,"LEFT",0,0);a.fill:SetSize(math.max(.001,width*ratio),height)
+    a.line:SetColorTexture(unpack(interruptColor));a.line:SetPoint("LEFT",root,"LEFT",24,0)
+    a.line:SetSize(math.max(.001,(width-48)*ratio),7)
+    local icon=view.nodes.wa8fa968f2a9
+    local fx,fy=frame:GetCenter()
+    local ix,iy
+    if icon and not icon.removed and icon.spec.enabled~=false then ix,iy=icon.frame:GetCenter() end
+    fx,fy,ix,iy=C.Number(fx),C.Number(fy),C.Number(ix),C.Number(iy)
+    if fx and fy and ix and iy then
+        local scale=frame:GetEffectiveScale()
+        local iconScale=icon.frame:GetEffectiveScale()
+        local texture=cast.icon
+        if C.Readable(texture) and texture==nil then texture=134400 end
+        a.icon:SetTexture(texture)
+        a.icon:SetSize(icon.spec.width*iconScale/scale,icon.spec.height*iconScale/scale)
+        a.icon:SetPoint("CENTER",root,"CENTER",ix*iconScale/scale-fx,iy*iconScale/scale-fy)
+        a.icon:Show()
+    else a.icon:Hide() end
+    a.started=now;root:SetAlpha(1);root:Show()
+end
+function E.InterruptEvent(view,event,unit,castID)
+    if unit~="player" and unit~="vehicle" and event~="PLAYER_ENTERING_WORLD" then return end
+    if event=="UNIT_SPELLCAST_START" or event=="UNIT_SPELLCAST_CHANNEL_START" or event=="UNIT_SPELLCAST_EMPOWER_START"
+        or event=="PLAYER_ENTERING_WORLD" then
+        view.interruptCast=nil;view.interruptCastID=C.Readable(castID) and castID or nil
+        if view.interruptVisual then view.interruptVisual.root:Hide() end
+        return
+    end
+    local cast=view.interruptCast
+    if not cast or (cast.unit and cast.unit~=unit) then return end
+    if view.interruptCastID and C.Readable(castID) and castID and castID~=view.interruptCastID then return end
+    if event=="UNIT_SPELLCAST_SUCCEEDED" and not cast.channel and not cast.empowered then
+        view.interruptCast=nil
+        return
+    end
+    local now=GetTime()
+    local earlyChannel=event=="UNIT_SPELLCAST_CHANNEL_STOP" and cast.channel and cast.finish and now<cast.finish-.15
+    if event=="UNIT_SPELLCAST_INTERRUPTED" or event=="UNIT_SPELLCAST_FAILED" or earlyChannel then
+        view.interruptCast=nil
+        if now-cast.seenAt<=.3 then InterruptVisual(view,cast,now) end
+    end
+end
 function E.Paint(view,o,s,animateOnly)
     local c=s.cast
+    RememberPlayerCast(view,o,c,s)
     local group=M.byID and M.byID[o.spec.parent]
     local playSound=not view.preview and o.spec.unit=="player" and (not group or group.castStageSound~=false)
     Ready(o,"empower")

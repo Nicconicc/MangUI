@@ -175,6 +175,9 @@ function M:StartLive()
         local combatEvent=event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_REGEN_ENABLED"
         if M.CombatNotices and combatEvent then Dispatch("combatNotices",M.CombatNotices.Event,M.live,event) end
         if M.MouseCircle and (independentEvents[event] or castEvents[event] or event=="PLAYER_ENTERING_WORLD") then Dispatch("mouseCircle",M.MouseCircle.Event,M.live,event,unit) end
+        if castEvents[event] or event=="PLAYER_ENTERING_WORLD" then
+            Dispatch("wa8d650f8d3a",M.EmpowerCast.InterruptEvent,M.live,event,unit,...)
+        end
         if M.ExperienceBar and xpEvents[event] then Dispatch("experienceBar",M.ExperienceBar.Event,M.live,event,unit,...) end
         if M.TargetDistance and distanceEvents[event] then Dispatch("targetDistance",M.TargetDistance.Event,M.live,event) end
         if event=="PLAYER_TARGET_CHANGED" then
