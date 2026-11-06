@@ -61,7 +61,7 @@ function S.ValidEntries(entries)
     if type(entries)~="table" then return false end
     for key,entry in pairs(entries) do
         if type(key)~="number" or key%1~=0 or key<1 or key>#entries or type(entry)~="table" then return false end
-        if entry.type~="cooldown" and not auraTypes[entry.type] and entry.type~="custom"then return false end
+        if entry.type~="cooldown" and entry.type~="usable" and not auraTypes[entry.type] and entry.type~="custom"then return false end
         if not M.CustomMonitor.Valid(entry)then return false end
         if type(entry.value)~="string" or #entry.value>384 then return false end
         if entry.showShortcut~=nil and type(entry.showShortcut)~="boolean" then return false end
@@ -731,13 +731,25 @@ end
 local function Remaining(slot,seconds)
     M.CustomMonitor.SetText(slot.text,S.FormatCountdown(seconds))
 end
-local function Cooldown(entry,slot)
-    local key=slot.spellID or entry.value
-    local charges,maximum,chargeStart,chargeDuration,chargeRate
+local function SpellCharges(key)
     if C_Spell and C_Spell.GetSpellCharges then
         local info=Safe(C_Spell.GetSpellCharges,key)
-        if info then charges,maximum,chargeStart,chargeDuration,chargeRate=info.currentCharges,info.maxCharges,info.cooldownStartTime,info.cooldownDuration,info.chargeModRate end
-    else charges,maximum,chargeStart,chargeDuration,chargeRate=Safe(GetSpellCharges,key)end
+        if info then return info.currentCharges,info.maxCharges,info.cooldownStartTime,info.cooldownDuration,info.chargeModRate end
+    else return Safe(GetSpellCharges,key)end
+end
+local function SpellCooldown(key)
+    if C_Spell and C_Spell.GetSpellCooldown then
+        local info=Safe(C_Spell.GetSpellCooldown,key)
+        if info then return info.startTime,info.duration,info.isEnabled,info.modRate,info.isOnGCD end
+    else return Safe(GetSpellCooldown,key)end
+end
+local function GlobalCooldown(start,duration)
+    local gs,gd=SpellCooldown(M.Compat.interface==16001 and 29515 or 61304)
+    return Number(gs) and Number(gd) and math.abs(gs-start)<.001 and math.abs(gd-duration)<.001
+end
+local function Cooldown(entry,slot)
+    local key=slot.spellID or entry.value
+    local charges,maximum,chargeStart,chargeDuration,chargeRate=SpellCharges(key)
     local summons=S.SummonCount(slot)
     if summons~=nil then CountText(slot.count,summons,true,true)
     elseif Number(maximum)and maximum<=1 then M.CustomMonitor.SetText(slot.count,"")else CountText(slot.count,charges,true)end
@@ -749,26 +761,38 @@ local function Cooldown(entry,slot)
         end
     end
     slot.duration=nil;ClearCooldown(slot.cooldown)
-    local start,duration,enabled,rate
-    if C_Spell and C_Spell.GetSpellCooldown then
-        local info=Safe(C_Spell.GetSpellCooldown,key)
-        if info then
-            if Readable(info.isOnGCD) and info.isOnGCD==true then slot.active=false;slot.expires=nil;return end
-            start,duration,enabled,rate=info.startTime,info.duration,info.isEnabled,info.modRate
-        end
-    else start,duration,enabled,rate=Safe(GetSpellCooldown,key)end
+    local start,duration,enabled,rate,onGCD=SpellCooldown(key)
+    if Readable(onGCD) and onGCD==true then slot.active=false;slot.expires=nil;return end
     if Number(charges) and Number(maximum) and charges<maximum and Number(chargeStart) and Number(chargeDuration) then
         start,duration,rate=chargeStart,chargeDuration,chargeRate
     end
     start,duration,rate=Number(start),Number(duration),Number(rate) or 1
     local disabled=Readable(enabled) and (enabled==false or enabled==0)
     if start and duration and rate>0 and not disabled then
-        local gcdID=M.Compat.interface==16001 and 29515 or 61304
-        local gs,gd=Safe(GetSpellCooldown,gcdID)
-        local gcd=Number(gs) and Number(gd) and math.abs(gs-start)<.001 and math.abs(gd-duration)<.001
-        slot.expires=not gcd and duration>0 and start+duration/rate or nil
+        slot.expires=not GlobalCooldown(start,duration) and duration>0 and start+duration/rate or nil
     else slot.expires=nil end
     slot.active=slot.expires~=nil and slot.expires>GetTime()
+end
+local function Usable(entry,slot,now)
+    slot.usableReady=false;slot.usableCooldown=nil
+    local key=slot.spellID or entry.value
+    local usable=Safe(C_Spell and C_Spell.IsSpellUsable or IsUsableSpell,key)
+    if not Readable(usable) or usable~=true then return end
+    local charges,maximum=SpellCharges(key)
+    if Number(maximum) and maximum>0 and Number(charges) then
+        slot.usableReady=charges>0
+        return
+    end
+    local start,duration,enabled,rate=SpellCooldown(key)
+    if Readable(enabled) and (enabled==false or enabled==0) then return end
+    start,duration,rate=Number(start),Number(duration),Number(rate) or 1
+    if start and duration and rate>0 then
+        slot.usableReady=duration<=0 or start+duration/rate<=now or GlobalCooldown(start,duration)==true
+    else
+        -- The cooldown object can drive the icon without reading a secret
+        -- timer or confusing recharge time with the spell's actual cooldown.
+        slot.usableCooldown=Safe(C_Spell and C_Spell.GetSpellCooldownDuration,key,true)
+    end
 end
 local function NeedsAuraScan(o,slot)
     if not o.usesNativeAuras or not slot.nativeSpellID then return true end
@@ -833,6 +857,7 @@ function S.Paint(view,o,animateOnly)
             if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
             if not slot:IsShown() then slot:Show()end
             if not view.preview and entry.type=="cooldown" then Cooldown(entry,slot)end
+            if not view.preview and entry.type=="usable" then Usable(entry,slot,now)end
         end
         if not view.preview then ScanAuras(o,"buff");ScanAuras(o,"debuff")end
         local version=view.targetRefreshGeneration or 0
@@ -876,6 +901,19 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetText(slot.text,result.text or S.FormatCountdown(result.expirationTime and result.expirationTime-now))
             M.CustomMonitor.SetText(slot.count,result.count and tostring(result.count)or "")
             M.CustomMonitor.Glow(slot,result.show and result.glow)
+        elseif slot.entry.type=="usable" then
+            M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
+            local timer=not view.preview and slot.usableCooldown
+            local desat=timer and DisplayCurve(desaturationCurves,false,0,1)
+            if desat and timer.EvaluateRemainingDuration and slot.texture.SetDesaturation then
+                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturation",timer:EvaluateRemainingDuration(desat,1))
+                textureAlpha=timer:EvaluateRemainingDuration(DisplayCurve(fadeCurves,false,1,.5),.5)
+            else
+                local remaining=timer and Number(Safe(timer.GetRemainingDuration,timer))
+                local ready=(view.preview and i%2==0) or (not view.preview and (slot.usableReady or (remaining and remaining<=0)))
+                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",not ready)
+                textureAlpha=ready and 1 or .5
+            end
         elseif view.preview then
             local faded=(i%2==1)~=reversed
             ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);textureAlpha=faded and .5 or 1
@@ -913,11 +951,18 @@ function S.Paint(view,o,animateOnly)
     end
 end
 local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,
+    SPELL_UPDATE_USABLE=true,ACTIONBAR_UPDATE_USABLE=true,
     SPELLS_CHANGED=true,LEARNED_SPELL_IN_TAB=true,PLAYER_ENTERING_WORLD=true,PLAYER_REGEN_ENABLED=true,UNIT_SPELLCAST_SUCCEEDED=true}
 function S.Event(view,event,unit)
     if not events[event] or (event=="UNIT_AURA" and unit~="target"and unit~="player") or (event=="UNIT_SPELLCAST_SUCCEEDED" and unit~="player")then return end
     local o=view.nodes.playerSkillMonitorIcons
     if o then
+        if event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" then
+            for _,entry in ipairs(o.entries or {})do
+                if entry.type=="usable" then o.nextScan=0;break end
+            end
+            return
+        end
         o.nextScan=0
         if event=="PLAYER_TARGET_CHANGED" then o.nativeTargetGeneration=nil end
         if event=="SPELLS_CHANGED" or event=="LEARNED_SPELL_IN_TAB" or event=="PLAYER_REGEN_ENABLED" then
@@ -929,7 +974,7 @@ end
 
 function S.BuildControls(e,parent,Row)
     local W=M.Widgets
-    local choices={{name="玩家技能冷却",path="cooldown"},{name="玩家Buff",path="buff"},
+    local choices={{name="玩家技能冷却",path="cooldown"},{name="玩家Buff",path="buff"},{name="可用触发技能",path="usable"},
         {name="目标Debuff",path="debuff"},{name="自定义代码",path="custom"}}
     local typeLabels={};for _,choice in ipairs(choices)do typeLabels[choice.path]=choice.name end
     local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);e.skillMonitorPanel=panel
@@ -1152,7 +1197,8 @@ function S.BuildControls(e,parent,Row)
             row.edit:SetWidth(width/3);
             row.code:ClearAllPoints();row.code:SetPoint("TOPLEFT",width/3+48,-53);row.code:SetShown(entry.type=="custom")
             row.reverseDisplay:ClearAllPoints();row.reverseDisplay:SetPoint("TOPLEFT",width/3+76,-53)
-            row.reverseDisplay:SetShown(entry.type~="custom");row.reverseDisplay:SetChecked(entry.reverseDisplay==true)
+            row.reverseDisplay:SetShown(entry.type=="cooldown" or auraTypes[entry.type]~=nil)
+            row.reverseDisplay:SetChecked(entry.reverseDisplay==true)
             row.placeholder:SetText(entry.type=="custom"and "图标法术名称或ID（可选）"
                 or (entry.type=="buff"and "输入Buff名称或ID"or "输入监控技能名或ID"))
             if not row.edit:HasFocus()then W.SetInputValue(row.edit,entry.value)end
