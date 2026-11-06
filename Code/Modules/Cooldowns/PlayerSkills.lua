@@ -780,15 +780,52 @@ local function HasSpellActivation(id)
     if Readable(active) and type(active)=="boolean" then return active end
     return activationEvents[id]==true
 end
+local legacyActionSlots
+local function SpellActionSlots(id)
+    local find=C_ActionBar and C_ActionBar.FindSpellActionButtons
+    if find then
+        local slots=Safe(find,id)
+        if Readable(slots) and type(slots)=="table" and (not canaccesstable or canaccesstable(slots)) then return slots end
+        return
+    end
+    if not legacyActionSlots then
+        legacyActionSlots={}
+        for slot=1,180 do
+            local kind,spellID=Safe(GetActionInfo,slot)
+            if Readable(kind) and kind=="spell" and Number(spellID) then
+                local slots=legacyActionSlots[spellID] or {}
+                slots[#slots+1]=slot;legacyActionSlots[spellID]=slots
+            end
+        end
+    end
+    return legacyActionSlots[id]
+end
+local function IsSpellActionUsable(id)
+    local slots=SpellActionSlots(id)
+    local query=C_ActionBar and C_ActionBar.IsUsableAction or IsUsableAction
+    for _,slot in ipairs(slots or {})do
+        if Number(slot) then
+            local usable=Safe(query,slot)
+            if Readable(usable) and usable==true then return true end
+        end
+    end
+    return false
+end
 local function Usable(slot,now)
     slot.usableReady=false;slot.usableCooldown=nil
     local id=slot.spellID
     if not id then return end
     local override=Number(Safe(C_Spell and C_Spell.GetOverrideSpell or FindSpellOverrideByID,id))
     local key=override and override>0 and override or id
-    if not HasSpellActivation(key) and (key==id or not HasSpellActivation(id)) then return end
-    local usable=Safe(C_Spell and C_Spell.IsSpellUsable or IsUsableSpell,key)
-    if not Readable(usable) or usable~=true then return end
+    if M.Compat.interface==16001 then
+        local base=Number(Safe(C_Spell and C_Spell.GetBaseSpell,id)) or id
+        if base<=0 then base=id end
+        if not IsSpellActionUsable(base) and (key==base or not IsSpellActionUsable(key)) then return end
+    else
+        if not HasSpellActivation(key) and (key==id or not HasSpellActivation(id)) then return end
+        local usable=Safe(C_Spell and C_Spell.IsSpellUsable or IsUsableSpell,key)
+        if not Readable(usable) or usable~=true then return end
+    end
     local charges,maximum=SpellCharges(key)
     if Number(maximum) and maximum>0 and Number(charges) then
         slot.usableReady=charges>0
@@ -976,7 +1013,7 @@ function S.Paint(view,o,animateOnly)
     end
 end
 local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,
-    SPELL_UPDATE_USABLE=true,ACTIONBAR_UPDATE_USABLE=true,
+    SPELL_UPDATE_USABLE=true,ACTIONBAR_UPDATE_USABLE=true,ACTIONBAR_SLOT_CHANGED=true,
     SPELL_ACTIVATION_OVERLAY_GLOW_SHOW=true,SPELL_ACTIVATION_OVERLAY_GLOW_HIDE=true,
     SPELLS_CHANGED=true,LEARNED_SPELL_IN_TAB=true,PLAYER_ENTERING_WORLD=true,PLAYER_REGEN_ENABLED=true,UNIT_SPELLCAST_SUCCEEDED=true}
 function S.Event(view,event,unit)
@@ -985,9 +1022,10 @@ function S.Event(view,event,unit)
     if activation and Number(unit) then
         activationEvents[unit]=event=="SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" or nil
     elseif event=="PLAYER_ENTERING_WORLD" then activationEvents={} end
+    if event=="ACTIONBAR_SLOT_CHANGED" or event=="PLAYER_ENTERING_WORLD" then legacyActionSlots=nil end
     local o=view.nodes.playerSkillMonitorIcons
     if o then
-        if activation or event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" then
+        if activation or event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" or event=="ACTIONBAR_SLOT_CHANGED" then
             for _,entry in ipairs(o.entries or {})do
                 if entry.type=="usable" then o.nextScan=0;break end
             end
