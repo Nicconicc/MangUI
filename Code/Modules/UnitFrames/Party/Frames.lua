@@ -156,8 +156,8 @@ local function Templates()
         Part("Role","职责图标","texture",-120,0,32,32,19,{binding="partyRole",rules={{test="partyRole",unit=unit}}})
         local auras=Part("Debuffs","减益效果","auras",100,5,20,20,20,
             {filter="HARMFUL",count=40,perRow=10,spacing=2,point="LEFT",anchor="CENTER"})
-        Part("Buffs","增益效果","auras",-31,42,20,20,22,
-            {partyBuffs=true,filter="HELPFUL",count=7,perRow=7,spacing=2,point="LEFT",anchor="CENTER"})
+        Part("Buffs","增益效果","auras",-31,35,20,20,22,
+            {partyBuffs=true,hideCooldownNumbers=true,filter="HELPFUL",count=7,perRow=7,spacing=2,point="LEFT",anchor="CENTER"})
         Part("Hitbox","成员点击区域","hitbox",0,0,150,50,25)
         Node(id.."PowerBorder","资源描边","border",id.."Power",0,0,86,8,layer+5,unit,
             {internal=true,partyIndex=i,visibleUnit=unit,color={0,0,0,1}})
@@ -255,7 +255,8 @@ function P.SyncNodes(design)
             if buffs and debuffs then
                 buffs.width,buffs.height,buffs.scale=debuffs.width,debuffs.height,debuffs.scale
                 buffs.x=hp.x-hp.width*(hp.scale or 1)/2
-                buffs.y=hp.y+32
+                buffs.y=hp.y+25
+                buffs.hideCooldownNumbers=true
             end
             hp.healthColor=M.Copy(root.partyHealthColor);hp.healthGradientEnd=M.Copy(root.partyHealthEndColor)
             hp.healthGradient=root.partyHealthGradient==true
