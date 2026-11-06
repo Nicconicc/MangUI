@@ -65,6 +65,7 @@ function S.ValidEntries(entries)
         if not M.CustomMonitor.Valid(entry)then return false end
         if type(entry.value)~="string" or #entry.value>384 then return false end
         if entry.showShortcut~=nil and type(entry.showShortcut)~="boolean" then return false end
+        if entry.reverseDisplay~=nil and type(entry.reverseDisplay)~="boolean" then return false end
         if entry.shortcut~=nil and (type(entry.shortcut)~="string" or #entry.shortcut>128) then return false end
         if entry.shortcutColor~=nil then
             if type(entry.shortcutColor)~="table" then return false end
@@ -75,7 +76,8 @@ function S.ValidEntries(entries)
             for k in pairs(entry.shortcutColor)do if type(k)~="number" or k%1~=0 or k<1 or k>4 then return false end end
         end
         for field in pairs(entry)do
-            if field~="type" and field~="value" and field~="showShortcut" and field~="shortcut" and field~="shortcutColor" and not M.CustomMonitor.fields[field]then return false end
+            if field~="type" and field~="value" and field~="showShortcut" and field~="shortcut" and field~="shortcutColor"
+                and field~="reverseDisplay" and not M.CustomMonitor.fields[field]then return false end
         end
     end
     for i=1,#entries do if type(entries[i])~="table" then return false end end
@@ -459,12 +461,17 @@ M:EnsurePlayerSkillMonitor(M.defaults);M:EnsurePlayerSkillMonitor(M.recordedDefa
 function S.EntryIndex(group,entry)
     for i,current in ipairs(group.monitors or {})do if current==entry then return i end end
 end
-local curve,shortcutCurve,fadeCurve
-local function DesaturationCurve()
-    if not curve and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
-        curve=C_CurveUtil.CreateCurve();curve:SetType(Enum.LuaCurveType.Step);curve:AddPoint(0,0);curve:AddPoint(.001,1)
+local desaturationCurves,fadeCurves={},{}
+local shortcutCurve
+local function DisplayCurve(curves,reversed,inactive,active)
+    if not curves[reversed] and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
+        local curve=C_CurveUtil.CreateCurve()
+        curve:SetType(Enum.LuaCurveType.Step)
+        curve:AddPoint(0,reversed and active or inactive)
+        curve:AddPoint(.001,reversed and inactive or active)
+        curves[reversed]=curve
     end
-    return curve
+    return curves[reversed]
 end
 local function ShortcutCurve()
     if not shortcutCurve and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
@@ -472,13 +479,6 @@ local function ShortcutCurve()
         shortcutCurve:AddPoint(0,1);shortcutCurve:AddPoint(.001,0)
     end
     return shortcutCurve
-end
-local function FadeCurve()
-    if not fadeCurve and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
-        fadeCurve=C_CurveUtil.CreateCurve();fadeCurve:SetType(Enum.LuaCurveType.Step)
-        fadeCurve:AddPoint(0,1);fadeCurve:AddPoint(.001,.5)
-    end
-    return fadeCurve
 end
 local function NativeAurasAvailable()
     local interface=M.Compat.interface or 0
@@ -558,17 +558,17 @@ function S.CreateAuraBackdrop(parent,container)
     if ok then return backdrop end
     backdrop:Hide()
 end
-local function StyleNativeAura(slot,frame)
+local function StyleNativeAura(slot,frame,reversed)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
     local forever=slot.nativeHost~=nil
     if forever then frame:SetFrameLevel(slot.baseIconFrame:GetFrameLevel()+2)end
-    frame.monitorIcon=frame:CreateTexture(nil,"ARTWORK");frame.monitorIcon:SetAllPoints();frame.monitorIcon:SetDesaturated(true)
-    if forever and not slot.nativeBackdrop then
+    frame.monitorIcon=frame:CreateTexture(nil,"ARTWORK");frame.monitorIcon:SetAllPoints();frame.monitorIcon:SetDesaturated(not reversed)
+    if not reversed and forever and not slot.nativeBackdrop then
         -- The provider owns visibility. An opaque, dimmed icon covers the
         -- colored base even when the client forbids reading aura visibility.
         frame.monitorIcon:SetVertexColor(.5,.5,.5,1)
-    else
+    elseif not reversed then
         frame.monitorIcon:SetAlpha(.5)
     end
     frame.monitorTime=frame:CreateFontString(nil,"OVERLAY");Font(frame.monitorTime)
@@ -593,7 +593,7 @@ local function StyleNativeAura(slot,frame)
     slot.baseIconGate=frame.baseIconGate;slot.texture:SetParent(frame.baseIconGate)
     slot.nativeFrames[#slot.nativeFrames+1]=frame
 end
-local function NativeAura(slot,aura)
+local function NativeAura(slot,aura,reversed)
     local parent=slot
     if M.Compat.interface==16001 then
         slot.nativeHost=CreateFrame("Frame",nil,slot)
@@ -608,14 +608,41 @@ local function NativeAura(slot,aura)
         if backdrop then
             slot.nativeBackdrop=backdrop:CreateTexture(nil,"ARTWORK");slot.nativeBackdrop:SetAllPoints()
             slot.nativeBackdrop:SetTexture(slot.customFallbackIcon)
+            slot.nativeBackdrop:SetDesaturated(reversed);slot.nativeBackdrop:SetAlpha(reversed and .5 or 1)
         end
     end
     local width=slot.nativeBackdrop and S.auraBackdropLayoutWidth or 40
-    container:AddAuraGroup("monitor",aura.filter,{maxFrameCount=0,initializeFrame=function(frame)StyleNativeAura(slot,frame)end})
+    container:AddAuraGroup("monitor",aura.filter,{maxFrameCount=0,initializeFrame=function(frame)StyleNativeAura(slot,frame,reversed)end})
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
     container:SetFlowLayoutMaximumLineSize(width+.001)
     container:SetAuraGroupLayout("monitor",{elementSpacing=0,lineSpacing=0,elementWidth=width,elementHeight=40})
+end
+-- Native AuraButtons can become inaccessible after initialization. Keep one
+-- initialized container per style and switch containers without restyling them.
+local nativeVariantFields={"nativeAuras","nativeHost","nativeBackdrop","nativeFrames","nativeAuraType","shortcutGate","baseIconGate"}
+local function SelectNativeAura(slot,aura)
+    local reversed=slot.entry.reverseDisplay==true
+    if slot.nativeAuras and slot.nativeReversed==reversed then return end
+    slot.nativeVariants=slot.nativeVariants or {}
+    if slot.nativeAuras then
+        slot.nativeAuras:SetEnabled(false)
+        if slot.nativeHost then slot.nativeHost:Hide() end
+        local saved={}
+        for _,key in ipairs(nativeVariantFields)do saved[key]=slot[key] end
+        slot.nativeVariants[slot.nativeReversed]=saved
+    end
+    local saved=slot.nativeVariants[reversed]
+    for _,key in ipairs(nativeVariantFields)do slot[key]=saved and saved[key] or nil end
+    slot.nativeReversed=reversed
+    slot.texture:SetParent(slot.baseIconGate or slot.baseIconFrame)
+    slot.shortcut:SetParent(slot.shortcutGate or slot.shortcutFrame)
+    if not slot.nativeAuras then
+        NativeAura(slot,aura,reversed)
+        slot.nativeAuraType=slot.entry.type
+    end
+    if slot.nativeHost then slot.nativeHost:Show() end
+    if slot.nativeBackdrop then slot.nativeBackdrop:SetTexture(slot.customFallbackIcon)end
 end
 local function Icon(o,i)
     local slot=o.skillIcons[i];if slot then return slot end
@@ -670,7 +697,7 @@ local function BindAura(slot,enabled)
         if slot.nativeAuras then slot.nativeAuras:SetEnabled(false)end
         return
     end
-    if not slot.nativeAuras then NativeAura(slot,aura);slot.nativeAuraType=slot.entry.type end
+    SelectNativeAura(slot,aura)
     slot.nativeAuras:SetEnabled(false)
     if slot.nativeAuraType~=slot.entry.type then
         slot.nativeAuras:SetUnit(aura.unit)
@@ -817,6 +844,7 @@ function S.Paint(view,o,animateOnly)
     for i=1,#entries do
         local slot=o.skillIcons[i]
         local textureAlpha,shortcutAlpha=1,1
+        local reversed=slot.entry.reverseDisplay==true
         -- On Forever, a readable match can draw the complete faded icon even
         -- when the native button's inherited visibility is inaccessible.
         local isAura=auraTypes[slot.entry.type]~=nil
@@ -849,31 +877,34 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetText(slot.count,result.count and tostring(result.count)or "")
             M.CustomMonitor.Glow(slot,result.show and result.glow)
         elseif view.preview then
-            ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",i%2==1);textureAlpha=i%2==1 and .5 or 1;M.CustomMonitor.SetText(slot.text,tostring(30-i))
+            local faded=(i%2==1)~=reversed
+            ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);textureAlpha=faded and .5 or 1
+            M.CustomMonitor.SetText(slot.text,tostring(30-i))
             M.CustomMonitor.SetText(slot.count,isAura and "3"or "2")
         elseif slot.duration then
-            local desat=DesaturationCurve()
+            local desat=DisplayCurve(desaturationCurves,reversed,0,1)
             if desat and slot.duration.EvaluateRemainingDuration and slot.texture.SetDesaturation then
                 -- The engine consumes this potentially secret number directly.
                 M.CustomMonitor.SetVisual(slot.texture,"SetDesaturation",slot.duration:EvaluateRemainingDuration(desat,0))
-                textureAlpha=slot.duration:EvaluateRemainingDuration(FadeCurve(),1)
+                textureAlpha=slot.duration:EvaluateRemainingDuration(DisplayCurve(fadeCurves,reversed,1,.5),reversed and .5 or 1)
                 shortcutAlpha=slot.duration:EvaluateRemainingDuration(ShortcutCurve(),1)
             else
                 local remaining=Number(Safe(slot.duration.GetRemainingDuration,slot.duration))
                 if remaining then
-                    M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",remaining>0);Remaining(slot,remaining)
-                    textureAlpha=remaining>0 and .5 or 1
+                    local faded=(remaining>0)~=reversed
+                    M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);Remaining(slot,remaining)
+                    textureAlpha=faded and .5 or 1
                     shortcutAlpha=remaining>0 and 0 or 1
                 end
             end
         elseif useNative then
-            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
-            -- The native provider draws the active icon and countdown. The
-            -- colored base icon is visible when the aura is absent.
+            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",reversed);M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
+            textureAlpha=reversed and .5 or 1
         else
             local active=slot.active and (not slot.expires or slot.expires>now)
-            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",active==true);Remaining(slot,active and slot.expires and slot.expires-now or nil)
-            textureAlpha=active and .5 or 1
+            local faded=(active==true)~=reversed
+            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);Remaining(slot,active and slot.expires and slot.expires-now or nil)
+            textureAlpha=faded and .5 or 1
             shortcutAlpha=active and 0 or 1
             if isAura then CountText(slot.count,active and slot.stacks or nil,false)end
         end
@@ -1101,6 +1132,11 @@ function S.BuildControls(e,parent,Row)
                     if index and Editable(owner,item)then table.remove(owner.monitors,index);M:Commit()end
                 end)
                 row.code=W.Button(row,"编辑代码",100,function()Flush();if Editable(row.group,row.entry)then M.CustomMonitor.OpenEditor(row.group,row.entry)end end)
+                row.reverseDisplay=W.Check(row,"反转显示效果",function(enabled)
+                    local owner,item=row.group,row.entry;Flush()
+                    if Editable(owner,item)then item.reverseDisplay=enabled==true;M:Commit()end
+                end)
+                row.reverseDisplay.label:SetWordWrap(false)
                 row.remove:SetPoint("TOPRIGHT",row,"TOPRIGHT",0,-53)
                 row.dragHandle:SetPoint("TOP",row.remove,"TOP",0,53)
             end
@@ -1115,6 +1151,8 @@ function S.BuildControls(e,parent,Row)
             row.shortcutColor:ClearAllPoints();row.shortcutColor:SetPoint("LEFT",row.shortcutEdit,"RIGHT",12,0)
             row.edit:SetWidth(width/3);
             row.code:ClearAllPoints();row.code:SetPoint("TOPLEFT",width/3+48,-53);row.code:SetShown(entry.type=="custom")
+            row.reverseDisplay:ClearAllPoints();row.reverseDisplay:SetPoint("TOPLEFT",width/3+76,-53)
+            row.reverseDisplay:SetShown(entry.type~="custom");row.reverseDisplay:SetChecked(entry.reverseDisplay==true)
             row.placeholder:SetText(entry.type=="custom"and "图标法术名称或ID（可选）"
                 or (entry.type=="buff"and "输入Buff名称或ID"or "输入监控技能名或ID"))
             if not row.edit:HasFocus()then W.SetInputValue(row.edit,entry.value)end
