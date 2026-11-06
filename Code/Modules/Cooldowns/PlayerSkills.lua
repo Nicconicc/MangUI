@@ -840,9 +840,6 @@ function S.Paint(view,o,animateOnly)
     if not shown then return end
     local now=GetTime();local entries=o.entries or {}
     if view.preview and #entries==0 then entries=samples end
-    o.rowCount=#entries
-    local width=math.max(1,#entries*44-4)
-    if o.rowWidth~=width then o.frame:SetSize(width,66);o.rowWidth=width end
     if not animateOnly or now>=(o.nextScan or 0) then
         o.nextScan=now+.2
         for i,entry in ipairs(entries)do
@@ -853,9 +850,6 @@ function S.Paint(view,o,animateOnly)
                 Resolve(slot,entry)
                 if o.usesNativeAuras and not InCombatLockdown() then BindAura(slot,group.enabled~=false)end
             end
-            local x=S.IconOffset(group,i,#entries)
-            if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
-            if not slot:IsShown() then slot:Show()end
             if not view.preview and entry.type=="cooldown" then Cooldown(entry,slot)end
             if not view.preview and entry.type=="usable" then Usable(entry,slot,now)end
         end
@@ -866,8 +860,38 @@ function S.Paint(view,o,animateOnly)
             o.nativeTargetGeneration=version
         end
     end
+    local visibleCount=0
     for i=1,#entries do
         local slot=o.skillIcons[i]
+        local alpha=1
+        if slot.entry.type=="usable" and not view.preview then
+            local timer=slot.usableCooldown
+            local remaining=timer and Number(Safe(timer.GetRemainingDuration,timer))
+            if remaining then alpha=remaining<=0 and 1 or 0
+            elseif timer and timer.EvaluateRemainingDuration and ShortcutCurve() then
+                -- A restricted timer can drive visibility through native alpha.
+                -- Keep its position when Lua cannot read the evaluated value.
+                alpha=timer:EvaluateRemainingDuration(ShortcutCurve(),0)
+            else alpha=slot.usableReady and 1 or 0 end
+        end
+        local readable=Readable(alpha)
+        slot.rowVisible=not readable or alpha==1
+        if slot.rowVisible then visibleCount=visibleCount+1 end
+        if slot:IsShown()~=slot.rowVisible then slot:SetShown(slot.rowVisible) end
+        M.CustomMonitor.SetVisual(slot,"SetAlpha",alpha)
+        M.CustomMonitor.SetVisual(slot,"EnableMouse",readable and slot.rowVisible)
+    end
+    o.rowCount=visibleCount
+    local width=math.max(1,visibleCount*44-4)
+    if o.rowWidth~=width then o.frame:SetSize(width,66);o.rowWidth=width end
+    local visibleIndex=0
+    for i=1,#entries do
+        local slot=o.skillIcons[i]
+        if slot.rowVisible then
+            visibleIndex=visibleIndex+1
+            local x=S.IconOffset(group,visibleIndex,visibleCount)
+            if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
+        end
         local textureAlpha,shortcutAlpha=1,1
         local reversed=slot.entry.reverseDisplay==true
         -- On Forever, a readable match can draw the complete faded icon even
@@ -903,17 +927,7 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.Glow(slot,result.show and result.glow)
         elseif slot.entry.type=="usable" then
             M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
-            local timer=not view.preview and slot.usableCooldown
-            local desat=timer and DisplayCurve(desaturationCurves,false,0,1)
-            if desat and timer.EvaluateRemainingDuration and slot.texture.SetDesaturation then
-                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturation",timer:EvaluateRemainingDuration(desat,1))
-                textureAlpha=timer:EvaluateRemainingDuration(DisplayCurve(fadeCurves,false,1,.5),.5)
-            else
-                local remaining=timer and Number(Safe(timer.GetRemainingDuration,timer))
-                local ready=(view.preview and i%2==0) or (not view.preview and (slot.usableReady or (remaining and remaining<=0)))
-                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",not ready)
-                textureAlpha=ready and 1 or .5
-            end
+            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
         elseif view.preview then
             local faded=(i%2==1)~=reversed
             ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);textureAlpha=faded and .5 or 1
