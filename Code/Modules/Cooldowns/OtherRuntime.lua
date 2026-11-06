@@ -97,8 +97,9 @@ local function CombatActive(o)
     if o.combatActive~=nil then return o.combatActive end
     return M.Compat.Bool(Safe(InCombatLockdown))or M.Compat.Bool(Safe(UnitAffectingCombat,"player"))
 end
-local function LoadAllowed(entry,combat)
+local function LoadAllowed(entry,combat,boss)
     return entry.displayWhen~="never" and (entry.displayWhen~="combat" or combat)
+        and (entry.displayWhen~="boss" or boss==true)
 end
 local function BossActive(o,combat)
     local boss=o.encounterActive
@@ -116,10 +117,8 @@ local function BossActive(o,combat)
 end
 function O.SoundAllowed(o,entry,combat,boss)
     if combat==nil then combat=CombatActive(o)end
-    if not LoadAllowed(entry,combat) then return false end
-    if entry.displayWhen~="boss"then return true end
-    if boss==nil then boss=BossActive(o,combat)end
-    return boss
+    if boss==nil and entry.displayWhen=="boss" then boss=BossActive(o,combat)end
+    return LoadAllowed(entry,combat,boss)
 end
 local function NativeFrame(slot,frame)
     if slot.missingBackdrop then
@@ -542,8 +541,7 @@ local function Equipment(slot,auras,now,weaponAuras)
     slot.faded=not active and hasFixed and cdExpires~=nil and cdExpires>now or false
     slot.fixedCooldown=hasFixed;slot.condition=active;slot.show=active or slot.faded;slot.rawKnown=auras~=nil
 end
-local function Refresh(view,o,now,combat)
-    local boss=BossActive(o,combat)
+local function Refresh(view,o,now,combat,boss)
     local player=Auras("player","HELPFUL")
     local equipmentAuras=player and player.complete and player or nil
     local targetExists=M.Compat.Bool(Safe(UnitExists,"target"));local target=targetExists and Auras("target","HARMFUL|PLAYER")or nil
@@ -627,11 +625,14 @@ function O.Paint(view,o,animateOnly)
     local displayed=o.displayedIcons or {};o.displayedIcons=displayed
     for index=#displayed,1,-1 do displayed[index]=nil end
     local combat=not view.preview and CombatActive(o)
-    if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then Refresh(view,o,now,combat);o.nextScan=now+.2 end
+    if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then
+        o.loadBossActive=BossActive(o,combat)
+        Refresh(view,o,now,combat,o.loadBossActive);o.nextScan=now+.2
+    end
     local row=not view.preview and CompactRow(o,entries,S.Direction(group))
     for i,entry in ipairs(entries)do
         local slot=Icon(o,i);if slot.entry~=entry then Resolve(slot,entry)end
-        local allowed=LoadAllowed(entry,combat)
+        local allowed=LoadAllowed(entry,combat,o.loadBossActive)
         local custom=entry.type=="custom"and M.CustomMonitor.Apply(o,slot,view.preview,allowed)
         local raw=slot.rawKnown
         local native=not view.preview and allowed and o.native and slot.nativeBound and not raw
