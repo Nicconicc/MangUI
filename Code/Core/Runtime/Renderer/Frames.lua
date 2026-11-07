@@ -316,11 +316,6 @@ local function Build(view,n)
         o.edges={}
         for i=1,4 do o.edges[i]=f:CreateTexture(nil,"OVERLAY");o.edges[i]:SetColorTexture(1,1,1) end
     elseif n.kind~="group" and n.kind~="hitbox" then
-        if n.castFill or (n.attackKind and not n.attackFrame) then
-            o.castInterior=f:CreateTexture(nil,"BACKGROUND")
-            o.castInterior:SetTexture("Interface\\Buttons\\WHITE8X8")
-            o.castInterior:SetHeight(7)
-        end
         o.texture=f:CreateTexture(nil,"ARTWORK");o.texture:SetAllPoints()
     end
     return o
@@ -653,7 +648,6 @@ function R.Apply(view,design,unchanged)
                 if o.texture.SetRotation then o.texture:SetRotation(math.rad(n.rotation or 0)) end
                 if M.PartyFrames then M.PartyFrames.ConfigureTexture(o) end
                 if n.attackKind then o.texture:SetVertexColor(unpack(n.color or {1,1,1,1})) end
-                if o.castInterior then o.castInterior:SetVertexColor(unpack(n.color or {1,1,1,1})) end
             elseif o.bar then
                 local material=n.alphaFill and n.materialPath or nil
                 o.bar:SetStatusBarTexture(material or n.file or "Interface\\Buttons\\WHITE8X8")

@@ -220,12 +220,5 @@ function A.Paint(view,o,player)
     local ratio=view.preview and .65 or M.Clamp(((s.paused or now)-s.start)/s.speed,0,1)
     if o.attackRatio==ratio then return end
     o.attackRatio=ratio
-    o.texture:ClearAllPoints();o.texture:SetPoint("LEFT",o.frame,"LEFT",0,0)
-    o.texture:SetSize(math.max(.001,(n.width or 512)*ratio),n.height or 128)
-    o.texture:SetTexCoord(0,ratio,0,1);o.texture:SetShown(ratio>0)
-    M.PlayerCastArt.Draw(o.texture,o.frame,n,ratio,n.color)
-    if o.castInterior then
-        o.castInterior:ClearAllPoints();o.castInterior:SetPoint("LEFT",o.frame,"LEFT",24,0)
-        o.castInterior:SetSize(math.max(.001,((n.width or 512)-48)*ratio),7);o.castInterior:SetShown(ratio>0)
-    end
+    M.PlayerCastArt.PaintProgress(o,o.texture,o.frame,n,ratio,n.color)
 end

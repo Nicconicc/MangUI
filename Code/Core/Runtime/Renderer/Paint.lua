@@ -363,19 +363,7 @@ local function Paint(view,o,animateOnly,visibleHint)
         if n.id=="wa1537213e27" then M.PlayerCastArt.Draw(o.texture,f,n,1,col) end
         if n.castFill and not M.EmpowerCast.Paint(view,o,s,animateOnly)
             and not M.NativeDisplays.Cast(view,o,s,col,animateOnly) then
-            local ratio=CastRatio(s) or 0
-            local width=math.max(.001,(n.width or 512)*ratio)
-            CachedPoint(o,"castTexturePoint",o.texture,"LEFT",f,"LEFT",0,0)
-            CachedPair(o,"castTextureSize",o.texture,"SetSize",width,n.height or 128)
-            local coords=o.castCoords or {};o.castCoords=coords
-            coords[1],coords[2],coords[3],coords[4]=0,ratio,0,1
-            CachedColor(o,"castCoords",o.texture,"SetTexCoord",coords)
-            CachedValue(o,"castShown",o.texture,"SetShown",ratio>0)
-            CachedPoint(o,"castInteriorPoint",o.castInterior,"LEFT",f,"LEFT",24,0)
-            CachedPair(o,"castInteriorSize",o.castInterior,"SetSize",math.max(.001,((n.width or 512)-48)*ratio),7)
-            CachedColor(o,"castInteriorColor",o.castInterior,"SetVertexColor",col)
-            CachedValue(o,"castInteriorShown",o.castInterior,"SetShown",ratio>0)
-            M.PlayerCastArt.Draw(o.texture,f,n,ratio,col)
+            M.PlayerCastArt.PaintProgress(o,o.texture,f,n,CastRatio(s) or 0,col)
         end
         if n.spinPeriod and o.texture.SetRotation then
             Spin(view,o,GetTime())

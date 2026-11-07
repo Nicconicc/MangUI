@@ -2,10 +2,29 @@ local _,M=...
 local A={};M.PlayerCastArt=A
 local artwork=setmetatable({},{__mode="k"})
 local cuts={0,48,232,280,464,512}
+function A.ProgressBounds(n)
+    -- The fill artwork has 17 transparent pixels at either end.
+    local width=n.width or 512
+    local inset=math.min(17,(width-1)/2)
+    return inset,width-2*inset
+end
 function A.Hide(texture)
     for _,part in ipairs(artwork[texture] or {}) do
         M.RendererInternals.CachedValue(part,"shown",part.texture,"SetShown",false)
     end
+end
+function A.PaintProgress(cache,texture,anchor,n,ratio,color)
+    local left,span=A.ProgressBounds(n)
+    local edge=ratio>0 and left+span*ratio or 0
+    local fraction=edge/(n.width or 512)
+    local P=M.RendererInternals
+    P.CachedPoint(cache,"castTexturePoint",texture,"LEFT",anchor,"LEFT",0,0)
+    P.CachedPair(cache,"castTextureSize",texture,"SetSize",math.max(.001,edge),n.height or 128)
+    local coords=cache.castCoords or {};cache.castCoords=coords
+    coords[1],coords[2],coords[3],coords[4]=0,fraction,0,1
+    P.CachedColor(cache,"castCoords",texture,"SetTexCoord",coords)
+    P.CachedValue(cache,"castShown",texture,"SetShown",ratio>0)
+    A.Draw(texture,anchor,n,fraction,color)
 end
 function A.IsPart(n)
     return n.id=="waba76314011" or n.id=="wa1537213e27"

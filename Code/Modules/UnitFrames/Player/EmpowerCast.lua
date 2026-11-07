@@ -1,5 +1,6 @@
 local _,M=...
 local C,D=M.Compat,M.SpecialBarData.empower
+local A=M.PlayerCastArt
 local E={};M.EmpowerCast=E
 local function Query(fn,...)
     if type(fn)~="function"then return end
@@ -51,10 +52,7 @@ local function Art(parent,owner,n,color)
     local f=Frame(parent,parent:GetFrameLevel()+1);f:SetAllPoints(owner)
     local t=f:CreateTexture(nil,"ARTWORK");t:SetAllPoints();t:SetTexture(n.file)
     t:SetBlendMode(n.blend or "BLEND");t:SetVertexColor(unpack(color))
-    M.PlayerCastArt.Draw(t,f,n,1,color)
-    local line=f:CreateTexture(nil,"ARTWORK");line:SetColorTexture(1,1,1,1);line:SetVertexColor(unpack(color))
-    line:SetPoint("LEFT",f,"LEFT",24,0);line:SetSize(math.max(.001,(n.width or 512)-48),7)
-    f.art,f.line=t,line;return f
+    f.art=t;return f
 end
 local function Boundary(parent,color)
     local boundary=Frame(parent,parent:GetFrameLevel()+6)
@@ -90,7 +88,7 @@ local function Ensure(o)
         local bright=Art(clip,f,n,color);bright:SetFrameLevel(clip:GetFrameLevel()+2)
         bright:SetAlpha(0);a.backgrounds[i]=clip;a.colors[i]=bright
     end
-    a.driver=CreateFrame("StatusBar",nil,a.root);a.driver:SetAllPoints(f);a.driver:EnableMouse(false)
+    a.driver=CreateFrame("StatusBar",nil,a.root);a.driver:EnableMouse(false)
     a.driver:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
     a.driver:SetStatusBarColor(1,1,1,0);a.driver:GetStatusBarTexture():SetAlpha(0)
     a.foreground=Frame(a.root,a.root:GetFrameLevel()+8);a.foreground:SetAllPoints(f)
@@ -124,28 +122,27 @@ local function Layout(a,o,c)
     for _,stage in ipairs(c.empowerStages)do signature=signature..":"..stage.finish end
     if a.signature==signature then return end
     a.signature=signature;a.stageCurves={};a.flashCurves={};local points={{0,0}}
+    local left,span=A.ProgressBounds(o.spec)
+    a.driver:ClearAllPoints();a.driver:SetPoint("LEFT",o.frame,"LEFT",left,0)
+    a.driver:SetSize(span,height)
     for i,stage in ipairs(c.empowerStages)do points[#points+1]={stage.finish,i}end
     a.stageCurve=Step(points)
     local count=#c.empowerStages
     -- The hold interval belongs to the last real stage, regardless of whether
     -- this spell has three, four or five stages.
-    local last=D.colors[count]
-    for _,texture in ipairs({a.colors[6].art,a.colors[6].line})do texture:SetVertexColor(unpack(last))end
-    for _,texture in ipairs({a.dimmed[6].art,a.dimmed[6].line})do texture:SetVertexColor(last[1]*.24,last[2]*.24,last[3]*.24,1)end
     for i,clip in ipairs(a.backgrounds)do
         local color=D.colors[math.min(i,count)]
+        local dimColor={color[1]*.24,color[2]*.24,color[3]*.24,1}
         local bright,dim=a.colors[i],a.dimmed[i]
-        bright.line:SetSize(math.max(.001,width-48),7)
-        dim.line:SetSize(math.max(.001,width-48),7)
-        M.PlayerCastArt.Draw(bright.art,bright,o.spec,1,color)
-        M.PlayerCastArt.Draw(dim.art,dim,o.spec,1,{color[1]*.24,color[2]*.24,color[3]*.24,1})
+        bright.art:SetVertexColor(unpack(color));dim.art:SetVertexColor(unpack(dimColor))
+        A.Draw(bright.art,bright,o.spec,1,color);A.Draw(dim.art,dim,o.spec,1,dimColor)
         local stage=c.empowerStages[i]
         local lo,hi
         if stage then lo,hi=stage.start,stage.finish
         elseif i==6 then lo,hi=c.empowerStages[count].finish,c.empowerTotal end
         if lo and hi>lo then
-            clip:ClearAllPoints();clip:SetPoint("LEFT",o.frame,"LEFT",width*lo/c.empowerTotal,0)
-            clip:SetSize(width*(hi-lo)/c.empowerTotal,height);clip:Show()
+            clip:ClearAllPoints();clip:SetPoint("LEFT",o.frame,"LEFT",left+span*lo/c.empowerTotal,0)
+            clip:SetSize(span*(hi-lo)/c.empowerTotal,height);clip:Show()
             -- The hold area shares the final stage's bright state; it never
             -- creates another completed-stage count.
             local finish=stage and stage.finish or c.empowerStages[count].finish
@@ -155,7 +152,7 @@ local function Layout(a,o,c)
     for i,boundary in ipairs(a.boundaries)do
         local stage=c.empowerStages[i]
         if stage then
-            boundary:ClearAllPoints();boundary:SetPoint("CENTER",o.frame,"LEFT",width*stage.finish/c.empowerTotal,0);boundary:Show()
+            boundary:ClearAllPoints();boundary:SetPoint("CENTER",o.frame,"LEFT",left+span*stage.finish/c.empowerTotal,0);boundary:Show()
             a.flashCurves[i]=Step({{0,0},{stage.finish,1},{stage.finish+.08,.65},{stage.finish+.18,.25},{stage.finish+.32,0}})
         else boundary:Hide();boundary.flash:SetAlpha(0)end
     end
@@ -200,9 +197,10 @@ local function RegularPoints(o,c,elapsedOverride,playSound,fillEdge)
     local width=o.spec.width or 512
     if a.width~=width or a.total~=total or a.channel~=c.channel then
         a.width,a.total,a.channel=width,total,c.channel
+        local left,span=A.ProgressBounds(o.spec)
         for i,point in ipairs(a.points)do
             local fraction=i/4
-            point:ClearAllPoints();point:SetPoint("CENTER",o.frame,"LEFT",width*fraction,0)
+            point:ClearAllPoints();point:SetPoint("CENTER",o.frame,"LEFT",left+span*fraction,0)
             point.crossing=c.channel and 1-fraction or fraction
             -- Public timings use the exact .32s empower flash envelope. If a
             -- native timer keeps total time secret, evaluate a normalized curve
@@ -262,7 +260,7 @@ local function InterruptVisual(view,cast,now)
     if not a then
         local root=Frame(frame:GetParent(),frame:GetFrameLevel()+10);root:Hide()
         a={root=root,background=root:CreateTexture(nil,"BACKGROUND"),
-            line=root:CreateTexture(nil,"ARTWORK",nil,-1),fill=root:CreateTexture(nil,"ARTWORK"),
+            fill=root:CreateTexture(nil,"ARTWORK"),
             icon=root:CreateTexture(nil,"OVERLAY")}
         o.interruptVisual=a;view.interruptVisual=a
         root:SetScript("OnUpdate",function(self)
@@ -288,15 +286,12 @@ local function InterruptVisual(view,cast,now)
     if background and not background.removed and background.spec.enabled~=false then
         a.background:SetAllPoints(root);a.background:SetTexture(background.spec.file)
         M.RendererInternals.TextureCoords(a.background,background.spec)
-        M.PlayerCastArt.Draw(a.background,root,background.spec,1,{1,1,1,1})
+        A.Draw(a.background,root,background.spec,1,{1,1,1,1})
         a.background:Show()
     else a.background:Hide() end
     a.fill:SetTexture(o.spec.file);a.fill:SetBlendMode(o.spec.blend or "BLEND")
-    a.fill:SetVertexColor(unpack(interruptColor));a.fill:SetTexCoord(0,ratio,0,1)
-    a.fill:SetPoint("LEFT",root,"LEFT",0,0);a.fill:SetSize(math.max(.001,width*ratio),height)
-    M.PlayerCastArt.Draw(a.fill,root,o.spec,ratio,interruptColor)
-    a.line:SetColorTexture(unpack(interruptColor));a.line:SetPoint("LEFT",root,"LEFT",24,0)
-    a.line:SetSize(math.max(.001,(width-48)*ratio),7)
+    a.fill:SetVertexColor(unpack(interruptColor))
+    A.PaintProgress(a,a.fill,root,o.spec,ratio,interruptColor)
     local icon=view.nodes.wa8fa968f2a9
     local fx,fy=frame:GetCenter()
     local ix,iy
@@ -355,10 +350,9 @@ function E.Paint(view,o,s,animateOnly)
     end
     local a=Ensure(o);Layout(a,o,c);a.root:Show()
     local P=M.RendererInternals
-    M.PlayerCastArt.Hide(o.texture)
+    A.Hide(o.texture)
     P.CachedValue(o,"castShown",o.texture,"SetShown",false)
-    P.CachedValue(o,"castInteriorShown",o.castInterior,"SetShown",false)
-    if o.nativeCast then o.nativeCast.timer:Hide();o.nativeCast.interior:Hide();o.nativeCast.bound=nil end
+    if o.nativeCast then o.nativeCast.timer:Hide();o.nativeCast.bound=nil end
     local elapsed=c.start and math.max(0,GetTime()-c.start)
     local native=not view.preview and c.empowerNative and c.duration and a.driver.SetTimerDuration and Enum and Enum.StatusBarTimerDirection
     a.spark:ClearAllPoints()
@@ -368,8 +362,8 @@ function E.Paint(view,o,s,animateOnly)
         a.bound=true;a.spark:SetPoint("CENTER",a.driver:GetStatusBarTexture(),"RIGHT",0,0)
     elseif elapsed then
         a.driver:Hide();a.bound=nil
-        local width=(o.spec.width or 512)*M.Clamp(elapsed/c.empowerTotal,0,1)
-        a.spark:SetPoint("CENTER",o.frame,"LEFT",width,0)
+        local left,span=A.ProgressBounds(o.spec)
+        a.spark:SetPoint("CENTER",o.frame,"LEFT",left+span*M.Clamp(elapsed/c.empowerTotal,0,1),0)
     else a.root:Hide();return false end
     a.halo:ClearAllPoints();a.halo:SetPoint("CENTER",a.spark,"CENTER",0,0)
     a.sparkCore:ClearAllPoints();a.sparkCore:SetPoint("CENTER",a.spark,"CENTER",0,0)

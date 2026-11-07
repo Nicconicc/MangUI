@@ -163,7 +163,7 @@ function N.ConfigureCast(view,o)
     local n=o.spec;local native=o.nativeCast
     if not native then
         native={};o.nativeCast=native
-        native.timer=CreateFrame("StatusBar",nil,o.frame);native.timer:SetAllPoints();native.timer:EnableMouse(false)
+        native.timer=CreateFrame("StatusBar",nil,o.frame);native.timer:EnableMouse(false)
         if not native.timer.SetTimerDuration then o.nativeCast=nil;native.timer:Hide();return end
         native.timer:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
         native.timer:SetStatusBarColor(1,1,1,0);native.timer:GetStatusBarTexture():SetAlpha(0)
@@ -171,32 +171,28 @@ function N.ConfigureCast(view,o)
         native.clip:EnableMouse(false);native.clip:SetClipsChildren(true);native.clip:SetAllPoints(native.timer:GetStatusBarTexture())
         native.art=CreateFrame("Frame",nil,native.clip,"DisableUntrustedLayoutScriptsTemplate");native.art:SetAllPoints(o.frame);native.art:EnableMouse(false)
         native.texture=native.art:CreateTexture(nil,"ARTWORK");native.texture:SetAllPoints()
-        native.interior=CreateFrame("StatusBar",nil,o.frame);native.interior:EnableMouse(false)
-        native.interior:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
     end
     native.texture:SetTexture(n.file);native.texture:SetBlendMode(n.blend or "BLEND");P.TextureCoords(native.texture,n)
-    native.interior:ClearAllPoints();native.interior:SetPoint("LEFT",o.frame,"LEFT",24,0)
-    native.interior:SetSize(math.max(.001,(n.width or 512)-48),7)
-    native.timer:Hide();native.interior:Hide()
+    local left,span=M.PlayerCastArt.ProgressBounds(n)
+    native.timer:ClearAllPoints();native.timer:SetPoint("LEFT",o.frame,"LEFT",left,0)
+    native.timer:SetSize(span,n.height or 128)
+    native.timer:Hide()
 end
 function N.Cast(view,o,s,col,animateOnly)
     local native=o.nativeCast
     local duration=s.cast.duration
     if view.preview or not native or duration==nil or not s.cast.active or P.CastRatio(s)~=nil then
-        if native then native.timer:Hide();native.interior:Hide();native.bound=nil end
+        if native then native.timer:Hide();native.bound=nil end
         return false
     end
     M.PlayerCastArt.Hide(o.texture)
     P.CachedValue(o,"castShown",o.texture,"SetShown",false)
-    P.CachedValue(o,"castInteriorShown",o.castInterior,"SetShown",false)
     P.CachedColor(native,"artColor",native.texture,"SetVertexColor",col)
     M.PlayerCastArt.Draw(native.texture,native.art,o.spec,1,col)
-    P.CachedColor(native,"interiorColor",native.interior,"SetStatusBarColor",col)
     if not native.timer:IsShown() then native.timer:Show() end
-    if not native.interior:IsShown() then native.interior:Show() end
     if not animateOnly or not native.bound then
         local direction=s.cast.channel and Enum.StatusBarTimerDirection.RemainingTime or Enum.StatusBarTimerDirection.ElapsedTime
-        native.timer:SetTimerDuration(duration,nil,direction);native.interior:SetTimerDuration(duration,nil,direction)
+        native.timer:SetTimerDuration(duration,nil,direction)
         native.bound=true
     end
     return true
