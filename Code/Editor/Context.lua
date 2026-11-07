@@ -1,8 +1,8 @@
 local _,M=...
 local W,R=M.Widgets,M.Renderer
 local unpack=unpack or table.unpack
-local topLevelFrames={"mainComposite","wa8d650f8d3a","petComposite","totComposite","focusComposite","partyFrames","bossFrames","playerSkillMonitor","playerOtherMonitor","cooldownMonitor","receivedBuffs","raidVulnerability","raidBuffs","commonItems","targetDistance","targetThreat","chatButtons","systemMenu","experienceBar","mouseCircle","combatNotices"}
-local unlockExcluded={mouseCircle=true,systemMenu=true}
+local topLevelFrames={"mainComposite","wa8d650f8d3a","petComposite","totComposite","focusComposite","partyFrames","bossFrames","playerSkillMonitor","playerOtherMonitor","cooldownMonitor","receivedBuffs","raidVulnerability","raidBuffs","commonItems","targetDistance","targetThreat","chatButtons","systemMenu","mouseShortcuts","experienceBar","mouseCircle","combatNotices"}
+local unlockExcluded={mouseCircle=true,systemMenu=true,mouseShortcuts=true}
 local function ModuleAvailable(id)
     local interface=M.Compat.interface or 0
     local classicEra=interface>=10000 and interface<20000 and interface~=16001

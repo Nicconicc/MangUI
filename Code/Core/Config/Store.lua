@@ -146,6 +146,7 @@ function M:InitStore()
     if self.EnsureChatButtonsModule then self:EnsureChatButtonsModule(db.design) end
     if self.EnsureCombatNoticesModule then self:EnsureCombatNoticesModule(db.design) end
     if self.EnsureSystemMenuModule then self:EnsureSystemMenuModule(db.design) end
+    if self.EnsureMouseShortcutsModule then self:EnsureMouseShortcutsModule(db.design) end
     if self.EnsureMouseCircleModule then self:EnsureMouseCircleModule(db.design) end
     if self.EnsureExperienceBarModule then self:EnsureExperienceBarModule(db.design) end
     if self.EnsureTargetThreatModule then self:EnsureTargetThreatModule(db.design) end
@@ -220,6 +221,7 @@ function M:InitStore()
     if self.EnsureChatButtonsModule then self:EnsureChatButtonsModule(db.moduleDefaults) end
     if self.EnsureCombatNoticesModule then self:EnsureCombatNoticesModule(db.moduleDefaults) end
     if self.EnsureSystemMenuModule then self:EnsureSystemMenuModule(db.moduleDefaults) end
+    if self.EnsureMouseShortcutsModule then self:EnsureMouseShortcutsModule(db.moduleDefaults) end
     if self.EnsureMouseCircleModule then self:EnsureMouseCircleModule(db.moduleDefaults) end
     if self.EnsureExperienceBarModule then self:EnsureExperienceBarModule(db.moduleDefaults) end
     if self.EnsureTargetThreatModule then self:EnsureTargetThreatModule(db.moduleDefaults) end

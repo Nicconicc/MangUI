@@ -40,6 +40,7 @@ local moduleTips={
     targetThreat="显示对当前目标的仇恨信息，可设置是否仅在副本中显示。",
     chatButtons="提供聊天频道切换、掷骰、就位确认和开怪倒计时等快捷按钮。",
     systemMenu="显示常用游戏菜单的快捷按钮，可调整位置与样式。",
+    mouseShortcuts="在游戏世界中右键打开不可攻击角色的菜单，或左键双击选择目标标记。",
     experienceBar="显示当前等级的经验进度，可调整位置、文字与外观。",
     mouseCircle="在鼠标周围显示光圈，便于定位鼠标，可调整大小与颜色。",
     combatNotices="进入或离开战斗时显示文字提示，并可设置提示音效。",

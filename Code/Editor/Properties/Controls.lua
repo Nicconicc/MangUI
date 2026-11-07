@@ -81,6 +81,18 @@ local function BuildProperties(e)
         Change("enabled",not hidden)
     end)
     Row(32,{{e.decorationHidden,-4,0}},{},"decorationHidden");y=y-32
+    e.mouseShortcutChecks={}
+    for _,entry in ipairs({
+        {"mouseUnitMenu","鼠标右键角色下拉菜单"},
+        {"mouseUnitMarks","鼠标左键双击角色选择标记"},
+    }) do
+        local key,label=entry[1],entry[2]
+        local check=W.Check(content,label,function(checked)
+            if Selected() and Selected().id=="mouseShortcuts" then Change(key,checked==true) end
+        end)
+        e.mouseShortcutChecks[key]=check
+        Row(32,{{check,-4,0}},{},key);y=y-32
+    end
     Field("名称","label")
     e.coordXLabel=Field("X偏移","x",true);e.coordYLabel=Field("Y偏移","y",true)
     Field("宽度","width",true,1,4000);Field("高度","height",true,1,4000)

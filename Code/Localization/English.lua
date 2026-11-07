@@ -1,5 +1,10 @@
 local _,M=...
 local english=M.localeTables.enUS
+english["鼠标快捷功能"]="Mouse Shortcuts"
+english["鼠标右键角色下拉菜单"]="Right-click character menu"
+english["鼠标左键双击角色选择标记"]="Double-click to choose a marker"
+english["在游戏世界中右键打开不可攻击角色的菜单，或左键双击选择目标标记。"]="Right-click a non-attackable character for its menu, or double-click to choose a target marker."
+english["选择标记"]="Choose a Marker"
 english[" · 双击 "]=" · Double-click "
 english[" · 小地图 "]=" · Minimap "
 english[" · 拖动绿色区域"]=" · Drag the green area"
