@@ -1,5 +1,24 @@
 local _,M=...
 local W=M.Widgets
+local archiveCVar="overrideArchive"
+local function ArchiveSetting()
+    local get=C_CVar and C_CVar.GetCVar or GetCVar
+    if not get then return end
+    local ok,value=pcall(get,archiveCVar)
+    if ok then return value end
+end
+local function SetArchiveSetting(check)
+    local value=check:GetChecked() and "0" or "1"
+    local set=C_CVar and C_CVar.SetCVar or SetCVar
+    if set then pcall(set,archiveCVar,value) end
+    local current=ArchiveSetting()
+    check:SetChecked(current=="0")
+    if current==value then
+        M:Print("反和谐设置已更新，请退出并重新启动游戏。")
+    else
+        M:Print('客户端未接受此设置。退出游戏后，可在 WTF\\Config.wtf 中设置 SET overrideArchive "'..value..'"。')
+    end
+end
 local backdrop={bgFile="Interface\\ChatFrame\\ChatFrameBackground",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",
     tile=true,tileSize=16,edgeSize=16,insets={left=3,right=3,top=5,bottom=3}}
 local function Label(parent,text,template)
@@ -29,6 +48,7 @@ function M:RefreshOtherSettings()
     local dropdownText=panel.language.Text or _G[panel.language:GetName().."Text"]
     if dropdownText then self:SetLocaleLineHeight(dropdownText,18);self:ApplyLocaleFont(dropdownText,caption,true);self:FitLocaleText(dropdownText,330,9) end
     panel.minimapCheck:SetChecked(not self.db.minimap.hide)
+    if panel.archiveCheck then panel.archiveCheck:SetChecked(ArchiveSetting()=="0") end
     panel.targetVisibilityCheck:SetChecked(self.db.hideWithoutTarget==true)
     panel.portrait3DCheck:SetChecked(self.db.portrait3D==true)
     panel.healthClassColorCheck:SetChecked(self.db.healthClassColor==true)
@@ -87,9 +107,18 @@ function M:OpenGeneral()
         local text=Label(check,"显示小地图图标");text:SetPoint("LEFT",check,"RIGHT",5,0);text:SetTextColor(1,1,1)
         check:SetScript("OnClick",function(self)M.db.minimap.hide=not self:GetChecked();M:CreateMinimap()end)
         panel.minimapCheck=check
-        Section(content,"显示",-145,306)
+        local archiveRow=self:ClientLanguage()=="zhCN" and 34 or 0
+        Section(content,"显示",-145,306+archiveRow)
+        if archiveRow>0 then
+            local archiveCheck=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+            archiveCheck:SetSize(28,28);archiveCheck:SetPoint("TOPLEFT",12,-175)
+            local archiveText=Label(archiveCheck,"反和谐（重启游戏生效）")
+            archiveText:SetPoint("LEFT",archiveCheck,"RIGHT",5,0);archiveText:SetTextColor(1,1,1)
+            archiveCheck:SetScript("OnClick",SetArchiveSetting)
+            panel.archiveCheck=archiveCheck
+        end
         local visibility=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
-        visibility:SetSize(28,28);visibility:SetPoint("TOPLEFT",12,-175)
+        visibility:SetSize(28,28);visibility:SetPoint("TOPLEFT",12,-175-archiveRow)
         local visibilityText=Label(visibility,"无目标时隐藏框体")
         visibilityText:SetPoint("LEFT",visibility,"RIGHT",5,0);visibilityText:SetTextColor(1,1,1)
         visibility:SetScript("OnClick",function(self)
@@ -97,7 +126,7 @@ function M:OpenGeneral()
         end)
         panel.targetVisibilityCheck=visibility
         local portrait=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
-        portrait:SetSize(28,28);portrait:SetPoint("TOPLEFT",12,-209)
+        portrait:SetSize(28,28);portrait:SetPoint("TOPLEFT",12,-209-archiveRow)
         local portraitText=Label(portrait,"3D头像")
         portraitText:SetPoint("LEFT",portrait,"RIGHT",5,0);portraitText:SetTextColor(1,1,1)
         portrait:SetScript("OnClick",function(self)
@@ -105,7 +134,7 @@ function M:OpenGeneral()
         end)
         panel.portrait3DCheck=portrait
         local healthColor=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
-        healthColor:SetSize(28,28);healthColor:SetPoint("TOPLEFT",12,-243)
+        healthColor:SetSize(28,28);healthColor:SetPoint("TOPLEFT",12,-243-archiveRow)
         local healthColorText=Label(healthColor,"按职业显示生命条颜色")
         healthColorText:SetPoint("LEFT",healthColor,"RIGHT",5,0);healthColorText:SetTextColor(1,1,1)
         healthColor:SetScript("OnClick",function(self)
@@ -113,7 +142,7 @@ function M:OpenGeneral()
         end)
         panel.healthClassColorCheck=healthColor
         local uiScale=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
-        uiScale:SetSize(28,28);uiScale:SetPoint("TOPLEFT",12,-277)
+        uiScale:SetSize(28,28);uiScale:SetPoint("TOPLEFT",12,-277-archiveRow)
         local uiScaleText=Label(uiScale,"适配4K分辨率的UI缩放")
         uiScaleText:SetPoint("LEFT",uiScale,"RIGHT",5,0);uiScaleText:SetTextColor(1,1,1)
         uiScale:SetScript("OnClick",function(self)
@@ -121,7 +150,7 @@ function M:OpenGeneral()
         end)
         panel.uiScaleCheck=uiScale
         local globalFont=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
-        globalFont:SetSize(28,28);globalFont:SetPoint("TOPLEFT",12,-311)
+        globalFont:SetSize(28,28);globalFont:SetPoint("TOPLEFT",12,-311-archiveRow)
         local globalFontText=Label(globalFont,"使用全局字体")
         globalFontText:SetPoint("LEFT",globalFont,"RIGHT",5,0);globalFontText:SetTextColor(1,1,1)
         globalFont:SetScript("OnClick",function(self)
@@ -129,23 +158,23 @@ function M:OpenGeneral()
         end)
         panel.globalFontCheck=globalFont
         panel.globalFontSelect=W.MediaSelect(content,"字体",200,"font",function()M:OpenGlobalFontPicker()end)
-        panel.globalFontSelect:SetPoint("TOPLEFT",16,-345)
+        panel.globalFontSelect:SetPoint("TOPLEFT",16,-345-archiveRow)
         panel.globalFontSelect.caption:SetTextColor(1,1,1)
         local clientFontLabel=Label(content,"客户端字体大小")
-        clientFontLabel:SetPoint("TOPLEFT",16,-401);clientFontLabel:SetTextColor(1,1,1)
+        clientFontLabel:SetPoint("TOPLEFT",16,-401-archiveRow);clientFontLabel:SetTextColor(1,1,1)
         panel.clientFontScale=W.SpinBox(content,200,.5,1.5,.05)
-        panel.clientFontScale:SetPoint("TOPLEFT",16,-425)
+        panel.clientFontScale:SetPoint("TOPLEFT",16,-425-archiveRow)
         panel.clientFontScale:SetScript("OnValueChanged",function(self,value)
             if self.updating then return end
             M:SetClientFontScale(value)
         end)
-        Section(content,"配置分享",-486,59)
+        Section(content,"配置分享",-486-archiveRow,59)
         local export=Button(content,"导出配置",190,32,function()M:ShowConfigStringDialog("export")end)
         panel.exportButton=export
-        export:SetPoint("TOPLEFT",16,-516)
+        export:SetPoint("TOPLEFT",16,-516-archiveRow)
         local import=Button(content,"导入配置",190,32,function()M:ShowConfigStringDialog("import")end)
         panel.importButton=import
-        import:SetPoint("TOPLEFT",216,-516)
+        import:SetPoint("TOPLEFT",216,-516-archiveRow)
         panel:SetScript("OnHide",function()
             if panel.globalFontSelect.menu then panel.globalFontSelect.menu:Hide()end
             if M.configDialog then M.configDialog:Hide() end
