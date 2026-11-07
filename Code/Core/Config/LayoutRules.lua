@@ -244,6 +244,20 @@ function M:RepairValueTextScale()
 end
 function M:NodePosition(node,index,resolveGeometry)
     local x,y=node.x or 0,node.y or 0
+    if node.id=="playerThirdResource" and UnitClass then
+        local _,class=UnitClass("player")
+        if class=="DRUID" then
+            index=index or self.byID or {}
+            local health,fill=index.wa70b7aa5607,index.wa4f9903a71c
+            if health and fill and health.parent==node.parent then
+                -- Keep the mana strip above the actual health fill in edited layouts.
+                local healthScale=M.Clamp(self:NodeScale(health),.05,10)
+                local fillScale=healthScale*M.Clamp(self:NodeScale(fill),.05,10)
+                local manaScale=M.Clamp(self:NodeScale(node),.05,10)
+                y=((health.y or 0)*healthScale+(fill.y or 0)*fillScale+54*math.max(fillScale,manaScale))/manaScale
+            end
+        end
+    end
     if (node.valueTextOriginRevision==1 or node.resourceOriginRevision==1 or node.auraOriginRevision==1 or node.castOriginRevision==1) and self.Geometry then
         index=index or self.byID or {}
         -- Resolve only the anchor ancestors, keeping the original text parents

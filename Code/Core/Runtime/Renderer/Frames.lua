@@ -570,6 +570,9 @@ function R.Apply(view,design,unchanged)
         -- Logical module roots can own visuals through treeParent rather than
         -- the physical frame parent (notably the central player/target module).
         configure=configure or (moduleID and changed[moduleID])
+        if n.id=="playerThirdResource" then
+            configure=configure or changed.wa70b7aa5607 or changed.wa4f9903a71c
+        end
         o.removed=false
         if configure then
             paintSet[n.id]=true

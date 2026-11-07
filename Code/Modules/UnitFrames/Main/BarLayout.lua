@@ -111,8 +111,10 @@ local function Geometry(index,id,cache,depth)
     local anchor=points[n.screenAnchor or n.anchor] or points.CENTER
     local point=points[n.point] or points.CENTER
     local width,height=n.width or 2,n.height or 2
+    local y=n.y or 0
+    if n.id=="playerThirdResource" then local _,positionY=M:NodePosition(n,index);y=positionY end
     local g={x=p.x+anchor[1]*p.w*p.s/2+(n.x or 0)*scale-point[1]*width*scale/2,
-        y=p.y+anchor[2]*p.h*p.s/2+(n.y or 0)*scale-point[2]*height*scale/2,s=scale,w=width,h=height}
+        y=p.y+anchor[2]*p.h*p.s/2+y*scale-point[2]*height*scale/2,s=scale,w=width,h=height}
     local moveX,moveY=M:MainModuleOffset(n,index);g.x=g.x+moveX;g.y=g.y+moveY
     cache[id]=g;return g
 end

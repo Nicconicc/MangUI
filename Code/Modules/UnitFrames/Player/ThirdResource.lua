@@ -39,11 +39,7 @@ P.Register("druidFormMana",{class="DRUID",minimum=0,maximum=999999,
     available=function()
         if UnitHasVehicleUI and C.Bool(UnitHasVehicleUI("player"))then return false end
         local powerType=C.Number(Query(UnitPowerType,nil,"player"))
-        if powerType~=3 and powerType~=1 then return false end
-        if not GetShapeshiftFormID then return true end
-        local form=C.Number(Query(GetShapeshiftFormID,nil))
-        if powerType==3 then return form==(CAT_FORM or 1) end
-        return form==(BEAR_FORM or 5)or form==(DIREBEAR_FORM or 8)
+        return powerType==3 or powerType==1
     end})
 function P.Provider()
     local _,class=UnitClass("player")
