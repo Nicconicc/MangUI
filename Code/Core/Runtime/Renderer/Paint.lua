@@ -226,10 +226,20 @@ local function Paint(view,o,animateOnly,visibleHint)
         CachedValue(o,"frameAlpha",f,"SetAlpha",alpha)
     end
     if o.text then
+        local nativePercent,useNativePercent
         if n.binding=="healthPercent" and s.healthRatio==nil and UnitHealthPercent and CurveConstants and CurveConstants.ScaleTo100 then
-            local percent=UnitHealthPercent(s.unit,true,CurveConstants.ScaleTo100)
-            o.text:SetFormattedText("%.0f%%",percent)
-            o.shadow:SetFormattedText("%.0f%%",percent)
+            nativePercent=UnitHealthPercent(s.unit,true,CurveConstants.ScaleTo100)
+            useNativePercent=true
+        elseif n.binding=="powerPercent" and s.powerRatio==nil
+            and (not n.manaPercentOtherwiseValue or s.powerType==0)
+            and UnitPowerPercent and CurveConstants and CurveConstants.ScaleTo100 then
+            nativePercent=UnitPowerPercent(s.unit,s.powerType,false,CurveConstants.ScaleTo100)
+            useNativePercent=true
+        end
+        -- Restricted percentages can be passed directly to native text formatting.
+        if useNativePercent then
+            o.text:SetFormattedText("%.0f%%",nativePercent)
+            o.shadow:SetFormattedText("%.0f%%",nativePercent)
             Cache(o).text=nil;Cache(o).shadowText=nil;o.textWidthDirty=true
         else
             local value=Text(n,s)
