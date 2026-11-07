@@ -57,6 +57,7 @@ end
 function P.State(view,out)
     local s=out or {};local provider=P.Provider()
     s.thirdTimer=nil;s.thirdExpires=nil;s.thirdTotal=nil;s.thirdValueKind=nil;s.thirdCustom=nil;s.thirdTimeAt=nil
+    s.nativePowerPercent=nil
     s.showThirdValue=false;s.provider=provider and provider.id or nil
     s.unit="player";s.exists=true;s.cast=s.cast or {active=false}
     s.powerColor=provider and provider.color or furyColor
@@ -80,6 +81,15 @@ function P.State(view,out)
     s.powerColor=provider and provider.color or furyColor
     s.resourceAvailable=provider~=nil and (readableMax==nil or readableMax>0)
     s.powerRatio=readableValue and readableMax and readableMax>0 and M.Clamp(readableValue/readableMax,0,1)or nil
+    if s.provider=="druidFormMana" and s.resourceAvailable and s.powerRatio==nil
+        and CurveConstants and CurveConstants.ScaleTo100 then
+        local percent=Query(UnitPowerPercent,nil,"player",powerType,false,CurveConstants.ScaleTo100)
+        if C.Readable(percent) then
+            if percent~=nil then s.powerRatio=M.Clamp(percent/100,0,1) end
+        else
+            s.nativePowerPercent=percent
+        end
+    end
     s.provider=provider and provider.id or nil
     return s
 end

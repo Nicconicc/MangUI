@@ -693,7 +693,15 @@ function R.Apply(view,design,unchanged)
                     o.material:SetShown(material~=nil)
                     o.materialMask:SetTexture(n.file);o.materialMask:SetAllPoints(o.material);TextureCoords(o.materialMask,n)
                     o.nativeMask:SetTexture(nativeMaterial and n.file or "Interface\\Buttons\\WHITE8X8","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
-                    o.nativeMask:SetAllPoints(o.nativeArt);TextureCoords(o.nativeMask,n)
+                    o.nativeMask:SetAllPoints(n.id=="playerThirdResourceFill" and o.frame or o.nativeArt)
+                    TextureCoords(o.nativeMask,n)
+                    if t and n.id=="playerThirdResourceFill" then
+                        if nativeMaterial and not o.nativeFillMasked then
+                            t:AddMaskTexture(o.nativeMask);o.nativeFillMasked=true
+                        elseif not nativeMaterial and o.nativeFillMasked then
+                            t:RemoveMaskTexture(o.nativeMask);o.nativeFillMasked=nil
+                        end
+                    end
                 end
                 if o.targetHealthThreshold then
                     local target=o.nativeArt or t

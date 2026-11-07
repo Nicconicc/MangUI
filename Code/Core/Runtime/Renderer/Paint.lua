@@ -260,7 +260,9 @@ local function Paint(view,o,animateOnly,visibleHint)
         local shadowColor=o.shadowColor or {0,0,0,1};o.shadowColor=shadowColor;shadowColor[4]=col[4] or 1
         CachedColor(o,"shadowColor",o.shadow,"SetTextColor",shadowColor)
     elseif o.bar then
-        local barColorChanged=CachedColor(o,"barColor",o.bar,"SetStatusBarColor",o.nativeArt and nativeDriverColor or col)
+        local nativeManaFill=s.provider=="druidFormMana" and s.powerRatio==nil
+        local barColorChanged=CachedColor(o,"barColor",o.bar,"SetStatusBarColor",
+            o.nativeArt and not nativeManaFill and nativeDriverColor or col)
         local inset=n.alphaFill and (n.fillInset or 0) or 0
         local extent=n.alphaFill and (n.fillExtent or 1) or 1
         local moving=B.Moving(view,n)
@@ -334,6 +336,7 @@ local function Paint(view,o,animateOnly,visibleHint)
                     o.nativeReady=nil;o.nativePowerType=s.powerType;Cache(o).barValue=nil
                 end
                 local value,maximum=s.power,s.maxPower
+                if not Readable(s.nativePowerPercent) then value,maximum=s.nativePowerPercent,100 end
                 if Readable(value)and value==nil then value=0 end
                 if Readable(maximum)and maximum==nil then maximum=1 end
                 CachedPair(o,"barRange",o.bar,"SetMinMaxValues",0,maximum)
@@ -353,6 +356,11 @@ local function Paint(view,o,animateOnly,visibleHint)
         end
         if o.nativeArt and not (o.customHealthStyle or o.classHealthColor or o.targetHealthThreshold) then
             CachedColor(o,"nativeArtColor",o.nativeArt,"SetVertexColor",col)
+        end
+        if s.provider=="druidFormMana" and o.nativeArt then
+            -- Let the status bar draw the restricted mana fill directly.
+            CachedValue(o,"manaTextureAlpha",o.bar:GetStatusBarTexture(),"SetAlpha",nativeManaFill and 1 or 0)
+            CachedValue(o,"manaArtShown",o.nativeArt,"SetShown",not nativeManaFill)
         end
         if o.healthWarning and (view.preview or s.healthRatio~=nil or n.healthThresholdEnabled~=true or o.classHealthColor or o.tapColorActive) then
             o.healthWarning:Hide()
