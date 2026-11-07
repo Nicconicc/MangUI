@@ -392,13 +392,39 @@ end
 function P.RefreshHighlight(view)
     for i=0,4 do RefreshMemberHighlight(view,i)end
 end
-local function ShowMemberTooltip(hit)
+local function MemberLocation(unit)
+    if not C_Map then return end
+    local mapID=Number(Call(C_Map.GetBestMapForUnit,unit))
+    if not mapID or mapID<=0 then return end
+    local info=Call(C_Map.GetMapInfo,mapID)
+    local name=M.Compat.Readable(info) and type(info)=="table" and info.name
+    if M.Compat.Readable(name) and type(name)=="string" and name~="" then return name end
+end
+local function RefreshMemberTooltip(hit)
+    if not GameTooltip:IsOwned(hit.partyTooltipOwner) then return end
     local unit=hit.spec.unit
-    if not GameTooltip or not M.Compat.Bool(UnitExists(unit)) then return end
-    -- Keep the tooltip owner independent of the secure party visibility frames.
-    if not hit.partyTooltipOwner then hit.partyTooltipOwner=CreateFrame("Frame",nil,UIParent) end
-    GameTooltip:SetOwner(hit.partyTooltipOwner,"ANCHOR_CURSOR")
+    if not M.Compat.Bool(UnitExists(unit)) then
+        GameTooltip:Hide()
+        return
+    end
     GameTooltip:SetUnit(unit)
+    if not GameTooltip:IsShown() then return end
+    local location=MemberLocation(unit)
+    if location then
+        GameTooltip:AddLine(location,1,1,1,true)
+        GameTooltip:Show()
+    end
+end
+local function ShowMemberTooltip(hit)
+    if not GameTooltip or not M.Compat.Bool(UnitExists(hit.spec.unit)) then return end
+    -- Keep the tooltip owner independent of the secure party visibility frames.
+    if not hit.partyTooltipOwner then
+        local owner=CreateFrame("Frame",nil,UIParent)
+        owner.UpdateTooltip=function() RefreshMemberTooltip(hit) end
+        hit.partyTooltipOwner=owner
+    end
+    GameTooltip:SetOwner(hit.partyTooltipOwner,"ANCHOR_CURSOR")
+    RefreshMemberTooltip(hit)
 end
 local function HideMemberTooltip(hit)
     if GameTooltip and hit.partyTooltipOwner and GameTooltip:IsOwned(hit.partyTooltipOwner) then
