@@ -91,6 +91,7 @@ local function CleanNodes(nodes)
     fields.classificationPivotRevision={number=true}
     fields.portraitNameOnly={boolean=true}
     fields.castStageSound={boolean=true}
+    fields.castHorizontalScale={number=true}
     fields.showRangedProgress={boolean=true};fields.showMeleeProgress={boolean=true}
     for _,key in ipairs({"resourceSpacing","debuffCount","debuffPerRow","buffCount","buffPerRow","moveX","moveY"}) do fields[key]={number=true} end
     for key in pairs(nodes) do if type(key)~="number" or key<1 or key>#nodes or key%1~=0 then return end end
@@ -121,6 +122,7 @@ local function CleanNodes(nodes)
             if node[key]~=nil and type(node[key])~="number" then return end
         end
         if node.scale and (node.scale<=0 or node.scale>10) then return end
+        if node.castHorizontalScale and (node.compound~="playerCast" or node.castHorizontalScale<.5 or node.castHorizontalScale>1.5)then return end
         if node.mainScaleFactor and (node.mainScaleFactor<=0 or node.mainScaleFactor>100) then return end
         for _,key in ipairs({"scaleReference","modelScaleReference"})do
             if node[key] and (node[key]<=0 or node[key]>100)then return end

@@ -186,9 +186,11 @@ function N.Cast(view,o,s,col,animateOnly)
         if native then native.timer:Hide();native.interior:Hide();native.bound=nil end
         return false
     end
+    M.PlayerCastArt.Hide(o.texture)
     P.CachedValue(o,"castShown",o.texture,"SetShown",false)
     P.CachedValue(o,"castInteriorShown",o.castInterior,"SetShown",false)
     P.CachedColor(native,"artColor",native.texture,"SetVertexColor",col)
+    M.PlayerCastArt.Draw(native.texture,native.art,o.spec,1,col)
     P.CachedColor(native,"interiorColor",native.interior,"SetStatusBarColor",col)
     if not native.timer:IsShown() then native.timer:Show() end
     if not native.interior:IsShown() then native.interior:Show() end

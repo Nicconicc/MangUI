@@ -210,7 +210,11 @@ function A.Paint(view,o,player)
         and not (view.hidden and view.hidden[n.id]) and (view.preview or Active(kind) and chosen==kind) or false
     if view.preview and group and group.showRangedProgress and group.showMeleeProgress then visible=visible and kind=="ranged" end
     if o.frame:IsShown()~=visible then o.frame:SetShown(visible) end
-    if not visible or n.attackFrame then M.EmpowerCast.AttackPoints(o,false);return end
+    if not visible or n.attackFrame then
+        M.EmpowerCast.AttackPoints(o,false)
+        if visible then M.PlayerCastArt.Draw(o.texture,o.frame,n,1,n.color) end
+        return
+    end
     local s=state[kind];local now=GetTime()
     M.EmpowerCast.AttackPoints(o,true,view.preview and 2.6 or(s.paused or now)-s.start,view.preview and 4 or s.speed)
     local ratio=view.preview and .65 or M.Clamp(((s.paused or now)-s.start)/s.speed,0,1)
@@ -219,6 +223,7 @@ function A.Paint(view,o,player)
     o.texture:ClearAllPoints();o.texture:SetPoint("LEFT",o.frame,"LEFT",0,0)
     o.texture:SetSize(math.max(.001,(n.width or 512)*ratio),n.height or 128)
     o.texture:SetTexCoord(0,ratio,0,1);o.texture:SetShown(ratio>0)
+    M.PlayerCastArt.Draw(o.texture,o.frame,n,ratio,n.color)
     if o.castInterior then
         o.castInterior:ClearAllPoints();o.castInterior:SetPoint("LEFT",o.frame,"LEFT",24,0)
         o.castInterior:SetSize(math.max(.001,((n.width or 512)-48)*ratio),7);o.castInterior:SetShown(ratio>0)

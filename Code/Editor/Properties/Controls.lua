@@ -411,6 +411,17 @@ local function BuildProperties(e)
         elseif group.id=="wabc757f81ee" then M:SetTargetProfileScaleFromCenter(group,M:ScaleInputValue(group,scale))
         else M:SetCompositeScaleFromCenter(group,scale,M:ScaleInputValue(group,scale)) end
     end)
+    e.castHorizontalLabel=W.Label(content,"横向缩放")
+    e.castHorizontalSlider=BareSlider(propertyWidth-10,.5,1.5,.05)
+    e.castHorizontalSlider:SetScript("OnValueChanged",function(self,value)
+        if self.updating then return end
+        local group=Selected()
+        if not group or group.compound~="playerCast" or not M:CanEdit() then return end
+        value=M.Clamp(math.floor(value*20+.5)/20,.5,1.5)
+        if math.abs((group.castHorizontalScale or 1)-value)<.0001 then return end
+        M.PlayerCastArt.Resize(group,value);M:Commit()
+    end)
+    Row(49,{{e.castHorizontalLabel,0,-3},{e.castHorizontalSlider,4,-20}},nil,"castHorizontalScale");y=y-49
     local function PlayerCastColorSwatch(key)
         local target
         local swatch=W.ColorSwatch(content,function(color)

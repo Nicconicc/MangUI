@@ -51,6 +51,7 @@ local function Art(parent,owner,n,color)
     local f=Frame(parent,parent:GetFrameLevel()+1);f:SetAllPoints(owner)
     local t=f:CreateTexture(nil,"ARTWORK");t:SetAllPoints();t:SetTexture(n.file)
     t:SetBlendMode(n.blend or "BLEND");t:SetVertexColor(unpack(color))
+    M.PlayerCastArt.Draw(t,f,n,1,color)
     local line=f:CreateTexture(nil,"ARTWORK");line:SetColorTexture(1,1,1,1);line:SetVertexColor(unpack(color))
     line:SetPoint("LEFT",f,"LEFT",24,0);line:SetSize(math.max(.001,(n.width or 512)-48),7)
     f.art,f.line=t,line;return f
@@ -132,6 +133,12 @@ local function Layout(a,o,c)
     for _,texture in ipairs({a.colors[6].art,a.colors[6].line})do texture:SetVertexColor(unpack(last))end
     for _,texture in ipairs({a.dimmed[6].art,a.dimmed[6].line})do texture:SetVertexColor(last[1]*.24,last[2]*.24,last[3]*.24,1)end
     for i,clip in ipairs(a.backgrounds)do
+        local color=D.colors[math.min(i,count)]
+        local bright,dim=a.colors[i],a.dimmed[i]
+        bright.line:SetSize(math.max(.001,width-48),7)
+        dim.line:SetSize(math.max(.001,width-48),7)
+        M.PlayerCastArt.Draw(bright.art,bright,o.spec,1,color)
+        M.PlayerCastArt.Draw(dim.art,dim,o.spec,1,{color[1]*.24,color[2]*.24,color[3]*.24,1})
         local stage=c.empowerStages[i]
         local lo,hi
         if stage then lo,hi=stage.start,stage.finish
@@ -281,11 +288,13 @@ local function InterruptVisual(view,cast,now)
     if background and not background.removed and background.spec.enabled~=false then
         a.background:SetAllPoints(root);a.background:SetTexture(background.spec.file)
         M.RendererInternals.TextureCoords(a.background,background.spec)
+        M.PlayerCastArt.Draw(a.background,root,background.spec,1,{1,1,1,1})
         a.background:Show()
     else a.background:Hide() end
     a.fill:SetTexture(o.spec.file);a.fill:SetBlendMode(o.spec.blend or "BLEND")
     a.fill:SetVertexColor(unpack(interruptColor));a.fill:SetTexCoord(0,ratio,0,1)
     a.fill:SetPoint("LEFT",root,"LEFT",0,0);a.fill:SetSize(math.max(.001,width*ratio),height)
+    M.PlayerCastArt.Draw(a.fill,root,o.spec,ratio,interruptColor)
     a.line:SetColorTexture(unpack(interruptColor));a.line:SetPoint("LEFT",root,"LEFT",24,0)
     a.line:SetSize(math.max(.001,(width-48)*ratio),7)
     local icon=view.nodes.wa8fa968f2a9
@@ -346,6 +355,7 @@ function E.Paint(view,o,s,animateOnly)
     end
     local a=Ensure(o);Layout(a,o,c);a.root:Show()
     local P=M.RendererInternals
+    M.PlayerCastArt.Hide(o.texture)
     P.CachedValue(o,"castShown",o.texture,"SetShown",false)
     P.CachedValue(o,"castInteriorShown",o.castInterior,"SetShown",false)
     if o.nativeCast then o.nativeCast.timer:Hide();o.nativeCast.interior:Hide();o.nativeCast.bound=nil end

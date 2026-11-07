@@ -350,6 +350,7 @@ local function Paint(view,o,animateOnly,visibleHint)
     elseif o.texture then
         if o.rangeDecoration then DecorationTint(view,o,col)
         else CachedColor(o,"textureColor",o.texture,"SetVertexColor",col) end
+        if n.id=="wa1537213e27" then M.PlayerCastArt.Draw(o.texture,f,n,1,col) end
         if n.castFill and not M.EmpowerCast.Paint(view,o,s,animateOnly)
             and not M.NativeDisplays.Cast(view,o,s,col,animateOnly) then
             local ratio=CastRatio(s) or 0
@@ -364,6 +365,7 @@ local function Paint(view,o,animateOnly,visibleHint)
             CachedPair(o,"castInteriorSize",o.castInterior,"SetSize",math.max(.001,((n.width or 512)-48)*ratio),7)
             CachedColor(o,"castInteriorColor",o.castInterior,"SetVertexColor",col)
             CachedValue(o,"castInteriorShown",o.castInterior,"SetShown",ratio>0)
+            M.PlayerCastArt.Draw(o.texture,f,n,ratio,col)
         end
         if n.spinPeriod and o.texture.SetRotation then
             Spin(view,o,GetTime())

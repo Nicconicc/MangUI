@@ -1,6 +1,7 @@
 local _,M=...
 -- Complete shipped UI catalogs, including footer, validation and legacy element labels.
 M.localeTables.itIT={
+    ["横向缩放"]="Scala orizzontale",
     ["  主框体 · %s：%.3f ms/s"]="  Riquadri principali - %s: %.3f ms/s",
     ["  每次平均配置 %.1f 个、绘制 %.1f 个元素"]="  Per chiamata: %.1f elementi configurati, %.1f disegnati in media",
     [" · 双击 "]=" · Doppio clic ",
@@ -1001,6 +1002,7 @@ M.localeTables.itIT={
     ["；测试数据未写入正式监控。"]="; i dati di prova non sono salvati.",
 }
 M.localeTables.ptBR={
+    ["横向缩放"]="Escala horizontal",
     ["  主框体 · %s：%.3f ms/s"]="  Quadros principais - %s: %.3f ms/s",
     ["  每次平均配置 %.1f 个、绘制 %.1f 个元素"]="  Por chamada: %.1f elementos configurados, %.1f desenhados em média",
     [" · 双击 "]=" · Clique duplo ",
@@ -2001,6 +2003,7 @@ M.localeTables.ptBR={
     ["；测试数据未写入正式监控。"]="; os dados de teste não foram salvos.",
 }
 M.localeTables.ruRU={
+    ["横向缩放"]="Масштаб по горизонтали",
     ["  主框体 · %s：%.3f ms/s"]="  Основные рамки - %s: %.3f мс/с",
     ["  每次平均配置 %.1f 个、绘制 %.1f 个元素"]="  На вызов: %.1f настроенных и %.1f отрисованных элементов в среднем",
     [" · 双击 "]=" · Двойной щелчок ",
@@ -3001,6 +3004,7 @@ M.localeTables.ruRU={
     ["；测试数据未写入正式监控。"]="; тестовые данные не сохранены.",
 }
 M.localeTables.frFR={
+    ["横向缩放"]="Échelle horizontale",
     ["  主框体 · %s：%.3f ms/s"]="  Cadres principaux - %s : %.3f ms/s",
     ["  每次平均配置 %.1f 个、绘制 %.1f 个元素"]="  Par appel : %.1f éléments configurés, %.1f dessinés en moyenne",
     [" · 双击 "]=" · Double-clic ",
@@ -4001,6 +4005,7 @@ M.localeTables.frFR={
     ["；测试数据未写入正式监控。"]=" ; données de test non enregistrées.",
 }
 M.localeTables.koKR={
+    ["横向缩放"]="가로 배율",
     ["  主框体 · %s：%.3f ms/s"]="  주 프레임 - %s: %.3f ms/s",
     ["  每次平均配置 %.1f 个、绘制 %.1f 个元素"]="  호출당 평균: %.1f개 설정, %.1f개 그리기",
     [" · 双击 "]=" · 두 번 클릭 ",
@@ -5001,6 +5006,7 @@ M.localeTables.koKR={
     ["；测试数据未写入正式监控。"]=". 시험 자료는 실제 추적에 저장하지 않았습니다.",
 }
 M.localeTables.esMX={
+    ["横向缩放"]="Escala horizontal",
     ["  主框体 · %s：%.3f ms/s"]="  Marcos principales - %s: %.3f ms/s",
     ["  每次平均配置 %.1f 个、绘制 %.1f 个元素"]="  Por llamada: %.1f elementos configurados, %.1f dibujados de media",
     [" · 双击 "]=" · Doble clic ",
@@ -6997,6 +7003,7 @@ M.localeTables.enUS["鼠标移至屏幕顶端，显示功能菜单。"]="Move th
 M.localeTables.enUS["（将自动重试，其他模块继续运行）"]=" (will retry automatically; other modules continue updating)"
 M.localeTables.enUS["；测试数据未写入正式监控。"]="; test data was not saved to tracking."
 M.localeTables.zhTW={
+    ["横向缩放"]="橫向縮放",
     ["  主框体 · %s：%.3f ms/s"]="  主框體 · %s：%.3f ms/s",
     ["  每次平均配置 %.1f 个、绘制 %.1f 个元素"]="  每次平均配置 %.1f 個、繪製 %.1f 個元素",
     [" · 双击 "]=" · 按兩下",
@@ -7995,6 +8002,7 @@ M.localeTables.zhTW={
     ["；测试数据未写入正式监控。"]="；測試資料未寫入正式監控。",
 }
 M.localeTables.esES={
+    ["横向缩放"]="Escala horizontal",
     ["  主框体 · %s：%.3f ms/s"]="  Marcos principales - %s: %.3f ms/s",
     ["  每次平均配置 %.1f 个、绘制 %.1f 个元素"]="  Por llamada: %.1f elementos configurados, %.1f dibujados de media",
     [" · 双击 "]=" · Doble clic ",
@@ -8995,6 +9003,7 @@ M.localeTables.esES={
     ["；测试数据未写入正式监控。"]="; los datos de prueba no se guardaron.",
 }
 M.localeTables.deDE={
+    ["横向缩放"]="Horizontale Skalierung",
     ["  主框体 · %s：%.3f ms/s"]="  Hauptrahmen - %s: %.3f ms/s",
     ["  每次平均配置 %.1f 个、绘制 %.1f 个元素"]="  Pro Aufruf: %.1f Elemente konfiguriert, %.1f gezeichnet",
     [" · 双击 "]=" · Doppelklick ",
