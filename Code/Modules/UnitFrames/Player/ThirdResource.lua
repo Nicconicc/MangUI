@@ -34,6 +34,17 @@ local function Query(fn,fallback,...)
     if not ok or C.Readable(value)and type(value)~="number"then return fallback end
     return value
 end
+P.Register("druidFormMana",{class="DRUID",minimum=0,maximum=999999,
+    powerToken="Mana",powerType=0,previewPower=680,previewMax=1000,color={0,.51,1,1},
+    available=function()
+        if UnitHasVehicleUI and C.Bool(UnitHasVehicleUI("player"))then return false end
+        local powerType=C.Number(Query(UnitPowerType,nil,"player"))
+        if powerType~=3 and powerType~=1 then return false end
+        if not GetShapeshiftFormID then return true end
+        local form=C.Number(Query(GetShapeshiftFormID,nil))
+        if powerType==3 then return form==(CAT_FORM or 1) end
+        return form==(BEAR_FORM or 5)or form==(DIREBEAR_FORM or 8)
+    end})
 function P.Provider()
     local _,class=UnitClass("player")
     local api=C_SpecializationInfo
@@ -41,7 +52,7 @@ function P.Provider()
     local spec=index and Query(GetSpecializationInfo or api and api.GetSpecializationInfo,nil,index)
     local interface=C.interface or 0
     for _,provider in pairs(P.providers)do
-        if class==provider.class and spec==provider.spec
+        if class==provider.class and (provider.spec==nil or spec==provider.spec)
             and interface>=provider.minimum and interface<=provider.maximum
             and(not provider.retail or C.retail)
             and(not provider.available or provider.available())then return provider end

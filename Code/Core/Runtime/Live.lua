@@ -222,6 +222,8 @@ function M:StartLive()
             if event=="GROUP_ROSTER_UPDATE" or event=="PARTY_LEADER_CHANGED" then
                 for name in pairs(trackedUnits) do Unit(name) end
             end
+        elseif event=="UPDATE_SHAPESHIFT_FORM" or event=="UPDATE_SHAPESHIFT_FORMS" then
+            Unit("player","power")
         elseif distanceEvents[event] or independentEvents[event] then
             -- Independently updated modules already consumed these events.
         elseif event=="UNIT_FACTION" and unit=="player" then
