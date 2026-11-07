@@ -5,6 +5,7 @@ local PORTRAIT_MASK="Interface\\AddOns\\MangUI\\Assets\\Library\\MainSweepPortra
 local INTERVAL=10
 local DURATION=2.8/.75
 local INTENSITY=.75
+local SOLID="Interface\\Buttons\\WHITE8X8"
 local C=M.Compat
 local groups={
     wa70b7aa5607=true,waf0a666c0b7=true,wabc757f81ee=true,
@@ -98,16 +99,21 @@ end
 local function Bind(effect,parent,source,force)
     local o=effect.object
     local native=o.spec.kind=="bar" and source~=o.fill
-    local bounds=native and source or parent
-    local maskSource=native and o.spec.materialPath and o.nativeMask or source
+    -- The art keeps its full texture size even when the engine fill shrinks.
+    -- Clip to the actual filled region and use the art only for its silhouette.
+    local bounds=native and o.bar:GetStatusBarTexture() or parent
+    local material=o.spec.materialPath
+    local maskSource=native and material and material~=SOLID and o.nativeMask or source
     local level=o.frame:GetFrameLevel()+1
-    if not force and effect.parent==parent and effect.source==source
+    if not force and effect.parent==parent and effect.source==source and effect.bounds==bounds
         and effect.maskSource==maskSource and effect.level==level then return end
     effect.parent,effect.source,effect.maskSource=parent,source,maskSource
+    effect.bounds=bounds
     effect.level=level;effect.liveCoords=native
     effect.coordsDirty=true;effect.maskCoords=nil;effect.spriteIndex=nil
     effect.scale=nil;effect.height=nil
-    effect.frame:SetParent(parent);effect.frame:SetAllPoints(bounds)
+    effect.frame:SetParent(parent)
+    effect.frame:ClearAllPoints();effect.frame:SetAllPoints(bounds)
     -- Respect the surface's actual draw order. A high particle/light layer in
     -- the same group must not lift strip reflections above the portrait rim.
     effect.frame:SetFrameLevel(level)
