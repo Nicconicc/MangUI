@@ -6,6 +6,8 @@ local clicks={}
 local lastLeft
 local popup
 local generation=0
+local hookedMenus={}
+local nativeRequests=setmetatable({}, {__mode="k"})
 
 function M:EnsureMouseShortcutsModule(design)
     for _,node in ipairs(design.nodes) do
@@ -106,7 +108,7 @@ local function SecureRow(panel,parent,text,kind)
         local unit=panel.unit
         local valid=panel:IsShown() and unit and GUID(unit)==panel.guid and Setting(panel.key)
             and (panel.key~="mouseUnitMenu" or CanOpenUnitMenu(unit))
-        self:SetAttribute("type",valid and kind or nil)
+        self:SetAttribute("type",valid and (kind or panel.confirmation and panel.confirmation.kind) or nil)
         self:SetAttribute("unit",valid and unit or nil)
     end)
     button:SetScript("PostClick",function()
@@ -172,6 +174,7 @@ local function Popup()
     panel.markRow:SetScript("OnEnter",ShowMarkers)
     panel.markRow:SetScript("OnClick",ShowMarkers)
     panel.focusRow=SecureRow(panel,panel,SET_FOCUS or "设置焦点","focus")
+    panel.confirmRow=SecureRow(panel,panel,"")
     panel.whisperRow=MenuRow(panel,WHISPER or "密语")
     panel.inviteRow=MenuRow(panel,INVITE or "邀请")
     panel.whisperRow:SetScript("OnClick",function()
@@ -193,9 +196,10 @@ local function Popup()
     return panel
 end
 
-local function OpenMenu(key,guid,unit,playerName,x,y)
+local function OpenMenu(key,guid,unit,playerName,x,y,confirmation)
     local panel=Popup()
     panel.key,panel.guid,panel.unit,panel.nameText=key,guid,unit,playerName
+    panel.confirmation=confirmation
     panel.title:SetText(unit and Name(unit) or playerName or M:T("选择标记"))
     panel.markers:Hide()
     local offset=28
@@ -205,14 +209,78 @@ local function OpenMenu(key,guid,unit,playerName,x,y)
         row:ClearAllPoints();row:SetPoint("TOPLEFT",8,-offset)
         offset=offset+rowHeight
     end
-    PlaceRow(panel.markRow,unit~=nil)
-    PlaceRow(panel.focusRow,unit~=nil and type(FocusUnit)=="function")
+    PlaceRow(panel.markRow,unit~=nil and not confirmation)
+    PlaceRow(panel.focusRow,unit~=nil and not confirmation and type(FocusUnit)=="function")
+    if confirmation then
+        panel.confirmRow.label:SetText(confirmation.label)
+        panel.confirmRow:SetAttribute("marker",confirmation.marker)
+        panel.confirmRow:SetAttribute("action",confirmation.marker and (confirmation.marker==0 and "clear" or "set") or nil)
+    end
+    PlaceRow(panel.confirmRow,confirmation~=nil)
     PlaceRow(panel.whisperRow,playerName~=nil)
     PlaceRow(panel.inviteRow,playerName~=nil)
     local scale=UIParent:GetEffectiveScale()
     panel:SetSize(width,offset+7);panel:ClearAllPoints()
     panel:SetPoint("TOPLEFT",UIParent,"BOTTOMLEFT",x/scale+8,y/scale-6)
     panel:Show()
+end
+
+local function NativeMenuType(unit)
+    if not unit then return "PLAYER" end
+    if C.Bool(UnitIsUnit(unit,"player")) then return "SELF" end
+    if unit=="pet" then return "PET" end
+    if not C.Bool(UnitIsPlayer(unit)) then return "TARGET" end
+    if unit:match("^raid%d+$") or UnitInRaid and C.Number(UnitInRaid(unit)) then return "RAID_PLAYER" end
+    if unit:match("^party%d+$") or UnitInParty and C.Bool(UnitInParty(unit)) then return "PARTY" end
+    return "PLAYER"
+end
+
+local function SecureNativeEntries(description,request)
+    for _,entry in description:EnumerateElementDescriptions() do
+        entry:AddInitializer(function(frame,element)
+            local label=frame.fontString and frame.fontString:GetText()
+            if not C.Readable(label) or type(label)~="string" then return end
+            local kind,marker
+            if label==SET_FOCUS then
+                kind="focus"
+            elseif element.IsRadio and element:IsRadio() then
+                if label==RAID_TARGET_NONE then marker=0 end
+                for index=1,8 do
+                    if label==_G["RAID_TARGET_"..index] then marker=index;break end
+                end
+                if marker~=nil then kind="raidtarget" end
+            end
+            if not kind then return end
+            -- A native responder cannot run a protected action from addon Lua.
+            -- Route it to an actual secure button for the hardware click.
+            element:SetResponder(function()
+                local x,y=GetCursorPosition()
+                local serial=generation
+                C_Timer.After(0,function()
+                    if serial~=generation or InCombatLockdown() or not Setting("mouseUnitMenu")
+                        or GUID(request.unit)~=request.guid or not CanOpenUnitMenu(request.unit) then return end
+                    OpenMenu("mouseUnitMenu",request.guid,request.unit,nil,x,y,{kind=kind,marker=marker,label=label})
+                end)
+                return MenuResponse and MenuResponse.Close
+            end)
+        end)
+        SecureNativeEntries(entry,request)
+    end
+end
+
+local function OpenNativeMenu(guid,unit,playerName)
+    if not UnitPopup_OpenMenu or not (Menu and Menu.ModifyMenu) then return false end
+    local which=NativeMenuType(unit)
+    if not hookedMenus[which] then
+        Menu.ModifyMenu("MENU_UNIT_"..which,function(_,description,context)
+            local request=context and nativeRequests[context]
+            if request then SecureNativeEntries(description,request) end
+        end)
+        hookedMenus[which]=true
+    end
+    local context={unit=unit,name=playerName,fromTargetFrame=unit=="target"}
+    if unit then nativeRequests[context]={unit=unit,guid=guid} end
+    return pcall(UnitPopup_OpenMenu,which,context)
 end
 
 local function OnMouse(_,event,button)
@@ -279,11 +347,11 @@ local function OnMouse(_,event,button)
             if unit then OpenMenu(key,guid,unit,nil,x,y) end
         elseif unit and CanOpenUnitMenu(unit) then
             local name=C.Bool(UnitIsPlayer(unit)) and unit~="player" and Name(unit) or nil
-            OpenMenu(key,guid,unit,name,x,y)
+            if not OpenNativeMenu(guid,unit,name) then OpenMenu(key,guid,unit,name,x,y) end
         elseif not unit and GUID("mouseover")==guid and CanOpenUnitMenu("mouseover")
             and C.Bool(UnitIsPlayer("mouseover")) then
             local name=Name("mouseover")
-            if name then OpenMenu(key,guid,nil,name,x,y) end
+            if name and not OpenNativeMenu(guid,nil,name) then OpenMenu(key,guid,nil,name,x,y) end
         end
     end)
 end
