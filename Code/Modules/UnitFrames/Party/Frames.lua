@@ -392,6 +392,19 @@ end
 function P.RefreshHighlight(view)
     for i=0,4 do RefreshMemberHighlight(view,i)end
 end
+local function ShowMemberTooltip(hit)
+    local unit=hit.spec.unit
+    if not GameTooltip or not M.Compat.Bool(UnitExists(unit)) then return end
+    -- Keep the tooltip owner independent of the secure party visibility frames.
+    if not hit.partyTooltipOwner then hit.partyTooltipOwner=CreateFrame("Frame",nil,UIParent) end
+    GameTooltip:SetOwner(hit.partyTooltipOwner,"ANCHOR_CURSOR")
+    GameTooltip:SetUnit(unit)
+end
+local function HideMemberTooltip(hit)
+    if GameTooltip and hit.partyTooltipOwner and GameTooltip:IsOwned(hit.partyTooltipOwner) then
+        GameTooltip:Hide()
+    end
+end
 local function ConfigureMemberHighlight(view,i)
     local id="party"..i
     local metal=view.nodes[id.."Metal"];local hit=view.nodes[id.."Hitbox"]
@@ -420,9 +433,18 @@ local function ConfigureMemberHighlight(view,i)
         hit.frame:SetSize(math.max(hit.spec.width or 150,(n.width or 300)*x*.9*ratio),
             math.max(hit.spec.height or 50,(n.height or 150)*y*.86*ratio))
         if not hit.partyHighlightHooks then
-            hit.frame:HookScript("OnEnter",function()hit.partyHovered=true;RefreshMemberHighlight(view,i)end)
-            hit.frame:HookScript("OnLeave",function()hit.partyHovered=false;RefreshMemberHighlight(view,i)end)
-            hit.frame:HookScript("OnHide",function()hit.partyHovered=false;RefreshMemberHighlight(view,i)end)
+            hit.frame:HookScript("OnEnter",function()
+                hit.partyHovered=true
+                RefreshMemberHighlight(view,i)
+                ShowMemberTooltip(hit)
+            end)
+            local function EndHover()
+                hit.partyHovered=false
+                RefreshMemberHighlight(view,i)
+                HideMemberTooltip(hit)
+            end
+            hit.frame:HookScript("OnLeave",EndHover)
+            hit.frame:HookScript("OnHide",EndHover)
             hit.partyHighlightHooks=true
         end
     end
