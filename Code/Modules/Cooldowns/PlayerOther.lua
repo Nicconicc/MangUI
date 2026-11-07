@@ -2,6 +2,7 @@ local _,M=...
 local O={};M.PlayerOtherMonitor=O
 local S=M.PlayerSkillMonitor
 O.types={{name="玩家Buff已找到",path="buffFound"},{name="玩家Buff未找到",path="buffMissing"},
+    {name="玩家姿态",path="stance"},
     {name="目标Debuff已找到",path="debuffFound"},{name="目标Debuff未找到",path="debuffMissing"},{name="装备触发",path="equipment"},{name="自定义代码",path="custom"}}
 O.slots={{name="头部",path="1"},{name="颈部",path="2"},{name="肩部",path="3"},{name="衬衣",path="4"},
     {name="胸部",path="5"},{name="腰部",path="6"},{name="腿部",path="7"},{name="脚部",path="8"},{name="手腕",path="9"},
@@ -23,7 +24,7 @@ local function Color(c)
     for k in pairs(c)do if type(k)~="number"or k%1~=0 or k<1 or k>4 then return false end end
     return true
 end
-local validTypes={buffFound=true,buffMissing=true,debuffFound=true,debuffMissing=true,equipment=true,custom=true}
+local validTypes={buffFound=true,buffMissing=true,debuffFound=true,debuffMissing=true,equipment=true,custom=true,stance=true}
 function O.ValidEntries(entries)
     if type(entries)~="table"or #entries>512 then return false end
     for k,e in pairs(entries)do

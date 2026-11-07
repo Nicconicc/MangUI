@@ -583,6 +583,8 @@ english["粘贴配置字符串；技能监控配置仅更新对应职业，整�
 english["监控设置"]="Tracking settings"
 english["玩家其他监控"]="Player other tracking"
 english["玩家Buff已找到"]="Player buff present"
+english["玩家姿态"]="Player stance"
+english["输入姿态名称或ID"]="Enter stance name or ID"
 english["玩家Buff未找到"]="Player buff missing"
 english["目标Debuff已找到"]="Target debuff present"
 english["目标Debuff未找到"]="Target debuff missing"

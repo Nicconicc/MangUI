@@ -287,7 +287,8 @@ function O.BuildControls(e,parent)
             row.type:Show();row.type:SetWidth(dropWidth);row.type:SetPoint("TOPLEFT",0,0);row.type:SetValue(entry.type)
             row.slot:SetWidth(dropWidth);row.slot:ClearAllPoints();row.slot:SetPoint("TOPRIGHT",0,0);row.slot:SetValue(tostring(entry.slot or 13));row.slot:SetShown(entry.type=="equipment")
             row.code:ClearAllPoints();row.code:SetPoint("TOPRIGHT",0,-23);row.code:SetShown(entry.type=="custom")
-            row.placeholder:SetText(entry.type=="custom"and "图标法术名称或ID（可选）"or "输入Buff或Debuff名称或ID")
+            row.placeholder:SetText(entry.type=="custom"and "图标法术名称或ID（可选）"
+                or (entry.type=="stance"and "输入姿态名称或ID"or "输入Buff或Debuff名称或ID"))
             row.edit:SetWidth(width/3)
             if entry.type=="equipment"then row.edit:ClearFocus();row.edit:Disable()else row.edit:Enable()end
             row.edit.inputNameKind=entry.type~="equipment"and "spell"or nil

@@ -93,6 +93,19 @@ local function Count(text,value)
 end
 local function IsMissing(entry)return entry.type=="buffMissing"or entry.type=="debuffMissing"end
 local function IsTarget(entry)return entry.type=="debuffFound"or entry.type=="debuffMissing"end
+local function ActiveStance()
+    local count=Number(Safe(GetNumShapeshiftForms)) or 0
+    for index=1,count do
+        local texture,active,_,id=Safe(GetShapeshiftFormInfo,index)
+        if Readable(active) and active==true then
+            id=Number(id)
+            if id then
+                local name=M.PetBuffs.SpellInfo(tostring(id))
+                return id,name,texture
+            end
+        end
+    end
+end
 local function CombatActive(o)
     if o.combatActive~=nil then return o.combatActive end
     return M.Compat.Bool(Safe(InCombatLockdown))or M.Compat.Bool(Safe(UnitAffectingCombat,"player"))
@@ -149,7 +162,11 @@ local function BindNative(slot)
     slot.nativeDirty=nil
     local ids={};local entry=slot.entry
     slot.nativeAuraIDs=nil
-    if entry.type=="custom"then if slot.container then slot.container:SetEnabled(false)end;slot.nativeBound=false;return end
+    if entry.type=="custom" or entry.type=="stance"then
+        if slot.container then slot.container:SetEnabled(false)end
+        slot.nativeBound=false
+        return
+    end
     if entry.type=="equipment"then for id in pairs(slot.item.effects)do ids[id]=true end
     else
         if slot.spellID then ids[slot.spellID]=true end
@@ -568,10 +585,20 @@ local function Refresh(view,o,now,combat,boss)
         end
     end
     local weaponAuras=WeaponAuras(o,equipmentAuras)
+    local stanceRead,stanceID,stanceName,stanceIcon
     for _,slot in ipairs(o.otherIcons)do
         local entry=slot.entry
         if entry then
             if entry.type=="equipment"then Equipment(slot,equipmentAuras,now,weaponAuras)
+            elseif entry.type=="stance"then
+                if not stanceRead then stanceID,stanceName,stanceIcon=ActiveStance();stanceRead=true end
+                local active=stanceID~=nil and (slot.spellID==stanceID
+                    or (not tonumber(entry.value) and stanceName~=nil and stanceName==slot.spellName))
+                slot.active,slot.condition,slot.show,slot.rawKnown=active,active,active,true
+                slot.faded,slot.expires,slot.stacks,slot.auraIndex=false,nil,nil,nil
+                if active and Readable(stanceIcon) and stanceIcon~=nil then
+                    M.CustomMonitor.SetVisual(slot.texture,"SetTexture",stanceIcon)
+                end
             elseif entry.type~="custom"then
                 local auras=player;if IsTarget(entry)then auras=target end
                 local aura=Find(auras,entry,slot.spellID);local present=aura~=nil
@@ -662,7 +689,8 @@ function O.Paint(view,o,animateOnly)
         if visible then displayed[#displayed+1]=slot end
         if view.preview then
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",1)
-            M.CustomMonitor.SetText(slot.time,custom and (custom.text or "")or(IsMissing(entry)and ""or tostring(30-i)));M.CustomMonitor.SetText(slot.count,custom and tostring(custom.count or "")or(IsMissing(entry)and ""or "2"))
+            local noTimer=IsMissing(entry) or entry.type=="stance"
+            M.CustomMonitor.SetText(slot.time,custom and (custom.text or "")or(noTimer and ""or tostring(30-i)));M.CustomMonitor.SetText(slot.count,custom and tostring(custom.count or "")or(noTimer and ""or "2"))
             SetGlow(slot.glow,custom and custom.glow or entry.glow,entry.glowColor,now)
         else
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",slot.faded==true);M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",slot.faded and .5 or 1)
@@ -691,6 +719,7 @@ function O.Paint(view,o,animateOnly)
     end
 end
 local events={UNIT_AURA=true,PLAYER_TARGET_CHANGED=true,PLAYER_ENTERING_WORLD=true,PLAYER_EQUIPMENT_CHANGED=true,
+    UPDATE_SHAPESHIFT_FORM=true,UPDATE_SHAPESHIFT_FORMS=true,
     UNIT_INVENTORY_CHANGED=true,BAG_UPDATE_COOLDOWN=true,BAG_UPDATE_DELAYED=true,SPELL_UPDATE_COOLDOWN=true,
     GET_ITEM_INFO_RECEIVED=true,PLAYER_REGEN_ENABLED=true,PLAYER_REGEN_DISABLED=true,SPELLS_CHANGED=true,
     ENCOUNTER_START=true,ENCOUNTER_END=true,INSTANCE_ENCOUNTER_ENGAGE_UNIT=true}
