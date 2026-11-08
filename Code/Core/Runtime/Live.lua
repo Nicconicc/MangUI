@@ -74,7 +74,7 @@ function M:ApplyLive()
     if InCombatLockdown() then self.pending=true;return end
     self:ApplyUIScale()
     if not self.live then return end
-    R.Apply(self.live,self.db.design);self:BlizzardVisibility()
+    R.Apply(self.live,self.db.design);self:RefreshCombatMarkerShortcut();self:BlizzardVisibility()
 end
 function M:StartLive()
     if not self.live then

@@ -5,6 +5,8 @@ local nameplateUnits={}
 local clicks={}
 local lastLeft
 local popup
+local combatPicker
+local combatTriggers=setmetatable({}, {__mode="k"})
 local generation=0
 local targetRevision=0
 local hookedMenus={}
@@ -205,12 +207,22 @@ local function SecureRow(panel,parent,text,kind)
 end
 
 local markerLabels={"星形","圆形","菱形","三角形","月亮","方块","十字","骷髅"}
-local function AddMarkerButtons(panel,parent,compact)
+local function AddMarkerButtons(panel,parent,compact,combat)
     for i=1,9 do
         local clear=i==9
         local label=clear and (REMOVE_RAID_TARGET_ICON or "清除标记")
             or _G["RAID_TARGET_"..i] or markerLabels[i]
-        local button=SecureRow(panel,parent,label,"raidtarget")
+        local button
+        if combat then
+            button=MenuRow(parent,label,true)
+            button:RegisterForClicks("LeftButtonUp")
+            button:SetAttribute("useOnKeyDown",false)
+            button:SetAttribute("type","raidtarget")
+            button:SetAttribute("unit","target")
+            SecureHandlerWrapScript(button,"PostClick",panel,[[control:Hide()]])
+        else
+            button=SecureRow(panel,parent,label,"raidtarget")
+        end
         if compact then
             button:SetSize(26,26);button:SetPoint("TOPLEFT",(i-1)*28,0)
             button.label:Hide()
@@ -242,6 +254,56 @@ local function AddMarkerButtons(panel,parent,compact)
     end
 end
 
+local function MarkerGrid(panel,combat)
+    local grid=CreateFrame("Frame",nil,panel)
+    grid:SetSize(252,26);grid:SetPoint("TOPLEFT",8,-30)
+    AddMarkerButtons(panel,grid,true,combat)
+    return grid
+end
+
+local function MenuTitle(panel,text)
+    local title=M.Widgets.Label(panel,text,12)
+    title:SetPoint("TOPLEFT",13,-10);title:SetPoint("TOPRIGHT",-13,-10)
+    title:SetJustifyH("LEFT");title:SetWordWrap(false);title:SetTextColor(1,.82,0)
+    return title
+end
+
+local function CombatPicker()
+    if combatPicker then return combatPicker end
+    local panel=MenuFrame(UIParent,true)
+    panel:SetSize(268,70)
+    MenuTitle(panel,"选择标记")
+    MarkerGrid(panel,true)
+    panel:SetAttribute("_onstate-combat",[[self:Hide()]])
+    RegisterStateDriver(panel,"combat","[combat,@target,exists] active; inactive")
+    combatPicker=panel
+    return panel
+end
+
+function M:RefreshCombatMarkerShortcut()
+    if InCombatLockdown() or not SecureHandlerWrapScript then return end
+    local enabled=not not Setting("mouseUnitMarks")
+    if combatPicker or enabled then
+        local panel=CombatPicker()
+        panel:SetAttribute("marker-shortcut",enabled)
+        if not enabled then panel:Hide();return end
+        for _,object in ipairs(self.live.ordered) do
+            local spec,button=object.spec,object.frame
+            if spec.kind=="hitbox" and spec.unit=="target" and not combatTriggers[button] then
+                SecureHandlerWrapScript(button,"OnDoubleClick",panel,[[
+                    if button~="LeftButton" or IsModifierKeyDown() or not control:GetAttribute("marker-shortcut")
+                        or not SecureCmdOptionParse("[combat,@target,exists] yes") then return end
+                    control:ClearAllPoints()
+                    control:SetPoint("TOPLEFT","$cursor","BOTTOMLEFT",8,-6)
+                    control:Show()
+                    control:RegisterAutoHide(.6)
+                ]])
+                combatTriggers[button]=true
+            end
+        end
+    end
+end
+
 local function MarkerMenu(panel)
     local submenu=MenuFrame(panel)
     submenu:SetSize(width,9*rowHeight+16)
@@ -256,9 +318,7 @@ local function Popup()
     popup=panel
     panel:SetAttribute("_onstate-combat",[[ if newstate=="combat" then self:Hide() end ]])
     RegisterStateDriver(panel,"combat","[combat] combat; safe")
-    panel.title=M.Widgets.Label(panel,"",12)
-    panel.title:SetPoint("TOPLEFT",13,-10);panel.title:SetPoint("TOPRIGHT",-13,-10)
-    panel.title:SetJustifyH("LEFT");panel.title:SetWordWrap(false);panel.title:SetTextColor(1,.82,0)
+    panel.title=MenuTitle(panel,"")
     panel.markers=MarkerMenu(panel)
     panel.markRow=MenuRow(panel,RAID_TARGET_ICON or "目标标记图标")
     local arrow=panel.markRow:CreateTexture(nil,"ARTWORK")
@@ -307,12 +367,7 @@ local function OpenMenu(key,guid,unit,playerName,x,y,confirmation)
     panel.title:SetText(unit and Name(unit) or playerName or M:T("选择标记"))
     panel.markers:Hide()
     local picker=key=="mouseUnitMarks"
-    if picker and not panel.markerPicker then
-        local grid=CreateFrame("Frame",nil,panel)
-        grid:SetSize(252,26);grid:SetPoint("TOPLEFT",8,-30)
-        AddMarkerButtons(panel,grid,true)
-        panel.markerPicker=grid
-    end
+    if picker and not panel.markerPicker then panel.markerPicker=MarkerGrid(panel) end
     if panel.markerPicker then panel.markerPicker:SetShown(picker) end
     local offset=28
     local function PlaceRow(row,visible)
