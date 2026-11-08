@@ -8,6 +8,8 @@ local popup
 local generation=0
 local hookedMenus={}
 local nativeRequests=setmetatable({}, {__mode="k"})
+local focusBinding
+local focusBound=false
 
 function M:EnsureMouseShortcutsModule(design)
     for _,node in ipairs(design.nodes) do
@@ -15,7 +17,7 @@ function M:EnsureMouseShortcutsModule(design)
     end
     design.nodes[#design.nodes+1]={id=id,label="鼠标快捷功能",kind="group",compound=id,
         scope="player",unit="player",width=2,height=2,layer=600,enabled=true,locked=true,
-        mouseUnitMenu=true,mouseUnitMarks=true,rules={},conditions={}}
+        mouseUnitMenu=true,mouseUnitMarks=true,mouseAltInvite=true,mouseShiftFocus=true,rules={},conditions={}}
 end
 M.moduleIDs[id]=true
 M:EnsureMouseShortcutsModule(M.defaults)
@@ -88,6 +90,52 @@ local function Name(unit)
     if not C.Readable(name) or type(name)~="string" then return end
     if C.Readable(realm) and type(realm)=="string" and realm~="" then return name.."-"..realm end
     return name
+end
+
+local function LeftModifier()
+    if IsControlKeyDown and IsControlKeyDown() then return "other" end
+    local alt=IsAltKeyDown and IsAltKeyDown()
+    local shift=IsShiftKeyDown and IsShiftKeyDown()
+    if alt and shift then return "other" end
+    if alt then return "alt" end
+    if shift then return "shift" end
+end
+
+local function CanFocusWithClick()
+    return FocusUnit and Setting("mouseShiftFocus") and LeftModifier()=="shift"
+        and WorldHasMouse() and C.Bool(UnitExists("mouseover"))
+end
+
+local function RefreshFocusBinding()
+    if InCombatLockdown() or not SetOverrideBindingClick or not ClearOverrideBindings then return end
+    local active=not not CanFocusWithClick()
+    if active==focusBound then return end
+    if not active then
+        ClearOverrideBindings(focusBinding)
+        focusBound=false
+        return
+    end
+    if not focusBinding then
+        focusBinding=CreateFrame("Frame",nil,UIParent,"SecureHandlerStateTemplate")
+        local button=CreateFrame("Button","MangUIUFWorldMouseFocus",UIParent,"SecureActionButtonTemplate")
+        button:EnableMouse(false)
+        button:RegisterForClicks("LeftButtonDown","LeftButtonUp")
+        button:SetAttribute("unit","mouseover")
+        button:SetAttribute("useOnKeyDown",true)
+        button:SetScript("PreClick",function(self)
+            if not InCombatLockdown() then
+                self:SetAttribute("type",CanFocusWithClick() and "focus" or nil)
+            end
+        end)
+        focusBinding:SetFrameRef("button",button)
+        focusBinding:SetAttribute("_onstate-combat",[[ if newstate=="combat" then
+            self:ClearBindings()
+            self:GetFrameRef("button"):SetAttribute("type",nil)
+        end ]])
+        RegisterStateDriver(focusBinding,"combat","[combat] combat; safe")
+    end
+    SetOverrideBindingClick(focusBinding,false,"SHIFT-BUTTON1","MangUIUFWorldMouseFocus","LeftButton")
+    focusBound=true
 end
 
 local function MenuRow(parent,text,secure)
@@ -308,9 +356,16 @@ local function OpenNativeMenu(guid,unit,playerName)
     return pcall(UnitPopup_OpenMenu,which,context)
 end
 
-local function OnMouse(_,event,button)
+local function OnMouse(listener,event,button)
+    if event=="MODIFIER_STATE_CHANGED" or event=="PLAYER_REGEN_ENABLED" then
+        listener:SetScript("OnUpdate",LeftModifier()=="shift" and RefreshFocusBinding or nil)
+        RefreshFocusBinding()
+        return
+    end
     if event=="PLAYER_REGEN_DISABLED" then
         generation=generation+1;lastLeft=nil
+        focusBound=false
+        listener:SetScript("OnUpdate",nil)
         for key in pairs(clicks) do clicks[key]=nil end
         -- The combat state driver hides the protected menu.
         return
@@ -327,9 +382,17 @@ local function OnMouse(_,event,button)
             popup:Hide()
         end
     end
-    local key=button=="RightButton" and "mouseUnitMenu" or button=="LeftButton" and "mouseUnitMarks"
-    if not key then return end
     local previous=clicks[button];clicks[button]=nil
+    local key
+    if button=="RightButton" then
+        key="mouseUnitMenu"
+    elseif button=="LeftButton" then
+        local modifier=LeftModifier()
+        if modifier then lastLeft=nil end
+        if modifier=="alt" then key="mouseAltInvite"
+        elseif not modifier then key="mouseUnitMarks" end
+    end
+    if not key then return end
     local guid
     if Setting(key) and WorldHasMouse() then
         guid=GUID("mouseover")
@@ -349,15 +412,23 @@ local function OnMouse(_,event,button)
     local x,y=GetCursorPosition()
     local now=GetTime()
     if event=="GLOBAL_MOUSE_DOWN" then
-        clicks[button]={guid=guid,x=x,y=y,time=now}
+        clicks[button]={guid=guid,x=x,y=y,time=now,key=key}
         return
     end
-    if not previous or guid~=previous.guid or now-previous.time>.5
+    if not previous or key~=previous.key or guid~=previous.guid or now-previous.time>.5
         or math.abs(x-previous.x)>8 or math.abs(y-previous.y)>8 then
         if button=="LeftButton" then lastLeft=nil end
         return
     end
-    if button=="LeftButton" then
+    if key=="mouseAltInvite" then
+        if C.Bool(UnitIsPlayer("mouseover")) and not C.Bool(UnitIsUnit("mouseover","player")) then
+            local name=Name("mouseover")
+            local invite=C_PartyInfo and C_PartyInfo.InviteUnit or InviteUnit
+            if invite and name then pcall(invite,name) end
+        end
+        return
+    end
+    if key=="mouseUnitMarks" then
         local first=lastLeft
         lastLeft={guid=guid,time=now,x=x,y=y}
         if not first or first.guid~=guid or now-first.time>.35
@@ -385,5 +456,7 @@ local listener=CreateFrame("Frame")
 listener:RegisterEvent("GLOBAL_MOUSE_DOWN")
 listener:RegisterEvent("GLOBAL_MOUSE_UP")
 listener:RegisterEvent("PLAYER_REGEN_DISABLED")
+listener:RegisterEvent("PLAYER_REGEN_ENABLED")
+listener:RegisterEvent("MODIFIER_STATE_CHANGED")
 listener:RegisterEvent("PLAYER_TARGET_CHANGED")
 listener:SetScript("OnEvent",OnMouse)

@@ -85,6 +85,8 @@ local function BuildProperties(e)
     for _,entry in ipairs({
         {"mouseUnitMenu","鼠标右键角色下拉菜单"},
         {"mouseUnitMarks","鼠标左键双击角色选择标记"},
+        {"mouseAltInvite","Alt+左键点击角色邀请组队"},
+        {"mouseShiftFocus","Shift+左键点击角色设置焦点"},
     }) do
         local key,label=entry[1],entry[2]
         local check=W.Check(content,label,function(checked)
