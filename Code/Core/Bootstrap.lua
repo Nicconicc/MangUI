@@ -1,7 +1,7 @@
 local name, M = ...
 _G.MangUIUF = M
-M.name, M.version = name, "785"
-M.optionsTitle = "MangUI - V785 2026/11/08 1850"
+M.name, M.version = name, "786"
+M.optionsTitle = "MangUI - V786 2026/11/09 0256"
 M.errors, M.status = {}, "等待初始化"
 M.ART = "Interface\\AddOns\\MangUI\\Assets\\"
 M.MYRIAD = "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
@@ -145,10 +145,14 @@ events:SetScript("OnEvent",function(_,event,arg,action)
         if M.InitStore then M:Safe("加载配置",M.InitStore,M) else M:Report("配置","Store.lua 未载入") end
         if M.db then M:Safe("小地图入口",M.CreateMinimap,M) end
         if M.db and M.RegisterSettingsEntry then M:Safe("系统设置入口",M.RegisterSettingsEntry,M) end
-        if IsLoggedIn and IsLoggedIn() then Start() end
+        if IsLoggedIn and IsLoggedIn() then
+            if M.CPUUsage then M:Safe("CPU统计",M.CPUUsage.ApplyLoginSetting) end
+            Start()
+        end
     elseif event=="ADDON_LOADED" then
         if M.db and M.RegisterSettingsEntry then M:Safe("系统设置入口",M.RegisterSettingsEntry,M) end
     elseif event=="PLAYER_LOGIN" then
+        if M.CPUUsage then M:Safe("CPU统计",M.CPUUsage.ApplyLoginSetting) end
         if M.RegisterSettingsEntry then M:Safe("系统设置入口",M.RegisterSettingsEntry,M) end
         Start(); M:Print("v"..M.version.." 已加载。/mui 打开设计器，小地图金色图标为入口。")
     elseif event=="PLAYER_REGEN_ENABLED" then

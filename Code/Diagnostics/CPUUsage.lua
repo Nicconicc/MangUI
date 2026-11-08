@@ -1,5 +1,13 @@
 local _,M=...
 local U={};M.CPUUsage=U
+local profilerDisabledBySetting
+function U.ApplyLoginSetting()
+    if profilerDisabledBySetting or not M.db or not M.db.disableAddOnProfiler then return end
+    local profiler=C_AddOnProfiler
+    if not profiler or type(profiler.IsEnabled)~="function" then return end
+    profiler.IsEnabled=function() return false end
+    profilerDisabledBySetting=true
+end
 local function Call(fn,...)
     if type(fn)~="function" then return end
     local ok,value=pcall(fn,...);if ok then return value end
@@ -13,6 +21,9 @@ function U.Reset(sample)
     sample.total=nil;sample.time=nil;sample.percent=nil;sample.elapsed=0;sample.reason=nil
 end
 function U.Sample(sample)
+    if profilerDisabledBySetting then
+        U.Reset(sample);sample.reason="disabledBySetting";return
+    end
     local profiler=C_AddOnProfiler;local metric=Enum and Enum.AddOnProfilerMetric and Enum.AddOnProfilerMetric.RecentAverageTime
     if profiler and type(profiler.GetAddOnMetric)=="function" and metric~=nil
         and (type(profiler.IsEnabled)~="function" or Call(profiler.IsEnabled)==true) then
@@ -72,7 +83,9 @@ function U.Attach(editor)
         GameTooltip:AddLine(M:T("MangUI 的CPU使用率，每秒更新。"),1,1,1,true)
         GameTooltip:AddLine(M:T("按插件执行时间占单线程时间的比例计算。"),.8,.8,.8,true)
         local reason=editor.cpuSample.reason
-        if reason=="disabled" then
+        if reason=="disabledBySetting" then
+            GameTooltip:AddLine(M:T("系统设置已关闭CPU使用记录。取消勾选后重新登录或 /reload。"),.8,.8,.8,true)
+        elseif reason=="disabled" then
             GameTooltip:AddLine(M:T("CPU统计未开启。输入 /console scriptProfile 1 后 /reload。"),.8,.8,.8,true)
         elseif reason=="unavailable" then
             GameTooltip:AddLine(M:T("当前客户端未提供可用的CPU统计数据。"),.8,.8,.8,true)
