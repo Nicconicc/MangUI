@@ -1,6 +1,7 @@
 local _,M=...
 local C=M.Compat
 local stableUnits={"target","focus","player","pet"}
+local nameplateUnits={}
 local clicks={}
 local lastLeft
 local popup
@@ -41,6 +42,21 @@ local function StableUnit(guid)
         local unit=prefix..i
         if GUID(unit)==guid then return unit end
     end
+end
+
+local function MarkerUnit(guid)
+    local unit=StableUnit(guid)
+    if unit then return unit end
+    if UnitTokenFromGUID then
+        local ok,token=pcall(UnitTokenFromGUID,guid)
+        if ok and C.Readable(token) and type(token)=="string" and token~="mouseover" and GUID(token)==guid then
+            return token
+        end
+    end
+    for token in pairs(nameplateUnits) do
+        if GUID(token)==guid then return token end
+    end
+    if GUID("mouseover")==guid then return "mouseover" end
 end
 
 local function CanOpenUnitMenu(unit)
@@ -142,6 +158,9 @@ local function SecureRow(panel,parent,text,kind)
     button:SetScript("PreClick",function(self)
         if InCombatLockdown() then return end
         local unit=panel.unit
+        if panel.key=="mouseUnitMarks" and (not unit or GUID(unit)~=panel.guid) then
+            unit=MarkerUnit(panel.guid)
+        end
         local valid=panel:IsShown() and unit and GUID(unit)==panel.guid and Setting(panel.key)
             and (panel.key~="mouseUnitMenu" or CanOpenUnitMenu(unit))
         self:SetAttribute("type",valid and (kind or panel.confirmation and panel.confirmation.kind) or nil)
@@ -343,6 +362,13 @@ local function OpenNativeMenu(guid,unit,playerName)
 end
 
 local function OnMouse(listener,event,button)
+    if event=="NAME_PLATE_UNIT_ADDED" then
+        nameplateUnits[button]=true
+        return
+    elseif event=="NAME_PLATE_UNIT_REMOVED" then
+        nameplateUnits[button]=nil
+        return
+    end
     if event=="MODIFIER_STATE_CHANGED" or event=="PLAYER_REGEN_ENABLED" then
         listener:SetScript("OnUpdate",LeftModifier()=="shift" and RefreshFocusBinding or nil)
         RefreshFocusBinding()
@@ -389,6 +415,9 @@ local function OnMouse(listener,event,button)
                 -- Releasing the camera button can restore mouseover on the next frame.
                 guid=previous.guid
             end
+        elseif key=="mouseUnitMarks" and not guid and event=="GLOBAL_MOUSE_UP" and previous
+            and GUID("target")==previous.guid then
+            guid=previous.guid
         end
     end
     if not guid then
@@ -424,10 +453,13 @@ local function OnMouse(listener,event,button)
     local serial=generation
     C_Timer.After(0,function()
         if serial~=generation or not Setting(key) or InCombatLockdown() then return end
-        local unit=StableUnit(guid)
-        if button=="LeftButton" then
+        if key=="mouseUnitMarks" then
+            local unit=MarkerUnit(guid)
             if unit then OpenMenu(key,guid,unit,nil,x,y) end
-        elseif unit and CanOpenUnitMenu(unit) then
+            return
+        end
+        local unit=StableUnit(guid)
+        if unit and CanOpenUnitMenu(unit) then
             local name=unit~="player" and Name(unit) or nil
             if not OpenNativeMenu(guid,unit,name) then OpenMenu(key,guid,unit,name,x,y) end
         elseif not unit and GUID("mouseover")==guid and CanOpenUnitMenu("mouseover") then
@@ -444,4 +476,6 @@ listener:RegisterEvent("PLAYER_REGEN_DISABLED")
 listener:RegisterEvent("PLAYER_REGEN_ENABLED")
 listener:RegisterEvent("MODIFIER_STATE_CHANGED")
 listener:RegisterEvent("PLAYER_TARGET_CHANGED")
+listener:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+listener:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 listener:SetScript("OnEvent",OnMouse)
