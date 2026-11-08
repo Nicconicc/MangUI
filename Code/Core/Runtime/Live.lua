@@ -170,9 +170,10 @@ function M:StartLive()
         if M.PlayerSkillMonitor then Dispatch("playerSkillMonitor",M.PlayerSkillMonitor.Event,M.live,event,unit) end
         if M.PlayerOtherMonitor then Dispatch("playerOtherMonitor",M.PlayerOtherMonitor.Event,M.live,event,unit) end
         if M.CommonItems then Dispatch("commonItems",M.CommonItems.Event,M.live,event,unit)end
-        if M.RaidVulnerability then Dispatch("raidVulnerability",M.RaidVulnerability.Event,M.live,event,unit)end
-        if M.ReceivedBuffs then Dispatch("receivedBuffs",M.ReceivedBuffs.Event,M.live,event,unit)end
-        if M.RaidBuffMonitor then Dispatch("raidBuffs",M.RaidBuffMonitor.Event,M.live,event,unit)end
+        -- Each team aura monitor consumes the dirty scan once in the frame refresh.
+        if M.RaidVulnerability then Dispatch("raidVulnerability",M.RaidVulnerability.Event,M.live,event,unit,true)end
+        if M.ReceivedBuffs then Dispatch("receivedBuffs",M.ReceivedBuffs.Event,M.live,event,unit,true)end
+        if M.RaidBuffMonitor then Dispatch("raidBuffs",M.RaidBuffMonitor.Event,M.live,event,unit,true)end
         if M.ChatButtons and chatEvents[event] then Dispatch("chatButtons",M.ChatButtons.Event,M.live,event) end
         local combatEvent=event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_REGEN_ENABLED"
         if M.CombatNotices and combatEvent then Dispatch("combatNotices",M.CombatNotices.Event,M.live,event) end
@@ -268,6 +269,9 @@ function M:StartLive()
             M:RuntimeCall(view,"update","状态刷新",R.Update,M.live);dirty=false;pending=false;polled=0;ResetDirty()
         elseif pending then
             M:RuntimeCall(view,"update","状态刷新",R.Update,M.live,dirtyUnits,dirtyModules,dirtyFields);pending=false;ResetDirty()
+        end
+        if M.RaidBuffMonitor then
+            M.RaidBuffMonitor.FlushAuraNames(view)
         end
         M:RuntimeCall(view,"animate","动画刷新",R.Animate,M.live)
     end

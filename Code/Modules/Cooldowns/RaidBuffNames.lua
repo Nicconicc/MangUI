@@ -2,7 +2,9 @@ local _,M=...
 local I=M.RaidBuffMonitor
 local Safe,Number,Readable=I.Safe,I.Number,I.Readable
 local names,wanted={},{}
-local cursor,seeded,cacheKey=0,false,nil
+local cursor,seeded,cacheKey,cacheInterface=0,false,nil,nil
+local pendingAuras={}
+local requestedNameResolved
 local worker=CreateFrame("Frame")
 -- Query common raid-Buff IDs on every client: localized names come from the
 -- client's spell data, never from the current character's spellbook.
@@ -16,13 +18,17 @@ local seeds={1243,1244,1245,2791,10937,10938,25389,48161,21562,21564,25392,48162
     6307,7804,7805,11766,11767,27268,47982,19506,30809,17007,24932,55610,19574,57399,
     21562,1459,1126,462854,381748,381732,15473,6673,264764,465,32223,52127,32593,32594,974,97462}
 local function Saved()
-    local _,build=Safe(GetBuildInfo)
-    local key=tostring(M.Compat.interface)..":"..tostring(build)..":"..tostring(Safe(GetLocale))
-    if key~=cacheKey then names={};wanted={};cursor=0;seeded=false;cacheKey=key end
+    local interface=M.Compat.interface
+    if not cacheKey or cacheInterface~=interface then
+        local _,build=Safe(GetBuildInfo)
+        cacheKey=tostring(interface)..":"..tostring(build)..":"..tostring(Safe(GetLocale))
+        cacheInterface=interface
+        names={};wanted={};cursor=0;seeded=false
+    end
     if not M.db then return end
     local saved=M.db.raidBuffNameCache
-    if type(saved)~="table"or saved.key~=key or type(saved.names)~="table"then
-        saved={key=key,names={}};M.db.raidBuffNameCache=saved
+    if type(saved)~="table"or saved.key~=cacheKey or type(saved.names)~="table"then
+        saved={key=cacheKey,names={}};M.db.raidBuffNameCache=saved
     end
     return saved.names
 end
@@ -34,14 +40,23 @@ local function Remember(name,id,icon,persist)
         record={name=name,id=id,ids={},revision=0};names[name]=record
         local saved=Saved();local prior=saved and saved[name]
         if type(prior)=="table"and type(prior.ids)=="table"then
+            record.id=Number(prior.id) or id
+            record.icon=prior.icon
+            record.revision=Number(prior.revision) or 0
             for rank in pairs(prior.ids)do if Number(rank)and rank>0 then record.ids[rank]=true end end
         end
     end
     if not record.ids[id]then record.ids[id]=true;record.revision=record.revision+1 end
     if Readable(icon)and icon and record.icon~=icon then record.icon=icon;record.revision=record.revision+1 end
     if persist then
+        local resolved=wanted[name]~=nil
         wanted[name]=nil
-        local saved=Saved();if saved then saved[name]=M.Copy(record)end
+        local saved=Saved();local prior=saved and saved[name]
+        if saved and (type(prior)~="table"or prior.revision~=record.revision
+            or prior.id~=record.id or prior.icon~=record.icon)then
+            saved[name]=M.Copy(record)
+        end
+        return record,resolved
     end
     return record
 end
@@ -56,7 +71,8 @@ end
 function I.RememberBuffAura(aura)
     Saved()
     local id=aura.spellId;if type(id)=="nil"then id=aura.spellID end
-    Remember(aura.name,id,aura.icon,true)
+    local _,resolved=Remember(aura.name,id,aura.icon,true)
+    if resolved then requestedNameResolved=true end
 end
 function I.ResolveName(value)
     Seed()
@@ -113,21 +129,48 @@ function I.RequestBuffName(value)
     if value==""or tonumber(value)then return end
     local _,id=I.ResolveName(value);if id then return end
     wanted[value]=true
+    pendingAuras.player=true;pendingAuras.target=true
     if cursor<2000000 then worker:SetScript("OnUpdate",Scan)end
 end
 local function Observe(unit)
-    unit=unit=="target"and "target"or "player"
-    Saved()
     if C_Secrets and C_Secrets.ShouldAurasBeSecret then
         local secret=Safe(C_Secrets.ShouldAurasBeSecret,unit)
         if not Readable(secret)or secret==true then return end
     end
-    for index=1,255 do local aura=M.Compat.Aura(unit,index,unit=="target"and "HARMFUL"or "HELPFUL");if not aura then break end;I.RememberBuffAura(aura)end
+    local filter=unit=="target"and "HARMFUL"or "HELPFUL"
+    for _,aura in ipairs(M.Compat.AuraSnapshot(unit,filter))do
+        I.RememberBuffAura(aura)
+    end
+end
+local function HasEntries(view,id)
+    local node=view.nodes[id]
+    local group=node and view.byID[node.spec.parent]
+    return group and group.enabled~=false and node.spec.enabled~=false and node.entries and #node.entries>0
+end
+function I.FlushAuraNames(view)
+    local player,target=pendingAuras.player,pendingAuras.target
+    if not player and not target and not requestedNameResolved then return end
+    pendingAuras.player,pendingAuras.target=nil,nil
+    local searching=next(wanted)~=nil
+    local vulnerability=HasEntries(view,"raidVulnerabilityIcons")
+    if player and (searching or vulnerability or HasEntries(view,"raidBuffsIcons") or HasEntries(view,"receivedBuffsIcons"))then
+        Observe("player")
+    end
+    if target and (searching or vulnerability)and M.Compat.Bool(Safe(UnitExists,"target"))then
+        Observe("target")
+    end
+    if requestedNameResolved then
+        requestedNameResolved=nil
+        Refresh()
+    end
 end
 worker:SetScript("OnEvent",function(_,event,unit)
-    if event=="UNIT_AURA"and unit~="player"and unit~="target"then return end
-    Observe(event=="UNIT_AURA"and unit or "player")
-    if event=="SPELL_DATA_LOAD_RESULT"then seeded=false end
-    Refresh()
+    if event=="UNIT_AURA"then
+        if unit=="player"or unit=="target"then pendingAuras[unit]=true end
+    elseif event=="SPELL_DATA_LOAD_RESULT"then
+        seeded=false
+    else
+        pendingAuras.player=true
+    end
 end)
 for _,event in ipairs({"UNIT_AURA","PLAYER_ENTERING_WORLD","SPELLS_CHANGED","SPELL_DATA_LOAD_RESULT"})do Safe(worker.RegisterEvent,worker,event)end

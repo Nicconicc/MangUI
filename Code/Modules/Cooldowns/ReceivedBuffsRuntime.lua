@@ -127,6 +127,10 @@ function I.Paint(view,o,animateOnly)
     local shown=not(view.hidden and view.hidden[o.spec.id])and (view.preview or
         (group.enabled~=false and o.spec.enabled~=false and (not group.hideWithoutTarget or M.Compat.Bool(Safe(UnitExists,"target")))))
     o.frame:SetShown(shown)
+    if not o.entries or #o.entries==0 or (not view.preview and (group.enabled==false or o.spec.enabled==false))then
+        o.rowCount=0
+        return
+    end
     local now=GetTime();if animateOnly and now<(o.nextScan or 0)then return end;o.nextScan=now+.1
     local auras=not view.preview and Auras()or nil
     local play=shown and o.frame:IsVisible()and not view.preview and not(M.editor and M.editor.window:IsShown())
@@ -160,10 +164,11 @@ function I.Paint(view,o,animateOnly)
         if slot.rowX~=x then slot.rowX=x;slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7)end
     end
 end
-function I.Event(view,event,unit)
+function I.Event(view,event,unit,deferAura)
     if event=="UNIT_AURA"and unit~="player"then return end
     if event~="UNIT_AURA"and event~="PLAYER_ENTERING_WORLD"and event~="PLAYER_TARGET_CHANGED"and event~="PLAYER_REGEN_ENABLED"and event~="SPELLS_CHANGED"and event~="GROUP_ROSTER_UPDATE"then return end
     local o=view.nodes.receivedBuffsIcons;if not o then return end
+    if event=="UNIT_AURA"and deferAura then o.nextScan=0;return end
     o.nextScan=0;if event~="UNIT_AURA"then o.nextInfo=0 end;I.Paint(view,o,false)
 end
 function I.Remove(view,o)

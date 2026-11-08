@@ -335,14 +335,21 @@ function I.Paint(view,o,animateOnly)
     local shown=not(view.hidden and view.hidden[o.spec.id])and (view.preview or
         (group.enabled~=false and o.spec.enabled~=false and (not group.raidOnly or raid)
         and (not group.hideWithoutTarget or M.Compat.Bool(Safe(UnitExists,"target")))))
-    o.frame:SetShown(shown);if not shown then return end
+    o.frame:SetShown(shown)
+    if not shown then return end
+    if not o.entries or #o.entries==0 then
+        o.rowCount=0
+        LayoutDecoration(o,group,0)
+        UpdateConnector(view,o)
+        return
+    end
     local now=GetTime()
     if animateOnly and now<(o.nextScan or 0)then UpdateConnector(view,o);return end
     o.nextScan=now+.1
     local byID,byName;if not view.preview then byID,byName=Auras()end
     local displayed=o.displayedIcons or {};o.displayedIcons=displayed
     for index=#displayed,1,-1 do displayed[index]=nil end
-    local snapshot,lines=W.Snapshot(),{}
+    local snapshot,lines
     for _,slot in ipairs(o.buffIcons or {})do
         if slot.entry then
             if now>=(o.nextInfo or 0)then
@@ -353,6 +360,7 @@ function I.Paint(view,o,animateOnly)
             local active,remaining=BuffRemaining(slot,byID,byName,now)
             local visible
             if slot.weapon then
+                if not snapshot then snapshot,lines=W.Snapshot(),{} end
                 visible,remaining=W.Missing(slot.entry,slot.spell,snapshot,lines);visible=view.preview or visible
             else
                 visible=view.preview or (o.native and slot.bound)or not active or (remaining and remaining<180)
@@ -396,12 +404,13 @@ function I.Paint(view,o,animateOnly)
     LayoutDecoration(o,group,#displayed)
     UpdateConnector(view,o)
 end
-function I.Event(view,event,unit)
+function I.Event(view,event,unit,deferAura)
     if (event=="UNIT_AURA"or event=="UNIT_INVENTORY_CHANGED")and unit~="player"then return end
     if event~="UNIT_AURA"and event~="GROUP_ROSTER_UPDATE"and event~="PLAYER_ENTERING_WORLD"and event~="PLAYER_TARGET_CHANGED"
         and event~="PLAYER_REGEN_ENABLED"and event~="SPELLS_CHANGED"and event~="UNIT_INVENTORY_CHANGED"
         and event~="PLAYER_EQUIPMENT_CHANGED"and event~="GET_ITEM_INFO_RECEIVED"and event~="BAG_UPDATE_DELAYED"then return end
     local o=view.nodes.raidBuffsIcons;if not o then return end
+    if event=="UNIT_AURA"and deferAura then o.nextScan=0;return end
     if event=="SPELLS_CHANGED"or event=="PLAYER_REGEN_ENABLED"or event=="PLAYER_ENTERING_WORLD"then I.Configure(view,o)end
     o.nextScan=0;if event~="UNIT_AURA"then o.nextInfo=0 end
     I.Paint(view,o,false)
