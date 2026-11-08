@@ -1,8 +1,8 @@
 local _,M=...
 local W,R=M.Widgets,M.Renderer
 local unpack=unpack or table.unpack
-local topLevelFrames={"mainComposite","wa8d650f8d3a","petComposite","totComposite","focusComposite","partyFrames","bossFrames","playerSkillMonitor","playerOtherMonitor","cooldownMonitor","receivedBuffs","raidVulnerability","raidBuffs","commonItems","targetDistance","targetThreat","chatButtons","systemMenu","mouseShortcuts","experienceBar","mouseCircle","combatNotices"}
-local unlockExcluded={mouseCircle=true,systemMenu=true,mouseShortcuts=true}
+local topLevelFrames={"mainComposite","wa8d650f8d3a","petComposite","totComposite","focusComposite","partyFrames","bossFrames","playerSkillMonitor","playerOtherMonitor","cooldownMonitor","receivedBuffs","raidVulnerability","raidBuffs","commonItems","targetDistance","targetThreat","chatButtons","systemMenu","experienceBar","mouseCircle","combatNotices"}
+local unlockExcluded={mouseCircle=true,systemMenu=true}
 local function ModuleAvailable(id)
     local interface=M.Compat.interface or 0
     local classicEra=interface>=10000 and interface<20000 and interface~=16001
@@ -150,7 +150,9 @@ local propertyCategories={
     chatButtons={{"iconSize","buttonSpacing"},{"nameFont","fontSize","fontYOffset","chatTextLabels"},{"customChannelName","pullSeconds"}},
     targetThreat={{"nameFont","fontSize"},{"threatInstanceOnly"}},
     experienceBar={{"scale","experienceHeight"},{"nameFont"}},
-    systemMenu={{"scale"}},mouseCircle={{"scale"},{"mouseColors"}},combatNotices={{"scale"},{"combatSound"}},
+    systemMenu={{"scale"}},combatNotices={{"scale"},{"combatSound"}},
+    mouseCircle={{"scale"},{"mouseColors"},
+        {"mouseShortcutsTitle","mouseShortcutsEnabled","mouseUnitMenu","mouseUnitMarks","mouseAltInvite","mouseShiftFocus"}},
     portrait={{"overallScale"},{"portraitAvatarScale","portraitOuterScale","portraitFrameTexture"},
         {"portraitLightEnabled","portraitLightScale"},{"portraitGlassEnabled","portraitGlassScale","portraitGlassAlpha"}},
     generic={{"scale","overallScale","x","y","width","height","alpha","layer","resourceSpacing","resourceHideWithoutTarget"},

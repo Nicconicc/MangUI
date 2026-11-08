@@ -81,19 +81,23 @@ local function BuildProperties(e)
         Change("enabled",not hidden)
     end)
     Row(32,{{e.decorationHidden,-4,0}},{},"decorationHidden");y=y-32
+    local mouseShortcutsTitle=W.Label(content,"鼠标快捷功能",12)
+    Row(24,{{mouseShortcutsTitle,0,-2}},{},"mouseShortcutsTitle")
+    mouseShortcutsTitle:SetTextColor(1,.82,0)
     e.mouseShortcutChecks={}
     for _,entry in ipairs({
-        {"mouseUnitMenu","鼠标右键角色下拉菜单"},
+        {"mouseShortcutsEnabled","启用鼠标快捷功能"},
+        {"mouseUnitMenu","右键友方玩家打开菜单"},
         {"mouseUnitMarks","鼠标左键双击角色选择标记"},
         {"mouseAltInvite","Alt+左键点击角色邀请组队"},
         {"mouseShiftFocus","Shift+左键点击角色设置焦点"},
     }) do
         local key,label=entry[1],entry[2]
         local check=W.Check(content,label,function(checked)
-            if Selected() and Selected().id=="mouseShortcuts" then Change(key,checked==true) end
+            if Selected() and Selected().id=="mouseCircle" then Change(key,checked==true) end
         end)
         e.mouseShortcutChecks[key]=check
-        Row(32,{{check,-4,0}},{},key);y=y-32
+        Row(32,{{check,-4,0}},{},key)
     end
     Field("名称","label")
     e.coordXLabel=Field("X偏移","x",true);e.coordYLabel=Field("Y偏移","y",true)

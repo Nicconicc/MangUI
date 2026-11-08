@@ -62,7 +62,6 @@ local function CleanNodes(nodes)
     if M.EnsureChatButtonsModule then M:EnsureChatButtonsModule({nodes=nodes}) end
     if M.EnsureCombatNoticesModule then M:EnsureCombatNoticesModule({nodes=nodes}) end
     if M.EnsureSystemMenuModule then M:EnsureSystemMenuModule({nodes=nodes}) end
-    if M.EnsureMouseShortcutsModule then M:EnsureMouseShortcutsModule({nodes=nodes}) end
     if M.EnsureMouseCircleModule then M:EnsureMouseCircleModule({nodes=nodes}) end
     if M.EnsureExperienceBarModule then M:EnsureExperienceBarModule({nodes=nodes}) end
     if M.EnsureTargetThreatModule then M:EnsureTargetThreatModule({nodes=nodes}) end

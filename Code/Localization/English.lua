@@ -1,11 +1,13 @@
 local _,M=...
 local english=M.localeTables.enUS
+english["鼠标功能及提示"]="Mouse Controls & Cues"
 english["鼠标快捷功能"]="Mouse Shortcuts"
-english["鼠标右键角色下拉菜单"]="Right-click character menu"
+english["启用鼠标快捷功能"]="Enable mouse shortcuts"
+english["启用鼠标光圈"]="Enable mouse highlight"
+english["右键友方玩家打开菜单"]="Right-click friendly players for menu"
 english["鼠标左键双击角色选择标记"]="Double-click to choose a marker"
 english["Alt+左键点击角色邀请组队"]="Alt+left-click to invite to group"
 english["Shift+左键点击角色设置焦点"]="Shift+left-click to set focus"
-english["在游戏世界中右键打开不可攻击角色的菜单，或左键双击选择目标标记。"]="Right-click a non-attackable character for its menu, or double-click to choose a target marker."
 english["选择标记"]="Choose a Marker"
 english[" · 双击 "]=" · Double-click "
 english[" · 小地图 "]=" · Minimap "

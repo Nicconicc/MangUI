@@ -6,6 +6,8 @@ local outerDefault={1,1,1,1}
 local innerDefault={1,.6118,.9255,1}
 local gcdDefault={1,1,1,1}
 local pollInterval=.1
+local moduleLabel="鼠标功能及提示"
+local shortcutFields={"mouseShortcutsEnabled","mouseUnitMenu","mouseUnitMarks","mouseAltInvite","mouseShiftFocus"}
 local function Reset(o)
     o.clickAt=nil;o.clickHeld=nil;o.gcdStart=nil;o.gcdDuration=nil;o.gcdRate=nil
     o.mouseX=nil;o.mouseY=nil;o.outerSize=nil;o.innerSize=nil;o.innerAlpha=nil
@@ -26,7 +28,7 @@ local function Color(o,key,region,method,color)
 end
 local function Templates()
     return {
-        {id="mouseCircle",label="鼠标光圈提示",kind="group",compound="mouseCircle",scope="player",unit="player",
+        {id="mouseCircle",label=moduleLabel,kind="group",compound="mouseCircle",scope="player",unit="player",
             x=0,y=0,width=50,height=50,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,locked=true,layer=700,
             outerColor={1,1,1,1},innerColor={1,.61176472902298,.92549026012421,1},gcdColor={.93725496530533,1,.98823535442352,1},rules={},conditions={}},
         {id="mouseCircleRings",label="鼠标光圈提示",kind="mousecircle",parent="mouseCircle",internal=true,locked=true,
@@ -34,14 +36,31 @@ local function Templates()
     }
 end
 function M:EnsureMouseCircleModule(design)
-    local seen={};local defaults=Templates()
-    for _,n in ipairs(design.nodes) do
-        seen[n.id]=true
-        if n.id=="mouseCircle" then
-            for _,key in ipairs({"outerColor","innerColor","gcdColor"}) do if type(n[key])~="table" then n[key]=M.Copy(defaults[1][key]) end end
+    local circle,rings,legacy
+    for i=#design.nodes,1,-1 do
+        local n=design.nodes[i]
+        if n.id=="mouseCircle" then circle=n
+        elseif n.id=="mouseCircleRings" then rings=n
+        elseif n.id=="mouseShortcuts" then
+            legacy=table.remove(design.nodes,i)
         end
     end
-    for _,n in ipairs(defaults) do if not seen[n.id] then design.nodes[#design.nodes+1]=n end end
+    local defaults=Templates()
+    if not circle then
+        circle=defaults[1]
+        design.nodes[#design.nodes+1]=circle
+    end
+    if not rings then design.nodes[#design.nodes+1]=defaults[2] end
+    circle.label=moduleLabel
+    for _,key in ipairs({"outerColor","innerColor","gcdColor"}) do
+        if type(circle[key])~="table" then circle[key]=defaults[1][key] end
+    end
+    for _,key in ipairs(shortcutFields) do
+        if circle[key]==nil then
+            local oldKey=key=="mouseShortcutsEnabled" and "enabled" or key
+            circle[key]=not legacy or legacy[oldKey]~=false
+        end
+    end
 end
 M.moduleIDs.mouseCircle=true
 M:EnsureMouseCircleModule(M.defaults)

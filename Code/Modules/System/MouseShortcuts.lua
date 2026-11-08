@@ -1,6 +1,5 @@
 local _,M=...
 local C=M.Compat
-local id="mouseShortcuts"
 local stableUnits={"target","focus","player","pet"}
 local clicks={}
 local lastLeft
@@ -11,21 +10,9 @@ local nativeRequests=setmetatable({}, {__mode="k"})
 local focusBinding
 local focusBound=false
 
-function M:EnsureMouseShortcutsModule(design)
-    for _,node in ipairs(design.nodes) do
-        if node.id==id then return end
-    end
-    design.nodes[#design.nodes+1]={id=id,label="鼠标快捷功能",kind="group",compound=id,
-        scope="player",unit="player",width=2,height=2,layer=600,enabled=true,locked=true,
-        mouseUnitMenu=true,mouseUnitMarks=true,mouseAltInvite=true,mouseShiftFocus=true,rules={},conditions={}}
-end
-M.moduleIDs[id]=true
-M:EnsureMouseShortcutsModule(M.defaults)
-if M.recordedDefaults then M:EnsureMouseShortcutsModule(M.recordedDefaults) end
-
 local function Setting(key)
-    local node=M.byID and M.byID[id]
-    return node and node.enabled~=false and node[key]~=false
+    local node=M.byID and M.byID.mouseCircle
+    return node and node.mouseShortcutsEnabled~=false and node[key]~=false
 end
 
 local function WorldHasMouse()
@@ -57,8 +44,9 @@ local function StableUnit(guid)
 end
 
 local function CanOpenUnitMenu(unit)
+    if not C.Bool(UnitIsPlayer(unit)) or not C.Bool(UnitIsFriend("player",unit)) then return false end
     local attackable=UnitCanAttack("player",unit)
-    return C.Readable(attackable) and not attackable and C.Bool(UnitExists(unit))
+    return C.Readable(attackable) and not attackable
 end
 
 local backdrop={
@@ -301,8 +289,6 @@ end
 local function NativeMenuType(unit)
     if not unit then return "PLAYER" end
     if C.Bool(UnitIsUnit(unit,"player")) then return "SELF" end
-    if unit=="pet" then return "PET" end
-    if not C.Bool(UnitIsPlayer(unit)) then return "TARGET" end
     if unit:match("^raid%d+$") or UnitInRaid and C.Number(UnitInRaid(unit)) then return "RAID_PLAYER" end
     if unit:match("^party%d+$") or UnitInParty and C.Bool(UnitInParty(unit)) then return "PARTY" end
     return "PLAYER"
@@ -442,10 +428,9 @@ local function OnMouse(listener,event,button)
         if button=="LeftButton" then
             if unit then OpenMenu(key,guid,unit,nil,x,y) end
         elseif unit and CanOpenUnitMenu(unit) then
-            local name=C.Bool(UnitIsPlayer(unit)) and unit~="player" and Name(unit) or nil
+            local name=unit~="player" and Name(unit) or nil
             if not OpenNativeMenu(guid,unit,name) then OpenMenu(key,guid,unit,name,x,y) end
-        elseif not unit and GUID("mouseover")==guid and CanOpenUnitMenu("mouseover")
-            and C.Bool(UnitIsPlayer("mouseover")) then
+        elseif not unit and GUID("mouseover")==guid and CanOpenUnitMenu("mouseover") then
             local name=Name("mouseover")
             if name and not OpenNativeMenu(guid,nil,name) then OpenMenu(key,guid,nil,name,x,y) end
         end

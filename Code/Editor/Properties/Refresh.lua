@@ -48,8 +48,11 @@ local function RefreshProperties(self)
     local headerOffset=showModuleEnabled and 44 or 0
     e.moduleEnabled:SetShown(showModuleEnabled)
     e.moduleDivider:SetShown(showModuleEnabled)
-    if module then e.moduleEnabled:SetChecked(module.enabled~=false) end
-    if selectedID=="mouseShortcuts" then
+    if module then
+        e.moduleEnabled.label:SetText(moduleID=="mouseCircle" and "启用鼠标光圈" or "启动模块")
+        e.moduleEnabled:SetChecked(module.enabled~=false)
+    end
+    if selectedID=="mouseCircle" then
         for key,check in pairs(e.mouseShortcutChecks) do check:SetChecked(n[key]~=false) end
     end
     local showMainScale=e.mainPreview and n~=nil and n.id=="mainComposite" and mainRoot~=nil
@@ -477,13 +480,13 @@ local function RefreshProperties(self)
             elseif n.compound=="systemMenu" then
                 visible=row.key=="scale"
             elseif n.compound=="mouseCircle" then
-                visible=row.key=="scale" or row.key=="mouseColors"
+                visible=row.key=="scale" or row.key=="mouseColors" or row.key=="mouseShortcutsTitle"
+                    or e.mouseShortcutChecks[row.key]~=nil
             else
                 visible=row.key=="x" or row.key=="y" or row.key=="scale" or row.key=="flags"
                 if (n.compound=="focusHP" or n.compound=="focusMP") and row.key=="hpMaterial" then visible=true end
             end
         end
-        if n.id=="mouseShortcuts" then visible=e.mouseShortcutChecks[row.key]~=nil end
         if MainBarPart(n) then visible=row.key=="x" or row.key=="hpMaterial" end
         if row.key=="healthGradient" or row.key=="healthColors" then visible=healthBar~=nil end
         if row.key=="healthThresholdEnabled" or row.key=="healthThreshold" then visible=n.id=="waf465575a72" end

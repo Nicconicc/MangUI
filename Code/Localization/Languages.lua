@@ -10025,4 +10025,28 @@ for locale,labels in pairs({
     local catalog=M.localeTables[locale]
     catalog["大数值以单位显示"],catalog["千（K）"],catalog["万（W）"]=labels[1],labels[2],labels[3]
 end
+local mouseLabels={"鼠标功能及提示","鼠标快捷功能","启用鼠标快捷功能","启用鼠标光圈",
+    "右键友方玩家打开菜单","鼠标左键双击角色选择标记","Alt+左键点击角色邀请组队","Shift+左键点击角色设置焦点"}
+local spanishMouseLabels={"Ratón y avisos","Atajos del ratón","Activar atajos del ratón","Activar halo del cursor",
+    "Clic derecho: menú de jugador aliado","Doble clic: elegir marca","Alt + clic izq.: invitar al grupo","Mayús + clic izq.: fijar foco"}
+for locale,labels in pairs({
+    deDE={"Maus & Hinweise","Mauskürzel","Mauskürzel aktivieren","Mausring aktivieren",
+        "Rechtsklick: Menü für verbündete Spieler","Doppelklick: Zielmarkierung","Alt + Linksklick: einladen","Umschalt + Linksklick: Fokus setzen"},
+    frFR={"Souris et repères","Raccourcis souris","Activer les raccourcis souris","Activer le halo de la souris",
+        "Clic droit : menu du joueur allié","Double-clic : choisir une marque","Alt + clic gauche : inviter","Maj + clic gauche : définir le focus"},
+    esES=spanishMouseLabels,esMX=spanishMouseLabels,
+    itIT={"Mouse e indicatori","Scorciatoie del mouse","Attiva scorciatoie del mouse","Attiva alone del mouse",
+        "Clic destro: menu giocatore alleato","Doppio clic: scegli indicatore","Alt + clic sinistro: invita","Maiusc + clic sinistro: imposta focus"},
+    ptBR={"Mouse e avisos","Atalhos do mouse","Ativar atalhos do mouse","Ativar destaque do cursor",
+        "Clique direito: menu de jogador aliado","Clique duplo: escolher marca","Alt + clique esquerdo: convidar","Shift + clique esquerdo: definir foco"},
+    ruRU={"Мышь и подсказки","Команды мыши","Включить команды мыши","Включить подсветку курсора",
+        "ПКМ: меню дружественного игрока","Двойной клик: выбрать метку","Alt + ЛКМ: пригласить в группу","Shift + ЛКМ: установить фокус"},
+    koKR={"마우스 기능 및 알림","마우스 단축 기능","마우스 단축 기능 켜기","마우스 원형 강조 켜기",
+        "우클릭: 아군 플레이어 메뉴","더블 클릭: 징표 선택","Alt + 좌클릭: 파티 초대","Shift + 좌클릭: 주시 대상 설정"},
+    zhTW={"滑鼠功能及提示","滑鼠快捷功能","啟用滑鼠快捷功能","啟用滑鼠光圈",
+        "右鍵點擊友方玩家開啟選單","左鍵雙擊角色選擇標記","Alt+左鍵點擊角色邀請組隊","Shift+左鍵點擊角色設為專注目標"},
+})do
+    local catalog=M.localeTables[locale]
+    for i,key in ipairs(mouseLabels) do catalog[key]=labels[i] end
+end
 M:RebuildLocaleKeys()
