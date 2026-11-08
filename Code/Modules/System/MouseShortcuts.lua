@@ -118,31 +118,48 @@ local function SecureRow(panel,parent,text,kind)
 end
 
 local markerLabels={"星形","圆形","菱形","三角形","月亮","方块","十字","骷髅"}
-local function MarkerMenu(panel)
-    local submenu=MenuFrame(panel)
-    submenu:SetSize(width,9*rowHeight+16)
-    submenu:SetFrameLevel(panel:GetFrameLevel()+5)
+local function AddMarkerButtons(panel,parent,compact)
     for i=1,9 do
         local clear=i==9
         local label=clear and (REMOVE_RAID_TARGET_ICON or "清除标记")
             or _G["RAID_TARGET_"..i] or markerLabels[i]
-        local button=SecureRow(panel,submenu,label,"raidtarget")
-        button:SetPoint("TOPLEFT",8,-8-(i-1)*rowHeight)
+        local button=SecureRow(panel,parent,label,"raidtarget")
+        if compact then
+            button:SetSize(26,26);button:SetPoint("TOPLEFT",(i-1)*28,0)
+            button.label:Hide()
+        else
+            button:SetPoint("TOPLEFT",8,-8-(i-1)*rowHeight)
+        end
         button:SetAttribute("marker",clear and 0 or i)
         button:SetAttribute("action",clear and "clear" or "set")
-        if not clear then
+        if compact or not clear then
             local icon=button:CreateTexture(nil,"ARTWORK")
-            icon:SetSize(14,14);icon:SetPoint("LEFT",5,0)
-            icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
-            if SetRaidTargetIconTexture then
-                SetRaidTargetIconTexture(icon,i)
+            if compact then
+                icon:SetSize(24,24);icon:SetPoint("CENTER")
             else
-                local left,top=(i-1)%4/4,math.floor((i-1)/4)/4
-                icon:SetTexCoord(left,left+.25,top,top+.25)
+                icon:SetSize(14,14);icon:SetPoint("LEFT",5,0)
+                button.label:ClearAllPoints();button.label:SetPoint("LEFT",24,0)
             end
-            button.label:ClearAllPoints();button.label:SetPoint("LEFT",24,0)
+            if clear then
+                icon:SetTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up")
+            else
+                icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+                if SetRaidTargetIconTexture then
+                    SetRaidTargetIconTexture(icon,i)
+                else
+                    local left,top=(i-1)%4/4,math.floor((i-1)/4)/4
+                    icon:SetTexCoord(left,left+.25,top,top+.25)
+                end
+            end
         end
     end
+end
+
+local function MarkerMenu(panel)
+    local submenu=MenuFrame(panel)
+    submenu:SetSize(width,9*rowHeight+16)
+    submenu:SetFrameLevel(panel:GetFrameLevel()+5)
+    AddMarkerButtons(panel,submenu,false)
     return submenu
 end
 
@@ -202,6 +219,14 @@ local function OpenMenu(key,guid,unit,playerName,x,y,confirmation)
     panel.confirmation=confirmation
     panel.title:SetText(unit and Name(unit) or playerName or M:T("选择标记"))
     panel.markers:Hide()
+    local picker=key=="mouseUnitMarks"
+    if picker and not panel.markerPicker then
+        local grid=CreateFrame("Frame",nil,panel)
+        grid:SetSize(252,26);grid:SetPoint("TOPLEFT",8,-30)
+        AddMarkerButtons(panel,grid,true)
+        panel.markerPicker=grid
+    end
+    if panel.markerPicker then panel.markerPicker:SetShown(picker) end
     local offset=28
     local function PlaceRow(row,visible)
         row:SetShown(visible)
@@ -209,8 +234,8 @@ local function OpenMenu(key,guid,unit,playerName,x,y,confirmation)
         row:ClearAllPoints();row:SetPoint("TOPLEFT",8,-offset)
         offset=offset+rowHeight
     end
-    PlaceRow(panel.markRow,unit~=nil and not confirmation)
-    PlaceRow(panel.focusRow,unit~=nil and not confirmation and type(FocusUnit)=="function")
+    PlaceRow(panel.markRow,unit~=nil and not confirmation and not picker)
+    PlaceRow(panel.focusRow,unit~=nil and not confirmation and not picker and type(FocusUnit)=="function")
     if confirmation then
         panel.confirmRow.label:SetText(confirmation.label)
         panel.confirmRow:SetAttribute("marker",confirmation.marker)
@@ -220,7 +245,7 @@ local function OpenMenu(key,guid,unit,playerName,x,y,confirmation)
     PlaceRow(panel.whisperRow,playerName~=nil)
     PlaceRow(panel.inviteRow,playerName~=nil)
     local scale=UIParent:GetEffectiveScale()
-    panel:SetSize(width,offset+7);panel:ClearAllPoints()
+    panel:SetSize(picker and 268 or width,picker and 64 or offset+7);panel:ClearAllPoints()
     panel:SetPoint("TOPLEFT",UIParent,"BOTTOMLEFT",x/scale+8,y/scale-6)
     panel:Show()
 end
