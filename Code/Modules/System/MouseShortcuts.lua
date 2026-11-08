@@ -139,7 +139,7 @@ end
 
 local function CanFocusWithClick()
     return FocusUnit and Setting("mouseShiftFocus") and LeftModifier()=="shift"
-        and WorldHasMouse() and C.Bool(UnitExists("mouseover"))
+        and C.Bool(UnitExists("mouseover")) and WorldHasMouse(Nameplate("mouseover"))
 end
 
 local function RefreshFocusBinding()
@@ -154,10 +154,11 @@ local function RefreshFocusBinding()
     if not focusBinding then
         focusBinding=CreateFrame("Frame",nil,UIParent,"SecureHandlerStateTemplate")
         local button=CreateFrame("Button","MangUIUFWorldMouseFocus",UIParent,"SecureActionButtonTemplate")
+        button:SetSize(1,1);button:SetPoint("CENTER");button:SetAlpha(0)
         button:EnableMouse(false)
         button:RegisterForClicks("LeftButtonDown","LeftButtonUp")
         button:SetAttribute("unit","mouseover")
-        button:SetAttribute("useOnKeyDown",true)
+        button:SetAttribute("useOnKeyDown",false)
         button:SetScript("PreClick",function(self)
             if not InCombatLockdown() then
                 self:SetAttribute("type",CanFocusWithClick() and "focus" or nil)
@@ -170,7 +171,7 @@ local function RefreshFocusBinding()
         end ]])
         RegisterStateDriver(focusBinding,"combat","[combat] combat; safe")
     end
-    SetOverrideBindingClick(focusBinding,false,"SHIFT-BUTTON1","MangUIUFWorldMouseFocus","LeftButton")
+    SetOverrideBindingClick(focusBinding,true,"SHIFT-BUTTON1","MangUIUFWorldMouseFocus","LeftButton")
     focusBound=true
 end
 
@@ -280,16 +281,28 @@ local function CombatPicker()
     return panel
 end
 
-function M:RefreshCombatMarkerShortcut()
-    if InCombatLockdown() or not SecureHandlerWrapScript then return end
-    local enabled=not not Setting("mouseUnitMarks")
-    if combatPicker or enabled then
-        local panel=CombatPicker()
-        panel:SetAttribute("marker-shortcut",enabled)
-        if not enabled then panel:Hide();return end
-        for _,object in ipairs(self.live.ordered) do
-            local spec,button=object.spec,object.frame
-            if spec.kind=="hitbox" and spec.unit=="target" and not combatTriggers[button] then
+function M:RefreshTargetMouseShortcuts()
+    if InCombatLockdown() then return end
+    local marksEnabled=not not Setting("mouseUnitMarks")
+    local focusEnabled=FocusUnit and Setting("mouseShiftFocus")
+    local panel=combatPicker
+    if marksEnabled and SecureHandlerWrapScript then panel=CombatPicker() end
+    if panel then
+        panel:SetAttribute("marker-shortcut",marksEnabled)
+        if not marksEnabled then panel:Hide() end
+    end
+    for _,object in ipairs(self.live.ordered) do
+        local spec,button=object.spec,object.frame
+        if spec.kind=="hitbox" and spec.unit=="target" then
+            local action=button:GetAttribute("shift-type1")
+            if focusEnabled and not action then
+                button:SetAttribute("shift-type1","focus")
+                button.manguiShiftFocus=true
+            elseif not focusEnabled and button.manguiShiftFocus then
+                if action=="focus" then button:SetAttribute("shift-type1",nil) end
+                button.manguiShiftFocus=nil
+            end
+            if panel and marksEnabled and not combatTriggers[button] then
                 SecureHandlerWrapScript(button,"OnDoubleClick",panel,[[
                     if button~="LeftButton" or IsModifierKeyDown() or not control:GetAttribute("marker-shortcut")
                         or not SecureCmdOptionParse("[combat,@target,exists] yes") then return end
@@ -455,6 +468,9 @@ local function OnMouse(listener,event,button)
     elseif event=="NAME_PLATE_UNIT_REMOVED" then
         nameplateUnits[button]=nil
         return
+    elseif event=="UPDATE_MOUSEOVER_UNIT" then
+        RefreshFocusBinding()
+        return
     end
     if event=="MODIFIER_STATE_CHANGED" or event=="PLAYER_REGEN_ENABLED" then
         listener:SetScript("OnUpdate",LeftModifier()=="shift" and RefreshFocusBinding or nil)
@@ -571,6 +587,7 @@ listener:RegisterEvent("PLAYER_REGEN_DISABLED")
 listener:RegisterEvent("PLAYER_REGEN_ENABLED")
 listener:RegisterEvent("MODIFIER_STATE_CHANGED")
 listener:RegisterEvent("PLAYER_TARGET_CHANGED")
+listener:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 listener:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 listener:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 listener:SetScript("OnEvent",OnMouse)
