@@ -134,11 +134,14 @@ local function QueueBucket(list,bucket,generation)
 end
 local function Update(view,units,modules,fields,objects)
     if not view.ordered then return end
-    C.InvalidateAuraSnapshots()
     view.nativeThirdSelectionGeneration=(view.nativeThirdSelectionGeneration or 0)+1
-    M:RuntimeCall(view,"decorationRange","装饰范围刷新",R.UpdateDecorationRange,view)
     for unit in pairs(view.stateFields) do view.stateFields[unit]=nil end
     local list=view.ordered;local focus=not units and not modules and not objects
+    local firstUnit=units and next(units)
+    local targetHealthOnly=fields and firstUnit=="target" and not next(units,firstUnit)
+        and fields.health.target and not fields.power.target and not fields.all.target
+        and (not modules or not next(modules)) and not objects
+    if not targetHealthOnly then M:RuntimeCall(view,"decorationRange","装饰范围刷新",R.UpdateDecorationRange,view) end
     if objects then
         list=objects
         for _,o in ipairs(objects) do for unit in pairs(o.unitDeps or emptyUpdates) do Invalidate(view,unit) end end
@@ -173,8 +176,9 @@ local function Update(view,units,modules,fields,objects)
     local paint=view.preview and Paint or RuntimePaint
     for _,o in ipairs(list) do
         paint(view,o,false)
-        if o.module and o.module.id=="focusComposite" then focus=true end
+        if not targetHealthOnly and o.module and o.module.id=="focusComposite" then focus=true end
     end
+    if targetHealthOnly then return end
     if not view.preview and focus then M:RuntimeCall(view,"menuBounds","点击区域刷新",UpdateFocusMenuBounds,view)end
     M:RuntimeCall(view,"entryAnimations","入场动画",R.UpdateEntryAnimations,view)
     if M.ThirdResource and M.ThirdResource.Native then M:RuntimeCall(view,"thirdResourceNative","玩家第三资源条",M.ThirdResource.Native.Animate,view)end
@@ -186,9 +190,20 @@ function R.Update(...)
     local ok,err=C.RunWithAuraSnapshots(Update,...)
     if not ok then error(err) end
 end
+local pollDeadlines={
+    targetdistance="nextDistanceUpdate",targetthreat="nextThreatUpdate",
+    receivedbuffs="nextScan",raidvulnerability="nextScan",commonitems="nextScan",
+}
 local function NeedsAnimation(view,o)
     if view.preview then return true end
     local n=o.spec
+    if view.raidEncounter and n.particleFlow and o.module and o.module.id=="mainComposite" then return false end
+    local now=view.animationNow or GetTime()
+    local deadline=pollDeadlines[n.kind]
+    if deadline and o[deadline] and now<o[deadline] then return false end
+    if n.kind=="targetdistancenumber" and o.nextNumberUpdate and now<o.nextNumberUpdate then
+        return o.numberEstimated and o.numberValue~=o.numberGoal and now>=(o.numberNextStep or 0)
+    end
     if n.centerLogo then return o.logoAnimating~=false end
     if o.bar and (n.binding=="health" or n.binding=="power") then return o.smoothStart~=nil or o.animatedEdge or o.fillEdgeMoving or B.Moving(view,n) end
     if n.kind=="spark" and n.followDisplay then
@@ -200,7 +215,6 @@ local function NeedsAnimation(view,o)
 end
 local function AnimateObject(view,o)
     local n=o.spec
-    if not NeedsAnimation(view,o)then return end
     local paint=not view.preview and M.ModuleProfiler and M.ModuleProfiler.active and ProfilePaint or Paint
     if independentKinds[n.kind]or n.attackKind or n.centerLogo or (n.kind=="spark"and n.edgeOnly)then paint(view,o,true)
     elseif o.frame:IsVisible()then paint(view,o,true,true)
@@ -211,18 +225,20 @@ function R.Animate(view)
     M:RuntimeCall(view,"decorationRange","装饰范围刷新",R.UpdateDecorationRange,view)
     if not view.preview then view.animationNow=GetTime();view.animationCasting=nil end
     for _,o in ipairs(view.animated) do
-        if view.preview then AnimateObject(view,o)
-        else
-            o.animateRuntimeKey=o.animateRuntimeKey or "animate:"..o.spec.id
-            local group=o.module or o.spec
-            M:RuntimeCall(view,o.animateRuntimeKey,group.label or group.id,AnimateObject,view,o)
+        if NeedsAnimation(view,o) then
+            if view.preview then AnimateObject(view,o)
+            else
+                o.animateRuntimeKey=o.animateRuntimeKey or "animate:"..o.spec.id
+                local group=o.module or o.spec
+                M:RuntimeCall(view,o.animateRuntimeKey,group.label or group.id,AnimateObject,view,o)
+            end
         end
     end
     if M.ModuleGuides then M:RuntimeCall(view,"guides:animate","辅助线",M.ModuleGuides.Refresh,view)end
     M:RuntimeCall(view,"entryAnimations","入场动画",R.UpdateEntryAnimations,view,true)
     if M.ThirdResource and M.ThirdResource.Native then M:RuntimeCall(view,"thirdResourceNative","玩家第三资源条",M.ThirdResource.Native.Animate,view)end
     if M.BossFrames and view.bossAnimating then M:RuntimeCall(view,"bossAnimation","首领框体",M.BossFrames.Animate,view)end
-    if M.MainSweep then
+    if M.MainSweep and not view.raidEncounter then
         local profile=not view.preview and M.ModuleProfiler
         local started=profile and profile.active and debugprofilestop()
         M:RuntimeCall(view,"mainSweep","主框体扫光",M.MainSweep.Animate,view)

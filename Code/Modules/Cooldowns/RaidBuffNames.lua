@@ -74,6 +74,42 @@ function I.RememberBuffAura(aura)
     local _,resolved=Remember(aura.name,id,aura.icon,true)
     if resolved then requestedNameResolved=true end
 end
+-- Keep the API enumeration shared with the other aura consumers in this update.
+-- Reuse a complete index briefly between events; aura versions also change on
+-- target switches. Explicit refreshes and unavailable reads bypass retention.
+function I.MonitorAuraIndex(view,unit,filter,animateOnly)
+    local versions=view==M.live and view.auraVersions
+    local cache=view.monitorAuraIndex
+    local key=unit..":"..filter
+    local version=versions and (versions[unit] or 0)
+    local now=GetTime()
+    local previous=cache and cache[key]
+    if animateOnly and versions and previous and previous.version==version and now<previous.expires then
+        return previous.index
+    end
+    local snapshot=M.Compat.AuraSnapshot(unit,filter)
+    local index=snapshot.monitorIndex
+    if not index then
+        index={byID={},byName={},allNames={},snapshot=snapshot}
+        for _,aura in ipairs(snapshot) do
+            I.RememberBuffAura(aura)
+            local id=aura.spellId
+            if type(id)=="nil" then id=aura.spellID end
+            if Number(id) then index.byID[id]=aura end
+            if Readable(aura.name) and type(aura.name)=="string" then
+                index.byName[aura.name]=aura
+                local matches=index.allNames[aura.name] or {}
+                matches[#matches+1]=aura;index.allNames[aura.name]=matches
+            end
+        end
+        snapshot.monitorIndex=index
+    end
+    if versions then
+        if not cache then cache={};view.monitorAuraIndex=cache end
+        cache[key]=snapshot.complete and {version=version,expires=now+.2,index=index} or nil
+    end
+    return index
+end
 function I.ResolveName(value)
     Seed()
     local name,id,icon=M.PetBuffs.SpellInfo(value)
@@ -132,15 +168,13 @@ function I.RequestBuffName(value)
     pendingAuras.player=true;pendingAuras.target=true
     if cursor<2000000 then worker:SetScript("OnUpdate",Scan)end
 end
-local function Observe(unit)
+local function Observe(view,unit)
     if C_Secrets and C_Secrets.ShouldAurasBeSecret then
         local secret=Safe(C_Secrets.ShouldAurasBeSecret,unit)
         if not Readable(secret)or secret==true then return end
     end
     local filter=unit=="target"and "HARMFUL"or "HELPFUL"
-    for _,aura in ipairs(M.Compat.AuraSnapshot(unit,filter))do
-        I.RememberBuffAura(aura)
-    end
+    I.MonitorAuraIndex(view,unit,filter,false)
 end
 local function HasEntries(view,id)
     local node=view.nodes[id]
@@ -154,10 +188,10 @@ function I.FlushAuraNames(view)
     local searching=next(wanted)~=nil
     local vulnerability=HasEntries(view,"raidVulnerabilityIcons")
     if player and (searching or vulnerability or HasEntries(view,"raidBuffsIcons") or HasEntries(view,"receivedBuffsIcons"))then
-        Observe("player")
+        Observe(view,"player")
     end
     if target and (searching or vulnerability)and M.Compat.Bool(Safe(UnitExists,"target"))then
-        Observe("target")
+        Observe(view,"target")
     end
     if requestedNameResolved then
         requestedNameResolved=nil

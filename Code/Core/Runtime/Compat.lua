@@ -125,15 +125,39 @@ function C.GetCast(unit,out)
     end
     return out
 end
-function C.State(unit,preview,scene,out,fields)
+function C.CaptureBossHealth()
+    local sample={health=UnitHealth("target"),maximum=UnitHealthMax("target")}
+    if (not C.Readable(sample.health) or not C.Readable(sample.maximum))
+        and UnitHealthPercent and CurveConstants and CurveConstants.ScaleTo100 then
+        local curve=CurveConstants.ScaleTo100
+        sample.curves={[curve]=UnitHealthPercent("target",true,curve)}
+    end
+    return sample
+end
+function C.HealthPercent(state,curve)
+    local sample=state.bossHealth
+    if not sample then return UnitHealthPercent(state.unit,true,curve) end
+    local values=sample.curves
+    if not values then values={};sample.curves=values end
+    local result=values[curve]
+    if type(result)=="nil" then
+        result=UnitHealthPercent(state.unit,true,curve)
+        values[curve]=result
+    end
+    return result
+end
+function C.State(unit,preview,scene,out,fields,bossHealth)
     out=out or {}
+    if bossHealth and (preview or C.Unit(unit)~="target") then bossHealth=nil end
+    out.bossHealth=bossHealth
     -- A health/power event may reuse the other fields until the next full
     -- refresh. Unit changes, disappearance and previews always take the full path.
     if fields and not preview and out.exists then
         local resolved=C.Unit(unit)
         if out.unit==resolved and C.Bool(UnitExists(resolved)) then
             if fields.health then
-                out.health,out.maxHealth=UnitHealth(resolved),UnitHealthMax(resolved)
+                if bossHealth then out.health,out.maxHealth=bossHealth.health,bossHealth.maximum
+                else out.health,out.maxHealth=UnitHealth(resolved),UnitHealthMax(resolved) end
                 out.healthRatio=Ratio(out.health,out.maxHealth)
                 out.dead,out.connected=C.Bool(UnitIsDeadOrGhost(resolved)),C.Bool(UnitIsConnected(resolved))
             end
@@ -180,7 +204,10 @@ function C.State(unit,preview,scene,out,fields)
     end
     local exists=C.Bool(UnitExists(unit))
     if not exists then out.exists=false;Clear(cast);cast.active=false;return out end
-    local hp,maxHP=UnitHealth(unit),UnitHealthMax(unit)
+    local hp,maxHP
+    if bossHealth then hp,maxHP=bossHealth.health,bossHealth.maximum
+    else hp,maxHP=UnitHealth(unit),UnitHealthMax(unit) end
+    out.bossHealth=bossHealth
     local power,maxPower=UnitPower(unit),UnitPowerMax(unit)
     local pt,token,r,g,b=UnitPowerType(unit)
     local powerColor=C.Readable(token) and PowerBarColor and PowerBarColor[token]

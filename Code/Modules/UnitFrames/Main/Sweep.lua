@@ -222,6 +222,12 @@ local function BandSize(effect,sweep,scale)
     effect.scale=scale;effect.height=sweep.height;effect.width=sweep.width
 end
 
+function S.Suspend(view)
+    local sweep=view.mainSweep
+    if not sweep then return end
+    for _,effect in ipairs(sweep.active) do Hide(effect) end
+    sweep.started=nil;sweep.phase=nil;sweep.clock=nil
+end
 function S.Animate(view)
     local sweep=view.mainSweep
     if not sweep or #sweep.active==0 then return end

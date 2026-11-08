@@ -12,7 +12,7 @@ local function State(view,unit)
         local state
         if unit=="playerThirdResource"then state=M.ThirdResource.State(view,view.stateBuffers[unit])
         else
-            state=(view.stateProvider or C.State)(unit,view.preview,view.scene,view.stateBuffers[unit],view.stateFields[unit])
+            state=(view.stateProvider or C.State)(unit,view.preview,view.scene,view.stateBuffers[unit],view.stateFields[unit],view.raidBossHealth)
             if M.PartyFrames then M.PartyFrames.ExtendState(view,state) end
         end
         view.stateBuffers[unit]=state;view.cache[unit]=state
@@ -153,7 +153,7 @@ local function RestrictedHealthColor(o,s)
         end
         o.healthCurve=curve
     end
-    local color=UnitHealthPercent(s.unit,true,o.healthCurve)
+    local color=C.HealthPercent(s,o.healthCurve)
     if color and color.GetRGBA then
         if o.nativeArt then o.nativeArt:SetVertexColor(color:GetRGBA())
         else o.bar:SetStatusBarColor(color:GetRGBA()) end
@@ -178,7 +178,7 @@ local function RestrictedHealthThreshold(o,s,col)
         if point<1 then curve:AddPoint(1,CreateColor(1,1,1,0)) end
         o.healthWarningCurve=curve;o.healthWarningPoint=point
     end
-    local color=UnitHealthPercent(s.unit,true,curve)
+    local color=C.HealthPercent(s,curve)
     if not (color and color.GetRGBA) then return end
     local _,_,_,alpha=color:GetRGBA()
     overlay:SetVertexColor(unpack(n.healthThresholdColor or {1,0,0,1}))

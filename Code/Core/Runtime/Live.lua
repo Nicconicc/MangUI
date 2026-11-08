@@ -1,5 +1,30 @@
 local _,M=...
-local R=M.Renderer
+local R,C=M.Renderer,M.Compat
+local bossHealthInterval=.2
+
+local function RaidInstance()
+    if not IsInInstance then return false end
+    local inside,kind=IsInInstance()
+    return C.Bool(inside) and C.Readable(kind) and kind=="raid"
+end
+
+local function EnemyBossTarget()
+    if not C.Bool(UnitExists("target")) then return false end
+    local attackable=UnitCanAttack and UnitCanAttack("player","target")
+    if not C.Readable(attackable) or attackable==nil then
+        local friendly=UnitIsFriend and UnitIsFriend("player","target")
+        attackable=C.Readable(friendly) and friendly==false
+    end
+    if not attackable then return false end
+    local classification=UnitClassification and UnitClassification("target")
+    if C.Readable(classification) and classification=="worldboss" then return true end
+    if UnitIsUnit then
+        for i=1,5 do
+            if C.Bool(UnitIsUnit("target","boss"..i)) then return true end
+        end
+    end
+    return false
+end
 -- Cold login can report font assignment success before glyph assets settle.
 -- Finite refreshes rebuild glyphs after loading; never retry healthy fonts forever.
 local fontSettleDelays={.5,2,5,10,20,40,60,90}
@@ -125,8 +150,89 @@ function M:StartLive()
         end
     end
     local function Module(id) dirtyModules[id]=true;pending=true end
+    local raidInstance=RaidInstance()
+    local encounterActive=C.Bool(IsEncounterInProgress and IsEncounterInProgress())
+    local bossTarget,bossDead,bossHealthDue,bossHealthPending=false,false,0,false
+    local function RefreshBossMode(resetTarget)
+        local view=M.live
+        local encounter=raidInstance and encounterActive
+        if (view.raidEncounter==true)~=encounter then
+            view.raidEncounter=encounter or nil
+            if encounter and M.MainSweep then M.MainSweep.Suspend(view) end
+            dirty=true
+        end
+        local eligible=encounter and EnemyBossTarget()
+        if resetTarget or eligible~=bossTarget then
+            bossTarget=eligible;bossDead=false;bossHealthPending=false
+            view.raidBossHealth=nil
+            if eligible then
+                bossDead=C.Bool(UnitIsDeadOrGhost("target"))
+                if not bossDead then
+                    view.raidBossHealth=C.CaptureBossHealth()
+                    bossHealthDue=GetTime()+bossHealthInterval
+                end
+            end
+            Unit("target","health")
+        end
+    end
+    RefreshBossMode(true)
+
+    local function UpdateBossHealth(view)
+        if not bossTarget then return end
+        local now=GetTime()
+        if not bossHealthPending and (bossDead or now<bossHealthDue) then return end
+        if not C.Bool(UnitExists("target")) then RefreshBossMode(true);return end
+        local dead=C.Bool(UnitIsDeadOrGhost("target"))
+        if dead~=bossDead then
+            bossDead=dead;view.raidBossHealth=nil;bossHealthPending=false
+            bossHealthDue=now
+            if dead then Unit("target");return end
+        end
+        if dead then bossHealthPending=false;return end
+        if now<bossHealthDue then bossHealthPending=false;return end
+        bossHealthDue=now+bossHealthInterval;bossHealthPending=false
+        local previous=view.raidBossHealth
+        local sample=C.CaptureBossHealth()
+        if previous and C.Readable(sample.health) and C.Readable(sample.maximum)
+            and C.Readable(previous.health) and C.Readable(previous.maximum)
+            and previous.health==sample.health and previous.maximum==sample.maximum then return end
+        view.raidBossHealth=sample
+        Unit("target","health")
+    end
     local function OnEvent(_,event,unit,...)
-        M.Compat.InvalidateAuraSnapshots()
+        -- These events have no module dispatch consumers. Custom monitor events
+        -- are registered separately, and keep their original delivery.
+        local healthEvent=event=="UNIT_HEALTH" or event=="UNIT_MAXHEALTH"
+        local powerEvent=event=="UNIT_POWER_UPDATE" or event=="UNIT_POWER_FREQUENT" or event=="UNIT_MAXPOWER"
+        if healthEvent or powerEvent then
+            local profile=M.ModuleProfiler
+            local started=profile and profile.active and debugprofilestop()
+            if healthEvent and unit=="target" and bossTarget then
+                bossHealthPending=true
+            elseif trackedUnits[unit] then
+                Unit(unit,healthEvent and "health" or "power")
+            end
+            if started then profile.Total("event",debugprofilestop()-started) end
+            return
+        end
+        if event=="PLAYER_ENTERING_WORLD" then
+            raidInstance=RaidInstance()
+            encounterActive=C.Bool(IsEncounterInProgress and IsEncounterInProgress())
+            RefreshBossMode(true)
+        elseif event=="ENCOUNTER_START" or event=="ENCOUNTER_END" then
+            raidInstance=RaidInstance()
+            encounterActive=event=="ENCOUNTER_START"
+            RefreshBossMode(true)
+        elseif event=="PLAYER_TARGET_CHANGED" or event=="INSTANCE_ENCOUNTER_ENGAGE_UNIT" then
+            RefreshBossMode(event=="PLAYER_TARGET_CHANGED")
+        elseif raidInstance and encounterActive and unit=="target"
+            and (event=="UNIT_FLAGS" or event=="UNIT_CLASSIFICATION_CHANGED" or event=="UNIT_TARGETABLE_CHANGED") then
+            RefreshBossMode(false)
+            if bossTarget then
+                bossHealthPending=true
+                UpdateBossHealth(M.live)
+            end
+        end
         M.live.nativeThirdSelectionGeneration=(M.live.nativeThirdSelectionGeneration or 0)+1
         if event=="UI_SCALE_CHANGED" then M:QueueUIScale();return end
         if event=="PLAYER_ENTERING_WORLD" then M:QueueUIScale()
@@ -229,8 +335,7 @@ function M:StartLive()
             -- Independently updated modules already consumed these events.
         elseif event=="UNIT_FACTION" and unit=="player" then
             for name in pairs(trackedUnits) do Unit(name) end
-        elseif event=="UNIT_HEALTH" or event=="UNIT_MAXHEALTH" then Unit(unit,"health")
-        elseif event=="UNIT_POWER_UPDATE" or event=="UNIT_POWER_FREQUENT" or event=="UNIT_MAXPOWER" or event=="UNIT_DISPLAYPOWER" then Unit(unit,"power")
+        elseif event=="UNIT_DISPLAYPOWER" then Unit(unit,"power")
         elseif event:find("^UNIT_") then Unit(unit)
         else dirty=true end
         if started then profile.Total("event",debugprofilestop()-started) end
@@ -248,6 +353,7 @@ function M:StartLive()
     -- Reuse the protected callback instead of allocating a closure every frame.
     local function Refresh()
         local view=M.live
+        UpdateBossHealth(view)
         if view.shownTargetModules then
             for id in pairs(view.shownTargetModules) do Module(id) end
             view.shownTargetModules=nil

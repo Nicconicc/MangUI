@@ -86,21 +86,23 @@ function I.Configure(view,o)
     for index=#o.entries+1,#o.buffIcons do local slot=o.buffIcons[index];slot:Hide();slot.entry=nil;if slot.container then slot.container:SetEnabled(false)end end
     o.nextScan=0;o.nextInfo=0
 end
-local function Auras()
+local function Auras(view,animateOnly)
     if C_Secrets and C_Secrets.ShouldAurasBeSecret then
         local secret=Safe(C_Secrets.ShouldAurasBeSecret,"player")
         if not Readable(secret)or secret==true then return end
     end
+    local index=M.RaidBuffMonitor.MonitorAuraIndex(view,"player","HELPFUL",animateOnly)
+    if index.received then return index.received end
     local result={}
-    for index,raw in ipairs(M.Compat.AuraSnapshot("player","HELPFUL"))do
+    for index,raw in ipairs(index.snapshot)do
         if OtherPlayer(raw.sourceUnit)then
             local id=raw.spellId;if type(id)=="nil"then id=raw.spellID end
             -- Own each record because some compatibility implementations reuse it.
             result[#result+1]={name=raw.name,spellId=id,icon=raw.icon,source=raw.sourceUnit,
                 expires=raw.expirationTime,count=raw.applications,instance=raw.auraInstanceID,index=index}
-            M.RaidBuffMonitor.RememberBuffAura(raw)
         end
     end
+    index.received=result
     return result
 end
 local function Scan(slot,auras,play)
@@ -132,7 +134,7 @@ function I.Paint(view,o,animateOnly)
         return
     end
     local now=GetTime();if animateOnly and now<(o.nextScan or 0)then return end;o.nextScan=now+.1
-    local auras=not view.preview and Auras()or nil
+    local auras=not view.preview and Auras(view,animateOnly)or nil
     local play=shown and o.frame:IsVisible()and not view.preview and not(M.editor and M.editor.window:IsShown())
     local displayed=o.displayedIcons or {};o.displayedIcons=displayed
     for index=#displayed,1,-1 do displayed[index]=nil end
@@ -152,7 +154,7 @@ function I.Paint(view,o,animateOnly)
                 local aura=slot.aura;local expires=aura and Number(aura.expires)
                 M.CustomMonitor.SetText(slot.time,S.FormatCountdown(expires and expires>0 and expires-now or nil))
                 local count=aura and Number(aura.count);M.CustomMonitor.SetText(slot.count,count and count>=2 and tostring(count)or "")
-                if aura and Readable(aura.icon)and aura.icon then slot.texture:SetTexture(aura.icon)end
+                if aura and Readable(aura.icon)and aura.icon then M.CustomMonitor.SetVisual(slot.texture,"SetTexture",aura.icon) end
             end
         end
     end

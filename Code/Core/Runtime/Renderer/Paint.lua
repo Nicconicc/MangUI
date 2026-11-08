@@ -71,6 +71,11 @@ local function Paint(view,o,animateOnly,visibleHint)
         o.wasShown=false;o.started=nil
         return
     end
+    if view.raidEncounter and n.particleFlow and o.module and o.module.id=="mainComposite" then
+        if f:IsShown() then f:Hide() end
+        ResetParticle(o)
+        return
+    end
     local bossRoot=o.module and o.module.id=="bossFrames" and view.nodes.bossFrames
     if bossRoot and bossRoot.bossExiting and n.id~="bossFrames" then return end
     local bossCast=bossRoot and view.nodes.bossCast
@@ -228,7 +233,7 @@ local function Paint(view,o,animateOnly,visibleHint)
     if o.text then
         local nativePercent,useNativePercent
         if n.binding=="healthPercent" and s.healthRatio==nil and UnitHealthPercent and CurveConstants and CurveConstants.ScaleTo100 then
-            nativePercent=UnitHealthPercent(s.unit,true,CurveConstants.ScaleTo100)
+            nativePercent=C.HealthPercent(s,CurveConstants.ScaleTo100)
             useNativePercent=true
         elseif n.binding=="powerPercent" and s.powerRatio==nil
             and (not n.manaPercentOtherwiseValue or s.powerType==0)
@@ -238,10 +243,14 @@ local function Paint(view,o,animateOnly,visibleHint)
         end
         -- Restricted percentages can be passed directly to native text formatting.
         if useNativePercent then
-            o.text:SetFormattedText("%.0f%%",nativePercent)
-            o.shadow:SetFormattedText("%.0f%%",nativePercent)
-            Cache(o).text=nil;Cache(o).shadowText=nil;o.textWidthDirty=true
+            if not s.bossHealth or o.percentSample~=s.bossHealth or o.percentSampleApply~=view.applyGeneration then
+                o.text:SetFormattedText("%.0f%%",nativePercent)
+                o.shadow:SetFormattedText("%.0f%%",nativePercent)
+                Cache(o).text=nil;Cache(o).shadowText=nil;o.textWidthDirty=true
+                o.percentSample=s.bossHealth;o.percentSampleApply=view.applyGeneration
+            end
         else
+            o.percentSample=nil
             local value=Text(n,s)
             local changed=CachedValue(o,"text",o.text,"SetText",value)
             CachedValue(o,"shadowText",o.shadow,"SetText",value)
@@ -321,10 +330,15 @@ local function Paint(view,o,animateOnly,visibleHint)
         if n.binding=="health" then
             if not (animateOnly and n.smooth) then
                 CachedPair(o,"barRange",o.bar,"SetMinMaxValues",0,s.maxHealth or 1)
-                local interpolation=n.smooth and s.healthRatio==nil and o.nativeReady and Enum and Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
-                if interpolation then o.bar:SetValue(s.health or 0,interpolation)
-                else CachedValue(o,"barValue",o.bar,"SetValue",s.health or 0) end
-                o.nativeReady=true
+                if not s.bossHealth or o.healthValueSample~=s.bossHealth or not o.nativeReady
+                    or o.healthValueApply~=view.applyGeneration then
+                    local interpolation=n.smooth and s.healthRatio==nil and o.nativeReady and Enum
+                        and Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
+                    if interpolation then o.bar:SetValue(s.health or 0,interpolation)
+                    else CachedValue(o,"barValue",o.bar,"SetValue",s.health or 0) end
+                    o.healthValueSample=s.bossHealth;o.healthValueApply=view.applyGeneration
+                    o.nativeReady=true
+                end
             end
         elseif n.binding=="power" then
             if n.thirdResource and s.thirdTimer and o.bar.SetTimerDuration and Enum and Enum.StatusBarTimerDirection then

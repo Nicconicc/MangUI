@@ -292,21 +292,13 @@ function I.Configure(view,o)
     end
     o.nextScan=0;o.nextInfo=0
 end
-local function Auras()
+local function Auras(view,animateOnly)
     if C_Secrets and C_Secrets.ShouldAurasBeSecret then
         local secret=Safe(C_Secrets.ShouldAurasBeSecret,"player")
         if not Readable(secret)or secret==true then return end
     end
-    local byID,byName={},{}
-    for index,aura in ipairs(M.Compat.AuraSnapshot("player","HELPFUL"))do
-        I.RememberBuffAura(aura)
-        local id=aura.spellId;if type(id)=="nil"then id=aura.spellID end
-        if Readable(id)and type(id)=="number"then byID[id]=aura end
-        if Readable(aura.name)and type(aura.name)=="string"then
-            local matches=byName[aura.name]or {};byName[aura.name]=matches;matches[#matches+1]=aura
-        end
-    end
-    return byID,byName
+    local index=I.MonitorAuraIndex(view,"player","HELPFUL",animateOnly)
+    return index.byID,index.allNames
 end
 local function BuffRemaining(slot,byID,byName,now)
     if not byID then return false end
@@ -346,7 +338,7 @@ function I.Paint(view,o,animateOnly)
     local now=GetTime()
     if animateOnly and now<(o.nextScan or 0)then UpdateConnector(view,o);return end
     o.nextScan=now+.1
-    local byID,byName;if not view.preview then byID,byName=Auras()end
+    local byID,byName;if not view.preview then byID,byName=Auras(view,animateOnly)end
     local displayed=o.displayedIcons or {};o.displayedIcons=displayed
     for index=#displayed,1,-1 do displayed[index]=nil end
     local snapshot,lines
