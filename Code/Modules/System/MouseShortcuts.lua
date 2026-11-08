@@ -156,23 +156,36 @@ local function RefreshFocusBinding()
         local button=CreateFrame("Button","MangUIUFWorldMouseFocus",UIParent,"SecureActionButtonTemplate")
         button:SetSize(1,1);button:SetPoint("CENTER");button:SetAlpha(0)
         button:EnableMouse(false)
-        button:RegisterForClicks("LeftButtonDown","LeftButtonUp")
-        button:SetAttribute("unit","mouseover")
-        button:SetAttribute("useOnKeyDown",false)
-        button:SetScript("PreClick",function(self)
-            if not InCombatLockdown() then
-                self:SetAttribute("type",CanFocusWithClick() and "focus" or nil)
-            end
-        end)
-        focusBinding:SetFrameRef("button",button)
-        focusBinding:SetAttribute("_onstate-combat",[[ if newstate=="combat" then
-            self:ClearBindings()
-            self:GetFrameRef("button"):SetAttribute("type",nil)
-        end ]])
+        if C.interface==16001 then
+            -- Configure the macro before the client's world click is dispatched.
+            button:RegisterForClicks("AnyDown","AnyUp")
+            button:SetAttribute("type1","macro")
+            button:SetAttribute("macrotext1","/focus [@mouseover,exists,nocombat,mod:shift,nomod:alt,nomod:ctrl]")
+            focusBinding:SetAttribute("_onstate-combat",[[if newstate=="combat" then self:ClearBindings() end]])
+        else
+            button:RegisterForClicks("LeftButtonDown","LeftButtonUp")
+            button:SetAttribute("unit","mouseover")
+            button:SetAttribute("useOnKeyDown",false)
+            button:SetScript("PreClick",function(self)
+                if not InCombatLockdown() then
+                    self:SetAttribute("type",CanFocusWithClick() and "focus" or nil)
+                end
+            end)
+            focusBinding:SetFrameRef("button",button)
+            focusBinding:SetAttribute("_onstate-combat",[[ if newstate=="combat" then
+                self:ClearBindings()
+                self:GetFrameRef("button"):SetAttribute("type",nil)
+            end ]])
+        end
         RegisterStateDriver(focusBinding,"combat","[combat] combat; safe")
     end
     SetOverrideBindingClick(focusBinding,true,"SHIFT-BUTTON1","MangUIUFWorldMouseFocus","LeftButton")
     focusBound=true
+end
+
+local function PollFocusBinding(listener)
+    RefreshFocusBinding()
+    if LeftModifier()~="shift" then listener:SetScript("OnUpdate",nil) end
 end
 
 local function MenuRow(parent,text,secure)
@@ -461,7 +474,7 @@ local function OpenNativeMenu(guid,unit,playerName)
     return pcall(UnitPopup_OpenMenu,which,context)
 end
 
-local function OnMouse(listener,event,button)
+local function OnMouse(listener,event,button,keyDown)
     if event=="NAME_PLATE_UNIT_ADDED" then
         nameplateUnits[button]=true
         return
@@ -473,7 +486,8 @@ local function OnMouse(listener,event,button)
         return
     end
     if event=="MODIFIER_STATE_CHANGED" or event=="PLAYER_REGEN_ENABLED" then
-        listener:SetScript("OnUpdate",LeftModifier()=="shift" and RefreshFocusBinding or nil)
+        local shiftPressed=keyDown==1 and (button=="LSHIFT" or button=="RSHIFT")
+        listener:SetScript("OnUpdate",(shiftPressed or LeftModifier()=="shift") and PollFocusBinding or nil)
         RefreshFocusBinding()
         return
     end
