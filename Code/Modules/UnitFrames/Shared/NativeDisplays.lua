@@ -153,7 +153,11 @@ function N.Auras(view,o,s)
     elseif o.spec.partyBuffs then version=view.auraRosterVersion or 0
     else version=view.targetRefreshGeneration or 0 end
     if o.nativeAuraVersion~=version then
-        container:UpdateAllAuras();o.nativeAuraVersion=version
+        local profiler=M.ModuleProfiler
+        local started=not view.preview and profiler and profiler.targetSampling and debugprofilestop()
+        container:UpdateAllAuras()
+        if started then profiler.RecordTarget(3,debugprofilestop()-started) end
+        o.nativeAuraVersion=version
     end
     return true
 end
