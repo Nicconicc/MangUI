@@ -194,7 +194,11 @@ function R.TargetVisibilityParent(view,moduleID,parent)
         gate=CreateFrame("Frame",nil,parent,"SecureHandlerStateTemplate")
         gate:SetAllPoints(parent);gate:EnableMouse(false)
         gate:SetScript("OnShow",function()
-            if not view.applying then M:Safe("目标刷新",R.RefreshTarget,view,moduleID) end
+            if view.applying then return end
+            -- Several physical roots can become visible for one target change.
+            -- Repaint their modules together once all visibility gates settle.
+            view.shownTargetModules=view.shownTargetModules or {}
+            view.shownTargetModules[moduleID]=true
         end)
         gates[parent]=gate
     end

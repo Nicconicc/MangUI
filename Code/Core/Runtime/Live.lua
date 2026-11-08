@@ -241,6 +241,10 @@ function M:StartLive()
     -- Reuse the protected callback instead of allocating a closure every frame.
     local function Refresh()
         local view=M.live
+        if view.shownTargetModules then
+            for id in pairs(view.shownTargetModules) do Module(id) end
+            view.shownTargetModules=nil
+        end
         local step=view.fontSettleStep
         local settling=step and GetTime()>=(view.fontSettleStarted+fontSettleDelays[step])
         if view.fontRefreshPending or settling or (view.fontsPending and (view.fontRetryCount or 0)<10 and GetTime()>=(view.fontRetryAt or 0)) then
