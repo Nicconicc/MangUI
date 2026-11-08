@@ -6,6 +6,7 @@ local clicks={}
 local lastLeft
 local popup
 local generation=0
+local targetRevision=0
 local hookedMenus={}
 local nativeRequests=setmetatable({}, {__mode="k"})
 local focusBinding
@@ -16,15 +17,32 @@ local function Setting(key)
     return node and node.mouseShortcutsEnabled~=false and node[key]~=false
 end
 
-local function WorldHasMouse()
+local function Nameplate(unit)
+    if not (C_NamePlate and C_NamePlate.GetNamePlateForUnit) then return end
+    local ok,plate=pcall(C_NamePlate.GetNamePlateForUnit,unit)
+    if ok and C.Readable(plate) then return plate end
+end
+
+local function IsWorldFocus(frame,plate)
+    if not frame or frame==WorldFrame or frame==UIParent then return true end
+    if not plate then return false end
+    while frame do
+        if frame==plate then return true end
+        if frame.IsForbidden and frame:IsForbidden() then return false end
+        frame=frame:GetParent()
+    end
+    return false
+end
+
+local function WorldHasMouse(plate)
     if GetMouseFoci then
         for _,frame in ipairs(GetMouseFoci() or {}) do
-            if frame~=WorldFrame and frame~=UIParent then return false end
+            if not IsWorldFocus(frame,plate) then return false end
         end
         return true
     end
     local frame=GetMouseFocus and GetMouseFocus()
-    return not frame or frame==WorldFrame or frame==UIParent
+    return IsWorldFocus(frame,plate)
 end
 
 local function GUID(unit)
@@ -45,6 +63,12 @@ local function StableUnit(guid)
 end
 
 local function MarkerUnit(guid)
+    -- Restricted creature GUIDs fall back to the player's confirmed target.
+    -- A target change invalidates that selection even if the old target returns.
+    if type(guid)=="number" then
+        if guid==targetRevision and C.Bool(UnitExists("target")) then return "target" end
+        return
+    end
     local unit=StableUnit(guid)
     if unit then return unit end
     if UnitTokenFromGUID then
@@ -57,6 +81,12 @@ local function MarkerUnit(guid)
         if GUID(token)==guid then return token end
     end
     if GUID("mouseover")==guid then return "mouseover" end
+end
+
+local function HoveredTarget(plate)
+    local ok,same=pcall(UnitIsUnit,"mouseover","target")
+    if ok and C.Readable(same) and type(same)=="boolean" then return same end
+    return plate~=nil and plate==Nameplate("target")
 end
 
 local function CanOpenUnitMenu(unit)
@@ -158,10 +188,12 @@ local function SecureRow(panel,parent,text,kind)
     button:SetScript("PreClick",function(self)
         if InCombatLockdown() then return end
         local unit=panel.unit
-        if panel.key=="mouseUnitMarks" and (not unit or GUID(unit)~=panel.guid) then
+        if panel.key=="mouseUnitMarks" and (type(panel.guid)=="number" or not unit or GUID(unit)~=panel.guid) then
             unit=MarkerUnit(panel.guid)
+        elseif not unit or GUID(unit)~=panel.guid then
+            unit=nil
         end
-        local valid=panel:IsShown() and unit and GUID(unit)==panel.guid and Setting(panel.key)
+        local valid=panel:IsShown() and unit and Setting(panel.key)
             and (panel.key~="mouseUnitMenu" or CanOpenUnitMenu(unit))
         self:SetAttribute("type",valid and (kind or panel.confirmation and panel.confirmation.kind) or nil)
         self:SetAttribute("unit",valid and unit or nil)
@@ -382,11 +414,12 @@ local function OnMouse(listener,event,button)
         -- The combat state driver hides the protected menu.
         return
     end
-    if InCombatLockdown() then return end
     if event=="PLAYER_TARGET_CHANGED" then
-        if popup then popup:Hide() end
+        targetRevision=targetRevision+1
+        if popup and not InCombatLockdown() then popup:Hide() end
         return
     end
+    if InCombatLockdown() then return end
     if event=="GLOBAL_MOUSE_DOWN" then
         generation=generation+1
         if popup and popup:IsShown() and not popup:IsMouseOver()
@@ -405,8 +438,10 @@ local function OnMouse(listener,event,button)
         elseif not modifier then key="mouseUnitMarks" end
     end
     if not key then return end
-    local guid
-    if Setting(key) and WorldHasMouse() then
+    local guid,targetFallback
+    local enabled=Setting(key)
+    local plate=enabled and key=="mouseUnitMarks" and Nameplate("mouseover") or nil
+    if enabled and WorldHasMouse(plate) then
         guid=GUID("mouseover")
         if button=="RightButton" then
             if guid and not CanOpenUnitMenu("mouseover") then
@@ -416,21 +451,26 @@ local function OnMouse(listener,event,button)
                 guid=previous.guid
             end
         elseif key=="mouseUnitMarks" and not guid and event=="GLOBAL_MOUSE_UP" and previous
-            and GUID("target")==previous.guid then
+            and previous.guid and GUID("target")==previous.guid then
             guid=previous.guid
+        elseif key=="mouseUnitMarks" and not guid and C.Bool(UnitExists("mouseover")) then
+            targetFallback=true
+            if event=="GLOBAL_MOUSE_UP" and previous and previous.targetFallback and HoveredTarget(plate) then
+                guid=targetRevision
+            end
         end
     end
-    if not guid then
+    if not guid and not (event=="GLOBAL_MOUSE_DOWN" and targetFallback) then
         if button=="LeftButton" then lastLeft=nil end
         return
     end
     local x,y=GetCursorPosition()
     local now=GetTime()
     if event=="GLOBAL_MOUSE_DOWN" then
-        clicks[button]={guid=guid,x=x,y=y,time=now,key=key}
+        clicks[button]={guid=guid,targetFallback=targetFallback,x=x,y=y,time=now,key=key}
         return
     end
-    if not previous or key~=previous.key or guid~=previous.guid or now-previous.time>.5
+    if not previous or key~=previous.key or (guid~=previous.guid and not (targetFallback and previous.targetFallback)) or now-previous.time>.5
         or math.abs(x-previous.x)>8 or math.abs(y-previous.y)>8 then
         if button=="LeftButton" then lastLeft=nil end
         return
