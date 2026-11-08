@@ -234,8 +234,14 @@ function M:StartLive()
         else dirty=true end
         if started then profile.Total("event",debugprofilestop()-started) end
     end
-    f:SetScript("OnEvent",function(...)
-        local ok,err=M.Compat.RunWithAuraSnapshots(OnEvent,...)
+    f:SetScript("OnEvent",function(self,event,unit,...)
+        local profile=M.ModuleProfiler
+        local sample=profile and profile.targetSampling
+        local started=sample and sample.macro and debugprofilestop()
+        local ok,err=M.Compat.RunWithAuraSnapshots(OnEvent,self,event,unit,...)
+        if started and profile.targetSampling==sample then
+            profile.RecordMacroEvent(event,unit,debugprofilestop()-started)
+        end
         if not ok then error(err)end
     end)
     -- Reuse the protected callback instead of allocating a closure every frame.
@@ -268,9 +274,15 @@ function M:StartLive()
     f:SetScript("OnUpdate",function(self,dt)
         polled=polled+dt
         local profile=M.ModuleProfiler
-        local started=profile and profile.active and debugprofilestop()
+        local sample=profile and profile.targetSampling
+        local started=profile and (profile.active or (sample and sample.macro)) and debugprofilestop()
         local ok,err=M.Compat.RunWithAuraSnapshots(Refresh)
-        if started then profile.Total("frame",debugprofilestop()-started) end
+        if started then
+            local elapsed=debugprofilestop()-started
+            if sample then
+                if profile.targetSampling==sample then profile.RecordTarget(6,elapsed) end
+            else profile.Total("frame",elapsed) end
+        end
         if not ok then
             dirty=true;pending=false;polled=0;ResetDirty()
             local message=tostring(err)
