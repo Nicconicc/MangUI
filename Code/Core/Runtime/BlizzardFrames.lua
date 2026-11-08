@@ -1,5 +1,5 @@
 local _,M=...
-local B={alpha={},mouse={},roots={},draw={}}
+local B={alpha={},mouse={},roots={},draw={},dirtyRoots={},unreadableInput={}}
 M.BlizzardFrames=B
 
 -- Leave native Show/Hide, parents, anchors and event registrations intact.
@@ -60,7 +60,10 @@ local function CastLayers(frame,wanted)
             end
         end
         state.active=true;state.writing=true
-        for layer in pairs(state.values) do frame:DisableDrawLayer(layer) end
+        for layer in pairs(state.values) do
+            local ok,enabled=pcall(frame.IsDrawLayerEnabled,frame,layer)
+            if not ok or not M.Compat.Readable(enabled) or enabled~=false then frame:DisableDrawLayer(layer) end
+        end
         state.writing=nil
     elseif state.active then
         state.active=nil
@@ -85,7 +88,9 @@ local function ReadInput(frame,getter)
 end
 local function DisableInput(frame,state)
     for _,property in ipairs(state.properties) do
-        if state[property[1]]~=nil then frame[property[2]](frame,false) end
+        if state[property[1]]~=nil and ReadInput(frame,property[1])~=false then
+            frame[property[2]](frame,false)
+        end
     end
 end
 local function Input(frame,wanted)
@@ -104,7 +109,7 @@ local function Input(frame,wanted)
                     else current=ReadInput(frame,property[1]) end
                     if current~=nil then state[property[1]]=current end
                 end
-                if InCombatLockdown() then B.pending=true;return end
+                if InCombatLockdown() then B.scanDirty=true;B.pending=true;return end
                 B.applying=true;DisableInput(frame,state);B.applying=nil
             end
             for _,property in ipairs(properties) do
@@ -115,14 +120,18 @@ local function Input(frame,wanted)
         end
     end
     if wanted then
+        local unreadable
         for _,property in ipairs(state.properties) do
             if not state.active or state[property[1]]==nil then
                 state[property[1]]=ReadInput(frame,property[1])
             end
+            if state[property[1]]==nil then unreadable=true end
         end
+        B.unreadableInput[frame]=unreadable
         state.active=true
         DisableInput(frame,state)
     elseif state.active then
+        B.unreadableInput[frame]=nil
         state.active=nil
         for _,property in ipairs(state.properties) do
             local value=state[property[1]]
@@ -146,11 +155,12 @@ local function CollectRoots()
             roots[frame]=Enabled(id) and allowed~=false
             if not B.roots[frame] then
                 B.roots[frame]=true
-                if frame.HookScript then frame:HookScript("OnShow",function()B.Queue()end) end
+                if frame.HookScript then frame:HookScript("OnShow",function()B.QueueRoot(frame)end) end
                 if hooksecurefunc then
-                    for _,method in ipairs({"CreateTargetofTarget","CreateSpellbar","SetStatusBarTexture","SetParent"}) do
-                        if type(frame[method])=="function" then hooksecurefunc(frame,method,function()B.Queue()end) end
+                    for _,method in ipairs({"CreateTargetofTarget","CreateSpellbar","SetStatusBarTexture"}) do
+                        if type(frame[method])=="function" then hooksecurefunc(frame,method,function()B.QueueRoot(frame)end) end
                     end
+                    if frame.SetParent then hooksecurefunc(frame,"SetParent",function()B.Queue()end) end
                 end
             end
         end
@@ -170,15 +180,13 @@ local function CollectRoots()
     Add(CompactRaidFrameContainer,"partyFrames",party)
     return roots
 end
-function B.Apply(force)
-    if not M.db or B.applying then return end
-    if InCombatLockdown() then B.pending=true;return end
-    local signature=table.concat({tostring(Enabled("mainComposite")),tostring(Enabled("wa8d650f8d3a")),
-        tostring(Enabled("petComposite")),tostring(Enabled("focusComposite")),tostring(Enabled("totComposite")),
-        tostring(Enabled("partyFrames")),tostring(IsInRaid and IsInRaid() or false)},"|")
-    if not force and not B.pending and not B.scanDirty and B.signature==signature then return end
-    B.pending=nil;B.scanDirty=nil
-    local roots=CollectRoots()
+local function SameEntries(before,after)
+    if not before then return false end
+    for key,value in pairs(before) do if after[key]~=value then return false end end
+    for key,value in pairs(after) do if before[key]~=value then return false end end
+    return true
+end
+local function ProtectedAncestors(roots)
     local paths={}
     -- Preserve ancestors of native units whose replacement is disabled.
     -- Hide their siblings' own regions without making those units transparent.
@@ -192,40 +200,112 @@ function B.Apply(force)
             end
         end
     end
-    local visuals,inputs,castFrames={},{},{}
-    local function Visit(frame,root,depth)
+    return paths
+end
+
+local function ScanRoot(root,roots,paths)
+    local objects={alpha={},mouse={},draw={}}
+    local cast=root==PlayerCastingBarFrame or root==CastingBarFrame or root==OverlayPlayerCastingBarFrame
+    local function Visit(frame,depth)
         if depth>40 or (frame~=root and roots[frame]~=nil) then return end
-        inputs[frame]=true
-        if root==PlayerCastingBarFrame or root==CastingBarFrame or root==OverlayPlayerCastingBarFrame then castFrames[frame]=true end
-        if not paths[frame] then visuals[frame]=true end
+        objects.mouse[frame]=true
+        if cast then objects.draw[frame]=true end
+        if not paths[frame] then objects.alpha[frame]=true end
         if frame.GetRegions then
-            for _,region in ipairs({frame:GetRegions()}) do visuals[region]=true end
+            for _,region in ipairs({frame:GetRegions()}) do objects.alpha[region]=true end
         end
         if frame.GetStatusBarTexture then
             local texture=frame:GetStatusBarTexture()
-            if texture then visuals[texture]=true end
+            if texture then objects.alpha[texture]=true end
         end
         if frame.GetChildren then
-            for _,child in ipairs({frame:GetChildren()}) do Visit(child,root,depth+1) end
+            for _,child in ipairs({frame:GetChildren()}) do Visit(child,depth+1) end
         end
     end
-    for frame,active in pairs(roots) do if active then Visit(frame,frame,0) end end
+    Visit(root,0)
+    return objects
+end
+
+local setters={alpha=Alpha,draw=CastLayers,mouse=Input}
+local propertyOrder={"alpha","draw","mouse"}
+local function StillOwned(coverage,kind,object)
+    for _,objects in pairs(coverage) do
+        if objects[kind][object] then return true end
+    end
+    return false
+end
+
+function B.Apply(force)
+    if not M.db or B.applying then return end
+    if InCombatLockdown() then
+        if force then B.scanDirty=true end
+        B.pending=true
+        return
+    end
+    local roots=CollectRoots()
+    local full=force or B.scanDirty or not SameEntries(B.activeRoots,roots)
+    local dirty=B.dirtyRoots
+    local paths
+    if full or next(dirty) then
+        paths=ProtectedAncestors(roots)
+        full=full or not SameEntries(B.paths,paths)
+    else
+        B.pending=nil
+        return
+    end
+    B.pending=nil
+    B.scanDirty=nil
+    B.dirtyRoots={}
+
+    local previous=B.coverage or {}
+    local coverage={}
+    local wanted={alpha={},mouse={},draw={}}
+    local released={alpha={},mouse={},draw={}}
+    for root,active in pairs(roots) do
+        if active then
+            if full or dirty[root] then
+                local objects=ScanRoot(root,roots,paths)
+                coverage[root]=objects
+                for _,kind in ipairs(propertyOrder) do
+                    for object in pairs(objects[kind]) do wanted[kind][object]=true end
+                    if not full and previous[root] then
+                        for object in pairs(previous[root][kind]) do
+                            if not objects[kind][object] then released[kind][object]=true end
+                        end
+                    end
+                end
+            else
+                coverage[root]=previous[root]
+            end
+        end
+    end
+    if not full then
+        -- Retry inputs with no readable baseline without revisiting their trees.
+        for frame in pairs(B.unreadableInput) do
+            if StillOwned(coverage,"mouse",frame) then wanted.mouse[frame]=true end
+        end
+    end
     B.applying=true
     local ok,err=pcall(function()
-        for object in pairs(visuals) do Alpha(object,true) end
-        for object,state in pairs(B.alpha) do if state.active and not visuals[object] then Alpha(object,false) end end
-        for frame in pairs(castFrames) do CastLayers(frame,true) end
-        for frame,state in pairs(B.draw) do if state.active and not castFrames[frame] then CastLayers(frame,false) end end
-        for frame in pairs(inputs) do Input(frame,true) end
-        for frame,state in pairs(B.mouse) do if state.active and not inputs[frame] then Input(frame,false) end end
+        for _,kind in ipairs(propertyOrder) do
+            local set=setters[kind]
+            for object in pairs(wanted[kind]) do set(object,true) end
+            if full then
+                for object,state in pairs(B[kind]) do
+                    if state.active and not wanted[kind][object] then set(object,false) end
+                end
+            else
+                for object in pairs(released[kind]) do
+                    if not StillOwned(coverage,kind,object) then set(object,false) end
+                end
+            end
+        end
     end)
     B.applying=nil
     if not ok then B.scanDirty=true;error(err) end
-    B.signature=signature
+    B.activeRoots,B.paths,B.coverage=roots,paths,coverage
 end
-function B.Queue()
-    if not M.db then return end
-    B.scanDirty=true
+local function Schedule()
     if B.queued then return end
     if InCombatLockdown() then B.pending=true;return end
     if C_Timer and C_Timer.After then
@@ -235,14 +315,44 @@ function B.Queue()
         end)
     else M:Safe("暴雪框体显示",B.Apply) end
 end
+function B.Queue()
+    if not M.db then return end
+    B.scanDirty=true
+    Schedule()
+end
+function B.QueueRoot(...)
+    if not M.db then return end
+    for i=1,select("#",...) do
+        local root=select(i,...)
+        if root then B.dirtyRoots[root]=true end
+    end
+    Schedule()
+end
+local nativeFrameAddons={
+    Blizzard_UnitFrame=true,Blizzard_UnitFrames=true,
+    Blizzard_CompactRaidFrames=true,Blizzard_CompactPartyFrame=true,
+    Blizzard_CastingBar=true,Blizzard_CastingBarFrame=true,
+}
 function B.Start()
     if B.events then return end
     local frame=CreateFrame("Frame");B.events=frame
     for _,event in ipairs({"ADDON_LOADED","PLAYER_ENTERING_WORLD","PLAYER_REGEN_ENABLED","GROUP_ROSTER_UPDATE",
         "PLAYER_TARGET_CHANGED","PLAYER_FOCUS_CHANGED","UNIT_PET","CVAR_UPDATE"}) do pcall(frame.RegisterEvent,frame,event) end
-    frame:SetScript("OnEvent",function(_,event)
-        if event=="PLAYER_REGEN_ENABLED" then M:Safe("暴雪框体显示",B.Apply,true)
-        else B.Queue() end
+    frame:SetScript("OnEvent",function(_,event,arg)
+        if event=="PLAYER_REGEN_ENABLED" then
+            if B.pending then Schedule() end
+        elseif event=="PLAYER_TARGET_CHANGED" then
+            B.QueueRoot(TargetFrame,TargetFrameToT,TargetFrame and TargetFrame.totFrame)
+        elseif event=="PLAYER_FOCUS_CHANGED" then
+            B.QueueRoot(FocusFrame)
+        elseif event=="UNIT_PET" then
+            if arg=="player" then B.QueueRoot(PlayerFrame,PetFrame) end
+        elseif event=="ADDON_LOADED" and not nativeFrameAddons[arg] then
+            -- Discover new native roots without traversing unchanged trees.
+            Schedule()
+        else
+            B.Queue()
+        end
     end)
     if EventRegistry and EventRegistry.RegisterCallback then
         EventRegistry:RegisterCallback("EditMode.Enter",B.Queue,B)
