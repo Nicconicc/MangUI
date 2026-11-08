@@ -245,7 +245,7 @@ local function OpenMenu(key,guid,unit,playerName,x,y,confirmation)
     PlaceRow(panel.whisperRow,playerName~=nil)
     PlaceRow(panel.inviteRow,playerName~=nil)
     local scale=UIParent:GetEffectiveScale()
-    panel:SetSize(picker and 268 or width,picker and 64 or offset+7);panel:ClearAllPoints()
+    panel:SetSize(picker and 268 or width,picker and 70 or offset+7);panel:ClearAllPoints()
     panel:SetPoint("TOPLEFT",UIParent,"BOTTOMLEFT",x/scale+8,y/scale-6)
     panel:Show()
 end
