@@ -16,7 +16,7 @@ local focusBound=false
 
 local function Setting(key)
     local node=M.byID and M.byID.mouseCircle
-    return node and node.mouseShortcutsEnabled~=false and node[key]~=false
+    return node and node[key]~=false
 end
 
 local function Nameplate(unit)

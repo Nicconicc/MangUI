@@ -86,7 +86,6 @@ local function BuildProperties(e)
     mouseShortcutsTitle:SetTextColor(1,.82,0)
     e.mouseShortcutChecks={}
     for _,entry in ipairs({
-        {"mouseShortcutsEnabled","启用鼠标快捷功能"},
         {"mouseUnitMenu","右键友方玩家打开菜单"},
         {"mouseUnitMarks","鼠标左键双击角色选择标记"},
         {"mouseAltInvite","Alt+左键点击角色邀请组队"},

@@ -7,7 +7,7 @@ local innerDefault={1,.6118,.9255,1}
 local gcdDefault={1,1,1,1}
 local pollInterval=.1
 local moduleLabel="鼠标功能及提示"
-local shortcutFields={"mouseShortcutsEnabled","mouseUnitMenu","mouseUnitMarks","mouseAltInvite","mouseShiftFocus"}
+local shortcutFields={"mouseUnitMenu","mouseUnitMarks","mouseAltInvite","mouseShiftFocus"}
 local function Reset(o)
     o.clickAt=nil;o.clickHeld=nil;o.gcdStart=nil;o.gcdDuration=nil;o.gcdRate=nil
     o.mouseX=nil;o.mouseY=nil;o.outerSize=nil;o.innerSize=nil;o.innerAlpha=nil
@@ -55,12 +55,13 @@ function M:EnsureMouseCircleModule(design)
     for _,key in ipairs({"outerColor","innerColor","gcdColor"}) do
         if type(circle[key])~="table" then circle[key]=defaults[1][key] end
     end
+    local shortcutsWereDisabled=circle.mouseShortcutsEnabled==false
+        or (circle.mouseShortcutsEnabled==nil and legacy and legacy.enabled==false)
     for _,key in ipairs(shortcutFields) do
-        if circle[key]==nil then
-            local oldKey=key=="mouseShortcutsEnabled" and "enabled" or key
-            circle[key]=not legacy or legacy[oldKey]~=false
-        end
+        if shortcutsWereDisabled then circle[key]=false
+        elseif circle[key]==nil then circle[key]=not legacy or legacy[key]~=false end
     end
+    circle.mouseShortcutsEnabled=nil
 end
 M.moduleIDs.mouseCircle=true
 M:EnsureMouseCircleModule(M.defaults)
