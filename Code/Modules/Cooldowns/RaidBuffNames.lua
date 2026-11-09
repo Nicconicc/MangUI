@@ -74,6 +74,70 @@ function I.RememberBuffAura(aura)
     local _,resolved=Remember(aura.name,id,aura.icon,true)
     if resolved then requestedNameResolved=true end
 end
+local function BuildAuraIndex(snapshot)
+    local index={byID={},byName={},allNames={},snapshot=snapshot}
+    for _,aura in ipairs(snapshot) do
+        I.RememberBuffAura(aura)
+        local id=aura.spellId
+        if type(id)=="nil" then id=aura.spellID end
+        if Number(id) then index.byID[id]=aura end
+        if Readable(aura.name) and type(aura.name)=="string" then
+            index.byName[aura.name]=aura
+            local matches=index.allNames[aura.name] or {}
+            matches[#matches+1]=aura;index.allNames[aura.name]=matches
+        end
+    end
+    snapshot.monitorIndex=index
+    return index
+end
+function I.ApplyAuraDelta(view,unit,update,version)
+    local cache=view.monitorAuraIndex
+    if not cache or not C_UnitAuras or not C_UnitAuras.GetAuraDataByAuraInstanceID
+        or not Readable(update) or type(update)~="table" or not Readable(update.isFullUpdate)
+        or update.isFullUpdate~=false then return end
+    local changes,additions={},{}
+    local function ReadDelta()
+        for _,id in ipairs(update.removedAuraInstanceIDs or {}) do changes[id]=false end
+        for _,id in ipairs(update.updatedAuraInstanceIDs or {}) do
+            local aura=C_UnitAuras.GetAuraDataByAuraInstanceID(unit,id)
+            if not Readable(aura) or type(aura)~="table" or not Readable(aura.auraInstanceID)
+                or aura.auraInstanceID~=id then return false end
+            changes[id]=aura
+        end
+        for _,aura in ipairs(update.addedAuras or {}) do
+            if not Readable(aura) or type(aura)~="table" or not Number(aura.auraInstanceID)
+                or not Readable(aura.isHelpful) or not Readable(aura.isHarmful) then return false end
+            additions[#additions+1]=aura
+        end
+        return true
+    end
+    local ok,valid=pcall(ReadDelta)
+    if not ok or not valid then return end
+    local now=GetTime()
+    local function Patch(filter)
+        local key=unit..":"..filter
+        local previous=cache[key]
+        if not previous or previous.version~=version-1 or now>=previous.expires then return end
+        local snapshot={complete=true}
+        local match=filter=="HELPFUL" and "isHelpful" or "isHarmful"
+        local changed=false
+        for _,aura in ipairs(previous.index.snapshot) do
+            local id=Number(aura.auraInstanceID)
+            if not id then return end
+            local replacement=changes[id]
+            if replacement==nil then replacement=aura else changed=true end
+            if replacement then snapshot[#snapshot+1]=replacement end
+        end
+        for _,aura in ipairs(additions) do
+            if aura[match]==true then snapshot[#snapshot+1]=aura;changed=true end
+        end
+        cache[key]={version=version,expires=previous.expires,index=changed and BuildAuraIndex(snapshot) or previous.index,delta=true}
+    end
+    -- Any protected or incomplete update leaves the old version mismatched and
+    -- the next consumer will use the regular enumeration.
+    pcall(Patch,"HELPFUL")
+    pcall(Patch,"HARMFUL")
+end
 -- Keep the API enumeration shared with the other aura consumers in this update.
 -- Reuse a complete index briefly between events; aura versions also change on
 -- target switches. Explicit refreshes and unavailable reads bypass retention.
@@ -84,26 +148,12 @@ function I.MonitorAuraIndex(view,unit,filter,animateOnly)
     local version=versions and (versions[unit] or 0)
     local now=GetTime()
     local previous=cache and cache[key]
-    if animateOnly and versions and previous and previous.version==version and now<previous.expires then
+    if versions and previous and (animateOnly or previous.delta) and previous.version==version and now<previous.expires then
         return previous.index
     end
     local snapshot=M.Compat.AuraSnapshot(unit,filter)
     local index=snapshot.monitorIndex
-    if not index then
-        index={byID={},byName={},allNames={},snapshot=snapshot}
-        for _,aura in ipairs(snapshot) do
-            I.RememberBuffAura(aura)
-            local id=aura.spellId
-            if type(id)=="nil" then id=aura.spellID end
-            if Number(id) then index.byID[id]=aura end
-            if Readable(aura.name) and type(aura.name)=="string" then
-                index.byName[aura.name]=aura
-                local matches=index.allNames[aura.name] or {}
-                matches[#matches+1]=aura;index.allNames[aura.name]=matches
-            end
-        end
-        snapshot.monitorIndex=index
-    end
+    if not index then index=BuildAuraIndex(snapshot) end
     if versions then
         if not cache then cache={};view.monitorAuraIndex=cache end
         cache[key]=snapshot.complete and {version=version,expires=now+.2,index=index} or nil

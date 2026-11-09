@@ -160,11 +160,22 @@ function D.OutOfRange(group)
     local minimum=Number(Call(lib.GetRange,lib,"target",true,false,0))
     return minimum~=nil and minimum>=threshold
 end
-function D.State(group)
+local function SharedOutOfRange(view,group)
+    if not view or not view.raidEncounter then return D.OutOfRange(group) end
+    local now=GetTime()
+    local generation=view.targetRefreshGeneration
+    if view.distanceRangeGeneration~=generation or view.distanceRangeGroup~=group
+        or now>=(view.distanceRangeDue or 0) then
+        view.distanceRangeGeneration=generation;view.distanceRangeGroup=group
+        view.distanceRangeDue=now+.1;view.distanceRangeOutside=D.OutOfRange(group)
+    end
+    return view.distanceRangeOutside
+end
+function D.State(group,view)
     if group.enabled==false or group.showOnNameplate==false then return end
     if Call(UnitIsPlayer,"target") then return end
     local plate=Call(C_NamePlate and C_NamePlate.GetNamePlateForUnit,"target")
-    if plate and D.OutOfRange(group) then return plate end
+    if plate and SharedOutOfRange(view,group) then return plate end
 end
 function D.DecorationState(view,force)
     local main=view.byID and view.byID.mainComposite
@@ -175,7 +186,7 @@ function D.DecorationState(view,force)
     local now=GetTime()
     if not force and view.nextDecorationRange and now<view.nextDecorationRange then return view.decorationOutOfRange end
     view.nextDecorationRange=now+.1
-    view.decorationOutOfRange=D.OutOfRange(group)
+    view.decorationOutOfRange=SharedOutOfRange(view,group)
     return view.decorationOutOfRange
 end
 function D.Build(view,o)
@@ -272,9 +283,9 @@ function D.Paint(view,o,animateOnly)
         o.previewRing:SetAlpha(1-red);o.previewRingRed:SetAlpha(red)
         o.frame:Show();return
     end
-    if animateOnly and o.nextDistanceUpdate and GetTime()<o.nextDistanceUpdate then return end
+    if (animateOnly or view.raidEncounter) and o.nextDistanceUpdate and GetTime()<o.nextDistanceUpdate then return end
     o.nextDistanceUpdate=GetTime()+.1
-    local plate=D.State(o.module or {})
+    local plate=D.State(o.module or {},view)
     if not plate then o.anchoredPlate=nil;o.frame:Hide();return end
     if o.anchoredPlate~=plate then
         o.frame:ClearAllPoints();o.frame:SetPoint("CENTER",plate,"CENTER",o.distanceX,o.distanceY)
@@ -284,14 +295,20 @@ function D.Paint(view,o,animateOnly)
 end
 function D.Event(view,event)
     if event=="PLAYER_TARGET_CHANGED" or event=="NAME_PLATE_UNIT_ADDED" or event=="NAME_PLATE_UNIT_REMOVED" then
-        if view then view.nextDecorationRange=nil end
-        if M.Renderer and M.Renderer.UpdateDecorationRange then M.Renderer.UpdateDecorationRange(view,true) end
+        local immediate=event=="PLAYER_TARGET_CHANGED" or not (view and view.raidEncounter)
+        if view and immediate then view.nextDecorationRange=nil end
+        if view and event=="PLAYER_TARGET_CHANGED" then view.distanceRangeDue=nil end
+        if M.Renderer and M.Renderer.UpdateDecorationRange then M.Renderer.UpdateDecorationRange(view,immediate) end
         local o=view and view.nodes and view.nodes.targetDistanceDisplay
-        if o then D.Paint(view,o,false) end
+        if o then
+            if immediate then o.nextDistanceUpdate=nil end
+            D.Paint(view,o,false)
+        end
         local number=view and view.nodes and view.nodes.targetDistanceNumber
         if number then
             if event=="PLAYER_TARGET_CHANGED"then D.ResetNumber(number)end
-            number.nextNumberUpdate=nil;D.PaintNumber(view,number,false)
+            if immediate then number.nextNumberUpdate=nil end
+            D.PaintNumber(view,number,false)
         end
     end
 end
@@ -365,7 +382,7 @@ function D.PaintNumber(view,o,animateOnly)
     local now=GetTime()
     if view.preview then
         o.numberText="25";o.numberEstimated=nil
-    elseif not animateOnly or not o.nextNumberUpdate or now>=o.nextNumberUpdate then
+    elseif (not animateOnly and not view.raidEncounter) or not o.nextNumberUpdate or now>=o.nextNumberUpdate then
         -- Range probes remain at 10 Hz. Animation does not query unit APIs.
         o.nextNumberUpdate=now+.1
         local text,estimated=D.NumberState(group)
@@ -373,7 +390,9 @@ function D.PaintNumber(view,o,animateOnly)
             D.ResetNumber(o);o.nextNumberUpdate=now+.1
             o.distanceNumber:SetText("");o.frame:Hide();return
         end
-        if estimated then
+        if estimated and view.raidEncounter then
+            o.numberText="≈"..text;o.numberEstimated=nil;o.numberValue=nil;o.numberGoal=nil
+        elseif estimated then
             local goal=tonumber(text)
             if not o.numberEstimated or not o.numberValue then
                 o.numberValue=goal;o.numberNextStep=now+.025

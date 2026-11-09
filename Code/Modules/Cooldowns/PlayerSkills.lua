@@ -743,11 +743,16 @@ local function SpellCooldown(key)
         if info then return info.startTime,info.duration,info.isEnabled,info.modRate,info.isOnGCD end
     else return Safe(GetSpellCooldown,key)end
 end
-local function GlobalCooldown(start,duration)
-    local gs,gd=SpellCooldown(M.Compat.interface==16001 and 29515 or 61304)
+local function CachedSpellCooldown(cache,key)
+    local values=cache[key]
+    if not values then values={SpellCooldown(key)};cache[key]=values end
+    return values[1],values[2],values[3],values[4],values[5]
+end
+local function GlobalCooldown(start,duration,cache)
+    local gs,gd=CachedSpellCooldown(cache,M.Compat.interface==16001 and 29515 or 61304)
     return Number(gs) and Number(gd) and math.abs(gs-start)<.001 and math.abs(gd-duration)<.001
 end
-local function Cooldown(entry,slot)
+local function Cooldown(entry,slot,cache)
     local key=slot.spellID or entry.value
     local charges,maximum,chargeStart,chargeDuration,chargeRate=SpellCharges(key)
     local summons=S.SummonCount(slot)
@@ -761,7 +766,7 @@ local function Cooldown(entry,slot)
         end
     end
     slot.duration=nil;ClearCooldown(slot.cooldown)
-    local start,duration,enabled,rate,onGCD=SpellCooldown(key)
+    local start,duration,enabled,rate,onGCD=CachedSpellCooldown(cache,key)
     if Readable(onGCD) and onGCD==true then slot.active=false;slot.expires=nil;return end
     if Number(charges) and Number(maximum) and charges<maximum and Number(chargeStart) and Number(chargeDuration) then
         start,duration,rate=chargeStart,chargeDuration,chargeRate
@@ -769,7 +774,7 @@ local function Cooldown(entry,slot)
     start,duration,rate=Number(start),Number(duration),Number(rate) or 1
     local disabled=Readable(enabled) and (enabled==false or enabled==0)
     if start and duration and rate>0 and not disabled then
-        slot.expires=not GlobalCooldown(start,duration) and duration>0 and start+duration/rate or nil
+        slot.expires=duration>0 and not GlobalCooldown(start,duration,cache) and start+duration/rate or nil
     else slot.expires=nil end
     slot.active=slot.expires~=nil and slot.expires>GetTime()
 end
@@ -890,6 +895,7 @@ function S.Paint(view,o,animateOnly)
     if view.preview and #entries==0 then entries=samples end
     if not animateOnly or now>=(o.nextScan or 0) then
         o.nextScan=now+.2
+        local cooldowns={}
         for i,entry in ipairs(entries)do
             local slot=Icon(o,i)
             if slot.entry~=entry then Resolve(slot,entry)end
@@ -898,7 +904,7 @@ function S.Paint(view,o,animateOnly)
                 Resolve(slot,entry)
                 if o.usesNativeAuras and not InCombatLockdown() then BindAura(slot,group.enabled~=false)end
             end
-            if not view.preview and entry.type=="cooldown" then Cooldown(entry,slot)end
+            if not view.preview and entry.type=="cooldown" then Cooldown(entry,slot,cooldowns)end
             if not view.preview and entry.type=="usable" then Usable(slot,now)end
         end
         if not view.preview then ScanAuras(o,"buff");ScanAuras(o,"debuff")end

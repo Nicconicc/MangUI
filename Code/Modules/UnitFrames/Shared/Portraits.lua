@@ -345,8 +345,13 @@ function P.Paint(view,o,state,color,animateOnly)
             if o.portraitRefresh or o.staticPortraitUnit~=state.unit then DeferredStatic(view,o) end
             MainStaticPortrait(o,state.unit)
         else
-            if o.portraitRefresh then o.texture:SetTexture(nil);o.portraitRefresh=nil end
-            SetPortraitTexture(o.texture,state.unit)
+            local guid=UnitGUID and UnitGUID(state.unit)
+            if not C.Readable(guid) then guid=nil end
+            if o.portraitRefresh or not guid or o.staticPortraitGUID~=guid or o.staticPortraitUnit~=state.unit then
+                if o.portraitRefresh then o.texture:SetTexture(nil);o.portraitRefresh=nil end
+                SetPortraitTexture(o.texture,state.unit)
+                o.staticPortraitUnit,o.staticPortraitGUID=state.unit,guid
+            end
         end
     end
 end

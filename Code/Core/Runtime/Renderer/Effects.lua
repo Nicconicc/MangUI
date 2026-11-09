@@ -108,6 +108,8 @@ end
 local function Spin(view,o,now,casting)
     local n=o.spec
     if not o.spinAt then o.spinAt=now;o.spinAngle=math.rad(n.rotation or 0) end
+    if view.raidEncounter and not view.preview then o.spinPaused=true;return end
+    if o.spinPaused then o.spinAt=now;o.spinPaused=nil end
     if casting==nil then casting=State(view,"player").cast.active end
     local period=casting and (n.castSpinPeriod or .5) or n.spinPeriod
     o.spinAngle=(o.spinAngle+math.max(0,now-o.spinAt)*2*math.pi/period)%(2*math.pi)

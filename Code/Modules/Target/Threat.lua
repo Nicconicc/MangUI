@@ -79,8 +79,9 @@ function T.Paint(view,o,animateOnly)
     if o.spec.enabled==false or (view.hidden and view.hidden[o.spec.id]) or (not view.preview and o.module and o.module.enabled==false) then
         o.threatText:SetText("");o.frame:Hide();return
     end
-    if animateOnly and o.nextThreatUpdate and GetTime()<o.nextThreatUpdate then return end
-    o.nextThreatUpdate=GetTime()+.1
+    local now=GetTime()
+    if (animateOnly or view.raidEncounter) and o.nextThreatUpdate and now<o.nextThreatUpdate then return end
+    o.nextThreatUpdate=now+(view.raidEncounter and 1/3 or .1)
     local percentage=T.State(view.preview,o.module)
     if percentage==nil then o.threatText:SetText("");o.frame:Hide();return end
     if percentage<50 then o.threatText:SetTextColor(.5,.5,.5,1)

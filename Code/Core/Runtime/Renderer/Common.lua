@@ -277,9 +277,12 @@ end
 local healthFields={health=true,maxHealth=true,healthRatio=true,dead=true,partyDead=true}
 local powerFields={power=true,maxPower=true,powerRatio=true,powerType=true,powerColor=true}
 local function FieldDependencies(o)
-    local n=o.spec;local fields={health={},power={}};o.fieldDeps=fields
+    local n=o.spec;local fields={health={},power={},aura={},portrait={}};o.fieldDeps=fields
     local binding=n.binding
     if n.kind=="portrait" and n.unit=="pet" then AddUnit(fields.health,"pet") end
+    if n.kind=="portrait" or n.kind=="model" then AddUnit(fields.portrait,n.unit) end
+    if n.kind=="auras" then AddUnit(fields.aura,n.unit) end
+    if n.kind=="resources" or n.thirdResource then AddUnit(fields.aura,"player") end
     if binding=="health" or binding=="healthText" or binding=="healthPercent" or (n.kind=="bar" and not binding) then AddUnit(fields.health,n.unit) end
     if binding=="power" or binding=="powerText" or binding=="powerPercent" or n.powerColor then AddUnit(fields.power,n.unit) end
     if n.kind=="resources"or n.thirdResource then AddUnit(fields.power,"player") end
@@ -291,12 +294,13 @@ local function FieldDependencies(o)
     end
     for _,condition in ipairs(n.conditions or {}) do
         if condition.field=="percenthealth" then AddUnit(fields.health,condition.unit)
-        elseif condition.field=="powertype" then AddUnit(fields.power,condition.unit) end
+        elseif condition.field=="powertype" then AddUnit(fields.power,condition.unit)
+        elseif condition.field=="partyDispel" then AddUnit(fields.aura,condition.unit) end
     end
 end
 local function IndexUpdates(view)
-    view.unitBuckets={};view.moduleBuckets={};view.moduleUnits={};view.animated={};view.targetRefreshNodes={};view.updateQueue={}
-    view.fieldBuckets={health={},power={}}
+    view.unitBuckets={};view.moduleBuckets={};view.moduleUnits={};view.animated={};view.raidAnimated={};view.targetRefreshNodes={};view.updateQueue={}
+    view.fieldBuckets={health={},power={},aura={},portrait={}}
     for index,o in ipairs(view.ordered) do
         local n=o.spec;local deps={};o.unitDeps=deps;o.updateOrder=index
         FieldDependencies(o)
@@ -330,6 +334,9 @@ local function IndexUpdates(view)
         end
         if (Animated(n) or o.auraClock) and (view.preview or (n.enabled~=false and (not o.module or o.module.enabled~=false))) then
             view.animated[#view.animated+1]=o
+            if n.kind~="sprite" and not n.partyBuffs and not n.spinPeriod then
+                view.raidAnimated[#view.raidAnimated+1]=o
+            end
         end
         if n.unit=="target" or n.unit=="targettarget" or n.unit=="shared" then view.targetRefreshNodes[#view.targetRefreshNodes+1]=o end
     end

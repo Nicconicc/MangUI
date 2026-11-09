@@ -125,12 +125,24 @@ function N.ConfigureAuras(view,o)
     end
     for _,icon in ipairs(o.icons or {}) do icon:Hide() end
     if party then container:Show() end
-    container:SetEnabled(n.enabled~=false and parent.enabled~=false and (not o.module or o.module.enabled~=false))
+    local enabled=n.enabled~=false and parent.enabled~=false and (not o.module or o.module.enabled~=false)
+    if party then
+        enabled=enabled and not view.raidEncounter and o.frame:IsVisible()
+        o.nativePartyBuffActive=enabled
+    end
+    container:SetEnabled(enabled)
+    o.nativeAuraVersion=nil
+end
+function N.SetPartyBuffActive(o,active)
+    if not o.nativeAuras or o.partyBuffsUseLua or o.nativePartyBuffActive==active then return end
+    o.nativeAuras:SetEnabled(active)
+    o.nativePartyBuffActive=active
     o.nativeAuraVersion=nil
 end
 function N.Auras(view,o,s)
     local container=o.nativeAuras
     if view.preview or not container or o.partyBuffsUseLua then return false end
+    if o.spec.partyBuffs then N.SetPartyBuffActive(o,true) end
     if o.nativeAuraStylePending and CanStyleAuras() then
         for _,frame in ipairs(o.nativeAuraFrames) do StyleAura(view,o,frame) end
         o.nativeAuraStylePending=nil

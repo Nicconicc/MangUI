@@ -186,7 +186,7 @@ local function UpdateConnector(view,o)
         HideConnector(connector);return
     end
     local target=view.nodes[M.MainBarLayout.tokenID]
-    if not I.GuideLinesShown(group)or not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
+    if (view.raidEncounter and not view.preview)or not I.GuideLinesShown(group)or not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
         HideConnector(connector);return
     end
     -- Read only our own artwork frames. The external secure portrait anchor and

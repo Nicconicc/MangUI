@@ -242,6 +242,21 @@ function P.ReportTarget()
     M:Print(string.format("采样帧间隔：平均 %.2f ms，最高 %.2f ms，函数异常 %d 次",
         sample.frames>0 and sample.frameMs/sample.frames or 0,sample.framePeak,sample.errors))
     if sample.macro then
+        if sample.refreshCauses then
+            local causes={}
+            for name,row in pairs(sample.refreshCauses) do causes[#causes+1]={name=name,row=row} end
+            table.sort(causes,function(a,b)return a.row.ms>b.row.ms end)
+            for i=1,math.min(#causes,6) do
+                local cause=causes[i]
+                M:Print(string.format("界面刷新 %s：%d 次，%.2f ms",cause.name,cause.row.calls,cause.row.ms))
+            end
+        end
+        if (sample.animationFrames or 0)>0 then
+            M:Print(string.format("每帧平均调度 %.2f 个动画对象",sample.animationObjects/sample.animationFrames))
+        end
+        if sample.eventDispatches then
+            M:Print(string.format("实时事件的模块回调共 %d 次",sample.eventDispatches))
+        end
         ReportMacroPeaks(sample)
     else
         for index,frame in ipairs(sample.peaks) do

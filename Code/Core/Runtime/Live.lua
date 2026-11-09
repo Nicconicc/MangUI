@@ -52,12 +52,17 @@ local portraitEvents={UNIT_PORTRAIT_UPDATE=true,UNIT_MODEL_CHANGED=true,PORTRAIT
     ENCOUNTER_START=true,ENCOUNTER_END=true,INSTANCE_ENCOUNTER_ENGAGE_UNIT=true}
 local trackedUnits={player=true,vehicle=true,target=true,targettarget=true,focus=true,pet=true,
     party1=true,party2=true,party3=true,party4=true}
+local partyUnits={party1=true,party2=true,party3=true,party4=true}
 local function Clear(t) for key in pairs(t) do t[key]=nil end end
 local dispatchKeys={}
 local function Dispatch(id,fn,...)
     local key=dispatchKeys[id];if not key then key="event:"..id;dispatchKeys[id]=key end
     local group=M.byID and M.byID[id];local label=group and group.label or id
     local profile=M.ModuleProfiler
+    local sample=profile and profile.targetSampling
+    if sample and sample.macro then
+        sample.eventDispatches=(sample.eventDispatches or 0)+1
+    end
     if profile and profile.active then M:RuntimeCall(M.live,key,label,profile.Measure,id,fn,...)
     else M:RuntimeCall(M.live,key,label,fn,...)end
 end
@@ -136,12 +141,12 @@ function M:StartLive()
         pcall(f.RegisterEvent,f,"UNIT_HAPPINESS")
         pcall(f.RegisterEvent,f,"PET_UI_UPDATE")
     end
-    local dirty=true;local pending=false;local polled=0
+    local dirty=true;local refreshCause="初始化";local pending=false;local polled=0
     local dirtyUnits,dirtyModules={},{}
-    local dirtyFields={health={},power={},all={}}
+    local dirtyFields={health={},power={},aura={},portrait={},all={}}
     local function ResetDirty()
         Clear(dirtyUnits);Clear(dirtyModules)
-        Clear(dirtyFields.health);Clear(dirtyFields.power);Clear(dirtyFields.all)
+        for _,fields in pairs(dirtyFields) do Clear(fields) end
     end
     local function Unit(unit,field)
         if trackedUnits[unit] then
@@ -159,7 +164,7 @@ function M:StartLive()
         if (view.raidEncounter==true)~=encounter then
             view.raidEncounter=encounter or nil
             if encounter and M.MainSweep then M.MainSweep.Suspend(view) end
-            dirty=true
+            dirty=true;refreshCause="首领战状态"
         end
         local eligible=encounter and EnemyBossTarget()
         if resetTarget or eligible~=bossTarget then
@@ -200,6 +205,41 @@ function M:StartLive()
         Unit("target","health")
     end
     local function OnEvent(_,event,unit,...)
+        local view=M.live
+        if type(unit)=="string" and C.Readable(unit) and partyUnits[unit]
+            and view.partyGroupGate and not view.partyGroupGate:IsVisible() then return end
+        if event=="UNIT_AURA" then
+            if not trackedUnits[unit] then return end
+            local update=...
+            if type(update)=="table" and C.Readable(update) and C.Readable(update.isFullUpdate)
+                and update.isFullUpdate==false and type(update.updatedAuraInstanceIDs)=="nil"
+                and type(update.removedAuraInstanceIDs)=="nil" then
+                local added=update.addedAuras
+                if type(added)=="nil" then return end
+                if view.raidEncounter and partyUnits[unit] and C.Readable(added) and type(added)=="table" then
+                    local helpfulOnly=true
+                    for _,aura in ipairs(added) do
+                        if not C.Readable(aura) or type(aura)~="table"
+                            or not C.Readable(aura.isHelpful) or aura.isHelpful~=true then
+                            helpfulOnly=false;break
+                        end
+                    end
+                    if helpfulOnly then return end
+                end
+            end
+            if unit~="player" and unit~="target" then
+                R.InvalidateAuras(view,unit=="vehicle" and "player" or unit)
+                Unit(unit,"aura")
+                return
+            end
+        end
+        if event=="UNIT_HAPPINESS" then
+            local pet=view.byID.petComposite
+            if not pet or pet.enabled==false then return end
+            local happiness=C.PetHappiness(false)
+            local state=view.stateBuffers.pet
+            if state and state.exists and state.petHappiness==happiness then return end
+        end
         -- These events have no module dispatch consumers. Custom monitor events
         -- are registered separately, and keep their original delivery.
         local healthEvent=event=="UNIT_HEALTH" or event=="UNIT_MAXHEALTH"
@@ -263,7 +303,7 @@ function M:StartLive()
         end
         if R.InvalidateAuras then
             if event=="UNIT_AURA" then
-                if trackedUnits[unit] then R.InvalidateAuras(M.live,unit=="vehicle" and "player" or unit) end
+                if trackedUnits[unit] then R.InvalidateAuras(M.live,unit=="vehicle" and "player" or unit,...) end
             elseif event=="PLAYER_ENTERING_WORLD" or event=="GROUP_ROSTER_UPDATE" then R.InvalidateAuras(M.live)
             elseif event=="PLAYER_FOCUS_CHANGED" then R.InvalidateAuras(M.live,"focus")
             elseif event=="UNIT_PET" and unit=="player" then R.InvalidateAuras(M.live,"pet")
@@ -273,9 +313,19 @@ function M:StartLive()
             elseif (event=="UNIT_ENTERED_VEHICLE" or event=="UNIT_EXITED_VEHICLE") and (unit=="player" or unit=="vehicle") then R.InvalidateAuras(M.live,"player") end
         end
         if M.CooldownMonitor and cooldownEvents[event] and (event~="UNIT_SPELLCAST_SUCCEEDED" or unit=="player") then Dispatch("cooldownMonitor",M.CooldownMonitor.Event,M.CooldownMonitor,event,unit,...) end
-        if M.PlayerSkillMonitor then Dispatch("playerSkillMonitor",M.PlayerSkillMonitor.Event,M.live,event,unit) end
+        if M.PlayerSkillMonitor then
+            if event=="SPELL_UPDATE_COOLDOWN" or event=="SPELL_UPDATE_CHARGES" then
+                local skills=view.byID.playerSkillMonitor
+                if skills and skills.enabled~=false then Module("playerSkillMonitor") end
+            else Dispatch("playerSkillMonitor",M.PlayerSkillMonitor.Event,M.live,event,unit) end
+        end
         if M.PlayerOtherMonitor then Dispatch("playerOtherMonitor",M.PlayerOtherMonitor.Event,M.live,event,unit) end
-        if M.CommonItems then Dispatch("commonItems",M.CommonItems.Event,M.live,event,unit)end
+        if M.CommonItems then
+            if event=="SPELL_UPDATE_COOLDOWN" or event=="BAG_UPDATE_COOLDOWN" then
+                local items=view.byID.commonItems
+                if items and items.enabled~=false then Module("commonItems") end
+            else Dispatch("commonItems",M.CommonItems.Event,M.live,event,unit) end
+        end
         -- Each team aura monitor consumes the dirty scan once in the frame refresh.
         if M.RaidVulnerability then Dispatch("raidVulnerability",M.RaidVulnerability.Event,M.live,event,unit,true)end
         if M.ReceivedBuffs then Dispatch("receivedBuffs",M.ReceivedBuffs.Event,M.live,event,unit,true)end
@@ -311,6 +361,10 @@ function M:StartLive()
         elseif event=="PLAYER_FOCUS_CHANGED" then Unit("focus")
         elseif event=="UNIT_PET" then if unit=="player" then Unit("pet") end
         elseif event=="UNIT_HAPPINESS" or event=="PET_UI_UPDATE" then Unit("pet")
+        elseif event=="UNIT_PORTRAIT_UPDATE" or event=="UNIT_MODEL_CHANGED" then Unit(unit,"portrait")
+        elseif event=="PORTRAITS_UPDATED" then
+            for name in pairs(trackedUnits) do Unit(name,"portrait") end
+        elseif event=="UNIT_AURA" then Unit(unit,"aura")
         elseif event=="UNIT_TARGET" then
             if unit=="target" then Unit("targettarget")
             elseif unit=="player" then Unit("target");Unit("targettarget") end
@@ -337,7 +391,7 @@ function M:StartLive()
             for name in pairs(trackedUnits) do Unit(name) end
         elseif event=="UNIT_DISPLAYPOWER" then Unit(unit,"power")
         elseif event:find("^UNIT_") then Unit(unit)
-        else dirty=true end
+        else dirty=true;refreshCause=event end
         if started then profile.Total("event",debugprofilestop()-started) end
     end
     f:SetScript("OnEvent",function(self,event,unit,...)
@@ -369,12 +423,24 @@ function M:StartLive()
                 if not view.fontSettleStep then view.fontSettleStarted=nil end
             end
             view.fontRetryCount=(view.fontRetryCount or 0)+1;view.fontRetryAt=GetTime()+.5
-            dirty=true
+            dirty=true;refreshCause="字体刷新"
         end
-        if dirty or polled>=.2 then
+        local full=dirty or polled>=.2
+        local profile=M.ModuleProfiler
+        local sample=profile and profile.targetSampling
+        local measure=(full or pending) and sample and sample.macro
+        local cause=measure and (full and (dirty and (refreshCause or "状态变化") or "定时兜底") or "局部刷新")
+        local started=measure and debugprofilestop()
+        if full then
             M:RuntimeCall(view,"update","状态刷新",R.Update,M.live);dirty=false;pending=false;polled=0;ResetDirty()
         elseif pending then
             M:RuntimeCall(view,"update","状态刷新",R.Update,M.live,dirtyUnits,dirtyModules,dirtyFields);pending=false;ResetDirty()
+        end
+        if started then
+            local elapsed=debugprofilestop()-started
+            sample.refreshCauses=sample.refreshCauses or {}
+            local row=sample.refreshCauses[cause] or {calls=0,ms=0}
+            row.calls=row.calls+1;row.ms=row.ms+elapsed;sample.refreshCauses[cause]=row
         end
         if M.RaidBuffMonitor then
             M.RaidBuffMonitor.FlushAuraNames(view)

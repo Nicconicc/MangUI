@@ -522,6 +522,11 @@ function P.VisibilityParent(view,n,parent)
 end
 function P.ExtendState(view,s)
     if not view.byID.partyFrames or not s.exists then return end
+    if not view.preview and (view.byID.partyFrames.enabled==false
+        or view.partyGroupGate and not view.partyGroupGate:IsVisible()) then
+        s.partyDispel=nil
+        return
+    end
     if view.preview and view.hidden and view.hidden.party0Portrait then return end
     local unit=s.unit;local index=(unit=="player" or unit=="vehicle") and 0 or tonumber(unit and unit:match("^party([1-4])$"))
     if index==nil then return end

@@ -17,6 +17,7 @@ local Rule=private.Rule
 local Appearance=private.Appearance
 local CastRatio=private.CastRatio
 local DisplayRatio=private.DisplayRatio
+local SmoothBar=private.SmoothBar
 local RestrictedHealthColor=private.RestrictedHealthColor
 local RestrictedHealthThreshold=private.RestrictedHealthThreshold
 local Text=private.Text
@@ -71,9 +72,14 @@ local function Paint(view,o,animateOnly,visibleHint)
         o.wasShown=false;o.started=nil
         return
     end
-    if view.raidEncounter and n.particleFlow and o.module and o.module.id=="mainComposite" then
+    if view.raidEncounter and not view.preview and (n.kind=="sprite" or n.partyBuffs) then
         if f:IsShown() then f:Hide() end
-        ResetParticle(o)
+        if n.particleFlow then ResetParticle(o) end
+        if n.partyBuffs then
+            o.nextAuraScan=nil
+            M.NativeDisplays.SetPartyBuffActive(o,false)
+        end
+        o.fastReady=nil;o.wasShown=false;o.started=nil;o.effectStarted=nil;o.effectCondition=nil
         return
     end
     local bossRoot=o.module and o.module.id=="bossFrames" and view.nodes.bossFrames
@@ -95,7 +101,7 @@ local function Paint(view,o,animateOnly,visibleHint)
         if n.effectOnce and not (o.effectStarted and now-o.effectStarted<o.effectDuration) then
             o.wasShown=false;o.started=nil;f:Hide();return
         end
-        if (n.particleFlow or n.spinPeriod) and view.animationCasting==nil then
+        if (n.particleFlow or n.spinPeriod and not view.raidEncounter) and view.animationCasting==nil then
             view.animationCasting=State(view,"player").cast.active or false
         end
         if n.spinPeriod and o.texture and o.texture.SetRotation then Spin(view,o,now,view.animationCasting) end
@@ -132,6 +138,7 @@ local function Paint(view,o,animateOnly,visibleHint)
     -- Secure visibility layers refresh synchronously on show. Their hidden
     -- descendants need neither unit queries nor invisible particle playback.
     if not view.preview and not visibleHint and not f:GetParent():IsVisible() then
+        if n.partyBuffs then M.NativeDisplays.SetPartyBuffActive(o,false) end
         if n.particleFlow then
             ResetParticle(o)
         end
@@ -269,6 +276,10 @@ local function Paint(view,o,animateOnly,visibleHint)
         local shadowColor=o.shadowColor or {0,0,0,1};o.shadowColor=shadowColor;shadowColor[4]=col[4] or 1
         CachedColor(o,"shadowColor",o.shadow,"SetTextColor",shadowColor)
     elseif o.bar then
+        local smooth=SmoothBar(view,n,s)
+        if o.barSmoothing~=smooth then
+            o.barSmoothing=smooth;o.nativeReady=nil
+        end
         local nativeManaFill=s.provider=="druidFormMana" and s.powerRatio==nil
         local barColorChanged=CachedColor(o,"barColor",o.bar,"SetStatusBarColor",
             o.nativeArt and not nativeManaFill and nativeDriverColor or col)
@@ -308,7 +319,7 @@ local function Paint(view,o,animateOnly,visibleHint)
             if not(n.thirdResource and s.thirdTimer and o.bar.SetTimerDuration)then ratio=s.powerRatio end
         else ratio=s.healthRatio end
         if n.binding=="static" then ratio=.75 end
-        ratio=DisplayRatio(view,o,n,ratio,animateOnly)
+        ratio=DisplayRatio(view,o,n,ratio,animateOnly,smooth)
         if ratio and not n.vertical then
             if o.bar:IsShown() then o.bar:Hide() end
             if o.clip:IsShown()~=(ratio>0) then o.clip:SetShown(ratio>0) end
@@ -328,11 +339,11 @@ local function Paint(view,o,animateOnly,visibleHint)
         end
         if n.binding=="health" and s.healthRatio==nil and not (o.classHealthColor or o.customHealthStyle or o.targetHealthThreshold) and not view.preview and not animateOnly then RestrictedHealthColor(o,s) end
         if n.binding=="health" then
-            if not (animateOnly and n.smooth) then
+            if not animateOnly then
                 CachedPair(o,"barRange",o.bar,"SetMinMaxValues",0,s.maxHealth or 1)
                 if not s.bossHealth or o.healthValueSample~=s.bossHealth or not o.nativeReady
                     or o.healthValueApply~=view.applyGeneration then
-                    local interpolation=n.smooth and s.healthRatio==nil and o.nativeReady and Enum
+                    local interpolation=smooth and s.healthRatio==nil and o.nativeReady and Enum
                         and Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
                     if interpolation then o.bar:SetValue(s.health or 0,interpolation)
                     else CachedValue(o,"barValue",o.bar,"SetValue",s.health or 0) end
@@ -344,7 +355,7 @@ local function Paint(view,o,animateOnly,visibleHint)
             if n.thirdResource and s.thirdTimer and o.bar.SetTimerDuration and Enum and Enum.StatusBarTimerDirection then
                 if not animateOnly or not o.thirdTimerBound then o.bar:SetTimerDuration(s.thirdTimer,nil,Enum.StatusBarTimerDirection.RemainingTime)end
                 o.thirdTimerBound=true
-            elseif not (animateOnly and n.smooth) then
+            elseif not animateOnly then
                 o.thirdTimerBound=nil
                 if o.nativePowerType~=s.powerType then
                     o.nativeReady=nil;o.nativePowerType=s.powerType;Cache(o).barValue=nil
@@ -354,7 +365,7 @@ local function Paint(view,o,animateOnly,visibleHint)
                 if Readable(value)and value==nil then value=0 end
                 if Readable(maximum)and maximum==nil then maximum=1 end
                 CachedPair(o,"barRange",o.bar,"SetMinMaxValues",0,maximum)
-                local interpolation=n.smooth and s.powerRatio==nil and o.nativeReady and Enum and Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
+                local interpolation=smooth and s.powerRatio==nil and o.nativeReady and Enum and Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
                 if interpolation then o.bar:SetValue(value,interpolation);Cache(o).barValue=nil
                 else CachedValue(o,"barValue",o.bar,"SetValue",value) end
                 o.nativeReady=true

@@ -41,6 +41,7 @@ local auraPreviewIcons={
     "Spell_Nature_Roots","Spell_Nature_Slow","Spell_Nature_Sleep","Ability_Rogue_Rupture",
 }
 local function Auras(view,o,s)
+    if not view.preview and view.raidEncounter and o.spec.partyBuffs then return end
     if M.NativeDisplays.Auras(view,o,s) then return end
     local n=o.spec;local data
     local parent=view.nodes[n.parent] and view.nodes[n.parent].spec

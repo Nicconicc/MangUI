@@ -66,10 +66,14 @@ end
 local function UpdateFocusMenuBounds(view)R.UpdateUnitMenuBounds(view)end
 local targetUnits={target=true,targettarget=true}
 local gateModules={mainComposite={mainComposite=true},petComposite={petComposite=true},focusComposite={focusComposite=true}}
-function R.InvalidateAuras(view,unit)
+function R.InvalidateAuras(view,unit,delta)
     view.auraVersions=view.auraVersions or {}
     local versions=view.auraVersions
-    if unit then versions[unit]=(versions[unit] or 0)+1
+    if unit then
+        versions[unit]=(versions[unit] or 0)+1
+        if C.Readable(delta) and delta~=nil and M.RaidBuffMonitor and M.RaidBuffMonitor.ApplyAuraDelta then
+            M.RaidBuffMonitor.ApplyAuraDelta(view,unit,delta,versions[unit])
+        end
     else
         for _,name in ipairs({"player","target","targettarget","focus","pet","party1","party2","party3","party4"}) do
             versions[name]=(versions[name] or 0)+1
@@ -80,6 +84,9 @@ end
 function R.RefreshTarget(view,moduleID)
     if view.applying or view.targetRefreshing then return end
     view.nextDecorationRange=nil
+    view.distanceRangeDue=nil
+    local threat=view.nodes.targetThreatDisplay
+    if threat then threat.nextThreatUpdate=nil end
     view.targetRefreshing=true
     view.targetRefreshGeneration=(view.targetRefreshGeneration or 0)+1
     R.InvalidateAuras(view,"target");R.InvalidateAuras(view,"targettarget")
@@ -95,6 +102,7 @@ function R.RefreshTarget(view,moduleID)
     if not ok then error(err) end
 end
 local healthState={health=true};local powerState={power=true};local healthPowerState={health=true,power=true}
+local appearanceState={}
 local function InvalidateState(view,unit,fields)
     view.cache[unit]=nil
     local previous=view.stateFields[unit]
@@ -140,6 +148,7 @@ local function Update(view,units,modules,fields,objects)
     local firstUnit=units and next(units)
     local targetHealthOnly=fields and firstUnit=="target" and not next(units,firstUnit)
         and fields.health.target and not fields.power.target and not fields.all.target
+        and not (fields.aura and fields.aura.target) and not (fields.portrait and fields.portrait.target)
         and (not modules or not next(modules)) and not objects
     if not targetHealthOnly then M:RuntimeCall(view,"decorationRange","装饰范围刷新",R.UpdateDecorationRange,view) end
     if objects then
@@ -152,18 +161,23 @@ local function Update(view,units,modules,fields,objects)
         local generation=view.updateGeneration;local buckets=0
         for unit in pairs(units or emptyUpdates) do
             local key=unit=="vehicle" and "player" or unit
+            local aura=fields and fields.aura and fields.aura[key]
+            local portrait=fields and fields.portrait and fields.portrait[key]
             local mask
             if fields and not fields.all[key] then
                 if fields.health[key] and fields.power[key] then mask=healthPowerState
                 elseif fields.health[key] then mask=healthState
-                elseif fields.power[key] then mask=powerState end
+                elseif fields.power[key] then mask=powerState
+                elseif aura or portrait then mask=appearanceState end
             end
             Invalidate(view,key,mask)
-            if not fields or fields.all[key] or not (fields.health[key] or fields.power[key]) then
+            if not fields or fields.all[key] or not (fields.health[key] or fields.power[key] or aura or portrait) then
                 buckets=buckets+QueueBucket(list,view.unitBuckets[key],generation)
             else
                 if fields.health[key] then buckets=buckets+QueueBucket(list,view.fieldBuckets.health[key],generation) end
                 if fields.power[key] then buckets=buckets+QueueBucket(list,view.fieldBuckets.power[key],generation) end
+                if aura then buckets=buckets+QueueBucket(list,view.fieldBuckets.aura[key],generation) end
+                if portrait then buckets=buckets+QueueBucket(list,view.fieldBuckets.portrait[key],generation) end
             end
         end
         for id in pairs(modules or emptyUpdates) do
@@ -197,7 +211,7 @@ local pollDeadlines={
 local function NeedsAnimation(view,o)
     if view.preview then return true end
     local n=o.spec
-    if view.raidEncounter and n.particleFlow and o.module and o.module.id=="mainComposite" then return false end
+    if view.raidEncounter and (n.kind=="sprite" or n.partyBuffs or n.spinPeriod) then return false end
     local now=view.animationNow or GetTime()
     local deadline=pollDeadlines[n.kind]
     if deadline and o[deadline] and now<o[deadline] then return false end
@@ -208,7 +222,10 @@ local function NeedsAnimation(view,o)
     if o.bar and (n.binding=="health" or n.binding=="power") then return o.smoothStart~=nil or o.animatedEdge or o.fillEdgeMoving or B.Moving(view,n) end
     if n.kind=="spark" and n.followDisplay then
         local owner=view.nodes[n.owner]
-        if owner then return owner.spec.binding=="cast" or owner.animatedEdge or owner.fillEdgeMoving or B.Moving(view,owner.spec) or owner.displayRatio~=o.sparkRatio or owner.fillStart~=o.sparkStart end
+        if owner then
+            return owner.spec.binding=="cast" or owner.fillEdgeMoving or B.Moving(view,owner.spec)
+                or owner.barSmoothing and (owner.animatedEdge or owner.displayRatio~=o.sparkRatio or owner.fillStart~=o.sparkStart)
+        end
     end
     if n.kind=="resources" and o.resourceAnimating==false then return false end
     return true
@@ -224,15 +241,26 @@ function R.Animate(view)
     if not view.root:IsVisible() then return end
     M:RuntimeCall(view,"decorationRange","装饰范围刷新",R.UpdateDecorationRange,view)
     if not view.preview then view.animationNow=GetTime();view.animationCasting=nil end
-    for _,o in ipairs(view.animated) do
-        if NeedsAnimation(view,o) then
+    local sample=M.ModuleProfiler and M.ModuleProfiler.targetSampling
+    local count=0
+    for _,o in ipairs(view.raidEncounter and view.raidAnimated or view.animated) do
+        local n=o.spec
+        local active=(view.preview and not (view.hidden and view.hidden[n.id])) or not view.preview and
+            (independentKinds[n.kind] or n.attackKind or n.centerLogo
+            or (n.kind=="spark" and n.edgeOnly) or o.frame:IsVisible())
+        if active and NeedsAnimation(view,o) then
             if view.preview then AnimateObject(view,o)
             else
+                count=count+1
                 o.animateRuntimeKey=o.animateRuntimeKey or "animate:"..o.spec.id
                 local group=o.module or o.spec
                 M:RuntimeCall(view,o.animateRuntimeKey,group.label or group.id,AnimateObject,view,o)
             end
-        end
+        elseif not active and n.particleFlow and o.started then ResetParticle(o) end
+    end
+    if sample and sample.macro and not view.preview then
+        sample.animationObjects=(sample.animationObjects or 0)+count
+        sample.animationFrames=(sample.animationFrames or 0)+1
     end
     if M.ModuleGuides then M:RuntimeCall(view,"guides:animate","辅助线",M.ModuleGuides.Refresh,view)end
     M:RuntimeCall(view,"entryAnimations","入场动画",R.UpdateEntryAnimations,view,true)

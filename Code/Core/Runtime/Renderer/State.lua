@@ -110,8 +110,21 @@ local function CastRatio(s)
     local p=M.Clamp((GetTime()-c.start)/(c.finish-c.start),0,1)
     return c.channel and 1-p or p
 end
-local function DisplayRatio(view,o,n,target,animateOnly)
-    if not n.smooth or view.preview or target==nil then
+local function SmoothBar(view,n,s)
+    if not n.smooth then return false end
+    if view.preview then return true end
+    if n.binding~="health" and n.binding~="power" then return true end
+    if n.partyIndex~=nil or n.unit=="pet" or n.unit=="targettarget" or n.unit=="focus" then return false end
+    if n.thirdResource then return not view.raidEncounter end
+    if n.binding=="power" and n.unit=="player" and s.powerType==0 then return false end
+    if n.id=="bossHPFill" then return false end
+    if view.raidEncounter and n.binding=="health" and n.unit=="target" then
+        return s.friendly==true
+    end
+    return true
+end
+local function DisplayRatio(view,o,n,target,animateOnly,smooth)
+    if not smooth or view.preview or target==nil then
         o.displayRatio=target;o.smoothTarget=target;o.smoothStart=nil
         return target
     end
@@ -259,6 +272,7 @@ M.RendererInternals.healthGreen=healthGreen
 M.RendererInternals.Appearance=Appearance
 M.RendererInternals.CastRatio=CastRatio
 M.RendererInternals.DisplayRatio=DisplayRatio
+M.RendererInternals.SmoothBar=SmoothBar
 M.RendererInternals.RestrictedHealthColor=RestrictedHealthColor
 M.RendererInternals.RestrictedHealthThreshold=RestrictedHealthThreshold
 M.RendererInternals.Text=Text
