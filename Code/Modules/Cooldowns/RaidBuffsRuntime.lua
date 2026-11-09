@@ -40,7 +40,7 @@ local function Bind(slot)
     slot.pending=nil
     if slot.container then slot.container:SetEnabled(false)end
     slot.bound=false
-    for _,frame in ipairs(slot.nativeFrames or {})do frame.gate:SetAlpha(1)end
+    for _,native in ipairs(slot.nativeFrames or {})do native.gate:SetAlpha(1)end
     if not next(slot.ids)then return end
     if not slot.container then
         local container=CreateFrame("AuraContainer",nil,slot,"CustomAuraContainerTemplate")
@@ -49,14 +49,15 @@ local function Bind(slot)
             frame:SetSize(40,40);frame:EnableMouse(false)
             -- Chain native gates so either healthy alternative suppresses the
             -- reminder without comparing protected presence or duration values.
-            frame.gate=CreateFrame("Frame",nil,slot.lastGate or slot.base);frame.gate:SetAllPoints();frame.gate:EnableMouse(false)
-            slot.lastGate=frame.gate;slot.texture:SetParent(frame.gate)
-            slot.timerGate:SetParent(frame.gate)
+            local gate=CreateFrame("Frame",nil,slot.lastGate or slot.base);gate:SetAllPoints();gate:EnableMouse(false)
+            local native={frame=frame,gate=gate}
+            slot.lastGate=gate;slot.texture:SetParent(gate)
+            slot.timerGate:SetParent(gate)
             if #slot.nativeFrames==0 and frame.SetDurationText then
-                frame.nativeTime=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-                frame.nativeTime:SetAlpha(0);frame:SetDurationText(frame.nativeTime,S.DurationTextOptions())
+                native.time=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+                native.time:SetAlpha(0);frame:SetDurationText(native.time,S.DurationTextOptions())
             end
-            slot.nativeFrames[#slot.nativeFrames+1]=frame
+            slot.nativeFrames[#slot.nativeFrames+1]=native
         end})
         container:SetFlowLayoutAnchorPoint("TOPLEFT");container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
         container:SetFlowLayoutMaximumLineSize(40.001)
@@ -283,7 +284,7 @@ function I.Configure(view,o)
         if slot.weapon then
             slot.texture:SetParent(slot.base)
             slot.timerGate:SetParent(slot.base)
-            for _,frame in ipairs(slot.nativeFrames or {})do frame.gate:SetAlpha(1)end
+            for _,native in ipairs(slot.nativeFrames or {})do native.gate:SetAlpha(1)end
         end
     end
     for index=#o.entries+1,#o.buffIcons do
@@ -298,7 +299,7 @@ local function Auras(view,animateOnly)
         if not Readable(secret)or secret==true then return end
     end
     local index=I.MonitorAuraIndex(view,"player","HELPFUL",animateOnly)
-    return index.byID,index.allNames
+    return index.byID,index.allNames,index.snapshot.complete
 end
 local function BuffRemaining(slot,byID,byName,now)
     if not byID then return false end
@@ -321,6 +322,26 @@ local function BuffRemaining(slot,byID,byName,now)
     end
     return active,longest
 end
+local function PaintNative(slot)
+    local curve=ExpiryCurve()
+    for _,native in ipairs(slot.nativeFrames)do
+        local frame=native.frame
+        if frame.IsForbidden and frame:IsForbidden()then return false end
+        local present=frame:IsShown()
+        local alpha=0
+        local duration=curve and frame.GetAuraDuration and Safe(frame.GetAuraDuration,frame)
+        if duration and duration.EvaluateRemainingDuration then alpha=duration:EvaluateRemainingDuration(curve,0)end
+        if native.gate.SetAlphaFromBoolean then native.gate:SetAlphaFromBoolean(present,alpha,1)
+        elseif Readable(present)then native.gate:SetAlpha(present and 0 or 1)
+        else return false end
+        if native.time then
+            M.CustomMonitor.SetText(slot.time,native.time:GetText())
+            if slot.timerGate.SetAlphaFromBoolean then slot.timerGate:SetAlphaFromBoolean(present,1,0)
+            elseif Readable(present)then slot.timerGate:SetAlpha(present and 1 or 0)end
+        end
+    end
+    return true
+end
 function I.Paint(view,o,animateOnly)
     local group=view.byID[o.spec.parent]
     local raid=M.Compat.Bool(Safe(IsInRaid))or (Number(Safe(GetNumRaidMembers))or 0)>0
@@ -338,7 +359,7 @@ function I.Paint(view,o,animateOnly)
     local now=GetTime()
     if animateOnly and now<(o.nextScan or 0)then UpdateConnector(view,o);return end
     o.nextScan=now+.1
-    local byID,byName;if not view.preview then byID,byName=Auras(view,animateOnly)end
+    local byID,byName,complete;if not view.preview then byID,byName,complete=Auras(view,animateOnly)end
     local displayed=o.displayedIcons or {};o.displayedIcons=displayed
     for index=#displayed,1,-1 do displayed[index]=nil end
     local snapshot,lines
@@ -350,40 +371,33 @@ function I.Paint(view,o,animateOnly)
             end
             if slot.pending and o.native and not slot.weapon and not InCombatLockdown()then Bind(slot)end
             local active,remaining=BuffRemaining(slot,byID,byName,now)
+            local useNative=not view.preview and o.native and slot.bound and not slot.weapon
+            slot.timerGate:SetAlpha(1)
+            local nativeOK=useNative and Safe(PaintNative,slot)
+            if useNative and not nativeOK then
+                -- A forbidden Blizzard aura frame can no longer drive these gates.
+                for _,native in ipairs(slot.nativeFrames)do native.gate:SetAlpha(1)end
+                slot.timerGate:SetAlpha(1)
+            end
             local visible
             if slot.weapon then
                 if not snapshot then snapshot,lines=W.Snapshot(),{} end
                 visible,remaining=W.Missing(slot.entry,slot.spell,snapshot,lines);visible=view.preview or visible
             else
-                visible=view.preview or (o.native and slot.bound)or not active or (remaining and remaining<180)
+                local shouldRemind=not active or (remaining and remaining<180)
+                visible=view.preview or nativeOK or ((not useNative or complete or active)and shouldRemind)
                 if slot.entry.type=="weaponAura"and not view.preview then
                     local d=slot.spell.definition
                     visible=visible and d and (W.Applicable(16,d)==true or W.Applicable(17,d)==true)
                 end
             end
             slot:SetShown(visible)
-            slot.remaining=remaining;slot.timerGate:SetAlpha(1)
-            M.CustomMonitor.SetText(slot.time,S.FormatCountdown(view.preview and 80 or visible and remaining or nil))
+            slot.remaining=remaining
+            if not nativeOK or not (slot.nativeFrames[1] and slot.nativeFrames[1].time)then
+                M.CustomMonitor.SetText(slot.time,S.FormatCountdown(view.preview and 80 or visible and remaining or nil))
+            end
             if visible then displayed[#displayed+1]=slot end
             slot.texture:SetDesaturated(false);slot.texture:SetAlpha(1)
-            if o.native and slot.bound then
-                for _,frame in ipairs(slot.nativeFrames or {})do
-                    local present=frame:IsShown()
-                    local alpha=0;local curve=ExpiryCurve()
-                    local duration=curve and frame.GetAuraDuration and Safe(frame.GetAuraDuration,frame)
-                    if duration and duration.EvaluateRemainingDuration then alpha=duration:EvaluateRemainingDuration(curve,0)end
-                    if frame.gate.SetAlphaFromBoolean then frame.gate:SetAlphaFromBoolean(present,alpha,1)
-                    elseif Readable(present)then frame.gate:SetAlpha(present and 0 or 1)end
-                end
-                local first=slot.nativeFrames and slot.nativeFrames[1]
-                if first and first.nativeTime then
-                    first.nativeTime:SetAlpha(0)
-                    M.CustomMonitor.SetText(slot.time,first.nativeTime:GetText())
-                    local present=first:IsShown()
-                    if slot.timerGate.SetAlphaFromBoolean then slot.timerGate:SetAlphaFromBoolean(present,1,0)
-                    elseif Readable(present)then slot.timerGate:SetAlpha(present and 1 or 0)end
-                end
-            end
         end
     end
     if now>=(o.nextInfo or 0)then o.nextInfo=now+1 end
