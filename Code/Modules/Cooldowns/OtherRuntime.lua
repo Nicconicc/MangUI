@@ -28,30 +28,28 @@ local function CanRead(unit)
     return true
 end
 local repeatedAuraIDs={player={},target={}}
-local function Auras(unit,filter)
+local function Auras(unit,filter,weaponIDs)
     if not CanRead(unit)then return nil end
     local snapshot=M.Compat.AuraSnapshot(unit,filter)
-    local result={byID={},byName={},instancesByID={},complete=snapshot.complete~=false}
-    for index,raw in ipairs(snapshot)do
-        -- Own the record: compatibility APIs may reuse a temporary result table.
-        local aura={name=raw.name,spellId=raw.spellId,spellID=raw.spellID,sourceUnit=raw.sourceUnit,
-            expirationTime=raw.expirationTime,duration=raw.duration,applications=raw.applications,
-            icon=raw.icon,auraInstanceID=raw.auraInstanceID}
+    local result={byID={},byName={},indices={},instancesByID={},complete=snapshot.complete~=false}
+    for index,aura in ipairs(snapshot)do
         local id=aura.spellId;if type(id)=="nil"then id=aura.spellID end
         if not Readable(aura.name)or not Readable(id)or (unit=="target" and not Readable(aura.sourceUnit))then
             result.complete=false
-        else
-            if unit~="target"or (Readable(aura.sourceUnit)and (aura.sourceUnit=="player"or
-                (aura.sourceUnit and M.Compat.Bool(Safe(UnitIsUnit,aura.sourceUnit,"player")))))then
-                local key=Number(id)
-                aura.monitorIndex=index
-                if key then
-                    result.byID[key]=aura
+        elseif unit~="target"or aura.sourceUnit=="player"or
+            (aura.sourceUnit and M.Compat.Bool(Safe(UnitIsUnit,aura.sourceUnit,"player")))then
+            local key=Number(id)
+            result.indices[aura]=index
+            if key then
+                result.byID[key]=aura
+                if weaponIDs and weaponIDs[key] then
                     local instances=result.instancesByID[key]or {};result.instancesByID[key]=instances
-                    instances[#instances+1]=aura
+                    -- Only dual-weapon matching needs its own mutable records.
+                    instances[#instances+1]={auraInstanceID=aura.auraInstanceID,
+                        duration=aura.duration,expirationTime=aura.expirationTime,applications=aura.applications}
                 end
-                if type(aura.name)=="string"then result.byName[aura.name]=aura end
             end
+            if type(aura.name)=="string"then result.byName[aura.name]=aura end
         end
     end
     for _,instances in pairs(result.instancesByID)do
@@ -227,7 +225,7 @@ local function Resolve(slot,entry)
     slot.auraInput,slot.auraType=entry.value,entry.type
     slot.entry=entry;slot.spellID=tonumber(entry.value)or id;slot.spellName=name or entry.value
     slot.item=entry.type=="equipment"and O.Effects(entry.slot or 13)or nil
-    slot.texture:SetTexture(slot.item and slot.item.icon or icon or 134400)
+    M.CustomMonitor.SetVisual(slot.texture,"SetTexture",slot.item and slot.item.icon or icon or 134400)
     slot.customFallbackIcon=icon or 134400
     if slot.missingBackdrop then slot.missingIcon:SetTexture(slot.customFallbackIcon)end
     slot.needsInfo=entry.type~="custom"and entry.type~="equipment"and (not icon or not slot.spellID)
@@ -405,10 +403,22 @@ local function WeaponAuras(o,auras)
 end
 local TrackEquipment
 function O.Configure(view,o)
-    if not view.preview then TrackEquipment(false)end
     o.otherIcons=o.otherIcons or {};o.entries=O.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
     o.nativeCompact=CompactSupported(o)
-    o.nextScan=0;o.nextEquipment=0;o.nextDiscovery=GetTime()+1
+    S.ResetMonitorRefresh(o)
+    o.otherKinds={}
+    o.otherVisualDirty=true
+    o.playerAuras,o.targetAuras,o.weaponAuras,o.weaponIDs=nil,nil,nil,nil
+    o.nextEquipmentExpiry=nil
+    o.nextDiscovery=GetTime()+1
+    for _,entry in ipairs(o.entries) do
+        local kind=entry.type
+        o.otherKinds[kind]=true
+        if entry.displayWhen=="boss" then o.otherKinds.boss=true end
+        if IsTarget(entry) then o.otherKinds.target=true
+        elseif kind=="buffFound" or kind=="buffMissing" or kind=="equipment" then o.otherKinds.player=true end
+    end
+    if o.otherKinds.equipment and not view.preview then TrackEquipment(false) end
     for i,entry in ipairs(o.entries)do
         local slot=Icon(o,i)
         if slot.entry~=entry then slot.wasCondition=nil end
@@ -416,7 +426,7 @@ function O.Configure(view,o)
         if slot.item then slot.fingerprint=ItemFingerprint(slot.item)end
         if o.native then if not InCombatLockdown()then BindNative(slot)else slot.nativeDirty=true end end
     end
-    for i=#o.entries+1,#o.otherIcons do local slot=o.otherIcons[i];slot:Hide();slot.entry=nil;ResetNative(slot)end
+    for i=#o.entries+1,#o.otherIcons do local slot=o.otherIcons[i];M.CustomMonitor.SetVisual(slot,"SetShown",false);slot.entry=nil;ResetNative(slot)end
     M.CustomMonitor.Sync(view,o,o.otherIcons,O.Paint)
 end
 O.timers={}
@@ -558,49 +568,103 @@ local function Equipment(slot,auras,now,weaponAuras)
     slot.faded=not active and hasFixed and cdExpires~=nil and cdExpires>now or false
     slot.fixedCooldown=hasFixed;slot.condition=active;slot.show=active or slot.faded;slot.rawKnown=auras~=nil
 end
-local function Refresh(view,o,now,combat,boss)
-    local player=Auras("player","HELPFUL")
-    local equipmentAuras=player and player.complete and player or nil
-    local targetExists=M.Compat.Bool(Safe(UnitExists,"target"));local target=targetExists and Auras("target","HARMFUL|PLAYER")or nil
-    local equipmentDue=now>=(o.nextEquipment or 0)
-    if equipmentDue then TrackEquipment(true)end
+local function Refresh(view,o,now,combat)
+    local kinds=o.otherKinds
+    local equipment=kinds.equipment and S.MonitorRefreshDue(o,"equipment",now,1)
+    local itemCooldown=kinds.equipment and S.MonitorRefreshDue(o,"itemCooldown",now,.5)
+    local player=kinds.player and S.MonitorRefreshDue(o,"player",now,1)
+    local target=kinds.target and S.MonitorRefreshDue(o,"target",now,1)
+    local stance=kinds.stance and S.MonitorRefreshDue(o,"stance",now,1)
+    local info=S.MonitorRefreshDue(o,"info",now,1)
+    local boss=o.loadBossActive
+    if kinds.boss and (o.otherLoadDirty or o.lastCombat~=combat or o.otherVisualDirty
+        or S.MonitorRefreshDue(o,"boss",now,.2)) then
+        boss=BossActive(o,combat)
+    end
+    if not kinds.boss then boss=false end
+    local loadChanged=o.lastCombat~=combat or o.loadBossActive~=boss or o.otherLoadDirty
+    o.lastCombat,o.loadBossActive,o.otherLoadDirty=combat,boss,nil
+    local expires=kinds.equipment and o.nextEquipmentExpiry and now>=o.nextEquipmentExpiry
+    if not (equipment or itemCooldown or player or target or stance or info or loadChanged or expires) then return false end
+    if equipment then TrackEquipment(true) end
+    local equipmentChanged=false
     for _,slot in ipairs(o.otherIcons)do
         local entry=slot.entry
         if entry then
-            if slot.needsInfo and now>=(slot.nextInfo or 0)then
+            if info and slot.needsInfo and now>=(slot.nextInfo or 0)then
                 local old=slot.spellID;Resolve(slot,entry)
                 if o.native and old~=slot.spellID then
                     if not InCombatLockdown()then BindNative(slot)else slot.nativeDirty=true end
                 end
             end
             if entry.type=="equipment"then
-                if equipmentDue then
+                if equipment then
                     local item=O.Effects(entry.slot or 13);local fingerprint=ItemFingerprint(item)
                     if slot.fingerprint~=fingerprint then
-                        slot.item=item;slot.fingerprint=fingerprint;slot.texture:SetTexture(item.icon or 134400);slot.wasCondition=false
+                        slot.item=item;slot.fingerprint=fingerprint;M.CustomMonitor.SetVisual(slot.texture,"SetTexture",item.icon or 134400);slot.wasCondition=false
+                        equipmentChanged=true
                         if o.native then if not InCombatLockdown()then BindNative(slot)else slot.nativeDirty=true end end
                     else slot.item=item end
                 end
             end
         end
     end
-    local weaponAuras=WeaponAuras(o,equipmentAuras)
+    if equipmentChanged or (equipment and not o.weaponIDs) then
+        local main,off
+        for _,slot in ipairs(o.otherIcons) do
+            if slot.entry and slot.item then
+                if slot.entry.slot==16 then main=slot.item.effects end
+                if slot.entry.slot==17 then off=slot.item.effects end
+            end
+        end
+        o.weaponIDs={}
+        if main and off then
+            for id in pairs(main) do if off[id] then o.weaponIDs[id]=true end end
+        end
+    end
+    if player or equipmentChanged then
+        o.playerAuras=Auras("player","HELPFUL",o.weaponIDs)
+        if kinds.equipment then
+            local snapshot=o.playerAuras
+            o.weaponAuras=WeaponAuras(o,snapshot and snapshot.complete and snapshot or nil)
+        end
+    end
+    if target then
+        o.targetAuras=M.Compat.Bool(Safe(UnitExists,"target")) and Auras("target","HARMFUL|PLAYER") or nil
+    end
+    local playerAuras,targetAuras=o.playerAuras,o.targetAuras
+    local equipmentAuras=playerAuras and playerAuras.complete and playerAuras or nil
+    local refreshEquipment=equipmentChanged or itemCooldown or player or expires
+    if refreshEquipment then o.nextEquipmentExpiry=nil end
     local stanceRead,stanceID,stanceName,stanceIcon
     for _,slot in ipairs(o.otherIcons)do
         local entry=slot.entry
         if entry then
-            if entry.type=="equipment"then Equipment(slot,equipmentAuras,now,weaponAuras)
-            elseif entry.type=="stance"then
-                if not stanceRead then stanceID,stanceName,stanceIcon=ActiveStance();stanceRead=true end
-                local active=stanceID~=nil and (slot.spellID==stanceID
-                    or (not tonumber(entry.value) and stanceName~=nil and stanceName==slot.spellName))
-                slot.active,slot.condition,slot.show,slot.rawKnown=active,active,active,true
-                slot.faded,slot.expires,slot.stacks,slot.auraIndex=false,nil,nil,nil
-                if active and Readable(stanceIcon) and stanceIcon~=nil then
-                    M.CustomMonitor.SetVisual(slot.texture,"SetTexture",stanceIcon)
+            local kind=entry.type
+            local changed
+            if kind=="equipment"then
+                if refreshEquipment then
+                    Equipment(slot,equipmentAuras,now,o.weaponAuras or {})
+                    if slot.faded and (not o.nextEquipmentExpiry or slot.expires<o.nextEquipmentExpiry) then
+                        o.nextEquipmentExpiry=slot.expires
+                    end
+                    changed=true
                 end
-            elseif entry.type~="custom"then
-                local auras=player;if IsTarget(entry)then auras=target end
+            elseif kind=="stance"then
+                if stance or info then
+                    if not stanceRead then stanceID,stanceName,stanceIcon=ActiveStance();stanceRead=true end
+                    local active=stanceID~=nil and (slot.spellID==stanceID
+                        or (not tonumber(entry.value) and stanceName~=nil and stanceName==slot.spellName))
+                    slot.active,slot.condition,slot.show,slot.rawKnown=active,active,active,true
+                    slot.faded,slot.expires,slot.stacks,slot.auraIndex=false,nil,nil,nil
+                    if active and Readable(stanceIcon) and stanceIcon~=nil then
+                        M.CustomMonitor.SetVisual(slot.texture,"SetTexture",stanceIcon)
+                    end
+                    changed=true
+                end
+            elseif kind~="custom" and (info or (IsTarget(entry) and target) or (not IsTarget(entry) and player))then
+                local auras=playerAuras
+                if IsTarget(entry) then auras=targetAuras end
                 local aura=Find(auras,entry,slot.spellID);local present=aura~=nil
                 if aura and o.nativeCompact and not tonumber(entry.value)then
                     local id=Number(aura.spellId) or Number(aura.spellID)
@@ -609,15 +673,16 @@ local function Refresh(view,o,now,combat,boss)
                     end
                 end
                 slot.active=present;slot.condition=IsMissing(entry)and not present or (not IsMissing(entry)and present)
-                if IsTarget(entry)and not targetExists then slot.condition=false end
+                if IsTarget(entry)and not auras then slot.condition=false end
                 slot.rawKnown=present or (auras and auras.complete)or false
                 slot.show=slot.condition and slot.rawKnown;slot.faded=false;slot.expires=not IsMissing(entry)and aura and Number(aura.expirationTime)or nil
-                slot.stacks=not IsMissing(entry)and aura and aura.applications or nil;slot.auraIndex=aura and aura.monitorIndex
+                slot.stacks=not IsMissing(entry)and aura and aura.applications or nil;slot.auraIndex=aura and auras.indices[aura]
+                changed=true
             end
             if slot.nativeDirty and not InCombatLockdown()then BindNative(slot)end
             -- Protected aura existence never drives Lua sounds or hidden timers.
             local known=slot.rawKnown
-            if entry.type~="custom"then
+            if kind~="custom" and (changed or loadChanged) then
                 local soundAllowed=O.SoundAllowed(o,entry,combat,boss)
                 if not soundAllowed then slot.wasCondition=false
                 elseif known then
@@ -628,7 +693,7 @@ local function Refresh(view,o,now,combat,boss)
             end
         end
     end
-    if equipmentDue then o.nextEquipment=now+1 end
+    return true
 end
 function O.Paint(view,o,animateOnly)
     local group=view.byID[o.spec.parent];local enabled=group.enabled~=false and o.spec.enabled~=false
@@ -650,13 +715,21 @@ function O.Paint(view,o,animateOnly)
         if not equipment then entries=samples end
     end
     local displayed=o.displayedIcons or {};o.displayedIcons=displayed
-    for index=#displayed,1,-1 do displayed[index]=nil end
     local combat=not view.preview and CombatActive(o)
-    if not view.preview and #entries>0 and (not animateOnly or now>=(o.nextScan or 0))then
-        o.loadBossActive=BossActive(o,combat)
-        Refresh(view,o,now,combat,o.loadBossActive);o.nextScan=now+.2
+    local direction=S.Direction(group)
+    local refreshed=not view.preview and #entries>0 and Refresh(view,o,now,combat)
+    if not view.preview and not o.native and not o.otherKinds.custom and not refreshed
+        and not o.otherVisualDirty and direction==o.otherDirection then
+        for _,slot in ipairs(displayed) do
+            Time(slot.time,slot.expires,now)
+            if slot.entry.glow and slot.condition then SetGlow(slot.glow,true,slot.entry.glowColor,now)end
+        end
+        return
     end
-    local row=not view.preview and CompactRow(o,entries,S.Direction(group))
+    o.otherVisualDirty=nil
+    o.otherDirection=direction
+    for index=#displayed,1,-1 do displayed[index]=nil end
+    local row=not view.preview and CompactRow(o,entries,direction)
     for i,entry in ipairs(entries)do
         local slot=Icon(o,i);if slot.entry~=entry then Resolve(slot,entry)end
         local allowed=LoadAllowed(entry,combat,o.loadBossActive)
@@ -678,7 +751,7 @@ function O.Paint(view,o,animateOnly)
             SizeLink(row.full[i],spellIDs,visible)
             if row.centered then SizeLink(row.half[i],spellIDs,visible)end
         end
-        slot:SetShown(visible)
+        M.CustomMonitor.SetVisual(slot,"SetShown",visible)
         local baseAlpha=native and not IsMissing(entry)and (entry.type~="equipment"or not slot.show)and 0 or 1
         M.CustomMonitor.SetVisual(slot,"EnableMouse",not (nativeMissing or (nativeFound and not slot.show)))
         if slot.missingHost then
@@ -726,17 +799,35 @@ local events={UNIT_AURA=true,PLAYER_TARGET_CHANGED=true,PLAYER_ENTERING_WORLD=tr
 function O.Event(view,event,unit)
     if not events[event]or (event=="UNIT_AURA"and unit~="player"and unit~="target")then return end
     if event=="UNIT_INVENTORY_CHANGED"and unit~="player"then return end
-    if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="BAG_UPDATE_DELAYED"then TrackEquipment(true)end
-    local o=view.nodes.playerOtherMonitorIcons;if not o then return end
+    local o=view.nodes.playerOtherMonitorIcons;if not o or not o.monitorDirty then return end
     if event=="PLAYER_REGEN_DISABLED" then o.combatActive=true
     elseif event=="PLAYER_REGEN_ENABLED" then o.combatActive=false
     elseif event=="PLAYER_ENTERING_WORLD" then o.combatActive=nil end
     if event=="ENCOUNTER_START"then o.encounterActive=true
     elseif event=="ENCOUNTER_END"then o.encounterActive=false
     elseif event=="PLAYER_ENTERING_WORLD"or event=="PLAYER_REGEN_ENABLED"then o.encounterActive=nil end
-    o.nextScan=0
-    if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED"then o.nextEquipment=0 end
-    if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED"then o.nextDiscovery=0 end
+    if event=="UNIT_AURA" then
+        S.InvalidateMonitor(o,unit=="player" and "player" or "target")
+    elseif event=="SPELL_UPDATE_COOLDOWN" or event=="BAG_UPDATE_COOLDOWN" then
+        S.InvalidateMonitor(o,"itemCooldown")
+    elseif event=="PLAYER_EQUIPMENT_CHANGED" or event=="UNIT_INVENTORY_CHANGED"
+        or event=="BAG_UPDATE_DELAYED" or event=="GET_ITEM_INFO_RECEIVED" then
+        S.InvalidateMonitor(o,"equipment",true)
+        S.InvalidateMonitor(o,"itemCooldown",true)
+        o.nextDiscovery=0
+    elseif event=="UPDATE_SHAPESHIFT_FORM" or event=="UPDATE_SHAPESHIFT_FORMS" then
+        S.InvalidateMonitor(o,"stance")
+    elseif event=="PLAYER_TARGET_CHANGED" then
+        S.InvalidateMonitor(o,"target",true)
+        o.otherVisualDirty=true
+    elseif event=="PLAYER_ENTERING_WORLD" then
+        S.ResetMonitorRefresh(o)
+    else
+        o.otherLoadDirty=true
+        if event=="SPELLS_CHANGED" or event=="PLAYER_REGEN_ENABLED" then
+            S.InvalidateMonitor(o,"info",true)
+        end
+    end
     if event=="PLAYER_TARGET_CHANGED"then
         for _,slot in ipairs(o.otherIcons or {})do if slot.entry and slot.container and IsTarget(slot.entry)then slot.container:UpdateAllAuras()end end
         local row=o.compactRow
@@ -759,7 +850,6 @@ function O.Event(view,event,unit)
             end
         end
     end
-    O.Paint(view,o,false)
     if (event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED")
         and M.editor and M.editor.window:IsShown()and M.selection=="playerOtherMonitor"then M:RefreshProperties()end
 end

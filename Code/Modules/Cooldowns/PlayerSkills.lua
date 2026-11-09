@@ -686,7 +686,7 @@ local function Resolve(slot,entry)
     id=tonumber(entry.value) or id or Safe(C_Spell and C_Spell.GetSpellIDForSpellIdentifier,entry.value)
     if not Readable(id) then id=nil end
     slot.entry=entry;slot.spellID=id;slot.spellName=name or entry.value
-    slot.texture:SetTexture(icon or 134400);slot.customFallbackIcon=icon or 134400
+    M.CustomMonitor.SetVisual(slot.texture,"SetTexture",icon or 134400);slot.customFallbackIcon=icon or 134400
     if slot.nativeBackdrop then slot.nativeBackdrop:SetTexture(slot.customFallbackIcon)end
     slot.needsInfo=entry.type~="custom"and(not id or not icon);slot.nextInfo=GetTime()+1
 end
@@ -709,10 +709,34 @@ local function BindAura(slot,enabled)
     slot.nativeSpellID=slot.spellID
     slot.nativeAuras:SetEnabled(true);slot.nativeAuras:UpdateAllAuras()
 end
+-- All callers use the same deadlines, including full renderer refreshes.
+-- Events only mark data dirty. An event burst can consume one refresh per lane.
+function S.ResetMonitorRefresh(o)
+    o.monitorDirty, o.monitorEarliest, o.monitorFallback = {}, {}, {}
+end
+function S.InvalidateMonitor(o, key, urgent)
+    o.monitorDirty[key] = true
+    if urgent then o.monitorEarliest[key] = nil end
+end
+function S.MonitorRefreshDue(o, key, now, fallback)
+    if now < (o.monitorEarliest[key] or 0) then return false end
+    if not o.monitorDirty[key] and now < (o.monitorFallback[key] or 0) then return false end
+    o.monitorDirty[key] = nil
+    o.monitorEarliest[key] = now + .05
+    o.monitorFallback[key] = now + fallback
+    return true
+end
+function S.TargetAuraFilter(native)
+    return native and "HARMFUL" or "HARMFUL|PLAYER"
+end
 function S.Configure(view,o)
-    o.skillIcons=o.skillIcons or {};o.nextScan=0;o.nativeTargetGeneration=nil
+    o.skillIcons=o.skillIcons or {};o.nativeTargetGeneration=nil
+    S.ResetMonitorRefresh(o)
+    o.skillKinds={}
+    o.skillDirection=nil
     o.entries=S.Entries(view.byID[o.spec.parent]);o.usesNativeAuras=not view.preview and NativeAurasAvailable()
     for i,entry in ipairs(o.entries)do
+        o.skillKinds[entry.type]=true
         local slot=Icon(o,i);Resolve(slot,entry);slot.duration=nil;slot.expires=nil;slot.active=false;slot.stacks=nil
         CountFont(slot.count);M.CustomMonitor.SetText(slot.count,"")
         M.CustomMonitor.SetText(slot.text,"");ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
@@ -816,7 +840,7 @@ local function IsSpellActionUsable(id)
     end
     return false
 end
-local function Usable(slot,now)
+local function Usable(slot,now,cache)
     slot.usableReady=false;slot.usableCooldown=nil
     local id=slot.spellID
     if not id then return end
@@ -836,11 +860,11 @@ local function Usable(slot,now)
         slot.usableReady=charges>0
         return
     end
-    local start,duration,enabled,rate=SpellCooldown(key)
+    local start,duration,enabled,rate=CachedSpellCooldown(cache,key)
     if Readable(enabled) and (enabled==false or enabled==0) then return end
     start,duration,rate=Number(start),Number(duration),Number(rate) or 1
     if start and duration and rate>0 then
-        slot.usableReady=duration<=0 or start+duration/rate<=now or GlobalCooldown(start,duration)==true
+        slot.usableReady=duration<=0 or start+duration/rate<=now or GlobalCooldown(start,duration,cache)==true
     else
         -- The cooldown object can drive the icon without reading a secret
         -- timer or confusing recharge time with the spell's actual cooldown.
@@ -851,35 +875,47 @@ local function NeedsAuraScan(o,slot)
     if not o.usesNativeAuras or not slot.nativeSpellID then return true end
     return M.Compat.interface==16001 and not slot.nativeBackdrop
 end
+local emptyAuraSlots={}
 local function ScanAuras(o,kind)
     local auraType=auraTypes[kind]
     local debuff=kind=="debuff"
-    local needed=false
+    local byID, byName = {}, {}
     for _,slot in ipairs(o.skillIcons)do
-        if slot.entry and slot.entry.type==kind then
+        local entry=slot.entry
+        if entry and entry.type==kind then
             slot.active=false;slot.expires=nil;slot.stacks=nil
-            if NeedsAuraScan(o,slot) then needed=true end
+            if NeedsAuraScan(o,slot) then
+                local id=tonumber(entry.value)
+                local index,key=byID,id
+                if not id then index,key=byName,entry.value end
+                local slots=index[key]
+                if not slots then slots={};index[key]=slots end
+                slots[#slots+1]=slot
+            end
         end
     end
-    if not needed then return end
+    if not next(byID) and not next(byName) then return end
     if o.usesNativeAuras and C_Secrets and M.Compat.Bool(Safe(C_Secrets.ShouldAurasBeSecret,auraType.unit)) then return end
-    for _,aura in ipairs(M.Compat.AuraSnapshot(auraType.unit,debuff and "HARMFUL" or "HELPFUL"))do
-        local id=aura.spellId;if type(id)=="nil" then id=aura.spellID end
-        for _,slot in ipairs(o.skillIcons)do
-            local entry=slot.entry
-            if entry and entry.type==kind and NeedsAuraScan(o,slot) then
-                local requested=tonumber(entry.value)
-                local match=requested and Readable(id) and id==requested or (not requested and Readable(aura.name) and aura.name==entry.value)
-                local source=aura.sourceUnit
-                local accepted=not debuff or (Readable(source) and (source=="player" or
-                    (source~=nil and UnitIsUnit and M.Compat.Bool(Safe(UnitIsUnit,source,"player")))))
-                if match and accepted then
-                    slot.active=true
-                    local stacks=Number(aura.applications)
-                    if stacks and (not slot.stacks or stacks>slot.stacks)then slot.stacks=stacks end
-                    local expires=Number(aura.expirationTime)
-                    if expires and expires>0 and (not slot.expires or expires>slot.expires)then slot.expires=expires end
-                    if Readable(aura.icon) and aura.icon~=nil then slot.texture:SetTexture(aura.icon)end
+    local filter=debuff and S.TargetAuraFilter(o.usesNativeAuras) or "HELPFUL"
+    for _,aura in ipairs(M.Compat.AuraSnapshot(auraType.unit,filter))do
+        local id=Number(aura.spellId) or Number(aura.spellID)
+        local named=Readable(aura.name) and byName[aura.name]
+        local numbered=id and byID[id]
+        if named or numbered then
+            local source=aura.sourceUnit
+            local accepted=not debuff or (Readable(source) and (source=="player" or
+                (source~=nil and UnitIsUnit and M.Compat.Bool(Safe(UnitIsUnit,source,"player")))))
+            if accepted then
+                local stacks,expires=Number(aura.applications),Number(aura.expirationTime)
+                for i=1,2 do
+                    local slots
+                    if i==1 then slots=named else slots=numbered end
+                    for _,slot in ipairs(slots or emptyAuraSlots) do
+                        slot.active=true
+                        if stacks and (not slot.stacks or stacks>slot.stacks)then slot.stacks=stacks end
+                        if expires and expires>0 and (not slot.expires or expires>slot.expires)then slot.expires=expires end
+                        if Readable(aura.icon) and aura.icon~=nil then M.CustomMonitor.SetVisual(slot.texture,"SetTexture",aura.icon)end
+                    end
                 end
             end
         end
@@ -893,59 +929,77 @@ function S.Paint(view,o,animateOnly)
     if not shown then return end
     local now=GetTime();local entries=o.entries or {}
     if view.preview and #entries==0 then entries=samples end
-    if not animateOnly or now>=(o.nextScan or 0) then
-        o.nextScan=now+.2
-        local cooldowns={}
-        for i,entry in ipairs(entries)do
-            local slot=Icon(o,i)
-            if slot.entry~=entry then Resolve(slot,entry)end
-            if view.preview and o.entries and #o.entries==0 then Shortcut(slot,entry)end
-            if not view.preview and slot.needsInfo and now>=(slot.nextInfo or 0) then
-                Resolve(slot,entry)
-                if o.usesNativeAuras and not InCombatLockdown() then BindAura(slot,group.enabled~=false)end
+    if not view.preview then
+        local kinds=o.skillKinds
+        local cooldown=kinds.cooldown and S.MonitorRefreshDue(o,"cooldown",now,.2)
+        local usable=kinds.usable and S.MonitorRefreshDue(o,"usable",now,.2)
+        local info=S.MonitorRefreshDue(o,"info",now,1)
+        if cooldown or usable or info then
+            local cooldowns={}
+            for i,entry in ipairs(entries)do
+                local slot=o.skillIcons[i]
+                if info and slot.needsInfo and now>=(slot.nextInfo or 0) then
+                    Resolve(slot,entry)
+                    if o.usesNativeAuras and not InCombatLockdown() then BindAura(slot,group.enabled~=false)end
+                end
+                if cooldown and entry.type=="cooldown" then Cooldown(entry,slot,cooldowns)end
+                if usable and entry.type=="usable" then Usable(slot,now,cooldowns)end
             end
-            if not view.preview and entry.type=="cooldown" then Cooldown(entry,slot,cooldowns)end
-            if not view.preview and entry.type=="usable" then Usable(slot,now)end
         end
-        if not view.preview then ScanAuras(o,"buff");ScanAuras(o,"debuff")end
+        if kinds.buff and S.MonitorRefreshDue(o,"buff",now,1) then ScanAuras(o,"buff")end
+        if kinds.debuff and S.MonitorRefreshDue(o,"debuff",now,1) then ScanAuras(o,"debuff")end
         local version=view.targetRefreshGeneration or 0
-        if not view.preview and o.nativeTargetGeneration~=version then
-            for _,slot in ipairs(o.skillIcons)do if slot.nativeAuras and slot.entry and slot.entry.type=="debuff" then slot.nativeAuras:UpdateAllAuras()end end
+        if o.usesNativeAuras and o.nativeTargetGeneration~=version then
+            for _,slot in ipairs(o.skillIcons)do
+                if slot.nativeAuras and slot.entry and slot.entry.type=="debuff" then slot.nativeAuras:UpdateAllAuras()end
+            end
             o.nativeTargetGeneration=version
         end
+    elseif #o.entries==0 then
+        for i,entry in ipairs(entries)do
+            local slot=Icon(o,i)
+            if slot.entry~=entry then Resolve(slot,entry);Shortcut(slot,entry)end
+        end
     end
-    local visibleCount=0
+    local direction=S.Direction(group)
+    if view.preview or o.skillKinds.usable or o.skillDirection~=direction then
+        o.skillDirection=direction
+        local visibleCount=0
+        for i=1,#entries do
+            local slot=o.skillIcons[i]
+            local alpha=1
+            if slot.entry.type=="usable" and not view.preview then
+                local timer=slot.usableCooldown
+                local remaining=timer and Number(Safe(timer.GetRemainingDuration,timer))
+                if remaining then alpha=remaining<=0 and 1 or 0
+                elseif timer and timer.EvaluateRemainingDuration and ShortcutCurve() then
+                    -- A restricted timer can drive visibility through native alpha.
+                    -- Keep its position when Lua cannot read the evaluated value.
+                    alpha=timer:EvaluateRemainingDuration(ShortcutCurve(),0)
+                else alpha=slot.usableReady and 1 or 0 end
+            end
+            local readable=Readable(alpha)
+            slot.rowVisible=not readable or alpha==1
+            if slot.rowVisible then visibleCount=visibleCount+1 end
+            if slot:IsShown()~=slot.rowVisible then slot:SetShown(slot.rowVisible) end
+            M.CustomMonitor.SetVisual(slot,"SetAlpha",alpha)
+            M.CustomMonitor.SetVisual(slot,"EnableMouse",readable and slot.rowVisible)
+        end
+        o.rowCount=visibleCount
+        local width=math.max(1,visibleCount*44-4)
+        if o.rowWidth~=width then o.frame:SetSize(width,66);o.rowWidth=width end
+        local visibleIndex=0
+        for i=1,#entries do
+            local slot=o.skillIcons[i]
+            if slot.rowVisible then
+                visibleIndex=visibleIndex+1
+                local x=S.IconOffset(group,visibleIndex,visibleCount)
+                if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
+            end
+        end
+    end
     for i=1,#entries do
         local slot=o.skillIcons[i]
-        local alpha=1
-        if slot.entry.type=="usable" and not view.preview then
-            local timer=slot.usableCooldown
-            local remaining=timer and Number(Safe(timer.GetRemainingDuration,timer))
-            if remaining then alpha=remaining<=0 and 1 or 0
-            elseif timer and timer.EvaluateRemainingDuration and ShortcutCurve() then
-                -- A restricted timer can drive visibility through native alpha.
-                -- Keep its position when Lua cannot read the evaluated value.
-                alpha=timer:EvaluateRemainingDuration(ShortcutCurve(),0)
-            else alpha=slot.usableReady and 1 or 0 end
-        end
-        local readable=Readable(alpha)
-        slot.rowVisible=not readable or alpha==1
-        if slot.rowVisible then visibleCount=visibleCount+1 end
-        if slot:IsShown()~=slot.rowVisible then slot:SetShown(slot.rowVisible) end
-        M.CustomMonitor.SetVisual(slot,"SetAlpha",alpha)
-        M.CustomMonitor.SetVisual(slot,"EnableMouse",readable and slot.rowVisible)
-    end
-    o.rowCount=visibleCount
-    local width=math.max(1,visibleCount*44-4)
-    if o.rowWidth~=width then o.frame:SetSize(width,66);o.rowWidth=width end
-    local visibleIndex=0
-    for i=1,#entries do
-        local slot=o.skillIcons[i]
-        if slot.rowVisible then
-            visibleIndex=visibleIndex+1
-            local x=S.IconOffset(group,visibleIndex,visibleCount)
-            if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
-        end
         local textureAlpha,shortcutAlpha=1,1
         local reversed=slot.entry.reverseDisplay==true
         -- On Forever, a readable match can draw the complete faded icon even
@@ -1030,19 +1084,21 @@ function S.Event(view,event,unit)
     elseif event=="PLAYER_ENTERING_WORLD" then activationEvents={} end
     if event=="ACTIONBAR_SLOT_CHANGED" or event=="PLAYER_ENTERING_WORLD" then legacyActionSlots=nil end
     local o=view.nodes.playerSkillMonitorIcons
-    if o then
-        if activation or event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" or event=="ACTIONBAR_SLOT_CHANGED" then
-            for _,entry in ipairs(o.entries or {})do
-                if entry.type=="usable" then o.nextScan=0;break end
-            end
-            return
-        end
-        o.nextScan=0
-        if event=="PLAYER_TARGET_CHANGED" then o.nativeTargetGeneration=nil end
-        if event=="SPELLS_CHANGED" or event=="LEARNED_SPELL_IN_TAB" or event=="PLAYER_REGEN_ENABLED" then
-            for _,slot in ipairs(o.skillIcons or {})do slot.needsInfo=true;slot.nextInfo=0 end
-        end
-        S.Paint(view,o,false)
+    if not o or not o.monitorDirty then return end
+    if event=="UNIT_AURA" then
+        S.InvalidateMonitor(o,unit=="player" and "buff" or "debuff")
+    elseif event=="PLAYER_TARGET_CHANGED" then
+        o.nativeTargetGeneration=nil
+        S.InvalidateMonitor(o,"debuff",true)
+        S.InvalidateMonitor(o,"usable",true)
+    elseif activation or event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" or event=="ACTIONBAR_SLOT_CHANGED" then
+        S.InvalidateMonitor(o,"usable")
+    elseif event=="SPELL_UPDATE_COOLDOWN" or event=="SPELL_UPDATE_CHARGES" or event=="UNIT_SPELLCAST_SUCCEEDED" then
+        S.InvalidateMonitor(o,"cooldown")
+        S.InvalidateMonitor(o,"usable")
+    else
+        for _,slot in ipairs(o.skillIcons or {})do slot.needsInfo=true;slot.nextInfo=0 end
+        S.ResetMonitorRefresh(o)
     end
 end
 

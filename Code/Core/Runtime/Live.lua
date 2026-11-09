@@ -313,12 +313,7 @@ function M:StartLive()
             elseif (event=="UNIT_ENTERED_VEHICLE" or event=="UNIT_EXITED_VEHICLE") and (unit=="player" or unit=="vehicle") then R.InvalidateAuras(M.live,"player") end
         end
         if M.CooldownMonitor and cooldownEvents[event] and (event~="UNIT_SPELLCAST_SUCCEEDED" or unit=="player") then Dispatch("cooldownMonitor",M.CooldownMonitor.Event,M.CooldownMonitor,event,unit,...) end
-        if M.PlayerSkillMonitor then
-            if event=="SPELL_UPDATE_COOLDOWN" or event=="SPELL_UPDATE_CHARGES" then
-                local skills=view.byID.playerSkillMonitor
-                if skills and skills.enabled~=false then Module("playerSkillMonitor") end
-            else Dispatch("playerSkillMonitor",M.PlayerSkillMonitor.Event,M.live,event,unit) end
-        end
+        if M.PlayerSkillMonitor then Dispatch("playerSkillMonitor",M.PlayerSkillMonitor.Event,M.live,event,unit) end
         if M.PlayerOtherMonitor then Dispatch("playerOtherMonitor",M.PlayerOtherMonitor.Event,M.live,event,unit) end
         if M.CommonItems then
             if event=="SPELL_UPDATE_COOLDOWN" or event=="BAG_UPDATE_COOLDOWN" then
