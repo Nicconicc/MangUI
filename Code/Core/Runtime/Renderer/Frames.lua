@@ -279,9 +279,9 @@ local function Build(view,n)
         o.foreverRogueComboPoints=C.interface==16001 and class=="ROGUE"
         for i=1,6 do
             local slot=CreateFrame("Frame",nil,f);slot:SetSize(50,50);slot:EnableMouse(false)
-            -- The smaller combo slots can flash when their model viewport
-            -- shrinks and reloads during the entry animation on Forever.
-            slot.fixedModelViewport=o.foreverRogueComboPoints and (i==2 or i==4)
+            -- All five rogue combo slots on Forever can flash when an
+            -- animation changes the model viewport.
+            slot.fixedModelViewport=o.foreverRogueComboPoints and i<=5
             slot.visual=CreateFrame("Frame",nil,slot);slot.visual:SetSize(50,50);slot.visual:SetPoint("CENTER")
             slot.visual:EnableMouse(false)
             slot.base=slot.visual:CreateTexture(nil,"ARTWORK");slot.base:SetSize(50,50)
