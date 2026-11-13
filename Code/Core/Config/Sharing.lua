@@ -91,6 +91,8 @@ local function CleanNodes(nodes)
     fields.classificationPivotRevision={number=true}
     fields.portraitNameOnly={boolean=true}
     fields.castStageSound={boolean=true}
+    fields.menuAlwaysVisible={boolean=true}
+    fields.menuIconSpacing={number=true}
     fields.castHorizontalScale={number=true}
     fields.showRangedProgress={boolean=true};fields.showMeleeProgress={boolean=true}
     for _,key in ipairs({"resourceSpacing","debuffCount","debuffPerRow","buffCount","buffPerRow","moveX","moveY"}) do fields[key]={number=true} end

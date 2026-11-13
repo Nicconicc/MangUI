@@ -18,7 +18,7 @@
 ## Category-zhCN: 单位框体
 ## Category-zhTW: 單位框架
 ## Author: Nc
-## Version: 793
+## Version: 810
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\MIcon.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB
@@ -141,3 +141,4 @@ Code\Editor\Movement\Unlocked.lua
 Code\Editor\Window.lua
 Code\Editor\General.lua
 Code\Interfaces\Default\Register.lua
+

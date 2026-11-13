@@ -89,15 +89,33 @@ local function BuildProperties(e)
         {"mouseUnitMenu","右键友方玩家打开菜单"},
         {"mouseUnitMarks","鼠标左键双击角色选择标记"},
         {"mouseAltInvite","Alt+左键点击角色邀请组队"},
-        {"mouseShiftFocus","Shift+左键点击角色设置焦点"},
+        {"mouseShiftFocus","Shift+左键点击角色设置焦点，Shift+左键点击空白处取消焦点"},
     }) do
         local key,label=entry[1],entry[2]
         local check=W.Check(content,label,function(checked)
             if Selected() and Selected().id=="mouseCircle" then Change(key,checked==true) end
         end)
         e.mouseShortcutChecks[key]=check
-        Row(32,{{check,-4,0}},{},key)
+        if key=="mouseShiftFocus" then
+            check.label:SetWidth(propertyWidth-24)
+            check.label:SetWordWrap(true)
+            Row(48,{{check,-4,-10}},{},key)
+        else
+            Row(32,{{check,-4,0}},{},key)
+        end
     end
+    local _,markerKey=Field("战斗标记快捷键（例如 ALT-F8）","mouseCombatMarkerKey")
+    markerKey:SetMaxLetters(40)
+    markerKey:SetScript("OnEnterPressed",function(self)
+        local key=M:NormalizeCombatMarkerKey(self:GetText())
+        self:ClearFocus()
+        if not key then
+            M:Print("请输入字母、数字或 F1–F12，可加 Alt、Ctrl、Shift。留空可清除快捷键。")
+            M:RefreshProperties()
+            return
+        end
+        if Selected() and Selected().id=="mouseCircle" then Change("mouseCombatMarkerKey",key) end
+    end)
     Field("名称","label")
     e.coordXLabel=Field("X偏移","x",true);e.coordYLabel=Field("Y偏移","y",true)
     Field("宽度","width",true,1,4000);Field("高度","height",true,1,4000)
@@ -329,6 +347,11 @@ local function BuildProperties(e)
         mouseColorControls[#mouseColorControls+1]={caption,0,0,swatch}
     end
     Row(32,mouseColorControls,{},"mouseColors");y=y-32
+    Field("图标间距","menuIconSpacing",true,0,50)
+    e.menuAlwaysVisible=W.Check(content,"图标常驻显示",function(enabled)
+        Change("menuAlwaysVisible",enabled)
+    end)
+    Row(32,{{e.menuAlwaysVisible,-4,0}},{},"menuAlwaysVisible");y=y-32
     e.combatSound=W.Check(content,"播放音效",function(enabled)Change("soundEnabled",enabled)end)
     Row(32,{{e.combatSound,-4,0}},{},"combatSound");y=y-32
     Field("图标大小","iconSize",true,1,256)

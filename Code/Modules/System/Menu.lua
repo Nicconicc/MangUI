@@ -87,11 +87,14 @@ end
 local _,_,_,interface=GetBuildInfo()
 S.definitions=S.AvailableDefinitions(interface)
 local menuWidth=848
+function S.IconSpacing(group)
+    return M.Clamp(tonumber(group and group.menuIconSpacing) or 0,0,50)
+end
 local function Templates()
     return {
         {id="systemMenu",label="系统菜单",kind="group",compound="systemMenu",scope="player",unit="player",
             x=0,y=0,width=menuWidth,height=128,scale=1,point="TOP",anchor="TOP",screenAnchor="TOP",
-            alpha=1,enabled=true,locked=true,layer=600,rules={},conditions={}},
+            alpha=1,enabled=true,menuAlwaysVisible=false,menuIconSpacing=0,locked=true,layer=600,rules={},conditions={}},
         {id="systemMenuButtons",label="系统菜单",kind="systemmenu",parent="systemMenu",internal=true,locked=true,
             scope="player",unit="player",x=0,y=0,width=menuWidth,height=128,scale=1,point="TOP",anchor="TOP",
             alpha=1,enabled=true,layer=601},
@@ -140,10 +143,12 @@ function S.Click(key)
     -- Protected entries run only from the inherited secure click script.
     M:Print("当前客户端不支持此菜单入口。")
 end
-local function Reset(slot)
-    slot.progress=0;slot.target=0;slot.started=nil;slot.hideAt=nil;slot.pressed=nil;slot.hovered=nil
-    slot.visual:SetScale(1);slot.visual:SetAlpha(0)
-    slot.visual:ClearAllPoints();slot.visual:SetPoint("BOTTOM",slot.button,"TOP",0,0)
+local function Reset(slot,visible)
+    local progress=visible and 1 or 0
+    slot.progress=progress;slot.target=progress;slot.started=nil;slot.hideAt=nil;slot.pressed=nil;slot.hovered=nil
+    slot.visual:SetScale(1);slot.visual:SetAlpha(progress)
+    slot.visual:ClearAllPoints()
+    slot.visual:SetPoint("BOTTOM",slot.button,"TOP",0,-slot.definition.travel*progress)
 end
 local function Wake(slot)
     local active=slot.owner.menuActive
@@ -190,12 +195,19 @@ function S.Build(view,o)
         o.menuButtons[#o.menuButtons+1]=slot
         button:SetScript("OnEnter",function(self)
             slot.hovered=true
-            if not view.preview then Animate(slot,1);visual:SetScale(1.05);PlaySoundFile(ART.."Hover.mp3","SFX") end
+            if not view.preview then
+                if not o.menuAlwaysVisible then Animate(slot,1) end
+                visual:SetScale(1.05)
+                PlaySoundFile(ART.."Hover.mp3","SFX")
+            end
             ShowMenuHint(self,def)
         end)
         button:SetScript("OnLeave",function()
             slot.hovered=nil;slot.pressed=nil
-            if not view.preview then Animate(slot,0);visual:SetScale(1) end
+            if not view.preview then
+                if not o.menuAlwaysVisible then Animate(slot,0) end
+                visual:SetScale(1)
+            end
             if view.preview then visual:SetAlpha(1) end
             HideMenuHint(button)
         end)
@@ -208,10 +220,11 @@ function S.Build(view,o)
                 local side=mouseButton=="RightButton" and 2 or 1
                 if not slot.secureAvailable[side] then M:Print("当前客户端不支持此菜单入口。") end
             else M:Safe("系统菜单",S.Click,def.key) end
-            slot.hideAt=GetTime()+2;Wake(slot)
+            if not o.menuAlwaysVisible then slot.hideAt=GetTime()+2;Wake(slot) end
         end)
     end
     o.frame:SetScript("OnHide",function()
+        o.menuAlwaysVisible=nil
         for _,slot in ipairs(o.menuButtons) do
             if slot.hovered then HideMenuHint(slot.button) end
             if not view.preview then Reset(slot) end
@@ -222,19 +235,23 @@ function S.Build(view,o)
 end
 function S.Configure(view,o)
     if not view.preview and InCombatLockdown() then M.pending=true;return end
+    o.menuAlwaysVisible=nil
+    local spacing=S.IconSpacing(o.module)
+    local center=(#o.menuButtons+1)/2
     for i=#o.menuActive,1,-1 do o.menuActive[i]=nil end
-    for _,slot in ipairs(o.menuButtons) do
+    for index,slot in ipairs(o.menuButtons) do
+        local x=slot.definition.x+(index-center)*spacing
         slot.queued=nil
         if slot.secureRoute then
             slot.secureAvailable=M.Compat.ConfigureMenuButton(slot.button,slot.definition.key,slot.secureRoute,slot.definition.right)
         end
         slot.button:ClearAllPoints()
         if view.preview then
-            slot.button:SetPoint("CENTER",o.frame,"CENTER",slot.definition.x,0)
+            slot.button:SetPoint("CENTER",o.frame,"CENTER",x,0)
             slot.visual:ClearAllPoints();slot.visual:SetPoint("CENTER",slot.button,"CENTER")
             slot.visual:SetAlpha(1);slot.visual:SetScale(1)
         else
-            slot.button:SetPoint("TOP",o.frame,"TOP",slot.definition.x,0);Reset(slot)
+            slot.button:SetPoint("TOP",o.frame,"TOP",x,0);Reset(slot)
         end
     end
 end
@@ -246,6 +263,16 @@ function S.Paint(view,o)
     end
     if not shown or view.preview then return end
     local active=o.menuActive
+    local alwaysVisible=o.module and o.module.menuAlwaysVisible==true or false
+    if o.menuAlwaysVisible~=alwaysVisible then
+        o.menuAlwaysVisible=alwaysVisible
+        for _,slot in ipairs(o.menuButtons) do
+            if slot.hovered then HideMenuHint(slot.button) end
+            Reset(slot,alwaysVisible)
+            slot.queued=nil
+        end
+        for i=#active,1,-1 do active[i]=nil end
+    end
     if #active==0 then return end
     local now=GetTime()
     for i=#active,1,-1 do

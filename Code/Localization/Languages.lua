@@ -766,6 +766,7 @@ M.localeTables.itIT={
     ["精英图标 Tar elite"]="Icona élite Tar elite",
     ["系统"]="Sistema",
     ["系统菜单"]="Menu di sistema",
+    ["图标常驻显示"]="Mostra sempre le icone",
     ["系统设置入口"]="Accesso opzioni di gioco",
     ["素材库 · 点击替换当前元素"]="Libreria · Fai clic per sostituire l’elemento",
     ["素材路径"]="Percorso risorsa",
@@ -1767,6 +1768,7 @@ M.localeTables.ptBR={
     ["精英图标 Tar elite"]="Ícone de elite Tar elite",
     ["系统"]="Sistema",
     ["系统菜单"]="Menu do sistema",
+    ["图标常驻显示"]="Sempre mostrar ícones",
     ["系统设置入口"]="Acesso às opções do jogo",
     ["素材库 · 点击替换当前元素"]="Biblioteca · Clique para substituir o elemento",
     ["素材路径"]="Caminho do recurso",
@@ -2768,6 +2770,7 @@ M.localeTables.ruRU={
     ["精英图标 Tar elite"]="Значок элиты Tar elite",
     ["系统"]="Система",
     ["系统菜单"]="Системное меню",
+    ["图标常驻显示"]="Всегда показывать значки",
     ["系统设置入口"]="Вход в настройки игры",
     ["素材库 · 点击替换当前元素"]="Библиотека · Нажмите, чтобы заменить элемент",
     ["素材路径"]="Путь к ресурсу",
@@ -3769,6 +3772,7 @@ M.localeTables.frFR={
     ["精英图标 Tar elite"]="Icône élite Tar elite",
     ["系统"]="Système",
     ["系统菜单"]="Menu système",
+    ["图标常驻显示"]="Toujours afficher les icônes",
     ["系统设置入口"]="Accès aux options du jeu",
     ["素材库 · 点击替换当前元素"]="Bibliothèque · Cliquez pour remplacer l’élément sélectionné",
     ["素材路径"]="Chemin du fichier",
@@ -4770,6 +4774,7 @@ M.localeTables.koKR={
     ["精英图标 Tar elite"]="정예 아이콘 Tar elite",
     ["系统"]="시스템",
     ["系统菜单"]="시스템 메뉴",
+    ["图标常驻显示"]="아이콘 항상 표시",
     ["系统设置入口"]="게임 설정 항목",
     ["素材库 · 点击替换当前元素"]="리소스 라이브러리 · 클릭하여 선택한 요소 교체",
     ["素材路径"]="리소스 경로",
@@ -5771,6 +5776,7 @@ M.localeTables.esMX={
     ["精英图标 Tar elite"]="Icono de élite Tar elite",
     ["系统"]="Sistema",
     ["系统菜单"]="Menú del sistema",
+    ["图标常驻显示"]="Mostrar siempre los iconos",
     ["系统设置入口"]="Acceso a ajustes del juego",
     ["素材库 · 点击替换当前元素"]="Biblioteca · Haz clic para reemplazar el elemento",
     ["素材路径"]="Ruta del recurso",
@@ -6770,6 +6776,7 @@ M.localeTables.enUS["精英图标"]="Elite icon"
 M.localeTables.enUS["精英图标 Tar elite"]="Elite icon Tar elite"
 M.localeTables.enUS["系统"]="System"
 M.localeTables.enUS["系统菜单"]="System menu"
+M.localeTables.enUS["图标常驻显示"]="Always show icons"
 M.localeTables.enUS["系统设置入口"]="Game settings entry"
 M.localeTables.enUS["素材库 · 点击替换当前元素"]="Asset library · Click to replace the selected element"
 M.localeTables.enUS["素材路径"]="Asset path"
@@ -7768,6 +7775,7 @@ M.localeTables.zhTW={
     ["精英图标 Tar elite"]="精英圖示 Tar elite",
     ["系统"]="系統",
     ["系统菜单"]="系統選單",
+    ["图标常驻显示"]="圖示常駐顯示",
     ["系统设置入口"]="系統設定入口",
     ["素材库 · 点击替换当前元素"]="素材庫 · 點擊替換目前元素",
     ["素材路径"]="素材路徑",
@@ -8767,6 +8775,7 @@ M.localeTables.esES={
     ["精英图标 Tar elite"]="Icono de élite Tar elite",
     ["系统"]="Sistema",
     ["系统菜单"]="Menú del sistema",
+    ["图标常驻显示"]="Mostrar siempre los iconos",
     ["系统设置入口"]="Acceso a ajustes del juego",
     ["素材库 · 点击替换当前元素"]="Biblioteca · Haz clic para reemplazar el elemento",
     ["素材路径"]="Ruta del recurso",
@@ -9768,6 +9777,7 @@ M.localeTables.deDE={
     ["精英图标 Tar elite"]="Elitesymbol Tar elite",
     ["系统"]="System",
     ["系统菜单"]="Systemmenü",
+    ["图标常驻显示"]="Symbole immer anzeigen",
     ["系统设置入口"]="Spieleinstellungszugang",
     ["素材库 · 点击替换当前元素"]="Medienbibliothek · Zum Ersetzen des Elements klicken",
     ["素材路径"]="Dateipfad",
@@ -10026,25 +10036,25 @@ for locale,labels in pairs({
     catalog["大数值以单位显示"],catalog["千（K）"],catalog["万（W）"]=labels[1],labels[2],labels[3]
 end
 local mouseLabels={"鼠标功能及提示","鼠标快捷功能","启用鼠标快捷功能","启用鼠标光圈",
-    "右键友方玩家打开菜单","鼠标左键双击角色选择标记","Alt+左键点击角色邀请组队","Shift+左键点击角色设置焦点"}
+    "右键友方玩家打开菜单","鼠标左键双击角色选择标记","Alt+左键点击角色邀请组队","Shift+左键点击角色设置焦点，Shift+左键点击空白处取消焦点"}
 local spanishMouseLabels={"Ratón y avisos","Atajos del ratón","Activar atajos del ratón","Activar halo del cursor",
-    "Clic derecho: menú de jugador aliado","Doble clic: elegir marca","Alt + clic izq.: invitar al grupo","Mayús + clic izq.: fijar foco"}
+    "Clic derecho: menú de jugador aliado","Doble clic: elegir marca","Alt + clic izq.: invitar al grupo","Mayús + clic izq. en un personaje: fijar foco, en un espacio vacío: quitarlo"}
 for locale,labels in pairs({
     deDE={"Maus & Hinweise","Mauskürzel","Mauskürzel aktivieren","Mausring aktivieren",
-        "Rechtsklick: Menü für verbündete Spieler","Doppelklick: Zielmarkierung","Alt + Linksklick: einladen","Umschalt + Linksklick: Fokus setzen"},
+        "Rechtsklick: Menü für verbündete Spieler","Doppelklick: Zielmarkierung","Alt + Linksklick: einladen","Umschalt + Linksklick auf einen Charakter: Fokus setzen, ins Leere: Fokus löschen"},
     frFR={"Souris et repères","Raccourcis souris","Activer les raccourcis souris","Activer le halo de la souris",
-        "Clic droit : menu du joueur allié","Double-clic : choisir une marque","Alt + clic gauche : inviter","Maj + clic gauche : définir le focus"},
+        "Clic droit : menu du joueur allié","Double-clic : choisir une marque","Alt + clic gauche : inviter","Maj + clic gauche sur un personnage pour définir le focus, dans le vide pour le retirer"},
     esES=spanishMouseLabels,esMX=spanishMouseLabels,
     itIT={"Mouse e indicatori","Scorciatoie del mouse","Attiva scorciatoie del mouse","Attiva alone del mouse",
-        "Clic destro: menu giocatore alleato","Doppio clic: scegli indicatore","Alt + clic sinistro: invita","Maiusc + clic sinistro: imposta focus"},
+        "Clic destro: menu giocatore alleato","Doppio clic: scegli indicatore","Alt + clic sinistro: invita","Maiusc + clic sinistro su un personaggio per impostare il focus, nel vuoto per rimuoverlo"},
     ptBR={"Mouse e avisos","Atalhos do mouse","Ativar atalhos do mouse","Ativar destaque do cursor",
-        "Clique direito: menu de jogador aliado","Clique duplo: escolher marca","Alt + clique esquerdo: convidar","Shift + clique esquerdo: definir foco"},
+        "Clique direito: menu de jogador aliado","Clique duplo: escolher marca","Alt + clique esquerdo: convidar","Shift + clique esquerdo em um personagem para definir o foco, no vazio para removê-lo"},
     ruRU={"Мышь и подсказки","Команды мыши","Включить команды мыши","Включить подсветку курсора",
-        "ПКМ: меню дружественного игрока","Двойной клик: выбрать метку","Alt + ЛКМ: пригласить в группу","Shift + ЛКМ: установить фокус"},
+        "ПКМ: меню дружественного игрока","Двойной клик: выбрать метку","Alt + ЛКМ: пригласить в группу","Shift + ЛКМ по персонажу — установить фокус, по пустому месту — сбросить"},
     koKR={"마우스 기능 및 알림","마우스 단축 기능","마우스 단축 기능 켜기","마우스 원형 강조 켜기",
-        "우클릭: 아군 플레이어 메뉴","더블 클릭: 징표 선택","Alt + 좌클릭: 파티 초대","Shift + 좌클릭: 주시 대상 설정"},
+        "우클릭: 아군 플레이어 메뉴","더블 클릭: 징표 선택","Alt + 좌클릭: 파티 초대","Shift + 좌클릭으로 캐릭터를 주시 대상으로 설정, 빈 곳을 클릭하면 해제"},
     zhTW={"滑鼠功能及提示","滑鼠快捷功能","啟用滑鼠快捷功能","啟用滑鼠光圈",
-        "右鍵點擊友方玩家開啟選單","左鍵雙擊角色選擇標記","Alt+左鍵點擊角色邀請組隊","Shift+左鍵點擊角色設為專注目標"},
+        "右鍵點擊友方玩家開啟選單","左鍵雙擊角色選擇標記","Alt+左鍵點擊角色邀請組隊","Shift+左鍵點擊角色設為專注目標，Shift+左鍵點擊空白處取消專注目標"},
 })do
     local catalog=M.localeTables[locale]
     for i,key in ipairs(mouseLabels) do catalog[key]=labels[i] end

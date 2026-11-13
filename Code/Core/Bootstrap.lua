@@ -1,7 +1,7 @@
 local name, M = ...
 _G.MangUIUF = M
-M.name, M.version = name, "793"
-M.optionsTitle = "MangUI - V793 2026/11/11 1410"
+M.name, M.version = name, "810"
+M.optionsTitle = "MangUI - V810 2026/11/13 1757"
 M.errors, M.status = {}, "等待初始化"
 M.ART = "Interface\\AddOns\\MangUI\\Assets\\"
 M.MYRIAD = "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
@@ -161,3 +161,4 @@ events:SetScript("OnEvent",function(_,event,arg,action)
         if M.RefreshEditor then M:RefreshEditor() end
     end
 end)
+

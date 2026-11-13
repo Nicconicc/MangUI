@@ -111,6 +111,28 @@ local function MainStaticPortrait(o,unit)
     o.staticPortraitRetryAt=attempt<4 and (now+.2*2^(attempt-1))
         or ((combat or o.staticPortraitError) and (now+1) or nil)
 end
+local function PartyStaticPortrait(o,unit)
+    local guid=UnitGUID and UnitGUID(unit)
+    if not C.Readable(guid) then guid=nil end
+    local now=GetTime()
+    local changed=o.staticPortraitUnit~=unit or o.staticPortraitGUID~=guid
+    if changed or o.portraitRefresh then
+        if changed or (not guid and o.staticPortraitReason=="GROUP_ROSTER_UPDATE") then
+            o.texture:SetTexture(nil)
+        end
+        o.staticPortraitUnit,o.staticPortraitGUID=unit,guid
+        o.partyPortraitAttempt=0
+        o.staticPortraitRetryAt=now
+        o.portraitRefresh=nil
+        o.staticPortraitReason=nil
+    end
+    if not o.staticPortraitRetryAt or now<o.staticPortraitRetryAt then return end
+    -- A party token can resolve before the client can draw its portrait.
+    SetPortraitTexture(o.texture,unit)
+    local attempt=o.partyPortraitAttempt+1
+    o.partyPortraitAttempt=attempt
+    o.staticPortraitRetryAt=attempt<5 and (now+.2*2^(attempt-1)) or nil
+end
 local function ShowSource(o,fallback)
     local model=o.portraitModel
     o.texture:SetShown(not o.portraitDead and (not o.portrait3D or fallback))
@@ -331,6 +353,16 @@ function P.Paint(view,o,state,color,animateOnly)
         end
         if dead then o.portraitDeathTexture:SetAlpha(color[4] or 1);return end
     end
+    local partyMember=o.spec.partyIndex and o.spec.partyIndex>0
+    if partyMember and not animateOnly then
+        local name=state.name
+        local ready=C.Readable(name) and type(name)=="string" and name~=""
+            and name~=UNKNOWNOBJECT and name~=UNKNOWN
+        if o.partyPortraitNameReady~=ready then
+            o.partyPortraitNameReady=ready
+            o.portraitRefresh=true
+        end
+    end
     if o.portrait3D then
         local model=o.portraitModel
         if view.movementModelsHidden then model:Hide();return end
@@ -344,6 +376,8 @@ function P.Paint(view,o,state,color,animateOnly)
             tint[1],tint[2],tint[3],tint[4]=color[1],color[2],color[3],color[4]
             if o.portraitRefresh or o.staticPortraitUnit~=state.unit then DeferredStatic(view,o) end
             MainStaticPortrait(o,state.unit)
+        elseif partyMember then
+            PartyStaticPortrait(o,state.unit)
         else
             local guid=UnitGUID and UnitGUID(state.unit)
             if not C.Readable(guid) then guid=nil end

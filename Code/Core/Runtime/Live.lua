@@ -300,6 +300,10 @@ function M:StartLive()
                 M.Portraits.Invalidate(preview,portraitUnit)
                 if M.editor.window:IsShown() then M:Safe("头像预览刷新",R.Update,preview) end
             end
+        elseif event=="GROUP_ROSTER_UPDATE" then
+            for member in pairs(partyUnits) do
+                M.Portraits.Invalidate(M.live,member,event)
+            end
         end
         if R.InvalidateAuras then
             if event=="UNIT_AURA" then

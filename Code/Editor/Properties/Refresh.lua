@@ -181,6 +181,7 @@ local function RefreshProperties(self)
                 value=math.floor(M:FontDisplaySize(n)*100+.5)/100
                 edit.updating=true;edit:SetMinMaxValues(math.min(4,value),math.max(150,value));edit.updating=false
             end
+            if field=="menuIconSpacing" and n.compound=="systemMenu" then value=M.SystemMenu.IconSpacing(n) end
             if value==nil and (field=="scale" or field=="modelScale" or field=="alpha") then value=1 end
             if edit.inputNameKind then W.SetInputValue(edit,value)else edit:SetText(tostring(value or ""))end
         end
@@ -188,6 +189,7 @@ local function RefreshProperties(self)
     if n.compound=="cooldownMonitor" then e.cooldownBlacklist:SetBlacklist(n.blacklist or "") end
     if n.compound=="chatButtons" then e.chatTextLabels:SetChecked(n.textLabels==true) end
     if n.compound=="targetThreat" then e.threatInstanceOnly:SetChecked(n.instanceOnly~=false) end
+    if n.compound=="systemMenu" then e.menuAlwaysVisible:SetChecked(n.menuAlwaysVisible==true) end
     if n.compound=="combatNotices" or n.compound=="bossFrames" then e.combatSound:SetChecked(n.soundEnabled~=false) end
     if n.compound=="partyFrames" then
         e.partyHideInRaid:SetChecked(n.hidePartyInRaid==true)
@@ -478,10 +480,10 @@ local function RefreshProperties(self)
             elseif n.compound=="experienceBar" then
                 visible=row.key=="scale" or row.key=="nameFont" or row.key=="experienceHeight"
             elseif n.compound=="systemMenu" then
-                visible=row.key=="scale"
+                visible=row.key=="scale" or row.key=="menuIconSpacing" or row.key=="menuAlwaysVisible"
             elseif n.compound=="mouseCircle" then
                 visible=row.key=="scale" or row.key=="mouseColors" or row.key=="mouseShortcutsTitle"
-                    or e.mouseShortcutChecks[row.key]~=nil
+                    or row.key=="mouseCombatMarkerKey" or e.mouseShortcutChecks[row.key]~=nil
             else
                 visible=row.key=="x" or row.key=="y" or row.key=="scale" or row.key=="flags"
                 if (n.compound=="focusHP" or n.compound=="focusMP") and row.key=="hpMaterial" then visible=true end

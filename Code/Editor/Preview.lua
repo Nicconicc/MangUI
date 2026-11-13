@@ -49,9 +49,9 @@ function M:FitPreview()
         local left,bottom,right,top=M.BossFrames.VisibleBounds(geo)
         if left then minx,miny,maxx,maxy=left,bottom,right,top end
     end
-    if HasDedicatedPreview(selected) and PreviewModuleID(selected)~="partyFrames" then
+    local moduleID=PreviewModuleID(selected)
+    if HasDedicatedPreview(selected) and moduleID~="partyFrames" and moduleID~="systemMenu" then
         local availableWidth=math.max(1,e.canvas:GetWidth()-40)
-        local moduleID=PreviewModuleID(selected)
         local preserveSize=moduleID=="bossFrames" or moduleID=="chatButtons" or moduleID=="combatNotices"
         local availableHeight=math.max(1,(preserveSize and 200 or e.canvas:GetHeight())-40)
         local reference=moduleID=="bossFrames" and .4/math.max(.001,self.byID.bossFrames.scale or 1) or 1
@@ -167,7 +167,8 @@ function M:RefreshEditor(unchanged)
     if e.previewDistanceHint then e.previewDistanceHint:SetShown(PreviewModuleID(selected)=="targetDistance") end
     if e.previewThreatHint then e.previewThreatHint:SetShown(PreviewModuleID(selected)=="targetThreat") end
     if e.previewChatHint then e.previewChatHint:SetShown(PreviewModuleID(selected)=="chatButtons") end
-    if e.previewSystemHint then e.previewSystemHint:SetShown(PreviewModuleID(selected)=="systemMenu") end
+    local systemMenuPreview=PreviewModuleID(selected)=="systemMenu"
+    if e.previewSystemHint then e.previewSystemHint:SetShown(systemMenuPreview and selected.menuAlwaysVisible~=true) end
     if e.restoreGroup then e.restoreGroup:SetShown(PreviewModuleID(selected)~=nil) end
     local isolated=(IsUnitComposite(selected) or HasDedicatedPreview(selected))
         and (e.scope=="all" or selected.scope==e.scope) and selected.id or nil
