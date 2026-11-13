@@ -1,7 +1,7 @@
 local name, M = ...
 _G.MangUIUF = M
-M.name, M.version = name, "810"
-M.optionsTitle = "MangUI - V810 2026/11/13 1757"
+M.name, M.version = name, "811"
+M.optionsTitle = "MangUI - V811 2026/11/13 2303"
 M.errors, M.status = {}, "等待初始化"
 M.ART = "Interface\\AddOns\\MangUI\\Assets\\"
 M.MYRIAD = "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
@@ -146,12 +146,14 @@ events:SetScript("OnEvent",function(_,event,arg,action)
         if M.db then M:Safe("小地图入口",M.CreateMinimap,M) end
         if M.db and M.RegisterSettingsEntry then M:Safe("系统设置入口",M.RegisterSettingsEntry,M) end
         if IsLoggedIn and IsLoggedIn() then
+            if M.ApplyGroundDensity then M:ApplyGroundDensity() end
             if M.CPUUsage then M:Safe("CPU统计",M.CPUUsage.ApplyLoginSetting) end
             Start()
         end
     elseif event=="ADDON_LOADED" then
         if M.db and M.RegisterSettingsEntry then M:Safe("系统设置入口",M.RegisterSettingsEntry,M) end
     elseif event=="PLAYER_LOGIN" then
+        if M.ApplyGroundDensity then M:ApplyGroundDensity() end
         if M.CPUUsage then M:Safe("CPU统计",M.CPUUsage.ApplyLoginSetting) end
         if M.RegisterSettingsEntry then M:Safe("系统设置入口",M.RegisterSettingsEntry,M) end
         Start(); M:Print("v"..M.version.." 已加载。/mui 打开设计器，小地图金色图标为入口。")

@@ -184,6 +184,7 @@ function M:InitStore()
     if db.minimap.angle==nil then db.minimap.angle=220 end
     if db.minimap.hide==nil then db.minimap.hide=false end
     db.disableAddOnProfiler=db.disableAddOnProfiler~=false
+    db.maxGroundDensity=db.maxGroundDensity==true
     -- Re-detect the client on every addon load. Manual selection is session-local.
     db.language=self:ClientLanguage()
     db.hideWithoutTarget=db.hideWithoutTarget==true

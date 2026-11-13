@@ -19,6 +19,40 @@ local function SetArchiveSetting(check)
         M:Print('客户端未接受此设置。退出游戏后，可在 WTF\\Config.wtf 中设置 SET overrideArchive "'..value..'"。')
     end
 end
+local groundDensityCVar="groundEffectDensity"
+local maximumGroundDensity="256"
+local function GroundDensity()
+    local get=C_CVar and C_CVar.GetCVar or GetCVar
+    if not get then return end
+    local ok,value=pcall(get,groundDensityCVar)
+    if ok then return value end
+end
+local function SetGroundDensity(value)
+    local set=C_CVar and C_CVar.SetCVar or SetCVar
+    if not set then return false end
+    local ok=pcall(set,groundDensityCVar,value)
+    return ok and tonumber(GroundDensity())==tonumber(value)
+end
+function M:ApplyGroundDensity()
+    if self.db and self.db.maxGroundDensity then
+        SetGroundDensity(maximumGroundDensity)
+    end
+end
+local function ToggleGroundDensity(check)
+    local db=M.db
+    local current=GroundDensity()
+    if check:GetChecked() then
+        if tonumber(current) and SetGroundDensity(maximumGroundDensity) then
+            db.previousGroundDensity=current
+            db.maxGroundDensity=true
+        end
+    elseif tonumber(current)~=tonumber(maximumGroundDensity)
+        or not db.previousGroundDensity or SetGroundDensity(db.previousGroundDensity) then
+        db.maxGroundDensity=false
+        db.previousGroundDensity=nil
+    end
+    check:SetChecked(db.maxGroundDensity)
+end
 local backdrop={bgFile="Interface\\ChatFrame\\ChatFrameBackground",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",
     tile=true,tileSize=16,edgeSize=16,insets={left=3,right=3,top=5,bottom=3}}
 local function Label(parent,text,template)
@@ -49,6 +83,7 @@ function M:RefreshOtherSettings()
     if dropdownText then self:SetLocaleLineHeight(dropdownText,18);self:ApplyLocaleFont(dropdownText,caption,true);self:FitLocaleText(dropdownText,330,9) end
     panel.minimapCheck:SetChecked(not self.db.minimap.hide)
     panel.cpuProfilerCheck:SetChecked(self.db.disableAddOnProfiler)
+    panel.groundDensityCheck:SetChecked(self.db.maxGroundDensity)
     if panel.archiveCheck then panel.archiveCheck:SetChecked(ArchiveSetting()=="0") end
     panel.targetVisibilityCheck:SetChecked(self.db.hideWithoutTarget==true)
     panel.portrait3DCheck:SetChecked(self.db.portrait3D==true)
@@ -83,7 +118,7 @@ function M:OpenGeneral()
         local content=CreateFrame("Frame",nil,panel)
         content:SetPoint("TOPLEFT",35,-28);content:SetPoint("BOTTOMRIGHT",-35,20)
         content:SetFrameLevel(panel:GetFrameLevel()+2)
-        Section(content,"系统",0,138)
+        Section(content,"系统",0,172)
         local row=CreateFrame("Frame",nil,content);row:SetSize(560,62);row:SetPoint("TOPLEFT",16,-30)
         local caption=Label(row,"语言版本");caption:SetTextColor(1,.82,0);caption:SetPoint("TOPLEFT",0,0)
         local dropdown=CreateFrame("Frame","MangUIUFLanguageDropdown",row,"UIDropDownMenuTemplate")
@@ -114,7 +149,15 @@ function M:OpenGeneral()
         profilerText:SetPoint("LEFT",profilerCheck,"RIGHT",5,0);profilerText:SetTextColor(1,1,1)
         profilerCheck:SetScript("OnClick",function(self) M.db.disableAddOnProfiler=not not self:GetChecked() end)
         panel.cpuProfilerCheck=profilerCheck
-        local systemOffset=34
+        local groundDensityCheck=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+        groundDensityCheck:SetSize(28,28)
+        groundDensityCheck:SetPoint("TOPLEFT",12,-160)
+        local groundDensityText=Label(groundDensityCheck,"最大化地面植被显示")
+        groundDensityText:SetPoint("LEFT",groundDensityCheck,"RIGHT",5,0)
+        groundDensityText:SetTextColor(1,1,1)
+        groundDensityCheck:SetScript("OnClick",ToggleGroundDensity)
+        panel.groundDensityCheck=groundDensityCheck
+        local systemOffset=68
         local archiveRow=self:ClientLanguage()=="zhCN" and 34 or 0
         local displayOffset=systemOffset+archiveRow
         Section(content,"显示",-145-systemOffset,306+archiveRow)
