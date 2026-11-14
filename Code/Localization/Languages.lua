@@ -10035,25 +10035,25 @@ for locale,labels in pairs({
     local catalog=M.localeTables[locale]
     catalog["大数值以单位显示"],catalog["千（K）"],catalog["万（W）"]=labels[1],labels[2],labels[3]
 end
-local mouseLabels={"鼠标功能及提示","鼠标快捷功能","启用鼠标快捷功能","启用鼠标光圈",
+local mouseLabels={"鼠标功能及提示","鼠标快捷功能","启用鼠标快捷功能","显示鼠标光圈",
     "右键友方玩家打开菜单","鼠标左键双击角色选择标记","Alt+左键点击角色邀请组队","Shift+左键点击角色设置焦点，Shift+左键点击空白处取消焦点"}
-local spanishMouseLabels={"Ratón y avisos","Atajos del ratón","Activar atajos del ratón","Activar halo del cursor",
+local spanishMouseLabels={"Ratón y avisos","Atajos del ratón","Activar atajos del ratón","Mostrar halo del cursor",
     "Clic derecho: menú de jugador aliado","Doble clic: elegir marca","Alt + clic izq.: invitar al grupo","Mayús + clic izq. en un personaje: fijar foco, en un espacio vacío: quitarlo"}
 for locale,labels in pairs({
-    deDE={"Maus & Hinweise","Mauskürzel","Mauskürzel aktivieren","Mausring aktivieren",
+    deDE={"Maus & Hinweise","Mauskürzel","Mauskürzel aktivieren","Mausring anzeigen",
         "Rechtsklick: Menü für verbündete Spieler","Doppelklick: Zielmarkierung","Alt + Linksklick: einladen","Umschalt + Linksklick auf einen Charakter: Fokus setzen, ins Leere: Fokus löschen"},
-    frFR={"Souris et repères","Raccourcis souris","Activer les raccourcis souris","Activer le halo de la souris",
+    frFR={"Souris et repères","Raccourcis souris","Activer les raccourcis souris","Afficher le halo de la souris",
         "Clic droit : menu du joueur allié","Double-clic : choisir une marque","Alt + clic gauche : inviter","Maj + clic gauche sur un personnage pour définir le focus, dans le vide pour le retirer"},
     esES=spanishMouseLabels,esMX=spanishMouseLabels,
-    itIT={"Mouse e indicatori","Scorciatoie del mouse","Attiva scorciatoie del mouse","Attiva alone del mouse",
+    itIT={"Mouse e indicatori","Scorciatoie del mouse","Attiva scorciatoie del mouse","Mostra alone del mouse",
         "Clic destro: menu giocatore alleato","Doppio clic: scegli indicatore","Alt + clic sinistro: invita","Maiusc + clic sinistro su un personaggio per impostare il focus, nel vuoto per rimuoverlo"},
-    ptBR={"Mouse e avisos","Atalhos do mouse","Ativar atalhos do mouse","Ativar destaque do cursor",
+    ptBR={"Mouse e avisos","Atalhos do mouse","Ativar atalhos do mouse","Mostrar destaque do cursor",
         "Clique direito: menu de jogador aliado","Clique duplo: escolher marca","Alt + clique esquerdo: convidar","Shift + clique esquerdo em um personagem para definir o foco, no vazio para removê-lo"},
-    ruRU={"Мышь и подсказки","Команды мыши","Включить команды мыши","Включить подсветку курсора",
+    ruRU={"Мышь и подсказки","Команды мыши","Включить команды мыши","Показывать подсветку курсора",
         "ПКМ: меню дружественного игрока","Двойной клик: выбрать метку","Alt + ЛКМ: пригласить в группу","Shift + ЛКМ по персонажу — установить фокус, по пустому месту — сбросить"},
-    koKR={"마우스 기능 및 알림","마우스 단축 기능","마우스 단축 기능 켜기","마우스 원형 강조 켜기",
+    koKR={"마우스 기능 및 알림","마우스 단축 기능","마우스 단축 기능 켜기","마우스 원형 강조 표시",
         "우클릭: 아군 플레이어 메뉴","더블 클릭: 징표 선택","Alt + 좌클릭: 파티 초대","Shift + 좌클릭으로 캐릭터를 주시 대상으로 설정, 빈 곳을 클릭하면 해제"},
-    zhTW={"滑鼠功能及提示","滑鼠快捷功能","啟用滑鼠快捷功能","啟用滑鼠光圈",
+    zhTW={"滑鼠功能及提示","滑鼠快捷功能","啟用滑鼠快捷功能","顯示滑鼠光圈",
         "右鍵點擊友方玩家開啟選單","左鍵雙擊角色選擇標記","Alt+左鍵點擊角色邀請組隊","Shift+左鍵點擊角色設為專注目標，Shift+左鍵點擊空白處取消專注目標"},
 })do
     local catalog=M.localeTables[locale]

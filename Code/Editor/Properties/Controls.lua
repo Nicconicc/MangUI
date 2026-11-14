@@ -119,7 +119,11 @@ local function BuildProperties(e)
     Field("名称","label")
     e.coordXLabel=Field("X偏移","x",true);e.coordYLabel=Field("Y偏移","y",true)
     Field("宽度","width",true,1,4000);Field("高度","height",true,1,4000)
-    Field("缩放","scale",true,.05,10,.05)
+    e.showMouseCircle=W.Check(content,"显示鼠标光圈",function(enabled)
+        Change("showMouseCircle",enabled==true)
+    end)
+    Row(32,{{e.showMouseCircle,-4,0}},{},"showMouseCircle");y=y-32
+    e.scaleLabel=Field("缩放","scale",true,.05,10,.05)
     e.skillMonitorHideWithoutTarget=W.Check(content,"无目标时隐藏",function(hidden)
         if Selected() and (Selected().compound=="playerSkillMonitor"or Selected().compound=="playerOtherMonitor"or Selected().compound=="raidBuffs"or Selected().compound=="receivedBuffs"or Selected().compound=="raidVulnerability"or Selected().compound=="commonItems")then Change("hideWithoutTarget",hidden==true)end
     end)
@@ -335,10 +339,11 @@ local function BuildProperties(e)
     Row(70,{{distanceHint,0,-3}},{},"distanceHint");y=y-70
     e.mouseColors={}
     local mouseColorControls={}
+    e.mouseColorControls=mouseColorControls
     for i,entry in ipairs({{"outerColor","外圈颜色"},{"innerColor","内圈颜色"},{"gcdColor","GCD圈颜色"}}) do
         local key=entry[1];local caption=W.Label(content,entry[2]);caption.whitePropertyLabel=true
         local swatch=W.ColorSwatch(content,function(color)
-            local n=Selected();if not n or n.compound~="mouseCircle" or not M:CanEdit() then return end
+            local n=Selected();if not n or n.compound~="mouseCircle" or n.showMouseCircle==false or not M:CanEdit() then return end
             n[key]=M.Copy(color);M:Commit()
         end)
         e.mouseColors[key]=swatch

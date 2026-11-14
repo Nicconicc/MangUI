@@ -17,7 +17,7 @@ local combatFocusBinding
 
 local function Setting(key)
     local node=M.byID and M.byID.mouseCircle
-    return node and node[key]~=false
+    return node and node.enabled~=false and node[key]~=false
 end
 
 local function Nameplate(unit)
@@ -450,9 +450,10 @@ function M:RefreshTargetMouseShortcuts()
     if InCombatLockdown() then return end
     local focusEnabled=FocusUnit and Setting("mouseShiftFocus")
     ConfigureCombatFocus(focusEnabled)
+    RefreshFocusBinding()
     local node=self.byID and self.byID.mouseCircle
-    local key=node and self:NormalizeCombatMarkerKey(node.mouseCombatMarkerKey)
-    if key=="" then key=nil end
+    local key=node and node.enabled~=false and self:NormalizeCombatMarkerKey(node.mouseCombatMarkerKey)
+    if not key or key=="" then key=nil end
     local panel=key and SecureHandlerWrapScript and CombatPicker(key) or combatPicker
     if panel then
         panel:SetAttribute("marker-key",key or nil)

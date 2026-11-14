@@ -92,6 +92,7 @@ local function CleanNodes(nodes)
     fields.portraitNameOnly={boolean=true}
     fields.castStageSound={boolean=true}
     fields.menuAlwaysVisible={boolean=true}
+    fields.showMouseCircle={boolean=true}
     fields.menuIconSpacing={number=true}
     fields.castHorizontalScale={number=true}
     fields.showRangedProgress={boolean=true};fields.showMeleeProgress={boolean=true}

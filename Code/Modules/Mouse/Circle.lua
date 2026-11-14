@@ -52,6 +52,7 @@ function M:EnsureMouseCircleModule(design)
     end
     if not rings then design.nodes[#design.nodes+1]=defaults[2] end
     circle.label=moduleLabel
+    if circle.showMouseCircle==nil then circle.showMouseCircle=true end
     for _,key in ipairs({"outerColor","innerColor","gcdColor"}) do
         if type(circle[key])~="table" then circle[key]=defaults[1][key] end
     end
@@ -150,7 +151,7 @@ local function State(view,o,now)
 end
 function S.Paint(view,o)
     local n,f=o.spec,o.frame;local module=o.module or {}
-    if n.enabled==false or (view.hidden and view.hidden[n.id]) or (not view.preview and module.enabled==false) then
+    if module.showMouseCircle==false or n.enabled==false or (view.hidden and view.hidden[n.id]) or (not view.preview and module.enabled==false) then
         if f:IsShown() then f:Hide() end;return
     end
     if not f:IsShown() then f:Show() end

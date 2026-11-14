@@ -49,7 +49,6 @@ local function RefreshProperties(self)
     e.moduleEnabled:SetShown(showModuleEnabled)
     e.moduleDivider:SetShown(showModuleEnabled)
     if module then
-        e.moduleEnabled.label:SetText(moduleID=="mouseCircle" and "启用鼠标光圈" or "启动模块")
         e.moduleEnabled:SetChecked(module.enabled~=false)
     end
     if selectedID=="mouseCircle" then
@@ -228,7 +227,21 @@ local function RefreshProperties(self)
             end
         end
     end
-    if n.compound=="mouseCircle" then for key,swatch in pairs(e.mouseColors) do swatch:SetColor(n[key]) end end
+    local isMouseCircle=n.compound=="mouseCircle"
+    local circleControlsEnabled=not isMouseCircle or n.showMouseCircle~=false
+    if e.fields.scale:IsEnabled()~=circleControlsEnabled then
+        e.fields.scale:SetEnabled(circleControlsEnabled)
+    end
+    local circleAlpha=circleControlsEnabled and 1 or .45
+    e.scaleLabel:SetAlpha(circleAlpha)
+    for _,control in ipairs(e.mouseColorControls) do control[1]:SetAlpha(circleAlpha) end
+    if isMouseCircle then
+        e.showMouseCircle:SetChecked(circleControlsEnabled)
+        for key,swatch in pairs(e.mouseColors) do
+            swatch:SetColor(n[key])
+            swatch:SetEnabled(circleControlsEnabled)
+        end
+    end
     if n.compound=="targetDistance" then
         e.distanceRingCheck:SetChecked(n.showOnRing~=false)
         e.distanceNameplateCheck:SetChecked(n.showOnNameplate~=false)
@@ -482,7 +495,7 @@ local function RefreshProperties(self)
             elseif n.compound=="systemMenu" then
                 visible=row.key=="scale" or row.key=="menuIconSpacing" or row.key=="menuAlwaysVisible"
             elseif n.compound=="mouseCircle" then
-                visible=row.key=="scale" or row.key=="mouseColors" or row.key=="mouseShortcutsTitle"
+                visible=row.key=="showMouseCircle" or row.key=="scale" or row.key=="mouseColors" or row.key=="mouseShortcutsTitle"
                     or row.key=="mouseCombatMarkerKey" or e.mouseShortcutChecks[row.key]~=nil
             else
                 visible=row.key=="x" or row.key=="y" or row.key=="scale" or row.key=="flags"
