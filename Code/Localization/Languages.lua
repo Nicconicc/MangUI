@@ -10102,4 +10102,20 @@ for locale, labels in pairs({
     local catalog = M.localeTables[locale]
     for i, key in ipairs(cooldownImportKeys) do catalog[key] = labels[i] end
 end
+local previewSortKeys={"鼠标拖动图标排序","使用暴雪冷却管理","同步导入","暴雪冷却监控已同步。"}
+local spanishPreviewSort={"Arrastra los iconos para reordenarlos","Usar gestor de reutilización de Blizzard","Sincronizar","Gestor de Blizzard sincronizado."}
+for locale,labels in pairs({
+    enUS={"Drag icons to reorder","Use Blizzard Cooldown Manager","Sync Import","Blizzard cooldowns synced."},
+    deDE={"Symbole zum Sortieren ziehen","Blizzard-Abklingzeitmanager verwenden","Synchronisieren","Blizzard-Abklingzeiten synchronisiert."},
+    frFR={"Glissez les icônes pour les réordonner","Utiliser le gestionnaire de Blizzard","Synchroniser","Temps de recharge Blizzard synchronisés."},
+    esES=spanishPreviewSort,esMX=spanishPreviewSort,
+    itIT={"Trascina le icone per riordinarle","Usa il gestore di Blizzard","Sincronizza","Tempi di recupero di Blizzard sincronizzati."},
+    ptBR={"Arraste os ícones para reordenar","Usar gerenciador de recargas Blizzard","Sincronizar","Recargas da Blizzard sincronizadas."},
+    ruRU={"Перетащите значки для сортировки","Использовать менеджер Blizzard","Синхронизировать","Способности Blizzard синхронизированы."},
+    koKR={"아이콘을 드래그하여 순서 변경","블리자드 재사용 대기시간 관리자 사용","가져오기 동기화","블리자드 재사용 대기시간을 동기화했습니다."},
+    zhTW={"拖曳圖示排序","使用暴雪冷卻管理","同步匯入","暴雪冷卻監控已同步。"},
+})do
+    local catalog=M.localeTables[locale]
+    for i,key in ipairs(previewSortKeys)do catalog[key]=labels[i]end
+end
 M:RebuildLocaleKeys()

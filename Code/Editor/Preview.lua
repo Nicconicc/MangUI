@@ -14,6 +14,66 @@ local MainPreviewSelection=private.MainPreviewSelection
 local SetSelection=private.SetSelection
 local fixedPortraitLevels={centerLevel=true,wa0b35e5bbc2=true,wa38ad2639d2=true}
 local UpdatePreviewGrid=private.UpdatePreviewGrid
+local monitorPreview={
+    playerSkillMonitor={list="monitors",slots="skillIcons"},
+    playerOtherMonitor={list="otherMonitors",slots="otherIcons"},
+    receivedBuffs={list="monitors",slots="buffIcons"},
+    raidVulnerability={list="raidVulnerability",slots="buffIcons"},
+    raidBuffs={list="raidBuffs",slots="buffIcons"},
+    commonItems={list="commonItems",slots="itemIcons"},
+}
+
+local function MonitorTarget(e,drag)
+    local group=Selected()
+    local config=group and monitorPreview[group.id]
+    local list=config and group[config.list]
+    if not list or (drag and (drag.group~=group or drag.list~=list))then return end
+    local object=e.view.nodes[group.id.."Icons"]
+    if not object then return end
+    local x,y=GetCursorPosition();local scale=e.input:GetEffectiveScale()
+    x,y=x/scale,y/scale
+    if not e.input:GetLeft() or x<e.input:GetLeft() or x>e.input:GetRight()
+        or y<e.input:GetBottom() or y>e.input:GetTop() then return end
+    local indices={}
+    for i,entry in ipairs(list)do indices[entry]=i end
+    local best,distance
+    for _,slot in ipairs(object[config.slots] or {})do
+        local entry=slot.entry
+        local index=entry and (indices[entry] or indices[entry.source])
+        if index and slot:IsVisible() then
+            local left,right,top,bottom=slot:GetLeft(),slot:GetRight(),slot:GetTop(),slot:GetBottom()
+            local ratio=slot:GetEffectiveScale()/scale
+            if left then
+                left,right,top,bottom=left*ratio,right*ratio,top*ratio,bottom*ratio
+                local gap=math.abs(x-(left+right)/2)
+                if (drag or (x>=left and x<=right and y>=bottom and y<=top)) and (not distance or gap<distance)then
+                    best,distance={group=group,list=list,entry=list[index],slot=slot,index=index},gap
+                end
+            end
+        end
+    end
+    return best
+end
+
+local function UpdateMonitorHighlight(e)
+    local target=MonitorTarget(e,e.monitorDrag)
+    local glow=e.monitorGlow
+    if target then
+        glow:ClearAllPoints();glow:SetPoint("TOPLEFT",target.slot,"TOPLEFT",-1,1)
+        glow:SetPoint("BOTTOMRIGHT",target.slot,"BOTTOMRIGHT",1,-1)
+    end
+    glow:SetShown(target~=nil)
+end
+
+local function EndMonitorDrag(e)
+    local drag=e.monitorDrag
+    if not drag then return end
+    e.monitorDrag=nil
+    local target=MonitorTarget(e,drag)
+    if not target or target.entry==drag.entry or drag.list[drag.index]~=drag.entry or not M:CanEdit()then return end
+    table.remove(drag.list,drag.index);table.insert(drag.list,target.index,drag.entry)
+    M:Commit()
+end
 
 function M:FitPreview()
     local e=self.editor;local geo=self:Geometry();e.geometry=geo
@@ -138,6 +198,7 @@ function M:RefreshEditor(unchanged)
     local e=self.editor;if not e or not e.window:IsShown() or not e.canvas:IsShown() then return end
     e.scope="all";e.view.hidden={}
     local selected=Selected()
+    if e.monitorDrag and e.monitorDrag.group~=selected then e.monitorDrag=nil;e.monitorGlow:Hide()end
     e.bossPreview=selected and PreviewModuleID(selected)=="bossFrames" or false
     e.partyPreview=selected and PreviewModuleID(selected)=="partyFrames" or false
     if e.partyPreview then
@@ -165,6 +226,7 @@ function M:RefreshEditor(unchanged)
         end
     end
     if e.previewDistanceHint then e.previewDistanceHint:SetShown(PreviewModuleID(selected)=="targetDistance") end
+    if e.previewMonitorHint then e.previewMonitorHint:SetShown(selected and monitorPreview[selected.id]~=nil)end
     if e.previewThreatHint then e.previewThreatHint:SetShown(PreviewModuleID(selected)=="targetThreat") end
     if e.previewChatHint then e.previewChatHint:SetShown(PreviewModuleID(selected)=="chatButtons") end
     local systemMenuPreview=PreviewModuleID(selected)=="systemMenu"
@@ -272,3 +334,6 @@ end
 M.EditorInternals.LayoutEditorPanels=LayoutEditorPanels
 M.EditorInternals.HitCandidates=HitCandidates
 M.EditorInternals.OverlapMenu=OverlapMenu
+M.EditorInternals.MonitorTarget=MonitorTarget
+M.EditorInternals.UpdateMonitorHighlight=UpdateMonitorHighlight
+M.EditorInternals.EndMonitorDrag=EndMonitorDrag

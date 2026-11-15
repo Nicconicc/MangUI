@@ -114,6 +114,13 @@ function M:OpenDesigner()
     e.previewDragHint=W.Label(e.input,"预览视窗中各元素可拖动",11)
     e.previewDragHint:SetPoint("BOTTOMLEFT",10,10)
     e.previewDragHint:SetTextColor(.7,.75,.8);e.previewDragHint:Hide()
+    e.previewMonitorHint=W.Label(e.input,"鼠标拖动图标排序",11)
+    e.previewMonitorHint:SetPoint("TOPLEFT",10,-10)
+    e.previewMonitorHint:SetTextColor(.7,.75,.8);e.previewMonitorHint:Hide()
+    e.monitorGlow=CreateFrame("Frame",nil,e.input,"BackdropTemplate")
+    e.monitorGlow:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=10})
+    e.monitorGlow:SetBackdropColor(1,.82,.2,.16);e.monitorGlow:SetBackdropBorderColor(1,.82,.2,1)
+    e.monitorGlow:EnableMouse(false);e.monitorGlow:Hide()
     e.previewDistanceHint=W.Label(e.input,"超出设定距离：姓名板显示红叉，头像旋转内环变红。",11)
     e.previewDistanceHint:SetPoint("BOTTOMLEFT",10,10)
     e.previewDistanceHint:SetPoint("BOTTOMRIGHT",-10,10)
@@ -178,6 +185,13 @@ function M:OpenDesigner()
     e.input:SetScript("OnMouseDown",function(_,button)
         if e.bossPreview or e.partyPreview then return end
         if button~="LeftButton" and button~="RightButton" then return end
+        if button=="LeftButton" then
+            local monitor=private.MonitorTarget(e)
+            if monitor then
+                if M:CanEdit()then e.monitorDrag=monitor end
+                return
+            end
+        end
         local candidates=HitCandidates(e)
         if button=="RightButton" then if #candidates>0 then OverlapMenu(e,candidates) end;return end
         e.pendingOverlap=nil
@@ -191,6 +205,7 @@ function M:OpenDesigner()
     end)
     e.input:SetScript("OnMouseUp",function(_,button)
         if button~="LeftButton" then return end
+        if e.monitorDrag then private.EndMonitorDrag(e);return end
         if e.pendingOverlap then
             local pending=e.pendingOverlap;e.pendingOverlap=nil
             OverlapMenu(e,pending.candidates)
@@ -199,6 +214,10 @@ function M:OpenDesigner()
     local outline=CreateFrame("Frame",nil,e.input,"BackdropTemplate");e.outline=outline
     outline:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=16});outline:SetBackdropBorderColor(1,1,1,1);outline:EnableMouse(false)
     e.input:SetScript("OnUpdate",function()
+        if e.monitorDrag and IsMouseButtonDown and not IsMouseButtonDown("LeftButton")then
+            private.EndMonitorDrag(e)
+        end
+        private.UpdateMonitorHighlight(e)
         local pending=e.pendingOverlap
         if pending and IsMouseButtonDown and not IsMouseButtonDown("LeftButton") then
             e.pendingOverlap=nil
@@ -236,6 +255,7 @@ function M:OpenDesigner()
         R.Animate(e.view)
     end)
     f:SetScript("OnHide",function()
+        e.monitorDrag=nil;e.monitorGlow:Hide()
         e.pendingOverlap=nil
         if e.drag then e.drag=nil;M:Commit() end
         if e.overlap then e.overlap:Hide() end
