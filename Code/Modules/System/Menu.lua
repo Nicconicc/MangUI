@@ -143,6 +143,44 @@ function S.Click(key)
     -- Protected entries run only from the inherited secure click script.
     M:Print("当前客户端不支持此菜单入口。")
 end
+
+function S.StartGuildCorner()
+    if S.guildCorner then return end
+    local watcher=CreateFrame("Frame",nil,UIParent)
+    S.guildCorner=watcher
+    local elapsed,entered,triggered=0,nil,false
+    watcher:SetScript("OnUpdate",function(_,delta)
+        elapsed=elapsed+delta
+        if elapsed<.05 then return end
+        elapsed=0
+
+        local x,y=GetCursorPosition()
+        local _,height
+        if GetPhysicalScreenSize then _,height=GetPhysicalScreenSize() end
+        if not height or height<=0 then height=GetScreenHeight()*UIParent:GetEffectiveScale() end
+        local now=GetTime()
+        if x<0 or x>=16 or y>height or y<=height-16 then
+            entered,triggered=nil,false
+            return
+        end
+        if InCombatLockdown() or (IsMouseButtonDown and (IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton")))then
+            entered=nil
+            return
+        end
+        entered=entered or now
+        if triggered or now-entered<.35 then return end
+        triggered=true
+
+        local open=ToggleCommunitiesFrame or ToggleGuildFrame
+        if not open then return end
+        pcall(function()
+            if not ((CommunitiesFrame and CommunitiesFrame:IsShown()) or (GuildFrame and GuildFrame:IsShown())) then
+                open()
+            end
+        end)
+    end)
+end
+
 local function Reset(slot,visible)
     local progress=visible and 1 or 0
     slot.progress=progress;slot.target=progress;slot.started=nil;slot.hideAt=nil;slot.pressed=nil;slot.hovered=nil

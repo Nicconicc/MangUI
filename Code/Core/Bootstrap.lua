@@ -1,7 +1,7 @@
 local name, M = ...
 _G.MangUIUF = M
-M.name, M.version = name, "829"
-M.optionsTitle = "MangUI - V829 2026/11/15 2357"
+M.name, M.version = name, "830"
+M.optionsTitle = "MangUI - V830 2026/11/16 0028"
 M.errors, M.status = {}, "等待初始化"
 M.ART = "Interface\\AddOns\\MangUI\\Assets\\"
 M.MYRIAD = "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
@@ -130,7 +130,11 @@ local function Start()
     if InCombatLockdown() then M.pending=true; return end
     if not M.StartLive then M:Report("框体", "Live.lua 未载入"); return end
     local ok=M:Safe("创建单位框体",M.StartLive,M)
-    if ok then M.started=true; M.status=#M.errors==0 and "运行中" or "运行中（有错误）" end
+    if ok then
+        M.started=true
+        if M.SystemMenu then M:Safe("公会窗口入口",M.SystemMenu.StartGuildCorner) end
+        M.status=#M.errors==0 and "运行中" or "运行中（有错误）"
+    end
 end
 events:SetScript("OnEvent",function(_,event,arg,action)
     if (event=="ADDON_LOADED"or event=="PLAYER_LOGIN")and M.RegisterGameMenuEntry then M:Safe("Esc菜单入口",M.RegisterGameMenuEntry,M)end
