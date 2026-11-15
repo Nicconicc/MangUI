@@ -38,17 +38,16 @@ local function ReadDisplayData()
     return provider:GetDisplayData()
 end
 
-local function ReadEssentialCooldowns(group)
-    local display = ReadDisplayData()
-    if not display or not display.orderedCooldownIDs or not display.cooldownInfoByID then return end
+local function EssentialEntries(group, order, readInfo, starter)
     local essential = Enum.CooldownViewerCategory.Essential
-
     local existing = ExistingCooldowns(group)
     local entries, total = {}, 0
-    for _, cooldownID in ipairs(display.orderedCooldownIDs) do
-        local info = display.cooldownInfoByID[cooldownID]
+    for _, cooldownID in ipairs(order) do
+        local info = readInfo(cooldownID)
+        local hiddenByDefault = starter and info and info.flags and FlagsUtil and Enum.CooldownSetSpellFlags
+            and FlagsUtil.IsSet(info.flags, Enum.CooldownSetSpellFlags.HideByDefault)
         if info and info.category == essential and info.isKnown == true
-            and not (CDM_HIDE_INVISIBLE_ITEMS and info.isInvisible) then
+            and not hiddenByDefault and not (CDM_HIDE_INVISIBLE_ITEMS and info.isInvisible) then
             local base = SpellID(info.spellID)
             local id = SpellID(info.overrideSpellID) or base
             if id then
@@ -64,6 +63,21 @@ local function ReadEssentialCooldowns(group)
         end
     end
     return entries, total
+end
+
+local function ReadEssentialCooldowns(group)
+    local display = ReadDisplayData()
+    if not display or not display.orderedCooldownIDs or not display.cooldownInfoByID then return end
+    return EssentialEntries(group, display.orderedCooldownIDs, function(id) return display.cooldownInfoByID[id] end)
+end
+
+function S.ReadBlizzardStarter(group)
+    local entries = ReadEssentialCooldowns(group)
+    if entries then return entries end
+    local api = C_CooldownViewer
+    if not api or not api.GetCooldownViewerCategorySet or not api.GetCooldownViewerCooldownInfo then return end
+    local order = api.GetCooldownViewerCategorySet(Enum.CooldownViewerCategory.Essential, false)
+    if order then return EssentialEntries(group, order, api.GetCooldownViewerCooldownInfo, true) end
 end
 
 function S.GetBlizzardCooldownInfo(entry, id)
@@ -95,6 +109,14 @@ function S.GetBlizzardCooldownInfo(entry, id)
             end
         end
     end
+end
+
+function S.OpenBlizzardCooldownSettings()
+    if M.Compat.interface ~= 16001 or InCombatLockdown() then return end
+    local settings = CooldownViewerSettings
+    if not settings or settings:IsShown() then return end
+    local manager = settings:GetLayoutManager()
+    if manager and manager:IsLoaded() then ShowUIPanel(settings) end
 end
 
 function S.AddBlizzardCooldownButton(panel, current, flush)
