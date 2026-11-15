@@ -1050,8 +1050,7 @@ end
 local function BlizzardHUDIcons()
     local viewer=EssentialCooldownViewer
     if not viewer or not M.Compat.Bool(Safe(viewer.IsVisible,viewer))then return end
-    local frames=Safe(viewer.GetItemFrames,viewer)
-    if not Readable(frames) or type(frames)~="table" or (canaccesstable and not canaccesstable(frames))then return end
+    local frames={viewer:GetChildren()}
     local byID,bySpell={},{}
     for _,frame in ipairs(frames)do
         if Readable(frame) and not M.Compat.Bool(Safe(frame.IsForbidden,frame))then

@@ -28,21 +28,27 @@ local function ExistingCooldowns(group)
     return existing
 end
 
-local function ReadEssentialCooldowns(group)
+local function ReadDisplayData()
     local settings = CooldownViewerSettings
-    local essential = Enum.CooldownViewerCategory.Essential
     local provider = settings and settings.GetDataProvider and settings:GetDataProvider()
-    if not provider or not provider:GetLayoutManager()
+    if not provider or not provider.GetDisplayData
+        or (provider.IsDirty and provider:IsDirty())
         or (provider.IsLayoutUpdateQueued and provider:IsLayoutUpdateQueued()) then return end
+    -- Read only. The provider's ordered-list methods can rebuild the layout and notify the protected HUD.
+    return provider:GetDisplayData()
+end
 
-    -- Match the live HUD. The settings list can include unlearned spells.
-    local orderedIDs = provider:GetOrderedCooldownIDsForCategory(essential, false)
-    if not orderedIDs then return end
+local function ReadEssentialCooldowns(group)
+    local display = ReadDisplayData()
+    if not display or not display.orderedCooldownIDs or not display.cooldownInfoByID then return end
+    local essential = Enum.CooldownViewerCategory.Essential
+
     local existing = ExistingCooldowns(group)
     local entries, total = {}, 0
-    for _, cooldownID in ipairs(orderedIDs) do
-        local info = provider:GetCooldownInfoForID(cooldownID)
-        if info and info.isKnown == true then
+    for _, cooldownID in ipairs(display.orderedCooldownIDs) do
+        local info = display.cooldownInfoByID[cooldownID]
+        if info and info.category == essential and info.isKnown == true
+            and not (CDM_HIDE_INVISIBLE_ITEMS and info.isInvisible) then
             local base = SpellID(info.spellID)
             local id = SpellID(info.overrideSpellID) or base
             if id then
@@ -62,20 +68,13 @@ end
 
 function S.GetBlizzardCooldownInfo(entry, id)
     if M.Compat.interface ~= 16001 or not id then return end
-    local settings = CooldownViewerSettings
-    local provider = settings and settings.GetDataProvider and settings:GetDataProvider()
-    local display = provider and provider.GetDisplayData and provider:GetDisplayData()
-    local byID = display and display.cooldownInfoByID
     local base = BaseSpell(id)
     if entry.blizzardCooldownID and C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCooldownInfo then
         local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(entry.blizzardCooldownID)
         if info and (info.spellID == id or info.spellID == base or info.overrideSpellID == id) then return info end
     end
-    if not byID and provider and not InCombatLockdown() and provider:GetLayoutManager() then
-        provider:GetOrderedCooldownIDs()
-        display = provider:GetDisplayData()
-        byID = display and display.cooldownInfoByID
-    end
+    local display = ReadDisplayData()
+    local byID = display and display.cooldownInfoByID
     for _, cooldownID in ipairs(display and display.orderedCooldownIDs or {}) do
         local info = byID and byID[cooldownID]
         if info and (info.spellID == id or info.spellID == base or info.overrideSpellID == id) then
@@ -85,14 +84,17 @@ function S.GetBlizzardCooldownInfo(entry, id)
             return info
         end
     end
-end
-
-function S.OpenBlizzardCooldownSettings()
-    if M.Compat.interface ~= 16001 or InCombatLockdown() then return end
-    local settings = CooldownViewerSettings
-    if not settings or settings:IsShown() then return end
-    local manager = settings:GetLayoutManager()
-    if manager and manager:IsLoaded() then ShowUIPanel(settings) end
+    -- A manually configured entry has no cooldown ID until it can be matched.
+    -- The client API also works when the official layout has not been built.
+    local api = C_CooldownViewer
+    if api and api.GetCooldownViewerCategorySet and api.GetCooldownViewerCooldownInfo then
+        for _, category in ipairs({Enum.CooldownViewerCategory.Essential, Enum.CooldownViewerCategory.Utility}) do
+            for _, cooldownID in ipairs(api.GetCooldownViewerCategorySet(category, false) or {}) do
+                local info = api.GetCooldownViewerCooldownInfo(cooldownID)
+                if info and (info.spellID == id or info.spellID == base or info.overrideSpellID == id) then return info end
+            end
+        end
+    end
 end
 
 function S.AddBlizzardCooldownButton(panel, current, flush)
