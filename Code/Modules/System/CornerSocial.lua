@@ -124,22 +124,33 @@ local function Guild()
     return rows
 end
 
-local function MemberActions(data)
-    local actions = {}
+local function MemberName(data)
     local name = data.name
     if data.realm and data.realm ~= "" and not name:find("-",1,true) then
         name = name .. "-" .. data.realm:gsub("%s+","")
     end
     local player = UnitName and UnitName("player")
-    if player and FriendKey(name) == FriendKey(player) then return actions end
+    if player and FriendKey(name) == FriendKey(player) then return end
+    return name
+end
 
+local function WhisperAction(data, name)
+    if not name then return end
     local tell = (ChatFrameUtil and ChatFrameUtil.SendTell) or ChatFrame_SendTell
     local battleNetTell = (ChatFrameUtil and ChatFrameUtil.SendBNetTell) or ChatFrame_SendBNetTell
     if data.accountName and data.accountName ~= "" and battleNetTell then
-        actions[#actions+1] = {WHISPER or Text("密语","Whisper"),function() battleNetTell(data.accountName) end}
+        return function() battleNetTell(data.accountName) end
     elseif tell and not data.crossClient then
-        actions[#actions+1] = {WHISPER or Text("密语","Whisper"),function() tell(name) end}
+        return function() tell(name) end
     end
+end
+
+local function MemberActions(data)
+    local actions = {}
+    local name = MemberName(data)
+    if not name then return actions end
+    local whisper = WhisperAction(data,name)
+    if whisper then actions[#actions+1] = {WHISPER or Text("密语","Whisper"),whisper} end
     local invite = (C_PartyInfo and C_PartyInfo.InviteUnit) or InviteUnit
     if not data.crossClient then
         local label = PARTY_INVITE or INVITE or Text("邀请组队","Invite to party")
@@ -229,11 +240,18 @@ local function Section(panel, caption, detailHeader)
         local row = CreateFrame("Button",nil,frame)
         row:SetPoint("TOPLEFT",0,-49-(i-1)*ROW_HEIGHT)
         row:SetSize(WIDTH-24,ROW_HEIGHT)
-        row:RegisterForClicks("RightButtonUp")
+        row:RegisterForClicks("LeftButtonUp","RightButtonUp")
         local highlight = row:CreateTexture(nil,"HIGHLIGHT")
         highlight:SetAllPoints();highlight:SetColorTexture(.75,.83,1,.15)
-        row:SetScript("OnClick",function(self)
-            if self.member then M:Safe("社交列表",OpenMemberMenu,panel,self.member) end
+        row:SetScript("OnClick",function(self, button)
+            local member = self.member
+            if not member then return end
+            if button == "RightButton" then
+                M:Safe("社交列表",OpenMemberMenu,panel,member)
+            elseif button == "LeftButton" then
+                local whisper = WhisperAction(member,MemberName(member))
+                if whisper then M:Safe("社交列表",whisper) end
+            end
         end)
         if i % 2 == 0 then
             local shade = row:CreateTexture(nil,"BACKGROUND")
