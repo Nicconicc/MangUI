@@ -1123,6 +1123,7 @@ function S.BuildControls(e,parent,Row)
     e.propRows[#e.propRows+1]={height=56,controls={{sharing,0,0}},kinds={},key="skillMonitorSharing"}
     local property={height=30,controls={{panel,0,0}},kinds={},key="skillMonitorItems"}
     e.propRows[#e.propRows+1]=property;panel.propertyRow=property;panel.rows={}
+    local monitorTop=0
     local function Current()local n=M.byID[M.selection];return n and n.compound=="playerSkillMonitor" and n end
     local function Editable(group,entry)
         return group and M.byID[group.id]==group and S.EntryIndex(group,entry) and M:CanEdit()
@@ -1174,10 +1175,10 @@ function S.BuildControls(e,parent,Row)
                 local limit=math.max(0,e.props:GetHeight()-scroll:GetHeight())
                 scroll:SetVerticalScroll(M.Clamp(scroll:GetVerticalScroll()+direction*(elapsed or 0)*260,0,limit))
             end
-            local insertion=M.Clamp(math.floor((self:GetTop()-y)/88+.5)+1,1,drag.count+1)
+            local insertion=M.Clamp(math.floor((self:GetTop()-monitorTop-y)/88+.5)+1,1,drag.count+1)
             local from=S.EntryIndex(drag.group,drag.entry)
             drag.target=M.Clamp(insertion-(insertion>from and 1 or 0),1,drag.count)
-            self.insertMarker:ClearAllPoints();self.insertMarker:SetPoint("TOPLEFT",self,"TOPLEFT",0,-(insertion-1)*88+3)
+            self.insertMarker:ClearAllPoints();self.insertMarker:SetPoint("TOPLEFT",self,"TOPLEFT",0,-monitorTop-(insertion-1)*88+3)
             self.insertMarker:SetWidth(self:GetWidth());self.insertMarker:Show()
         else self.insertMarker:Hide()end
         local ghostScale=self.dragGhost:GetEffectiveScale()
@@ -1235,9 +1236,7 @@ function S.BuildControls(e,parent,Row)
         local group=Current();if not group or not M:CanEdit()then return end
         Flush();group.monitors[#group.monitors+1]=S.NewEntry();M:Commit()
     end)
-    if S.AddBlizzardCooldownButton then
-        S.AddBlizzardCooldownButton(panel, Current, Flush)
-    end
+    if S.AddBlizzardCooldownButton and S.AddBlizzardCooldownButton(panel, Current, Flush) then monitorTop=32 end
     function panel:Refresh(group)
         S.RefreshMonitorTitle(self.title)
         if self.drag and (self.drag.group~=group or self.drag.entries~=group.monitors or self.drag.count~=#group.monitors)then self:FinishDrag(false)end
@@ -1249,7 +1248,7 @@ function S.BuildControls(e,parent,Row)
         end
         if self.owner~=group or self.count~=#monitors or self.width~=width then e.propertyLayoutSignature=nil end
         self.owner,self.count,self.width=group,#monitors,width
-        self:SetSize(width,#monitors*88+32);property.height=self:GetHeight()
+        self:SetSize(width,monitorTop+#monitors*88+32);property.height=self:GetHeight()
         for i,entry in ipairs(monitors)do
             local row=self.rows[i]
             if not row then
@@ -1318,7 +1317,7 @@ function S.BuildControls(e,parent,Row)
                 row.remove:SetPoint("TOPRIGHT",row,"TOPRIGHT",0,-53)
                 row.dragHandle:SetPoint("TOP",row.remove,"TOP",0,53)
             end
-            row.group,row.entry=group,entry;row:SetWidth(width);row:SetPoint("TOPLEFT",self,"TOPLEFT",0,-(i-1)*88)
+            row.group,row.entry=group,entry;row:SetWidth(width);row:ClearAllPoints();row:SetPoint("TOPLEFT",self,"TOPLEFT",0,-monitorTop-(i-1)*88)
             row.dragHandle:SetWidth(math.max(100,row.dragLabel:GetStringWidth()+4))
             local dropWidth=math.max(140,width*.34)
             row.drop:SetWidth(dropWidth);row.drop:SetValue(entry.type)
@@ -1345,6 +1344,6 @@ function S.BuildControls(e,parent,Row)
             row.placeholder:SetShown(row.edit:GetText()=="");W.ShadeDragRow(row,i);row:Show()
         end
         for i=#monitors+1,#self.rows do self.rows[i]:Hide()end
-        self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",self,"TOPLEFT",0,-#monitors*88)
+        self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",self,"TOPLEFT",0,-monitorTop-#monitors*88)
     end
 end

@@ -159,7 +159,13 @@ function M:RefreshTree()
             row.statusFlash:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
             row.statusFlash:SetDesaturated(true);row.statusFlash:SetBlendMode("ADD");row.statusFlash:SetAlpha(0)
             row.label=row:CreateFontString(nil,"OVERLAY","GameFontNormal");M:BindText(row.label);row.label:SetText("");row.label:SetTextColor(1,1,1);row.label:SetJustifyH("LEFT");row.label:SetJustifyV("MIDDLE");row.label:SetHeight(24);row.label:SetPoint("LEFT",28,0);row.label:SetPoint("RIGHT",-3,0);row.label:SetWordWrap(false)
-            row:SetScript("OnClick",function()SetSelection(row.node.id)end)
+            row:SetScript("OnClick",function(self)
+                local id=self.node.id
+                SetSelection(id)
+                if id=="playerSkillMonitor" and M.selection==id then
+                    M.PlayerSkillMonitor.OpenBlizzardCooldownSettings()
+                end
+            end)
             row:SetScript("OnEnter",function(self)
                 self.hovered=true;self:RefreshHighlight()
                 if self.node then ShowModuleTip(self,self.node.id,ModuleName(self.node))end

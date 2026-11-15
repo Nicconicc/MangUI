@@ -61,6 +61,14 @@ local function ReadEssentialCooldowns(group)
     return entries, total
 end
 
+function S.OpenBlizzardCooldownSettings()
+    if M.Compat.interface ~= 16001 or InCombatLockdown() then return end
+    local settings = CooldownViewerSettings
+    if not settings or settings:IsShown() then return end
+    local manager = settings:GetLayoutManager()
+    if manager and manager:IsLoaded() then ShowUIPanel(settings) end
+end
+
 function S.AddBlizzardCooldownButton(panel, current, flush)
     if M.Compat.interface ~= 16001 then return end
     local button = M.Widgets.Button(panel, "从暴雪冷却管理器添加", 248, function()
@@ -88,6 +96,7 @@ function S.AddBlizzardCooldownButton(panel, current, flush)
         M:Commit()
         M:Print(string.format(M:T("已从暴雪主要技能冷却添加 %d 项。"), #entries))
     end)
-    button:SetPoint("LEFT", panel.add, "RIGHT", 8, 0)
+    button:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
     button:SetHoverTextColor(1, .82, 0)
+    return button
 end
