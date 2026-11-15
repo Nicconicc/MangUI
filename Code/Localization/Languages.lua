@@ -10132,4 +10132,15 @@ for locale,label in pairs({
 })do
     M.localeTables[locale]["鼠标悬浮到经验条位置后显示"]=label
 end
+local spanishDurability={"Durabilidad del equipo","Durabilidad total"}
+for locale,labels in pairs({
+    enUS={"Equipment Durability","Overall"},deDE={"Ausrüstungshaltbarkeit","Gesamt"},
+    frFR={"Durabilité de l’équipement","Total"},esES=spanishDurability,esMX=spanishDurability,
+    itIT={"Integrità dell’equipaggiamento","Totale"},ptBR={"Durabilidade do equipamento","Total"},
+    ruRU={"Прочность экипировки","Всего"},koKR={"장비 내구도","전체 내구도"},
+    zhTW={"裝備耐久度","全身耐久度"},
+})do
+    local catalog=M.localeTables[locale]
+    catalog["装备耐久度"],catalog["全身耐久度"]=labels[1],labels[2]
+end
 M:RebuildLocaleKeys()

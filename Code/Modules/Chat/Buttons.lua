@@ -22,10 +22,12 @@ B.definitions={
     {key="duty",text="Duty",tip="职责确认",texture="cardBack_hover_A",color={.71764708,1,.43921572},hover=1.15,rotation=15},
     {key="ready",text="Ready",tip="就位确认",texture="cardBack_hover_C",color={.42745101,.79607850,1},hover=1.15,rotation=15},
     {key="pull",text="Pull",tip="开怪倒计时",texture="cardBack_hover_B",color={1,.40784317,.37647063},hover=1.15,rotation=15},
+    {key="durability",text="—",texture="DurabilityAnvil.tga",color={1,1,1},hover=1.15},
 }
 local textLabels={say="说",yell="大喊",guild="公会",party="队伍",raid="团队",battle="战场",
     instance="副本",lfg="世界",roll="骰子",duty="职责",ready="就位",pull="倒计时"}
 function B.LabelText(def,group)
+    if def.key=="durability" then return def.text end
     return group and group.textLabels==true and M:T(textLabels[def.key]) or def.text
 end
 local function Templates()
@@ -198,6 +200,69 @@ function B.Click(def,button,group)
     end
     if prefix then ChatFrame_OpenChat(prefix.." "..(input:GetText() or ""),frame) end
 end
+-- Inventory slot ID, localized client label, and Blizzard's inventory alert index.
+local durabilitySlots={
+    {1,"HEADSLOT",1,"Head"},{3,"SHOULDERSLOT",2,"Shoulder"},{5,"CHESTSLOT",3,"Chest"},
+    {9,"WRISTSLOT",7,"Wrist"},{10,"HANDSSLOT",8,"Hands"},{6,"WAISTSLOT",4,"Waist"},
+    {7,"LEGSSLOT",5,"Legs"},{8,"FEETSLOT",6,"Feet"},{16,"MAINHANDSLOT",9,"Main Hand"},
+    {17,"SECONDARYHANDSLOT",10,"Off Hand"},{18,"RANGEDSLOT",11,"Ranged"},
+}
+local durabilityColors={
+    [0]={r=.1,g=1,b=.1},[1]={r=1,g=.82,b=.18},[2]={r=.93,g=.07,b=.07},
+}
+local function DurabilityColor(status)
+    return INVENTORY_ALERT_COLORS and INVENTORY_ALERT_COLORS[status] or durabilityColors[status]
+end
+local function DurabilityPercent(current,maximum)
+    if maximum==0 then return "—" end
+    return string.format("%.0f%%",100*current/maximum)
+end
+local function ReadDurability(preview)
+    local rows,total,capacity,worst={},0,0,0
+    for _,definition in ipairs(durabilitySlots) do
+        local id,label,index,fallback=unpack(definition)
+        local current,maximum,status
+        if preview then
+            if id~=18 then current,maximum,status=100-index,100,0 end
+        elseif GetInventoryItemDurability then
+            current,maximum=GetInventoryItemDurability(id)
+            current,maximum=M.Compat.Number(current),M.Compat.Number(maximum)
+        end
+        if current and maximum and maximum>0 then
+            current=M.Clamp(current,0,maximum)
+            if status==nil and GetInventoryAlertStatus then
+                status=M.Compat.Number(GetInventoryAlertStatus(index))
+            end
+            if current==0 then status=2
+            elseif status~=0 and status~=1 and status~=2 then status=(current/maximum<=.25) and 1 or 0 end
+            rows[#rows+1]={label=_G[label] or fallback,text=DurabilityPercent(current,maximum),status=status}
+            total,capacity=total+current,capacity+maximum
+            worst=math.max(worst,status)
+        end
+    end
+    return rows,DurabilityPercent(total,capacity),capacity>0 and worst or nil
+end
+local function RefreshDurability(view,o)
+    local slot=o.durabilitySlot
+    if not slot then return end
+    local rows,percent,status=ReadDurability(view.preview)
+    local color=status and DurabilityColor(status) or NORMAL_FONT_COLOR or {r=1,g=1,b=1}
+    if slot.durabilityText~=percent then
+        slot.durabilityText=percent
+        slot.text:SetText(percent);slot.shadow:SetText(percent)
+    end
+    slot.text:SetTextColor(color.r,color.g,color.b)
+    if not slot.durabilityHovered or GameTooltip:GetOwner()~=slot.button then return end
+    local tooltip=GameTooltip
+    tooltip:ClearLines()
+    tooltip:SetText(M:T("装备耐久度"),1,.82,0)
+    for _,row in ipairs(rows) do
+        local c=DurabilityColor(row.status)
+        tooltip:AddDoubleLine(row.label,row.text,1,1,1,c.r,c.g,c.b)
+    end
+    tooltip:AddDoubleLine(M:T("全身耐久度"),percent,1,.82,0,color.r,color.g,color.b)
+    tooltip:Show()
+end
 function B.Build(view,o)
     o.chatButtons={}
     for index,def in ipairs(B.definitions) do
@@ -214,19 +279,31 @@ function B.Build(view,o)
         -- Ordinary buttons let the row hide and reflow when context changes in combat.
         local click=CreateFrame("Button",nil,slot)
         click:SetAllPoints(slot);click:SetFrameLevel(visual:GetFrameLevel()+1)
-        click:RegisterForClicks("LeftButtonUp","RightButtonUp")
-        click:SetScript("OnClick",function(_,button)if not view.preview then B.Click(def,button,o.module) end end)
+        local entry={frame=slot,visual=visual,button=click,texture=texture,text=text,shadow=shadow,definition=def}
+        local isDurability=def.key=="durability"
+        if isDurability then
+            o.durabilitySlot=entry
+        else
+            click:RegisterForClicks("LeftButtonUp","RightButtonUp")
+            click:SetScript("OnClick",function(_,button)if not view.preview then B.Click(def,button,o.module) end end)
+            click:SetScript("OnMouseDown",function()visual:SetAlpha(.5)end)
+            click:SetScript("OnMouseUp",function()visual:SetAlpha(1)end)
+        end
         click:SetScript("OnEnter",function(self)
-            GameTooltip:SetOwner(self,"ANCHOR_TOP");GameTooltip:SetText(B.Tooltip(def,o.module),1,1,1);GameTooltip:Show()
+            GameTooltip:SetOwner(self,"ANCHOR_TOP")
+            if isDurability then
+                entry.durabilityHovered=true
+                RefreshDurability(view,o)
+            else
+                GameTooltip:SetText(B.Tooltip(def,o.module),1,1,1);GameTooltip:Show()
+            end
             -- The visual sibling scales without changing the click area.
             visual:SetScale(def.hover or 1.2)
             if not view.preview and PlaySoundFile then PlaySoundFile(ART.."Hover.mp3","SFX") end
         end)
-        local function Reset()visual:SetScale(1);visual:SetAlpha(1);GameTooltip:Hide()end
+        local function Reset()entry.durabilityHovered=nil;visual:SetScale(1);visual:SetAlpha(1);GameTooltip:Hide()end
         click:SetScript("OnLeave",Reset);click:SetScript("OnHide",Reset)
-        click:SetScript("OnMouseDown",function()visual:SetAlpha(.5)end)
-        click:SetScript("OnMouseUp",function()visual:SetAlpha(1)end)
-        o.chatButtons[index]={frame=slot,visual=visual,button=click,texture=texture,text=text,shadow=shadow,definition=def}
+        o.chatButtons[index]=entry
     end
 end
 function B.RefreshFonts(view,o,force)
@@ -247,7 +324,7 @@ function B.RefreshFonts(view,o,force)
             label:SetWordWrap(false)
             if label.SetNonSpaceWrap then label:SetNonSpaceWrap(false) end
             label:SetWidth(0);label:SetHeight(0);label:SetJustifyV("MIDDLE")
-            label:SetText("");label:SetText(B.LabelText(slot.definition,group))
+            label:SetText("");label:SetText(slot.durabilityText or B.LabelText(slot.definition,group))
         end
     end
     o.appliedFont={path=font,size=size,textLabels=full,language=language};o.fontFailed=failed;o.fontNeedsSettle=not force
@@ -268,6 +345,7 @@ function B.Configure(view,o)
         slot.text:SetPoint("CENTER",0,labelY);slot.shadow:SetPoint("CENTER",2,labelY-2)
     end
     o.chatLayout=nil;B.Refresh(view,o)
+    RefreshDurability(view,o)
 end
 function B.Refresh(view,o)
     local group=o.module or (view.nodes[o.spec.parent] and view.nodes[o.spec.parent].spec)
@@ -292,10 +370,15 @@ function B.Refresh(view,o)
     end
 end
 function B.Event(view,event)
+    local row=view.nodes.chatButtonsRow
+    if not row or not row.chatButtons then return end
+    if event=="PLAYER_ENTERING_WORLD" or event=="PLAYER_EQUIPMENT_CHANGED" or
+        event=="UPDATE_INVENTORY_DURABILITY" or event=="UPDATE_INVENTORY_ALERTS" then
+        if not row.module or row.module.enabled~=false then RefreshDurability(view,row) end
+    end
     if event=="PLAYER_ENTERING_WORLD" or event=="GROUP_ROSTER_UPDATE" or event=="PARTY_LEADER_CHANGED" or
         event=="PLAYER_GUILD_UPDATE" or event=="GUILD_ROSTER_UPDATE" or event=="ZONE_CHANGED_NEW_AREA" or
         event=="ZONE_CHANGED" or event=="UPDATE_BATTLEFIELD_STATUS" then
-        local row=view.nodes.chatButtonsRow
-        if row and row.chatButtons then B.Refresh(view,row) end
+        B.Refresh(view,row)
     end
 end
