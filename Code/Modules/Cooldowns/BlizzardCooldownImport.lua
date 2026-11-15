@@ -173,14 +173,6 @@ function S.GetBlizzardCooldownInfo(entry, id)
     end
 end
 
-function S.OpenBlizzardCooldownSettings()
-    if M.Compat.interface ~= 16001 or InCombatLockdown() then return end
-    local settings = CooldownViewerSettings
-    if not settings or settings:IsShown() then return end
-    local manager = settings:GetLayoutManager()
-    if manager and manager:IsLoaded() then ShowUIPanel(settings) end
-end
-
 function S.AddBlizzardCooldownButton(panel, current, flush)
     if M.Compat.interface ~= 16001 then return end
     local W=M.Widgets

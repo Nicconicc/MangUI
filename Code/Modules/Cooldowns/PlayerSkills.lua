@@ -362,14 +362,20 @@ function S.QueueBlizzardSync(retries)
     end)
 end
 
-local observedLayoutManagers=setmetatable({},{__mode="k"})
 local function WatchBlizzardLayoutChanges()
-    local settings=CooldownViewerSettings
-    local manager=settings and Safe(settings.GetLayoutManager,settings)
-    if not manager or observedLayoutManagers[manager] or not manager.NotifyListeners or not hooksecurefunc then return end
-    -- Run after Blizzard's refresh, outside its shared listener dispatch.
-    local ok=pcall(hooksecurefunc,manager,"NotifyListeners",function()S.QueueBlizzardSync()end)
-    if ok then observedLayoutManagers[manager]=true end
+    local elapsed,wasOpen=0,false
+    local watcher=CreateFrame("Frame")
+    watcher:SetScript("OnUpdate",function(_,delta)
+        elapsed=elapsed+delta
+        if elapsed<.5 then return end
+        elapsed=0
+        if not S.BlizzardSyncEnabled()then wasOpen=false;return end
+        local settings=CooldownViewerSettings
+        local open=settings and M.Compat.Bool(Safe(settings.IsShown,settings))
+        -- Observe from our own frame, never from a Blizzard layout callback.
+        if open or wasOpen then S.QueueBlizzardSync()end
+        wasOpen=open
+    end)
 end
 
 local function ObserveBlizzardEvent(event,unit)
@@ -384,7 +390,6 @@ local function ObserveBlizzardEvent(event,unit)
         or event=="PLAYER_TALENT_UPDATE" or (event=="PLAYER_SPECIALIZATION_CHANGED" and (not unit or unit=="player"))
         or event=="TRAIT_CONFIG_UPDATED" or event=="ACTIVE_COMBAT_CONFIG_CHANGED" or event=="ACTIVE_PLAYER_SPECIALIZATION_CHANGED"
         or event=="COOLDOWN_VIEWER_DATA_LOADED" or event=="COOLDOWN_VIEWER_TABLE_HOTFIXED" or event=="COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED" then
-        if event=="COOLDOWN_VIEWER_DATA_LOADED" then WatchBlizzardLayoutChanges()end
         S.QueueBlizzardSync()
     end
 end
