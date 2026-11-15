@@ -2,8 +2,10 @@ local _, M = ...
 local S = M.PlayerSkillMonitor
 
 local buttonText = "从暴雪冷却管理器添加"
+local spellbookText = "从法术书添加技能"
 local unavailableText = "暂时无法读取暴雪冷却设置，请打开暴雪冷却管理器后重试。"
-local emptyText = "当前专精没有可添加的技能冷却。"
+local emptyText = "暴雪冷却管理器没有可添加的技能冷却。"
+local spellbookEmptyText = "法术书没有可添加的主动技能。"
 
 local function SpellID(value)
     if M.Compat.Readable(value) and type(value) == "number" and value > 0 then
@@ -47,15 +49,16 @@ local function ReadCandidates(group)
     local category = Enum.CooldownViewerCategory
     local existing = ExistingCooldowns(group)
     local byID, defaultOrder = {}, {}
-    for _, source in ipairs({category.Essential, category.Utility, category.TrackedBuff, category.TrackedBar}) do
-        for _, cooldownID in ipairs(C_CooldownViewer.GetCooldownViewerCategorySet(source, false)) do
+    for _, source in ipairs({category.Essential, category.Utility, category.TrackedBuff, category.TrackedBar,
+        category.EquipSlotEssential, category.EquipSlotTracked, category.SpecAgnosticEssential, category.SpecAgnosticTracked}) do
+        for _, cooldownID in ipairs(C_CooldownViewer.GetCooldownViewerCategorySet(source, true)) do
             local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(cooldownID)
             local override = overrides and overrides[cooldownID]
             local activeCategory = override and tonumber(override.category)
             if not activeCategory and info and not FlagsUtil.IsSet(info.flags, Enum.CooldownSetSpellFlags.HideByDefault) then
                 activeCategory = info.category
             end
-            if info and info.isKnown and not info.isInvisible and not info.equipSlot and not info.buffSlot
+            if info and info.isKnown and not (CDM_HIDE_INVISIBLE_ITEMS and info.isInvisible) and not info.equipSlot and not info.buffSlot
                 and (activeCategory == category.Essential or activeCategory == category.Utility) then
                 local id = SpellID(info.overrideSpellID) or SpellID(info.spellID)
                 local baseID = id and BaseSpell(SpellID(info.spellID) or id)
@@ -63,7 +66,8 @@ local function ReadCandidates(group)
                     local name, _, icon = M.PetBuffs.SpellInfo(id)
                     if name then
                         if not byID[cooldownID] then defaultOrder[#defaultOrder + 1] = cooldownID end
-                        byID[cooldownID] = {id = id, baseID = baseID, name = name, icon = icon, category = activeCategory}
+                        byID[cooldownID] = {id = id, baseID = baseID, name = name, icon = icon, category = activeCategory,
+                            heading = activeCategory == category.Essential and "主要技能冷却" or "功能技能冷却"}
                     end
                 end
             end
@@ -85,7 +89,36 @@ local function ReadCandidates(group)
     return candidates
 end
 
-local function CreatePicker(window, onApply)
+local function CanReadSpellbook()
+    return C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines and C_SpellBook.GetSpellBookSkillLineInfo
+        and C_SpellBook.GetSpellBookItemInfo
+end
+
+local function ReadSpellbook(group)
+    local book, bank = C_SpellBook, Enum.SpellBookSpellBank.Player
+    local existing, candidates = ExistingCooldowns(group), {}
+    for line = 1, book.GetNumSpellBookSkillLines() do
+        local info = book.GetSpellBookSkillLineInfo(line)
+        if info and not info.shouldHide and not info.isGuild and not info.offSpecID then
+            for slot = info.itemIndexOffset + 1, info.itemIndexOffset + info.numSpellBookItems do
+                local item = book.GetSpellBookItemInfo(slot, bank)
+                if item and item.itemType == Enum.SpellBookItemType.Spell and not item.isPassive and not item.isOffSpec
+                    and (not book.IsSpellBookItemLowRank or not book.IsSpellBookItemLowRank(slot, bank)) then
+                    local id = SpellID(item.spellID) or SpellID(item.actionID)
+                    local baseID = id and BaseSpell(SpellID(item.actionID) or id)
+                    if baseID and not existing[baseID] and not existing[BaseSpell(id)] and M.Compat.Readable(item.name)
+                        and type(item.name) == "string" and item.name ~= "" then
+                        existing[baseID] = true
+                        candidates[#candidates + 1] = {id = id, name = item.name, icon = item.iconID}
+                    end
+                end
+            end
+        end
+    end
+    return candidates
+end
+
+local function CreatePicker(window, onApply, onSpellbook)
     local W = M.Widgets
     local overlay = CreateFrame("Frame", nil, window)
     overlay:SetAllPoints(window)
@@ -123,11 +156,14 @@ local function CreatePicker(window, onApply)
     cancel:SetPoint("BOTTOMRIGHT", -18, 15)
     local apply = W.Button(dialog, "添加选中技能", 176, function() onApply(checked) end)
     apply:SetPoint("RIGHT", cancel, "LEFT", -8, 0)
+    local spellbook = W.Button(dialog, spellbookText, 224, onSpellbook)
+    spellbook:SetPoint("TOPLEFT", 18, -104)
 
-    function overlay:ShowCandidates(candidates, errorText)
+    function overlay:ShowCandidates(candidates, fromSpellbook)
         wipe(checked)
         apply:Disable()
-        local previousCategory, y = nil, 0
+        title:SetText(fromSpellbook and spellbookText or buttonText)
+        local previousHeading, y = nil, 0
         for i, entry in ipairs(candidates or {}) do
             local row = rows[i]
             if not row then
@@ -157,25 +193,24 @@ local function CreatePicker(window, onApply)
                 row.name:SetWordWrap(false)
                 rows[i] = row
             end
-            local newCategory = entry.category ~= previousCategory
-            row.heading:SetShown(newCategory)
-            if newCategory then
-                row.heading:SetText(entry.category == Enum.CooldownViewerCategory.Essential and "主要技能冷却" or "功能技能冷却")
-            end
+            local newHeading = entry.heading ~= nil and entry.heading ~= previousHeading
+            row.heading:SetShown(newHeading)
+            if newHeading then row.heading:SetText(entry.heading) end
             row.entry = entry
             row.check:SetChecked(false)
             row.icon:SetTexture(entry.icon or 134400)
             row.name:SetText(entry.name)
-            row:SetHeight(newCategory and 52 or 30)
+            row:SetHeight(newHeading and 52 or 30)
             row:ClearAllPoints()
             row:SetPoint("TOPLEFT", 0, -y)
             row:Show()
             y = y + row:GetHeight()
-            previousCategory = entry.category
+            previousHeading = entry.heading
         end
         for i = #(candidates or {}) + 1, #rows do rows[i]:Hide() end
-        message:SetText(errorText or emptyText)
+        message:SetText(fromSpellbook and spellbookEmptyText or (candidates and emptyText or unavailableText))
         message:SetShown(y == 0)
+        spellbook:SetShown(y == 0 and not fromSpellbook and not not CanReadSpellbook())
         content:SetHeight(math.max(2, y))
         scroll:SetShown(y > 0)
         scroll:SetVerticalScroll(0)
@@ -187,23 +222,31 @@ end
 function S.AddBlizzardCooldownButton(panel, window, current, flush)
     if M.Compat.interface ~= 16001 or not (C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCategorySet
         and C_CooldownViewer.GetCooldownViewerCooldownInfo) then return end
-    local picker, owner, profile, openedEntries
+    local picker, owner, profile, openedEntries, fromSpellbook
+    local function CanContinue()
+        if current() ~= owner or S.CurrentProfile() ~= profile or owner.monitors ~= openedEntries
+            or not S.IsProfileBound(owner.id) then
+            picker:Hide()
+            return false
+        end
+        return M:CanEdit()
+    end
+    local function Candidates()
+        local ok, candidates = pcall(fromSpellbook and ReadSpellbook or ReadCandidates, owner)
+        if ok then return candidates end
+    end
     local button = M.Widgets.Button(panel, buttonText, 248, function()
         local group = current()
         if not group or not M:CanEdit() or not S.IsProfileBound(group.id) then return end
         flush()
         owner, profile, openedEntries = group, S.CurrentProfile(), group.monitors
+        fromSpellbook = false
         if not picker then
             picker = CreatePicker(window, function(checked)
-                if current() ~= owner or S.CurrentProfile() ~= profile or owner.monitors ~= openedEntries
-                    or not S.IsProfileBound(owner.id) then
-                    picker:Hide()
-                    return
-                end
-                if not M:CanEdit() then return end
-                local ok, candidates = pcall(ReadCandidates, owner)
-                if not ok or not candidates then
-                    picker:ShowCandidates(nil, unavailableText)
+                if not CanContinue() then return end
+                local candidates = Candidates()
+                if not candidates then
+                    picker:ShowCandidates(nil, fromSpellbook)
                     return
                 end
                 local count = #owner.monitors
@@ -218,11 +261,13 @@ function S.AddBlizzardCooldownButton(panel, window, current, flush)
                 if #owner.monitors > count then
                     M:Commit()
                 end
+            end, function()
+                if not CanContinue() then return end
+                fromSpellbook = true
+                picker:ShowCandidates(Candidates(), fromSpellbook)
             end)
         end
-        local ok, candidates = pcall(ReadCandidates, owner)
-        if ok and candidates then picker:ShowCandidates(candidates)
-        else picker:ShowCandidates(nil, unavailableText) end
+        picker:ShowCandidates(Candidates(), fromSpellbook)
     end)
     button:SetPoint("LEFT", panel.add, "RIGHT", 8, 0)
     button:SetHoverTextColor(1, .82, 0)
