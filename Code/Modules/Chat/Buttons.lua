@@ -18,7 +18,7 @@ B.definitions={
     {key="battle",text="/Bg",tip="战场",prefix="/bg",texture="cardFront_rarity_5",color={1,.69019610,.12941177}},
     {key="instance",text="/I",tip="副本",prefix="/i",texture="cardFront_rarity_5",color={1,.73333335,.16862746}},
     {key="lfg",text="/LFG",tip="寻求组队：右键加入／离开频道",channel="lfg",texture="cardFront_rarity_7",color={1,.84705889,.83137262}},
-    {key="roll",text="/Roll",tip="骰子：Shift 点击固定掷出 100",texture="RollDice.tga",color={1,.90588242,.34117648},hover=1.15,iconScale=.72},
+    {key="roll",text="/Roll",tip="骰子：Shift 点击固定掷出 100",texture="RollDice.tga",color={1,.90588242,.34117648},hover=1.15,iconScale=.9},
     {key="duty",text="Duty",tip="职责确认",texture="cardBack_hover_A",color={.71764708,1,.43921572},hover=1.15,rotation=15},
     {key="ready",text="Ready",tip="就位确认",texture="cardBack_hover_C",color={.42745101,.79607850,1},hover=1.15,rotation=15},
     {key="pull",text="Pull",tip="开怪倒计时",texture="cardBack_hover_B",color={1,.40784317,.37647063},hover=1.15,rotation=15},

@@ -1218,3 +1218,7 @@ Lua 5.1 回归与专项状态切换检查通过。`diagnostics/check_performance
 - 焦点能量条使用 Assets 下的 TargetHPBG、TargetHPColor、TargetHPRamp、TargetHPGlass、TargetHPKuang，TargetHPShadow 层已关闭。玻璃使用 ADD 混合，能量条贴图与边缘 Spark 做 Y 方向镜像，能量条所有子层级都低于焦点血量条。能量填充从左向右增长，并按 TargetHPColor 的 Alpha 可见区域裁切；Spark 跟随填充右缘。动画使用与焦点血量相同的 0.35 秒平滑动画。
 
 
+# MangUI 847 — 2026/11/16 0254（北京时间）
+
+- 增大 /Roll 按钮图标的显示尺寸，沿用完整骰子贴图，避免骰子形状被拉伸或裁切。
+
