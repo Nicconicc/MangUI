@@ -283,6 +283,13 @@ local function LegacyCharacterProfiles(id,config,store,portable)
     end
     return consumed
 end
+local function IsStarterPlaceholder(entries)
+    local entry=entries and #entries==1 and entries[1]
+    if not entry or entry.type~="cooldown" or entry.value~="" or (entry.shortcut or "")~=""
+        or entry.reverseDisplay or entry.showShortcut==false or entry.effect or entry.blizzardCooldownID then return false end
+    local color=entry.shortcutColor
+    return not color or (color[1]==1 and color[2]==1 and color[3]==1 and color[4]==1)
+end
 function S.BindCharacter(id)
     local store,d=CharacterStore(id);local db=M.db;local group=db and CharacterGroup(id,db.design)
     local character=S.CurrentCharacter();local profile=S.TalentContext();if not group or not character then return end
@@ -293,6 +300,8 @@ function S.BindCharacter(id)
     if not store.migrated then
         LegacyCharacterProfiles(id,db,store,false)
         store.migrated=true
+        if id=="playerSkillMonitor" and M.Compat.interface==16001 and not next(store.profiles)
+            and IsStarterPlaceholder(store.template)then store.blizzardStarterPending=true end
     end
     if S.characterStorageLoaded then
         local consumed=LegacyCharacterProfiles(id,db,{profiles={}},false)
@@ -308,21 +317,68 @@ function S.BlizzardSyncEnabled()
     local store=M.characterDB and M.characterDB.monitors and M.characterDB.monitors.playerSkillMonitor
     return not store or store.useBlizzardCooldownManager~=false
 end
+local observedProfile,observedCooldowns
 function S.SetBlizzardSyncEnabled(enabled)
     if M.Compat.interface~=16001 or not S.IsProfileBound("playerSkillMonitor") then return end
     local store=CharacterStore("playerSkillMonitor")
     store.useBlizzardCooldownManager=enabled==true
+    observedProfile,observedCooldowns=nil,nil
+    if enabled then S.QueueBlizzardSync()end
 end
-local blizzardSyncedProfiles={}
-function S.TryLoginBlizzardSync()
-    if M.Compat.interface~=16001 or not M.db or InCombatLockdown()
-        or not S.IsProfileBound("playerSkillMonitor") or not S.BlizzardSyncEnabled() then return end
+
+local observingBlizzard,blizzardSyncTimer,blizzardSyncAfterCombat
+local function ObserveBlizzardCooldowns()
+    if not M.db or not S.IsProfileBound("playerSkillMonitor") then return false end
     local profile=S.CurrentProfile()
-    if not profile or blizzardSyncedProfiles[profile]then return end
     local group=CharacterGroup("playerSkillMonitor",M.db.design)
-    if not group then return end
-    blizzardSyncedProfiles[profile]=true
-    if not Safe(S.SyncBlizzardCooldowns,group)then blizzardSyncedProfiles[profile]=nil end
+    if not group or not profile then return false end
+    local desired=Safe(S.ReadBlizzardCooldowns)
+    if not desired then return false end
+    local signature={}
+    for i,entry in ipairs(desired)do signature[i]=entry.blizzardCooldownID..":"..entry.value end
+    table.sort(signature)
+    signature=table.concat(signature,",")
+
+    local store=MangUICharacterDB.monitors.playerSkillMonitor
+    local starter=store and store.blizzardStarterPending and IsStarterPlaceholder(group.monitors)
+    local changed=observedProfile and (profile~=observedProfile or signature~=observedCooldowns)
+    if changed or (starter and #desired>0) then
+        if not Safe(S.SyncBlizzardCooldowns,group,desired) then return false end
+    end
+    if store and (not starter or #desired>0)then store.blizzardStarterPending=nil end
+    observedProfile,observedCooldowns=profile,signature
+    return true
+end
+
+function S.QueueBlizzardSync(retries)
+    if not observingBlizzard or not S.BlizzardSyncEnabled() or blizzardSyncTimer then return end
+    if InCombatLockdown() then blizzardSyncAfterCombat=true;return end
+    if not C_Timer or not C_Timer.After then return end
+    blizzardSyncTimer=true
+    C_Timer.After(retries and .4 or .25,function()
+        blizzardSyncTimer=nil
+        if not S.BlizzardSyncEnabled() then return end
+        if InCombatLockdown() then blizzardSyncAfterCombat=true;return end
+        if not ObserveBlizzardCooldowns() and (retries or 4)>0 then S.QueueBlizzardSync((retries or 4)-1)end
+    end)
+end
+
+local function ObserveBlizzardEvent(event,unit)
+    if M.Compat.interface~=16001 then return end
+    if event=="PLAYER_ENTERING_WORLD" and not observingBlizzard then
+        observingBlizzard=true
+        if EventRegistry and EventRegistry.RegisterCallback then
+            EventRegistry:RegisterCallback("CooldownViewerSettings.OnDataChanged",function()S.QueueBlizzardSync()end,S)
+        end
+        S.QueueBlizzardSync()
+    elseif event=="PLAYER_REGEN_ENABLED" then
+        if blizzardSyncAfterCombat then blizzardSyncAfterCombat=nil;S.QueueBlizzardSync()end
+    elseif event=="SPELLS_CHANGED" or event=="LEARNED_SPELL_IN_TAB" or event=="ACTIVE_TALENT_GROUP_CHANGED"
+        or event=="PLAYER_TALENT_UPDATE" or (event=="PLAYER_SPECIALIZATION_CHANGED" and (not unit or unit=="player"))
+        or event=="TRAIT_CONFIG_UPDATED" or event=="ACTIVE_COMBAT_CONFIG_CHANGED" or event=="ACTIVE_PLAYER_SPECIALIZATION_CHANGED"
+        or event=="COOLDOWN_VIEWER_DATA_LOADED" or event=="COOLDOWN_VIEWER_TABLE_HOTFIXED" or event=="COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED" then
+        S.QueueBlizzardSync()
+    end
 end
 function S.CleanCharacterSettings(settings)
     if type(settings)~="table"then return end
@@ -1346,8 +1402,7 @@ local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=tr
     COOLDOWN_VIEWER_DATA_LOADED=true,COOLDOWN_VIEWER_TABLE_HOTFIXED=true,COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED=true}
 function S.Event(view,event,unit)
     if not events[event] or (event=="UNIT_AURA" and unit~="target"and unit~="player") or (event=="UNIT_SPELLCAST_SUCCEEDED" and unit~="player")then return end
-    if event=="PLAYER_ENTERING_WORLD" or event=="COOLDOWN_VIEWER_DATA_LOADED" or event=="LEARNED_SPELL_IN_TAB"
-        or event=="SPELLS_CHANGED" or event=="PLAYER_REGEN_ENABLED" then S.TryLoginBlizzardSync()end
+    ObserveBlizzardEvent(event,unit)
     local activation=event=="SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" or event=="SPELL_ACTIVATION_OVERLAY_GLOW_HIDE"
     if activation and Number(unit) then
         activationEvents[unit]=event=="SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" or nil

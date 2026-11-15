@@ -106,8 +106,10 @@ local function ReadEssentialCooldowns()
     if next(infoByID)then return EssentialEntries(empty,order,function(id)return infoByID[id]end,overrides,true)end
 end
 
-function S.SyncBlizzardCooldowns(group)
-    local desired=ReadEssentialCooldowns()
+S.ReadBlizzardCooldowns=ReadEssentialCooldowns
+
+function S.SyncBlizzardCooldowns(group,desired)
+    desired=desired or ReadEssentialCooldowns()
     if not desired then return end
     local expected, kept={},{}
     for _,entry in ipairs(desired)do expected[entry.blizzardCooldownID]=entry end
@@ -176,9 +178,8 @@ end
 function S.AddBlizzardCooldownButton(panel, current, flush)
     if M.Compat.interface ~= 16001 then return end
     local W=M.Widgets
-    local check=W.Check(panel,"使用暴雪冷却管理",function(enabled) S.SetBlizzardSyncEnabled(enabled)end)
-    check:SetPoint("TOPLEFT",panel,"TOPLEFT",0,0)
-    local button = W.Button(panel, "同步导入", 120, function()
+    local check=W.Check(panel,"自动同步",function(enabled) S.SetBlizzardSyncEnabled(enabled)end)
+    local button = W.Button(panel, "从暴雪冷却管理器中导入", 230, function()
         local group = current()
         if not group or not M:CanEdit() or not S.IsProfileBound(group.id) then return end
         flush()
@@ -191,7 +192,8 @@ function S.AddBlizzardCooldownButton(panel, current, flush)
         end
         M:Print("暴雪冷却监控已同步。")
     end)
-    button:SetPoint("LEFT", check.label, "RIGHT", 12, 0)
+    button:SetPoint("TOPLEFT",panel,"TOPLEFT",0,0)
+    check:SetPoint("LEFT",button,"RIGHT",12,0)
     button:SetHoverTextColor(1, .82, 0)
     panel.blizzardSyncCheck=check
     return button
