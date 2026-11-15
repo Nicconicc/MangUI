@@ -1222,3 +1222,4 @@ Lua 5.1 回归与专项状态切换检查通过。`diagnostics/check_performance
 
 - 增大 /Roll 按钮图标的显示尺寸，沿用完整骰子贴图，避免骰子形状被拉伸或裁切。
 
+
