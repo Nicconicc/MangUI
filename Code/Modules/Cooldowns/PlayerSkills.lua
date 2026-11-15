@@ -1235,6 +1235,9 @@ function S.BuildControls(e,parent,Row)
         local group=Current();if not group or not M:CanEdit()then return end
         Flush();group.monitors[#group.monitors+1]=S.NewEntry();M:Commit()
     end)
+    if S.AddBlizzardCooldownButton then
+        S.AddBlizzardCooldownButton(panel, e.window, Current, Flush)
+    end
     function panel:Refresh(group)
         S.RefreshMonitorTitle(self.title)
         if self.drag and (self.drag.group~=group or self.drag.entries~=group.monitors or self.drag.count~=#group.monitors)then self:FinishDrag(false)end

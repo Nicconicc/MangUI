@@ -10059,4 +10059,30 @@ for locale,labels in pairs({
     local catalog=M.localeTables[locale]
     for i,key in ipairs(mouseLabels) do catalog[key]=labels[i] end
 end
+local cooldownImportKeys = {"从暴雪冷却管理器添加", "主要技能冷却", "功能技能冷却", "添加选中技能",
+    "暂时无法读取暴雪冷却设置，请打开暴雪冷却管理器后重试。", "当前专精没有可添加的技能冷却。"}
+local spanishCooldownImport = {"Añadir del gestor de reutilización", "Habilidades principales", "Habilidades de utilidad", "Añadir habilidades elegidas",
+    "No se pudo leer la configuración. Abre el gestor de reutilización y vuelve a intentarlo.", "No hay habilidades que añadir para tu especialización actual."}
+for locale, labels in pairs({
+    enUS = {"Add from Blizzard Cooldown Manager", "Essential Cooldowns", "Utility Cooldowns", "Add selected spells",
+        "Cooldown settings are unavailable. Open Blizzard's Cooldown Manager and try again.", "No spell cooldowns are available to add for your current specialization."},
+    deDE = {"Aus Abklingzeitmanager hinzufügen", "Wichtige Abklingzeiten", "Nützliche Abklingzeiten", "Auswahl hinzufügen",
+        "Öffne den Abklingzeitmanager von Blizzard und versuche es erneut.", "Für deine aktuelle Spezialisierung sind keine neuen Zauber verfügbar."},
+    frFR = {"Ajouter depuis le gestionnaire Blizzard", "Temps de recharge essentiels", "Temps de recharge utilitaires", "Ajouter la sélection",
+        "Ouvrez le gestionnaire de temps de recharge de Blizzard et réessayez.", "Aucun sort à ajouter pour votre spécialisation actuelle."},
+    esES = spanishCooldownImport, esMX = spanishCooldownImport,
+    itIT = {"Aggiungi dal gestore di Blizzard", "Tempi di recupero essenziali", "Tempi di recupero di utilità", "Aggiungi selezione",
+        "Apri il gestore dei tempi di recupero di Blizzard e riprova.", "Nessuna abilità da aggiungere per la specializzazione attuale."},
+    ptBR = {"Adicionar do gerenciador da Blizzard", "Recargas essenciais", "Recargas utilitárias", "Adicionar seleção",
+        "Abra o gerenciador de recargas da Blizzard e tente novamente.", "Não há habilidades para adicionar à especialização atual."},
+    ruRU = {"Добавить из менеджера Blizzard", "Основные способности", "Вспомогательные способности", "Добавить выбранное",
+        "Откройте менеджер восстановления Blizzard и попробуйте снова.", "Для текущей специализации нет способностей для добавления."},
+    koKR = {"블리자드 재사용 대기시간 관리자에서 추가", "주요 기술 재사용 대기시간", "보조 기술 재사용 대기시간", "선택한 기술 추가",
+        "블리자드 재사용 대기시간 관리자를 연 후 다시 시도하세요.", "현재 전문화에 추가할 수 있는 기술이 없습니다."},
+    zhTW = {"從暴雪冷卻管理器新增", "主要技能冷卻", "功能技能冷卻", "新增選取的技能",
+        "暫時無法讀取暴雪冷卻設定，請開啟暴雪冷卻管理器後再試。", "目前專精沒有可新增的技能冷卻。"},
+}) do
+    local catalog = M.localeTables[locale]
+    for i, key in ipairs(cooldownImportKeys) do catalog[key] = labels[i] end
+end
 M:RebuildLocaleKeys()

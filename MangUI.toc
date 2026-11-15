@@ -18,7 +18,7 @@
 ## Category-zhCN: 单位框体
 ## Category-zhTW: 單位框架
 ## Author: Nc
-## Version: 812
+## Version: 813
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\MIcon.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB
@@ -62,6 +62,7 @@ Code\Modules\Cooldowns\Monitor.lua
 Code\Modules\Cooldowns\CustomCode.lua
 Code\Modules\Cooldowns\CustomCodeEditor.lua
 Code\Modules\Cooldowns\PlayerSkills.lua
+Code\Modules\Cooldowns\BlizzardCooldownImport.lua
 Code\Modules\Cooldowns\EquipmentData.lua
 Code\Modules\Cooldowns\PlayerOther.lua
 Code\Modules\Cooldowns\OtherRuntime.lua
