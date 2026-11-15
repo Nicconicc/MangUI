@@ -10059,6 +10059,22 @@ for locale,labels in pairs({
     local catalog=M.localeTables[locale]
     for i,key in ipairs(mouseLabels) do catalog[key]=labels[i] end
 end
+local effectMonitorKeys={"跟随暴雪","玩家Buff优先，然后显示冷却","目标Debuff优先，然后显示冷却","效果名称或ID"}
+local spanishEffectMonitor={"Seguir a Blizzard","Beneficio propio, luego reutilización","Perjuicio del objetivo, luego reutilización","Nombre o ID del efecto"}
+for locale, labels in pairs({
+    enUS={"Follow Blizzard","Player buff, then cooldown","Target debuff, then cooldown","Effect name or ID"},
+    deDE={"Blizzard folgen","Eigener Stärkungseffekt, dann Abklingzeit","Zielschwächung, dann Abklingzeit","Effektname oder ID"},
+    frFR={"Suivre Blizzard","Bonus du joueur, puis recharge","Malus de la cible, puis recharge","Nom ou ID de l’effet"},
+    esES=spanishEffectMonitor,esMX=spanishEffectMonitor,
+    itIT={"Segui Blizzard","Beneficio personale, poi recupero","Malus sul bersaglio, poi recupero","Nome o ID dell'effetto"},
+    ptBR={"Seguir a Blizzard","Bônus do jogador, depois recarga","Penalidade do alvo, depois recarga","Nome ou ID do efeito"},
+    ruRU={"По настройкам Blizzard","Эффект игрока, затем восстановление","Эффект на цели, затем восстановление","Название или ID эффекта"},
+    koKR={"블리자드 설정 따르기","플레이어 강화 효과 후 재사용 대기시간","대상 약화 효과 후 재사용 대기시간","효과 이름 또는 ID"},
+    zhTW={"跟隨暴雪","玩家增益優先，然後顯示冷卻","目標減益優先，然後顯示冷卻","效果名稱或ID"},
+}) do
+    local catalog=M.localeTables[locale]
+    for i,key in ipairs(effectMonitorKeys)do catalog[key]=labels[i]end
+end
 local cooldownImportKeys = {"从暴雪冷却管理器添加", "暂时无法读取暴雪冷却设置，请打开暴雪冷却管理器后重试。",
     "暴雪主要技能冷却列表为空。", "暴雪主要技能冷却已全部添加。", "已从暴雪主要技能冷却添加 %d 项。"}
 local spanishCooldownImport = {"Añadir del gestor de reutilización",

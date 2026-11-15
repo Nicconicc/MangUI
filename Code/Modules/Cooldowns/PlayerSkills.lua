@@ -5,6 +5,8 @@ local auraTypes={
     buff={unit="player",filter="HELPFUL"},
     debuff={unit="target",filter="HARMFUL|PLAYER"},
 }
+local effectTypes={buffCooldown="buff",debuffCooldown="debuff"}
+local function IsCombined(entry)return entry.type=="blizzard" or effectTypes[entry.type]~=nil end
 local function Readable(v)return not issecretvalue or not issecretvalue(v)end
 local function Number(v)return Readable(v) and type(v)=="number" and v or nil end
 local function Safe(fn,...)
@@ -61,9 +63,12 @@ function S.ValidEntries(entries)
     if type(entries)~="table" then return false end
     for key,entry in pairs(entries) do
         if type(key)~="number" or key%1~=0 or key<1 or key>#entries or type(entry)~="table" then return false end
-        if entry.type~="cooldown" and entry.type~="usable" and not auraTypes[entry.type] and entry.type~="custom"then return false end
+        if entry.type~="cooldown" and entry.type~="usable" and not auraTypes[entry.type] and entry.type~="custom" and not IsCombined(entry)then return false end
         if not M.CustomMonitor.Valid(entry)then return false end
         if type(entry.value)~="string" or #entry.value>384 then return false end
+        if entry.effect~=nil and (type(entry.effect)~="string" or #entry.effect>384)then return false end
+        local cooldownID=entry.blizzardCooldownID
+        if cooldownID~=nil and (type(cooldownID)~="number" or cooldownID<=0 or cooldownID>2147483647 or cooldownID%1~=0)then return false end
         if entry.showShortcut~=nil and type(entry.showShortcut)~="boolean" then return false end
         if entry.reverseDisplay~=nil and type(entry.reverseDisplay)~="boolean" then return false end
         if entry.shortcut~=nil and (type(entry.shortcut)~="string" or #entry.shortcut>128) then return false end
@@ -77,7 +82,7 @@ function S.ValidEntries(entries)
         end
         for field in pairs(entry)do
             if field~="type" and field~="value" and field~="showShortcut" and field~="shortcut" and field~="shortcutColor"
-                and field~="reverseDisplay" and not M.CustomMonitor.fields[field]then return false end
+                and field~="reverseDisplay" and field~="effect" and field~="blizzardCooldownID" and not M.CustomMonitor.fields[field]then return false end
         end
     end
     for i=1,#entries do if type(entries[i])~="table" then return false end end
@@ -386,7 +391,7 @@ function S.RefreshProfileBindings()
     local panel=M.editor and M.editor.skillMonitorPanel
     if panel then
         panel:FinishDrag(false)
-        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
+        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus();row.effectEdit:ClearFocus()end
     end
     if M.PlayerOtherMonitor.FlushEditor then M.PlayerOtherMonitor.FlushEditor()end
     M:BindPlayerSkillMonitorClass();M:BindPlayerOtherMonitorClass();M:Commit();return true
@@ -649,9 +654,10 @@ local function Icon(o,i)
     slot=CreateFrame("Frame",nil,o.frame);slot:SetSize(40,40);slot:EnableMouse(true)
     slot.baseIconFrame=CreateFrame("Frame",nil,slot);slot.baseIconFrame:SetAllPoints();slot.baseIconFrame:EnableMouse(false)
     slot.texture=slot.baseIconFrame:CreateTexture(nil,"ARTWORK");slot.texture:SetAllPoints()
-    slot.text=slot:CreateFontString(nil,"OVERLAY");Font(slot.text);slot.text:SetPoint("BOTTOM",slot,"TOP",0,7)
+    slot.timerGate=CreateFrame("Frame",nil,slot);slot.timerGate:SetAllPoints()
+    slot.text=slot.timerGate:CreateFontString(nil,"OVERLAY");Font(slot.text);slot.text:SetPoint("BOTTOM",slot,"TOP",0,7)
     slot.count=slot:CreateFontString(nil,"OVERLAY");CountFont(slot.count);slot.count:SetPoint("BOTTOM",slot,"TOP",0,29)
-    slot.cooldown=CreateFrame("Cooldown",nil,slot,"CooldownFrameTemplate");slot.cooldown:SetAllPoints();slot.cooldown:EnableMouse(false)
+    slot.cooldown=CreateFrame("Cooldown",nil,slot.timerGate,"CooldownFrameTemplate");slot.cooldown:SetAllPoints();slot.cooldown:EnableMouse(false)
     slot.cooldown:SetDrawEdge(false);slot.cooldown:SetDrawBling(false);slot.cooldown:SetDrawSwipe(false)
     slot.cooldown:SetHideCountdownNumbers(false);slot.cooldown.noCooldownCount=true
     local formatter=S.CountdownFormatter()
@@ -709,6 +715,79 @@ local function BindAura(slot,enabled)
     slot.nativeSpellID=slot.spellID
     slot.nativeAuras:SetEnabled(true);slot.nativeAuras:UpdateAllAuras()
 end
+local function BindEffect(slot)
+    if InCombatLockdown() then return end
+    local native=slot.effectNative
+    local effect=slot.effect
+    if native then native:SetEnabled(false)end
+    if not effect or not next(effect.ids) or not NativeAurasAvailable() then return end
+    if not native then
+        native=CreateFrame("AuraContainer",nil,slot,"CustomAuraContainerTemplate")
+        slot.effectNative=native
+        native:SetEnabled(false);native:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0)
+        native:AddAuraGroup("effect",effect.filter,{maxFrameCount=1,initializeFrame=function(frame)
+            frame:SetSize(40,40);frame:EnableMouse(false)
+            frame:SetFrameLevel(slot.baseIconFrame:GetFrameLevel()+2)
+            local icon=frame:CreateTexture(nil,"ARTWORK");icon:SetAllPoints()
+            frame:SetIcon(icon)
+            local timer=frame:CreateFontString(nil,"OVERLAY");Font(timer)
+            timer:SetPoint("BOTTOM",frame,"TOP",0,7)
+            frame:SetDurationText(timer,S.DurationTextOptions())
+            local presence=CreateFrame("Frame",nil,frame);presence:SetAllPoints();presence:EnableMouse(false)
+            slot.effectPresence=presence
+        end})
+        native:SetFlowLayoutAnchorPoint("TOPLEFT")
+        native:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
+        native:SetFlowLayoutMaximumLineSize(40.001)
+        native:SetAuraGroupLayout("effect",{elementSpacing=0,lineSpacing=0,elementWidth=40,elementHeight=40})
+    end
+    native:SetUnit(effect.unit)
+    native:SetAuraGroupFilterString("effect",effect.filter)
+    native:SetAuraGroupCandidateFilters("effect",{includeSpellIDs=effect.ids})
+    native:SetEnabled(true);native:UpdateAllAuras()
+end
+
+local function ResolveEffect(slot,preview)
+    local entry,id=slot.entry,slot.spellID
+    slot.effect,slot.effectAura,slot.effectSpell,slot.effectGlow,slot.effectRevenge=nil,nil,nil,nil,nil
+    slot.effectKnown=true
+    if not preview and IsCombined(entry) then
+        local kind=effectTypes[entry.type]
+        local ids,name={},nil
+        if entry.type=="blizzard" and M.Compat.interface==16001 then
+            local info=Safe(S.GetBlizzardCooldownInfo,entry,id)
+            slot.effectKnown=info and Readable(info.isKnown) and info.isKnown==true or false
+            if info then
+                slot.effectSpell=Number(info.overrideSpellID) or Number(info.spellID)
+                local revengeName=M.PetBuffs.SpellInfo(6572)
+                slot.effectRevenge=revengeName~=nil and slot.spellName==revengeName
+                local hidden=FlagsUtil and Enum and Enum.CooldownSetSpellFlags and info.flags
+                    and Safe(FlagsUtil.IsSet,info.flags,Enum.CooldownSetSpellFlags.HideAura)
+                local mapped=Number(Safe(C_UnitAuras and C_UnitAuras.GetCooldownAuraBySpellID,slot.effectSpell or id))
+                if not hidden and (info.hasAura or (mapped and mapped>0))then
+                    kind=info.selfAura and "buff" or "debuff"
+                    local linked=info.linkedSpellIDs or {}
+                    for _,linkedID in ipairs(linked)do if Number(linkedID)then ids[linkedID]=true end end
+                    if mapped and mapped>0 then ids[mapped]=true end
+                    if id then ids[id]=true end
+                    if slot.effectSpell then ids[slot.effectSpell]=true end
+                end
+            end
+        elseif kind and entry.effect and entry.effect~="" then
+            local effectName,resolved=M.PetBuffs.SpellInfo(entry.effect)
+            local numeric=tonumber(entry.effect)
+            local effectID=numeric or Number(resolved)
+            if effectID and effectID>0 then ids[effectID]=true end
+            if not numeric then name=effectName or entry.effect end
+        end
+        if kind and (next(ids) or name)then
+            local aura=auraTypes[kind]
+            slot.effect={unit=aura.unit,filter=aura.filter,ids=ids,name=name}
+        end
+    end
+    slot.effectDirty=false
+    slot.effectNeedsBind=slot.effect~=nil or slot.effectNative~=nil
+end
 -- All callers use the same deadlines, including full renderer refreshes.
 -- Events only mark data dirty. An event burst can consume one refresh per lane.
 function S.ResetMonitorRefresh(o)
@@ -738,6 +817,12 @@ function S.Configure(view,o)
     for i,entry in ipairs(o.entries)do
         o.skillKinds[entry.type]=true
         local slot=Icon(o,i);Resolve(slot,entry);slot.duration=nil;slot.expires=nil;slot.active=false;slot.stacks=nil
+        ResolveEffect(slot,view.preview)
+        if not view.preview and (slot.effect or slot.effectNative) and not InCombatLockdown()then
+            BindEffect(slot);slot.effectNeedsBind=false
+        end
+        slot.timerGate:SetAlpha(1);slot.cooldown:SetAlpha(1)
+        if slot.effectNative then slot.effectNative:SetAlpha(0)end
         CountFont(slot.count);M.CustomMonitor.SetText(slot.count,"")
         M.CustomMonitor.SetText(slot.text,"");ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
         Font(slot.text)
@@ -749,6 +834,7 @@ function S.Configure(view,o)
     for i=#o.entries+1,#o.skillIcons do
         local slot=o.skillIcons[i];slot:Hide();slot.entry=nil
         if slot.nativeAuras then slot.nativeAuras:SetEnabled(false)end
+        if slot.effectNative and not InCombatLockdown()then slot.effectNative:SetEnabled(false)end
     end
     M.CustomMonitor.Sync(view,o,o.skillIcons,S.Paint)
 end
@@ -777,7 +863,7 @@ local function GlobalCooldown(start,duration,cache)
     return Number(gs) and Number(gd) and math.abs(gs-start)<.001 and math.abs(gd-duration)<.001
 end
 local function Cooldown(entry,slot,cache)
-    local key=slot.spellID or entry.value
+    local key=slot.effectSpell or slot.spellID or entry.value
     local charges,maximum,chargeStart,chargeDuration,chargeRate=SpellCharges(key)
     local summons=S.SummonCount(slot)
     if summons~=nil then CountText(slot.count,summons,true,true)
@@ -921,6 +1007,49 @@ local function ScanAuras(o,kind)
         end
     end
 end
+local function FindEffectAura(effect,now)
+    local restricted=Safe(C_Secrets and C_Secrets.ShouldAurasBeSecret,effect.unit)
+    if not Readable(restricted) or restricted then return end
+    local best,latest=nil,0
+    for _,aura in ipairs(M.Compat.AuraSnapshot(effect.unit,effect.filter))do
+        local id=Number(aura.spellId) or Number(aura.spellID)
+        local sameName=effect.name and Readable(aura.name) and effect.name==aura.name
+        if (id and effect.ids[id]) or sameName then
+            local source=aura.sourceUnit
+            local own=effect.unit~="target" or (Readable(source) and (source=="player"
+                or (source and M.Compat.Bool(Safe(UnitIsUnit,source,"player")))))
+            local expires=Number(aura.expirationTime)
+            if own and expires and expires>now and expires>latest then
+                best,latest=aura,expires
+            end
+        end
+    end
+    return best
+end
+
+local function PaintEffect(slot,now)
+    local effect,aura=slot.effect,slot.effectAura
+    local expires=aura and Number(aura.expirationTime)
+    local timed=expires and expires>now
+    local native=slot.effectNative
+    local useNative=effect and native and not timed and not slot.effectNeedsBind
+    if native then native:SetAlpha(useNative and 1 or 0)end
+    slot.timerGate:SetAlpha(1)
+    slot.cooldown:SetAlpha(timed and 0 or 1)
+    if timed then
+        Remaining(slot,expires-now)
+        M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
+        return true
+    end
+    if useNative and slot.effectPresence then
+        local present=Safe(slot.effectPresence.IsVisible,slot.effectPresence)
+        if type(present)=="boolean" then
+            if slot.timerGate.SetAlphaFromBoolean then slot.timerGate:SetAlphaFromBoolean(present,0,1)
+            elseif Readable(present) then slot.timerGate:SetAlpha(present and 0 or 1)end
+        end
+    end
+end
+
 function S.Paint(view,o,animateOnly)
     local group=view.byID[o.spec.parent]
     local shown=o.spec.enabled~=false and (view.preview or group.enabled~=false) and not(view.hidden and view.hidden[o.spec.id])
@@ -931,7 +1060,8 @@ function S.Paint(view,o,animateOnly)
     if view.preview and #entries==0 then entries=samples end
     if not view.preview then
         local kinds=o.skillKinds
-        local cooldown=kinds.cooldown and S.MonitorRefreshDue(o,"cooldown",now,.2)
+        local combined=kinds.blizzard or kinds.buffCooldown or kinds.debuffCooldown
+        local cooldown=(kinds.cooldown or combined) and S.MonitorRefreshDue(o,"cooldown",now,.2)
         local usable=kinds.usable and S.MonitorRefreshDue(o,"usable",now,.2)
         local info=S.MonitorRefreshDue(o,"info",now,1)
         if cooldown or usable or info then
@@ -940,9 +1070,27 @@ function S.Paint(view,o,animateOnly)
                 local slot=o.skillIcons[i]
                 if info and slot.needsInfo and now>=(slot.nextInfo or 0) then
                     Resolve(slot,entry)
+                    if IsCombined(entry) then slot.effectDirty=true end
                     if o.usesNativeAuras and not InCombatLockdown() then BindAura(slot,group.enabled~=false)end
                 end
-                if cooldown and entry.type=="cooldown" then Cooldown(entry,slot,cooldowns)end
+                if IsCombined(entry) then
+                    if slot.effectDirty then
+                        local known=slot.effectKnown
+                        ResolveEffect(slot,false)
+                        if known~=slot.effectKnown then o.skillDirection=nil end
+                    end
+                    if slot.effectNeedsBind and not InCombatLockdown()then
+                        BindEffect(slot);slot.effectNeedsBind=false
+                    end
+                    if cooldown and slot.effect then slot.effectAura=FindEffectAura(slot.effect,now) end
+                    if cooldown and entry.type=="blizzard" then
+                        local id=slot.effectSpell or slot.spellID
+                        slot.effectGlow=slot.effectKnown and id and (HasSpellActivation(id)
+                            or (id~=slot.spellID and slot.spellID and HasSpellActivation(slot.spellID))
+                            or (slot.effectRevenge and IsSpellActionUsable(id)))
+                    end
+                end
+                if cooldown and (entry.type=="cooldown" or IsCombined(entry))then Cooldown(entry,slot,cooldowns)end
                 if usable and entry.type=="usable" then Usable(slot,now,cooldowns)end
             end
         end
@@ -968,6 +1116,7 @@ function S.Paint(view,o,animateOnly)
         for i=1,#entries do
             local slot=o.skillIcons[i]
             local alpha=1
+            if not view.preview and slot.entry.type=="blizzard" and not slot.effectKnown then alpha=0 end
             if slot.entry.type=="usable" and not view.preview then
                 local timer=slot.usableCooldown
                 local remaining=timer and Number(Safe(timer.GetRemainingDuration,timer))
@@ -1013,7 +1162,7 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetVisual(slot.nativeHost,"SetAlpha",useNative and 1 or 0)
             M.CustomMonitor.SetVisual(slot.baseIconFrame,"SetAlpha",useNative and slot.nativeBackdrop and 0 or 1)
         end
-        if slot.entry.type~="custom"and slot.customGlow then slot.customGlow:Hide()end
+        if slot.entry.type~="custom"and slot.entry.type~="blizzard" and slot.customGlow then slot.customGlow:Hide()end
         for _,frame in ipairs(slot.nativeFrames or {})do
             if useNative then
                 local present=Safe(frame.monitorPresence.IsVisible,frame.monitorPresence)
@@ -1068,6 +1217,12 @@ function S.Paint(view,o,animateOnly)
             shortcutAlpha=active and 0 or 1
             if isAura then CountText(slot.count,active and slot.stacks or nil,false)end
         end
+        if not view.preview and IsCombined(slot.entry) then
+            if PaintEffect(slot,now)then textureAlpha=1 end
+            if slot.entry.type=="blizzard" and (slot.effectGlow or slot.customGlow)then
+                M.CustomMonitor.Glow(slot,slot.effectGlow==true)
+            end
+        elseif slot.entry.type=="blizzard" and slot.customGlow then slot.customGlow:Hide() end
         M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",textureAlpha)
         M.CustomMonitor.SetVisual(slot.shortcutFrame,"SetAlpha",shortcutAlpha)
     end
@@ -1075,7 +1230,10 @@ end
 local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,
     SPELL_UPDATE_USABLE=true,ACTIONBAR_UPDATE_USABLE=true,ACTIONBAR_SLOT_CHANGED=true,
     SPELL_ACTIVATION_OVERLAY_GLOW_SHOW=true,SPELL_ACTIVATION_OVERLAY_GLOW_HIDE=true,
-    SPELLS_CHANGED=true,LEARNED_SPELL_IN_TAB=true,PLAYER_ENTERING_WORLD=true,PLAYER_REGEN_ENABLED=true,UNIT_SPELLCAST_SUCCEEDED=true}
+    SPELLS_CHANGED=true,LEARNED_SPELL_IN_TAB=true,PLAYER_ENTERING_WORLD=true,PLAYER_REGEN_ENABLED=true,UNIT_SPELLCAST_SUCCEEDED=true,
+    ACTIVE_TALENT_GROUP_CHANGED=true,PLAYER_TALENT_UPDATE=true,PLAYER_SPECIALIZATION_CHANGED=true,TRAIT_CONFIG_UPDATED=true,
+    ACTIVE_COMBAT_CONFIG_CHANGED=true,ACTIVE_PLAYER_SPECIALIZATION_CHANGED=true,
+    COOLDOWN_VIEWER_DATA_LOADED=true,COOLDOWN_VIEWER_TABLE_HOTFIXED=true,COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED=true}
 function S.Event(view,event,unit)
     if not events[event] or (event=="UNIT_AURA" and unit~="target"and unit~="player") or (event=="UNIT_SPELLCAST_SUCCEEDED" and unit~="player")then return end
     local activation=event=="SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" or event=="SPELL_ACTIVATION_OVERLAY_GLOW_HIDE"
@@ -1087,17 +1245,25 @@ function S.Event(view,event,unit)
     if not o or not o.monitorDirty then return end
     if event=="UNIT_AURA" then
         S.InvalidateMonitor(o,unit=="player" and "buff" or "debuff")
+        S.InvalidateMonitor(o,"cooldown")
     elseif event=="PLAYER_TARGET_CHANGED" then
         o.nativeTargetGeneration=nil
         S.InvalidateMonitor(o,"debuff",true)
         S.InvalidateMonitor(o,"usable",true)
+        if o.skillKinds.blizzard or o.skillKinds.debuffCooldown then
+            for _,slot in ipairs(o.skillIcons)do
+                if slot.effect and slot.effect.unit=="target"then slot.effectAura=nil end
+            end
+            S.InvalidateMonitor(o,"cooldown",true)
+        end
     elseif activation or event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" or event=="ACTIONBAR_SLOT_CHANGED" then
         S.InvalidateMonitor(o,"usable")
+        if o.skillKinds.blizzard then S.InvalidateMonitor(o,"cooldown",activation)end
     elseif event=="SPELL_UPDATE_COOLDOWN" or event=="SPELL_UPDATE_CHARGES" or event=="UNIT_SPELLCAST_SUCCEEDED" then
         S.InvalidateMonitor(o,"cooldown")
         S.InvalidateMonitor(o,"usable")
     else
-        for _,slot in ipairs(o.skillIcons or {})do slot.needsInfo=true;slot.nextInfo=0 end
+        for _,slot in ipairs(o.skillIcons or {})do slot.needsInfo=true;slot.nextInfo=0;slot.effectDirty=true end
         S.ResetMonitorRefresh(o)
     end
 end
@@ -1105,8 +1271,11 @@ end
 function S.BuildControls(e,parent,Row)
     local W=M.Widgets
     local choices={{name="玩家技能冷却",path="cooldown"},{name="玩家Buff",path="buff"},{name="可用触发技能",path="usable"},
-        {name="目标Debuff",path="debuff"},{name="自定义代码",path="custom"}}
+        {name="目标Debuff",path="debuff"},{name="玩家Buff优先，然后显示冷却",path="buffCooldown"},
+        {name="目标Debuff优先，然后显示冷却",path="debuffCooldown"},{name="自定义代码",path="custom"}}
+    if M.Compat.interface==16001 then table.insert(choices,2,{name="跟随暴雪",path="blizzard"})end
     local typeLabels={};for _,choice in ipairs(choices)do typeLabels[choice.path]=choice.name end
+    typeLabels.blizzard="跟随暴雪"
     local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);e.skillMonitorPanel=panel
     local sharing=CreateFrame("Frame",nil,parent);sharing:SetSize(470,56);e.skillMonitorSharing=sharing
     local function SectionTitle(frame,text)
@@ -1129,7 +1298,7 @@ function S.BuildControls(e,parent,Row)
         return group and M.byID[group.id]==group and S.EntryIndex(group,entry) and M:CanEdit()
     end
     local function Flush()
-        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
+        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus();row.effectEdit:ClearFocus()end
     end
     sharing.exportAll=W.Button(sharing,"导出配置",150,function()Flush();M:ShowConfigStringDialog("export","skillsAll")end)
     sharing.import=W.Button(sharing,"导入配置",150,function()Flush();M:ShowConfigStringDialog("import","skills")end)
@@ -1221,7 +1390,11 @@ function S.BuildControls(e,parent,Row)
             owner=owner or self.monitorOwner or row.group;item=item or self.monitorEntry or row.entry
             if not Editable(owner,item)then return end
             local value=S.Input(W.InputValue(self))
-            if item[field]~=value then item[field]=value;M:Commit()end
+            if item[field]~=value then
+                item[field]=value
+                if field=="value" then item.blizzardCooldownID=nil end
+                M:Commit()
+            end
         end
         edit:SetScript("OnEditFocusGained",function(self)self.monitorOwner=row.group;self.monitorEntry=row.entry end)
         edit:SetScript("OnEditFocusLost",function(self)
@@ -1229,7 +1402,7 @@ function S.BuildControls(e,parent,Row)
         end)
         edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
         edit:SetScript("OnEscapePressed",function(self)W.SetInputValue(self,(self.monitorEntry or row.entry)[field] or "");self:ClearFocus()end)
-        W.NamedInput(edit,field=="value"and "spell"or nil)
+        W.NamedInput(edit,(field=="value" or field=="effect")and "spell"or nil)
         edit:HookScript("OnHide",function(self)self:ClearFocus()end)
     end
     panel.add=W.Button(panel,"添加监控",130,function()
@@ -1303,6 +1476,12 @@ function S.BuildControls(e,parent,Row)
                 row.placeholder:SetTextColor(.5,.5,.5);row.placeholder:SetWordWrap(false)
                 row.edit:HookScript("OnTextChanged",function(self)row.placeholder:SetShown(self:GetText()=="");SkillIcon(row)end)
                 BindInput(row,row.edit,"value")
+                row.effectEdit=W.Edit(row,160);row.effectEdit:SetMaxLetters(128);row.effectEdit:SetTextInsets(6,6,0,0)
+                row.effectPlaceholder=W.Label(row.effectEdit,"效果名称或ID",11)
+                row.effectPlaceholder:SetPoint("LEFT",6,0);row.effectPlaceholder:SetPoint("RIGHT",-6,0)
+                row.effectPlaceholder:SetTextColor(.5,.5,.5);row.effectPlaceholder:SetWordWrap(false)
+                row.effectEdit:HookScript("OnTextChanged",function(self)row.effectPlaceholder:SetShown(self:GetText()=="")end)
+                BindInput(row,row.effectEdit,"effect")
                 row.remove=W.Button(row,"删除",72,function()
                     local owner,item=row.group,row.entry;Flush()
                     local index=owner and S.EntryIndex(owner,item)
@@ -1327,6 +1506,10 @@ function S.BuildControls(e,parent,Row)
             row.shortcutEdit:SetWidth(70)
             row.shortcutColor:ClearAllPoints();row.shortcutColor:SetPoint("LEFT",row.shortcutEdit,"RIGHT",12,0)
             row.edit:SetWidth(width/3);
+            row.effectEdit:ClearAllPoints();row.effectEdit:SetPoint("LEFT",row.edit,"RIGHT",8,0)
+            row.effectEdit:SetWidth(math.max(100,width/3))
+            row.effectEdit:SetShown(effectTypes[entry.type]~=nil)
+            if not row.effectEdit:HasFocus()then W.SetInputValue(row.effectEdit,entry.effect or "")end
             row.code:ClearAllPoints();row.code:SetPoint("TOPLEFT",width/3+48,-53);row.code:SetShown(entry.type=="custom")
             row.reverseDisplay:ClearAllPoints();row.reverseDisplay:SetPoint("TOPLEFT",width/3+76,-53)
             row.reverseDisplay:SetShown(entry.type=="cooldown" or auraTypes[entry.type]~=nil)

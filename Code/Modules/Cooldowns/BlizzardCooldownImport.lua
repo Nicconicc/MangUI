@@ -16,7 +16,7 @@ end
 local function ExistingCooldowns(group)
     local existing = {}
     for _, entry in ipairs(group.monitors) do
-        if entry.type == "cooldown" and entry.value ~= "" then
+        if (entry.type == "cooldown" or entry.type == "blizzard") and entry.value ~= "" then
             local id = tonumber(entry.value)
             if not id then
                 local _, resolved = M.PetBuffs.SpellInfo(entry.value)
@@ -31,19 +31,18 @@ end
 local function ReadEssentialCooldowns(group)
     local settings = CooldownViewerSettings
     local essential = Enum.CooldownViewerCategory.Essential
-    local category = settings and settings.categoryObjects and settings.categoryObjects[essential]
     local provider = settings and settings.GetDataProvider and settings:GetDataProvider()
-    if not category or not provider or not provider:GetLayoutManager()
+    if not provider or not provider:GetLayoutManager()
         or (provider.IsLayoutUpdateQueued and provider:IsLayoutUpdateQueued()) then return end
 
-    -- Read the same ordered data and filter used by the Essential Cooldowns section in Cooldown Settings.
-    local orderedIDs = provider:GetOrderedCooldownIDs()
+    -- Match the live HUD. The settings list can include unlearned spells.
+    local orderedIDs = provider:GetOrderedCooldownIDsForCategory(essential, false)
     if not orderedIDs then return end
     local existing = ExistingCooldowns(group)
     local entries, total = {}, 0
     for _, cooldownID in ipairs(orderedIDs) do
         local info = provider:GetCooldownInfoForID(cooldownID)
-        if info and category:ShouldDisplayInfo(info) then
+        if info and info.isKnown == true then
             local base = SpellID(info.spellID)
             local id = SpellID(info.overrideSpellID) or base
             if id then
@@ -52,13 +51,40 @@ local function ReadEssentialCooldowns(group)
                 if not existing[baseID] and not existing[resolvedID] then
                     existing[baseID], existing[resolvedID] = true, true
                     local entry = S.NewEntry()
-                    entry.value = tostring(id)
+                    entry.type, entry.value, entry.blizzardCooldownID = "blizzard", tostring(base or id), cooldownID
                     entries[#entries + 1] = entry
                 end
             end
         end
     end
     return entries, total
+end
+
+function S.GetBlizzardCooldownInfo(entry, id)
+    if M.Compat.interface ~= 16001 or not id then return end
+    local settings = CooldownViewerSettings
+    local provider = settings and settings.GetDataProvider and settings:GetDataProvider()
+    local display = provider and provider.GetDisplayData and provider:GetDisplayData()
+    local byID = display and display.cooldownInfoByID
+    local base = BaseSpell(id)
+    if entry.blizzardCooldownID and C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCooldownInfo then
+        local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(entry.blizzardCooldownID)
+        if info and (info.spellID == id or info.spellID == base or info.overrideSpellID == id) then return info end
+    end
+    if not byID and provider and not InCombatLockdown() and provider:GetLayoutManager() then
+        provider:GetOrderedCooldownIDs()
+        display = provider:GetDisplayData()
+        byID = display and display.cooldownInfoByID
+    end
+    for _, cooldownID in ipairs(display and display.orderedCooldownIDs or {}) do
+        local info = byID and byID[cooldownID]
+        if info and (info.spellID == id or info.spellID == base or info.overrideSpellID == id) then
+            if C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCooldownInfo then
+                return C_CooldownViewer.GetCooldownViewerCooldownInfo(cooldownID) or info
+            end
+            return info
+        end
+    end
 end
 
 function S.OpenBlizzardCooldownSettings()
