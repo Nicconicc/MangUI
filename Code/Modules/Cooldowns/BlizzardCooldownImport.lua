@@ -190,9 +190,16 @@ function S.AddBlizzardCooldownButton(panel, current, flush)
         end
         M:Print("暴雪冷却监控已同步。")
     end)
+    local openButton = W.Button(panel, "打开管理器", 108, function()
+        -- Let the player submit the command through Blizzard's chat input.
+        local openChat = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
+        if openChat then openChat("/cdm") end
+    end)
     button:SetPoint("TOPLEFT",panel,"TOPLEFT",0,0)
-    check:SetPoint("LEFT",button,"RIGHT",12,0)
+    openButton:SetPoint("LEFT",button,"RIGHT",8,0)
+    check:SetPoint("LEFT",openButton,"RIGHT",12,0)
     button:SetHoverTextColor(1, .82, 0)
+    openButton:SetHoverTextColor(1, .82, 0)
     panel.blizzardSyncCheck=check
     return button
 end
