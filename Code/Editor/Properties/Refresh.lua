@@ -188,7 +188,10 @@ local function RefreshProperties(self)
     if n.compound=="cooldownMonitor" then e.cooldownBlacklist:SetBlacklist(n.blacklist or "") end
     if n.compound=="chatButtons" then e.chatTextLabels:SetChecked(n.textLabels==true) end
     if n.compound=="targetThreat" then e.threatInstanceOnly:SetChecked(n.instanceOnly~=false) end
-    if n.compound=="systemMenu" then e.menuAlwaysVisible:SetChecked(n.menuAlwaysVisible==true) end
+    if n.compound=="systemMenu" then
+        e.menuAlwaysVisible:SetChecked(n.menuAlwaysVisible==true)
+        e.menuCornerSocial:SetChecked(n.menuCornerSocial~=false)
+    end
     if n.compound=="experienceBar" then e.experienceHoverTop:SetChecked(n.experienceHoverTop==true) end
     if n.compound=="combatNotices" or n.compound=="bossFrames" then e.combatSound:SetChecked(n.soundEnabled~=false) end
     if n.compound=="partyFrames" then
@@ -494,7 +497,7 @@ local function RefreshProperties(self)
             elseif n.compound=="experienceBar" then
                 visible=row.key=="scale" or row.key=="nameFont" or row.key=="experienceHeight" or row.key=="experienceHoverTop"
             elseif n.compound=="systemMenu" then
-                visible=row.key=="scale" or row.key=="menuIconSpacing" or row.key=="menuAlwaysVisible"
+                visible=row.key=="scale" or row.key=="menuIconSpacing" or row.key=="menuAlwaysVisible" or row.key=="menuCornerSocial"
             elseif n.compound=="mouseCircle" then
                 visible=row.key=="showMouseCircle" or row.key=="scale" or row.key=="mouseColors" or row.key=="mouseShortcutsTitle"
                     or row.key=="mouseCombatMarkerKey" or e.mouseShortcutChecks[row.key]~=nil

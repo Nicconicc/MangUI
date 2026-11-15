@@ -337,6 +337,12 @@ function S.Start()
         elapsed = elapsed + delta
         if elapsed < .05 and not (leftAt and now-leftAt >= .5) then return end
         elapsed = 0
+        local settings = M.byID and M.byID.systemMenu
+        if settings and settings.menuCornerSocial == false then
+            if panel and panel:IsShown() then panel:Hide() end
+            entered, leftAt = nil, nil
+            return
+        end
         local corner = IsHovered(watcher)
         if panel and panel:IsShown() then
             if panel.memberMenu then

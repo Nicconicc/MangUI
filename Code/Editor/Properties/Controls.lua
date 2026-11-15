@@ -357,6 +357,8 @@ local function BuildProperties(e)
         Change("menuAlwaysVisible",enabled)
     end)
     Row(32,{{e.menuAlwaysVisible,-4,0}},{},"menuAlwaysVisible");y=y-32
+    e.menuCornerSocial=W.Check(content,"鼠标悬浮屏幕左上角显示好友及公会成员",function(enabled)Change("menuCornerSocial",enabled)end)
+    Row(32,{{e.menuCornerSocial,-4,0}},{},"menuCornerSocial");y=y-32
     e.combatSound=W.Check(content,"播放音效",function(enabled)Change("soundEnabled",enabled)end)
     Row(32,{{e.combatSound,-4,0}},{},"combatSound");y=y-32
     Field("图标大小","iconSize",true,1,256)

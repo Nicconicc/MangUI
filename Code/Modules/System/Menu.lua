@@ -94,7 +94,7 @@ local function Templates()
     return {
         {id="systemMenu",label="系统菜单",kind="group",compound="systemMenu",scope="player",unit="player",
             x=0,y=0,width=menuWidth,height=128,scale=1,point="TOP",anchor="TOP",screenAnchor="TOP",
-            alpha=1,enabled=true,menuAlwaysVisible=false,menuIconSpacing=0,locked=true,layer=600,rules={},conditions={}},
+            alpha=1,enabled=true,menuAlwaysVisible=false,menuCornerSocial=true,menuIconSpacing=0,locked=true,layer=600,rules={},conditions={}},
         {id="systemMenuButtons",label="系统菜单",kind="systemmenu",parent="systemMenu",internal=true,locked=true,
             scope="player",unit="player",x=0,y=0,width=menuWidth,height=128,scale=1,point="TOP",anchor="TOP",
             alpha=1,enabled=true,layer=601},
