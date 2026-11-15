@@ -43,9 +43,11 @@ local function Add(rows, name, level, class, detail, crossClient)
     level = tonumber(level)
     rows[#rows + 1] = {
         name = name, level = level and level > 0 and tostring(level) or "—",
+        sortLevel = level or 0,
         color = ClassColor(class), detail = detail and detail ~= "" and detail or "—",
         crossClient = crossClient,
     }
+    return rows[#rows]
 end
 
 local function FriendKey(name, realm)
@@ -98,8 +100,12 @@ local function Friends()
             local same = best.wowProjectID ~= nil and best.wowProjectID == WOW_PROJECT_ID
             local key = FriendKey(best.characterName, best.realmName)
             if not same or not seen[key] then
-                Add(rows, best.characterName, best.characterLevel, best.classFilename or best.className,
+                local row = Add(rows, best.characterName, best.characterLevel, best.classFilename or best.className,
                     same and (best.areaName or "—") or Version(best.wowProjectID), not same)
+                row.accountName = BNet_GetBNetAccountName and BNet_GetBNetAccountName(friend)
+                    or (friend.accountName ~= "" and friend.accountName) or friend.battleTag
+                row.gameAccountID = best.gameAccountID
+                row.realm = best.realmName
                 if same then seen[key] = true end
             end
         end
@@ -116,6 +122,52 @@ local function Guild()
         if online then Add(rows, name, level, token or class, area) end
     end
     return rows
+end
+
+local function MemberActions(data)
+    local actions = {}
+    local name = data.name
+    if data.realm and data.realm ~= "" and not name:find("-",1,true) then
+        name = name .. "-" .. data.realm:gsub("%s+","")
+    end
+    local player = UnitName and UnitName("player")
+    if player and FriendKey(name) == FriendKey(player) then return actions end
+
+    local tell = (ChatFrameUtil and ChatFrameUtil.SendTell) or ChatFrame_SendTell
+    local battleNetTell = (ChatFrameUtil and ChatFrameUtil.SendBNetTell) or ChatFrame_SendBNetTell
+    if data.accountName and data.accountName ~= "" and battleNetTell then
+        actions[#actions+1] = {WHISPER or Text("密语","Whisper"),function() battleNetTell(data.accountName) end}
+    elseif tell and not data.crossClient then
+        actions[#actions+1] = {WHISPER or Text("密语","Whisper"),function() tell(name) end}
+    end
+    local invite = (C_PartyInfo and C_PartyInfo.InviteUnit) or InviteUnit
+    if not data.crossClient then
+        local label = PARTY_INVITE or INVITE or Text("邀请组队","Invite to party")
+        if data.gameAccountID and BNInviteFriend then
+            actions[#actions+1] = {label,function() BNInviteFriend(data.gameAccountID) end}
+        elseif invite then
+            actions[#actions+1] = {label,function() invite(name) end}
+        end
+    end
+    return actions
+end
+
+local function OpenMemberMenu(panel, data)
+    local actions = MemberActions(data)
+    if MenuUtil and MenuUtil.CreateContextMenu then
+        panel.memberMenu = MenuUtil.CreateContextMenu(panel,function(_, root)
+            root:CreateTitle(data.name)
+            for _, action in ipairs(actions) do root:CreateButton(action[1],action[2]) end
+        end)
+    elseif EasyMenu and UIDropDownMenu_CreateInfo then
+        panel.legacyMenu = panel.legacyMenu or CreateFrame("Frame",nil,panel,"UIDropDownMenuTemplate")
+        local entries = {{text=data.name,isTitle=true,notCheckable=true}}
+        for _, action in ipairs(actions) do
+            entries[#entries+1] = {text=action[1],func=action[2],notCheckable=true}
+        end
+        EasyMenu(entries,panel.legacyMenu,"cursor",0,0,"MENU")
+        panel.memberMenu = DropDownList1
+    end
 end
 
 local WIDTH, ROW_HEIGHT = 460, 23
@@ -137,6 +189,7 @@ local function Draw(section)
     section.empty:SetShown(total == 0)
     for i, row in ipairs(section.rows) do
         local data = i <= page and section.data[section.offset + i]
+        row.member = data or nil
         row:SetShown(not not data)
         if data then
             row.name:SetText(data.name)
@@ -173,9 +226,15 @@ local function Section(panel, caption, detailHeader)
     frame.empty:SetText(Text("暂无在线成员","No one online"))
     frame.empty:SetTextColor(.66,.71,.79)
     for i = 1, 10 do
-        local row = CreateFrame("Frame",nil,frame)
+        local row = CreateFrame("Button",nil,frame)
         row:SetPoint("TOPLEFT",0,-49-(i-1)*ROW_HEIGHT)
         row:SetSize(WIDTH-24,ROW_HEIGHT)
+        row:RegisterForClicks("RightButtonUp")
+        local highlight = row:CreateTexture(nil,"HIGHLIGHT")
+        highlight:SetAllPoints();highlight:SetColorTexture(.75,.83,1,.15)
+        row:SetScript("OnClick",function(self)
+            if self.member then M:Safe("社交列表",OpenMemberMenu,panel,self.member) end
+        end)
         if i % 2 == 0 then
             local shade = row:CreateTexture(nil,"BACKGROUND")
             shade:SetAllPoints();shade:SetColorTexture(.75,.83,1,.055)
@@ -209,11 +268,19 @@ local function BuildPanel()
     return panel
 end
 
+local function SortByName(a,b)
+    return a.name:lower() < b.name:lower()
+end
+
+local function SortGuild(a,b)
+    if a.sortLevel ~= b.sortLevel then return a.sortLevel > b.sortLevel end
+    return SortByName(a,b)
+end
+
 local function Refresh(panel)
-    local function Sort(a,b) return a.name:lower() < b.name:lower() end
     panel.friends.data, panel.guild.data = Friends(), Guild()
-    table.sort(panel.friends.data,Sort)
-    table.sort(panel.guild.data,Sort)
+    table.sort(panel.friends.data,SortByName)
+    table.sort(panel.guild.data,SortGuild)
     local limit = M.Clamp(math.floor((UIParent:GetHeight()-145)/(2*ROW_HEIGHT)),1,10)
     panel.friends.limit, panel.guild.limit = limit, limit
     Draw(panel.friends)
@@ -254,6 +321,10 @@ function S.Start()
         local now = GetTime()
         local corner = IsHovered(watcher)
         if panel and panel:IsShown() then
+            if panel.memberMenu then
+                if panel.memberMenu:IsShown() then leftAt = nil; return end
+                panel.memberMenu = nil
+            end
             if corner or IsHovered(panel) then leftAt = nil
             else leftAt = leftAt or now end
             if leftAt and now-leftAt >= .5 then
