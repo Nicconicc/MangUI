@@ -1236,7 +1236,7 @@ function S.BuildControls(e,parent,Row)
         Flush();group.monitors[#group.monitors+1]=S.NewEntry();M:Commit()
     end)
     if S.AddBlizzardCooldownButton then
-        S.AddBlizzardCooldownButton(panel, e.window, Current, Flush)
+        S.AddBlizzardCooldownButton(panel, Current, Flush)
     end
     function panel:Refresh(group)
         S.RefreshMonitorTitle(self.title)

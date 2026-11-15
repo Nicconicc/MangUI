@@ -10059,38 +10059,29 @@ for locale,labels in pairs({
     local catalog=M.localeTables[locale]
     for i,key in ipairs(mouseLabels) do catalog[key]=labels[i] end
 end
-local cooldownImportKeys = {"从暴雪冷却管理器添加", "主要技能冷却", "功能技能冷却", "添加选中技能",
-    "暂时无法读取暴雪冷却设置，请打开暴雪冷却管理器后重试。", "暴雪冷却管理器没有可添加的技能冷却。",
-    "从法术书添加技能", "法术书没有可添加的主动技能。"}
-local spanishCooldownImport = {"Añadir del gestor de reutilización", "Habilidades principales", "Habilidades de utilidad", "Añadir habilidades elegidas",
-    "No se pudo leer la configuración. Abre el gestor de reutilización y vuelve a intentarlo.", "El gestor no tiene habilidades que añadir.",
-    "Añadir del libro de hechizos", "El libro no tiene hechizos activos que añadir."}
+local cooldownImportKeys = {"从暴雪冷却管理器添加", "暂时无法读取暴雪冷却设置，请打开暴雪冷却管理器后重试。",
+    "暴雪主要技能冷却列表为空。", "暴雪主要技能冷却已全部添加。", "已从暴雪主要技能冷却添加 %d 项。"}
+local spanishCooldownImport = {"Añadir del gestor de reutilización",
+    "No se pudo leer la configuración. Abre el gestor de reutilización y vuelve a intentarlo.",
+    "La lista de habilidades principales está vacía.", "Ya se añadieron todas las habilidades principales.", "Habilidades principales añadidas: %d."}
 for locale, labels in pairs({
-    enUS = {"Add from Blizzard Cooldown Manager", "Essential Cooldowns", "Utility Cooldowns", "Add selected spells",
-        "Cooldown settings are unavailable. Open Blizzard's Cooldown Manager and try again.", "Blizzard's Cooldown Manager has no spell cooldowns to add.",
-        "Add from spellbook", "Your spellbook has no active spells to add."},
-    deDE = {"Aus Abklingzeitmanager hinzufügen", "Wichtige Abklingzeiten", "Nützliche Abklingzeiten", "Auswahl hinzufügen",
-        "Öffne den Abklingzeitmanager von Blizzard und versuche es erneut.", "Der Abklingzeitmanager hat keine Zauber zum Hinzufügen.",
-        "Aus Zauberbuch hinzufügen", "Im Zauberbuch sind keine aktiven Zauber zum Hinzufügen verfügbar."},
-    frFR = {"Ajouter depuis le gestionnaire Blizzard", "Temps de recharge essentiels", "Temps de recharge utilitaires", "Ajouter la sélection",
-        "Ouvrez le gestionnaire de temps de recharge de Blizzard et réessayez.", "Le gestionnaire de temps de recharge n’a aucun sort à ajouter.",
-        "Ajouter depuis le grimoire", "Le grimoire n’a aucun sort actif à ajouter."},
+    enUS = {"Add from Blizzard Cooldown Manager", "Cooldown settings are unavailable. Open Blizzard's Cooldown Manager and try again.",
+        "The Essential Cooldowns list is empty.", "All Essential Cooldowns have already been added.", "Added %d spells from Essential Cooldowns."},
+    deDE = {"Aus Abklingzeitmanager hinzufügen", "Öffne den Abklingzeitmanager von Blizzard und versuche es erneut.",
+        "Die Liste der wichtigen Abklingzeiten ist leer.", "Alle wichtigen Abklingzeiten wurden bereits hinzugefügt.", "%d Zauber aus den wichtigen Abklingzeiten hinzugefügt."},
+    frFR = {"Ajouter depuis le gestionnaire Blizzard", "Ouvrez le gestionnaire de temps de recharge de Blizzard et réessayez.",
+        "La liste des temps de recharge essentiels est vide.", "Tous les temps de recharge essentiels ont déjà été ajoutés.", "%d sorts ajoutés depuis les temps de recharge essentiels."},
     esES = spanishCooldownImport, esMX = spanishCooldownImport,
-    itIT = {"Aggiungi dal gestore di Blizzard", "Tempi di recupero essenziali", "Tempi di recupero di utilità", "Aggiungi selezione",
-        "Apri il gestore dei tempi di recupero di Blizzard e riprova.", "Il gestore non ha abilità da aggiungere.",
-        "Aggiungi dal grimorio", "Il grimorio non ha abilità attive da aggiungere."},
-    ptBR = {"Adicionar do gerenciador da Blizzard", "Recargas essenciais", "Recargas utilitárias", "Adicionar seleção",
-        "Abra o gerenciador de recargas da Blizzard e tente novamente.", "O gerenciador não tem habilidades para adicionar.",
-        "Adicionar do grimório", "O grimório não tem feitiços ativos para adicionar."},
-    ruRU = {"Добавить из менеджера Blizzard", "Основные способности", "Вспомогательные способности", "Добавить выбранное",
-        "Откройте менеджер восстановления Blizzard и попробуйте снова.", "В менеджере нет способностей для добавления.",
-        "Добавить из книги заклинаний", "В книге нет активных заклинаний для добавления."},
-    koKR = {"블리자드 재사용 대기시간 관리자에서 추가", "주요 기술 재사용 대기시간", "보조 기술 재사용 대기시간", "선택한 기술 추가",
-        "블리자드 재사용 대기시간 관리자를 연 후 다시 시도하세요.", "재사용 대기시간 관리자에서 추가할 기술이 없습니다.",
-        "마법책에서 기술 추가", "마법책에서 추가할 수 있는 사용 기술이 없습니다."},
-    zhTW = {"從暴雪冷卻管理器新增", "主要技能冷卻", "功能技能冷卻", "新增選取的技能",
-        "暫時無法讀取暴雪冷卻設定，請開啟暴雪冷卻管理器後再試。", "暴雪冷卻管理器沒有可新增的技能冷卻。",
-        "從法術書新增技能", "法術書沒有可新增的主動技能。"},
+    itIT = {"Aggiungi dal gestore di Blizzard", "Apri il gestore dei tempi di recupero di Blizzard e riprova.",
+        "L'elenco dei tempi di recupero essenziali è vuoto.", "Tutti i tempi di recupero essenziali sono già stati aggiunti.", "Abilità aggiunte dai tempi di recupero essenziali: %d."},
+    ptBR = {"Adicionar do gerenciador da Blizzard", "Abra o gerenciador de recargas da Blizzard e tente novamente.",
+        "A lista de recargas essenciais está vazia.", "Todas as recargas essenciais já foram adicionadas.", "Habilidades adicionadas das recargas essenciais: %d."},
+    ruRU = {"Добавить из менеджера Blizzard", "Откройте менеджер восстановления Blizzard и попробуйте снова.",
+        "Список основных способностей пуст.", "Все основные способности уже добавлены.", "Добавлено основных способностей: %d."},
+    koKR = {"블리자드 재사용 대기시간 관리자에서 추가", "블리자드 재사용 대기시간 관리자를 연 후 다시 시도하세요.",
+        "주요 기술 재사용 대기시간 목록이 비어 있습니다.", "주요 기술 재사용 대기시간을 모두 추가했습니다.", "주요 기술 재사용 대기시간에서 기술 %d개를 추가했습니다."},
+    zhTW = {"從暴雪冷卻管理器新增", "暫時無法讀取暴雪冷卻設定，請開啟暴雪冷卻管理器後再試。",
+        "暴雪主要技能冷卻清單是空的。", "暴雪主要技能冷卻已全部新增。", "已從暴雪主要技能冷卻新增 %d 項。"},
 }) do
     local catalog = M.localeTables[locale]
     for i, key in ipairs(cooldownImportKeys) do catalog[key] = labels[i] end
