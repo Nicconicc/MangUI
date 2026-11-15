@@ -753,7 +753,7 @@ function O.Paint(view,o,animateOnly)
         end
         M.CustomMonitor.SetVisual(slot,"SetShown",visible)
         local baseAlpha=native and not IsMissing(entry)and (entry.type~="equipment"or not slot.show)and 0 or 1
-        M.CustomMonitor.SetVisual(slot,"EnableMouse",not (nativeMissing or (nativeFound and not slot.show)))
+        M.CustomMonitor.SetVisual(slot,"EnableMouse",not view.preview and not (nativeMissing or (nativeFound and not slot.show)))
         if slot.missingHost then
             M.CustomMonitor.SetVisual(slot.missingHost,"SetShown",nativeMissing)
             if nativeMissing then SetGlow(slot.missingGlow,entry.glow,entry.glowColor,now);baseAlpha=0 end

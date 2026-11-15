@@ -111,27 +111,33 @@ S.ReadBlizzardCooldowns=ReadEssentialCooldowns
 function S.SyncBlizzardCooldowns(group,desired)
     desired=desired or ReadEssentialCooldowns()
     if not desired then return end
-    local expected, kept={},{}
-    for _,entry in ipairs(desired)do expected[entry.blizzardCooldownID]=entry end
-    local changed=false
-    for _,entry in ipairs(group.monitors)do
-        if entry.type=="blizzard" and entry.blizzardCooldownID and not expected[entry.blizzardCooldownID] then
-            changed=true
-        else kept[#kept+1]=entry end
+    local current=group.monitors
+    local manual,byCooldown={},{}
+    local function Managed(entry)return entry.type=="blizzard" and entry.blizzardCooldownID end
+    for _,entry in ipairs(current)do
+        local id=Managed(entry)
+        if id then byCooldown[id]=entry else manual[#manual+1]=entry end
     end
-    local existing=ExistingCooldowns({monitors=kept})
-    local byCooldown={}
-    for _,entry in ipairs(kept)do
-        if entry.type=="blizzard" and entry.blizzardCooldownID then byCooldown[entry.blizzardCooldownID]=true end
-    end
-    local placeholder=kept[1]
-    if #kept==1 and placeholder.type=="cooldown" and placeholder.value=="" and (placeholder.shortcut or "")==""
-        and not placeholder.reverseDisplay and #desired>0 then kept={} end
+    local existing=ExistingCooldowns({monitors=manual})
+    local ordered={}
     for _,entry in ipairs(desired)do
-        if not byCooldown[entry.blizzardCooldownID] and not existing[BaseSpell(tonumber(entry.value))]then
-            kept[#kept+1]=entry;changed=true
+        local saved=byCooldown[entry.blizzardCooldownID]
+        if saved or not existing[BaseSpell(tonumber(entry.value))]then
+            ordered[#ordered+1]=saved or entry
         end
     end
+    local kept,index={},1
+    local placeholder=current[1]
+    local replacePlaceholder=#current==1 and placeholder.type=="cooldown" and placeholder.value==""
+        and (placeholder.shortcut or "")=="" and not placeholder.reverseDisplay and #ordered>0
+    for _,entry in ipairs(current)do
+        if Managed(entry) then
+            if ordered[index] then kept[#kept+1]=ordered[index];index=index+1 end
+        elseif not replacePlaceholder then kept[#kept+1]=entry end
+    end
+    for i=index,#ordered do kept[#kept+1]=ordered[i]end
+    local changed=#kept~=#current
+    for i,entry in ipairs(kept)do if entry~=current[i]then changed=true;break end end
     if changed then group.monitors=kept;M:Commit()end
     return true,changed
 end

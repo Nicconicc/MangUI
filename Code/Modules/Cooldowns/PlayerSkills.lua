@@ -336,7 +336,6 @@ local function ObserveBlizzardCooldowns()
     if not desired then return false end
     local signature={}
     for i,entry in ipairs(desired)do signature[i]=entry.blizzardCooldownID..":"..entry.value end
-    table.sort(signature)
     signature=table.concat(signature,",")
 
     local store=MangUICharacterDB.monitors.playerSkillMonitor
@@ -1293,7 +1292,7 @@ function S.Paint(view,o,animateOnly)
             if slot.rowVisible then visibleCount=visibleCount+1 end
             if slot:IsShown()~=slot.rowVisible then slot:SetShown(slot.rowVisible) end
             M.CustomMonitor.SetVisual(slot,"SetAlpha",alpha)
-            M.CustomMonitor.SetVisual(slot,"EnableMouse",readable and slot.rowVisible)
+            M.CustomMonitor.SetVisual(slot,"EnableMouse",not view.preview and readable and slot.rowVisible)
         end
         o.rowCount=visibleCount
         local width=math.max(1,visibleCount*44-4)

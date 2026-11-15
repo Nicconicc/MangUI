@@ -121,6 +121,10 @@ function M:OpenDesigner()
     e.monitorGlow:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=10})
     e.monitorGlow:SetBackdropColor(1,.82,.2,.16);e.monitorGlow:SetBackdropBorderColor(1,.82,.2,1)
     e.monitorGlow:EnableMouse(false);e.monitorGlow:Hide()
+    e.monitorGhost=CreateFrame("Frame",nil,e.input)
+    e.monitorGhost:SetFrameStrata("TOOLTIP");e.monitorGhost:EnableMouse(false);e.monitorGhost:Hide()
+    e.monitorGhost.texture=e.monitorGhost:CreateTexture(nil,"ARTWORK");e.monitorGhost.texture:SetAllPoints()
+    e.input:HookScript("OnHide",function()private.CancelMonitorDrag(e);e.monitorGlow:Hide()end)
     e.previewDistanceHint=W.Label(e.input,"超出设定距离：姓名板显示红叉，头像旋转内环变红。",11)
     e.previewDistanceHint:SetPoint("BOTTOMLEFT",10,10)
     e.previewDistanceHint:SetPoint("BOTTOMRIGHT",-10,10)
@@ -188,7 +192,7 @@ function M:OpenDesigner()
         if button=="LeftButton" then
             local monitor=private.MonitorTarget(e)
             if monitor then
-                if M:CanEdit()then e.monitorDrag=monitor end
+                if M:CanEdit()then private.BeginMonitorDrag(e,monitor)end
                 return
             end
         end
@@ -217,7 +221,6 @@ function M:OpenDesigner()
         if e.monitorDrag and IsMouseButtonDown and not IsMouseButtonDown("LeftButton")then
             private.EndMonitorDrag(e)
         end
-        private.UpdateMonitorHighlight(e)
         local pending=e.pendingOverlap
         if pending and IsMouseButtonDown and not IsMouseButtonDown("LeftButton") then
             e.pendingOverlap=nil
@@ -253,9 +256,10 @@ function M:OpenDesigner()
             end
         end
         R.Animate(e.view)
+        private.UpdateMonitorHighlight(e)
     end)
     f:SetScript("OnHide",function()
-        e.monitorDrag=nil;e.monitorGlow:Hide()
+        private.CancelMonitorDrag(e);e.monitorGlow:Hide()
         e.pendingOverlap=nil
         if e.drag then e.drag=nil;M:Commit() end
         if e.overlap then e.overlap:Hide() end

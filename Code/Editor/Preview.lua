@@ -57,6 +57,13 @@ end
 
 local function UpdateMonitorHighlight(e)
     local target=MonitorTarget(e,e.monitorDrag)
+    local drag=e.monitorDrag
+    if drag and e.monitorGhost then
+        local x,y=GetCursorPosition();local scale=e.monitorGhost:GetEffectiveScale()
+        e.monitorGhost:ClearAllPoints()
+        e.monitorGhost:SetPoint("CENTER",UIParent,"BOTTOMLEFT",(x+drag.offsetX)/scale,(y+drag.offsetY)/scale)
+        drag.slot:SetAlpha(.3)
+    end
     local glow=e.monitorGlow
     if target then
         glow:ClearAllPoints();glow:SetPoint("TOPLEFT",target.slot,"TOPLEFT",-1,1)
@@ -65,10 +72,32 @@ local function UpdateMonitorHighlight(e)
     glow:SetShown(target~=nil)
 end
 
+local function BeginMonitorDrag(e,target)
+    local slot,ghost=target.slot,e.monitorGhost
+    local icon=slot.texture
+    local scale=slot:GetEffectiveScale()
+    local x,y=GetCursorPosition();local cx,cy=slot:GetCenter()
+    target.offsetX,target.offsetY=cx*scale-x,cy*scale-y
+    target.alpha=slot:GetAlpha()
+    e.monitorDrag=target
+    ghost:SetSize(slot:GetWidth()*scale/ghost:GetEffectiveScale(),slot:GetHeight()*scale/ghost:GetEffectiveScale())
+    ghost.texture:SetTexture(icon and icon:GetTexture() or 134400)
+    if icon then ghost.texture:SetTexCoord(icon:GetTexCoord())else ghost.texture:SetTexCoord(0,1,0,1)end
+    UpdateMonitorHighlight(e)
+    ghost:Show()
+end
+
+local function CancelMonitorDrag(e)
+    local drag=e.monitorDrag
+    if drag and drag.alpha then drag.slot:SetAlpha(drag.alpha)end
+    e.monitorDrag=nil
+    if e.monitorGhost then e.monitorGhost:Hide()end
+end
+
 local function EndMonitorDrag(e)
     local drag=e.monitorDrag
     if not drag then return end
-    e.monitorDrag=nil
+    CancelMonitorDrag(e)
     local target=MonitorTarget(e,drag)
     if not target or target.entry==drag.entry or drag.list[drag.index]~=drag.entry or not M:CanEdit()then return end
     table.remove(drag.list,drag.index);table.insert(drag.list,target.index,drag.entry)
@@ -198,7 +227,7 @@ function M:RefreshEditor(unchanged)
     local e=self.editor;if not e or not e.window:IsShown() or not e.canvas:IsShown() then return end
     e.scope="all";e.view.hidden={}
     local selected=Selected()
-    if e.monitorDrag and e.monitorDrag.group~=selected then e.monitorDrag=nil;e.monitorGlow:Hide()end
+    if e.monitorDrag and e.monitorDrag.group~=selected then CancelMonitorDrag(e);e.monitorGlow:Hide()end
     e.bossPreview=selected and PreviewModuleID(selected)=="bossFrames" or false
     e.partyPreview=selected and PreviewModuleID(selected)=="partyFrames" or false
     if e.partyPreview then
@@ -335,5 +364,7 @@ M.EditorInternals.LayoutEditorPanels=LayoutEditorPanels
 M.EditorInternals.HitCandidates=HitCandidates
 M.EditorInternals.OverlapMenu=OverlapMenu
 M.EditorInternals.MonitorTarget=MonitorTarget
+M.EditorInternals.BeginMonitorDrag=BeginMonitorDrag
+M.EditorInternals.CancelMonitorDrag=CancelMonitorDrag
 M.EditorInternals.UpdateMonitorHighlight=UpdateMonitorHighlight
 M.EditorInternals.EndMonitorDrag=EndMonitorDrag
