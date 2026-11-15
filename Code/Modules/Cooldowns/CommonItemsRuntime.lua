@@ -17,7 +17,8 @@ local function Icon(parent,secure)
     button.cooldown:SetDrawEdge(false);button.cooldown:SetDrawBling(false);button.cooldown:SetDrawSwipe(false)
     button.cooldown:SetHideCountdownNumbers(false);button.cooldown.noCooldownCount=true
     local formatter=S.CountdownFormatter()
-    if formatter and button.cooldown.SetCountdownFormatter then button.cooldown:SetCountdownFormatter(formatter)end
+    if formatter and button.cooldown.SetCountdownFormatter then button.cooldown:SetCountdownFormatter(formatter)
+    elseif button.cooldown.SetCountdownAbbrevThreshold then button.cooldown:SetCountdownAbbrevThreshold(60)end
     if button.cooldown.GetCountdownFontString then
         button.nativeTime=button.cooldown:GetCountdownFontString()
         if button.nativeTime then Font(button.nativeTime);button.nativeTime:ClearAllPoints();button.nativeTime:SetPoint("BOTTOM",button,"TOP",0,7)end
@@ -135,7 +136,7 @@ function I.Paint(view,o,animateOnly)
                 local dim=MissingItem(button)or index%2==1
                 button.texture:SetDesaturated(dim);button.texture:SetAlpha(dim and .5 or 1)
                 button.grayTexture:SetAlpha(0)
-                button.time:SetText(tostring(30-index))
+                button.time:SetText(S.FormatCountdown(30-index))
             end
         end
         return

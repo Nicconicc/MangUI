@@ -149,7 +149,7 @@ function I.Paint(view,o,animateOnly)
             local visible=view.preview or native or (auras~=nil and slot.aura~=nil)
             slot:SetShown(visible);slot.base:SetAlpha(native and 0 or 1)
             if visible then displayed[#displayed+1]=slot end
-            if view.preview then M.CustomMonitor.SetText(slot.time,tostring(30-index));M.CustomMonitor.SetText(slot.count,"")
+            if view.preview then M.CustomMonitor.SetText(slot.time,S.FormatCountdown(30-index));M.CustomMonitor.SetText(slot.count,"")
             else
                 local aura=slot.aura;local expires=aura and Number(aura.expires)
                 M.CustomMonitor.SetText(slot.time,S.FormatCountdown(expires and expires>0 and expires-now or nil))

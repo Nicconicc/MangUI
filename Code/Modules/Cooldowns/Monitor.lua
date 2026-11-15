@@ -296,11 +296,15 @@ function D:Update()
         self.activeRevision=self.activeRevision+1
     end
 end
+function D.MinuteSuffix()
+    local _,class=UnitClass("player")
+    local color=RAID_CLASS_COLORS and class and RAID_CLASS_COLORS[class]
+    return "|c"..(color and color.colorStr or "ffffffff").."m|r"
+end
 function D.RemainingText(seconds)
     if seconds<=0 then return "" end
     if seconds>60 then
-        local _,class=UnitClass("player");local color=RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-        return string.format("%.1f",seconds/60).."|c"..(color and color.colorStr or "ffffffff").."m|r"
+        return string.format("%.1f",seconds/60)..D.MinuteSuffix()
     elseif seconds<=3 then return "|cffff0000"..math.ceil(seconds).."|r"
     elseif seconds<=4 then return "|cffff0000"..string.format("%.1f",seconds).."|r"
     elseif seconds<=10 then return "|cffffa500"..math.floor(seconds).."|r" end

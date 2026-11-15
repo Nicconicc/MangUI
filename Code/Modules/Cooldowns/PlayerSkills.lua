@@ -15,10 +15,7 @@ local function Safe(fn,...)
 end
 function S.FormatCountdown(seconds)
     seconds=Number(seconds)
-    if not seconds or seconds<=0 then return "" end
-    local whole=math.ceil(seconds)
-    if seconds>=60 then return string.format("%d:%02d",math.floor(whole/60),whole%60)end
-    return tostring(whole)
+    return seconds and M.CooldownMonitor.RemainingText(seconds) or ""
 end
 local countdownFormatter
 function S.CountdownFormatter()
@@ -27,11 +24,17 @@ function S.CountdownFormatter()
         or not Enum or not Enum.NumericRuleFormatRounding then return end
     local formatter=Safe(C_StringUtil.CreateNumericRuleFormatter)
     if not formatter then return end
-    local up=Enum.NumericRuleFormatRounding.Up
+    local rounding=Enum.NumericRuleFormatRounding
+    -- The engine selects a rule from the raw time, then rounds its display.
+    -- Keep exact seconds at the upper edge of each band, as in RemainingText.
+    local edge=.000001
     local ok=pcall(formatter.SetBreakpoints,formatter,{
-        {threshold=0,format="%d",rounding=up,step=1},
-        {threshold=60,format="%d:%02d",rounding=up,step=1,
-            components={{div=60},{mod=60}}},
+        {threshold=0,format="|cffff0000%d|r",rounding=rounding.Up,step=1},
+        {threshold=3+edge,format="|cffff0000%.1f|r"},
+        {threshold=4+edge,format="|cffffa500%d|r",rounding=rounding.Down,step=1},
+        {threshold=10+edge,format="%d",rounding=rounding.Down,step=1},
+        {threshold=60+edge,format="%.1f"..M.CooldownMonitor.MinuteSuffix(),
+            components={{div=60}}},
     })
     if ok then countdownFormatter=formatter;return formatter end
 end
@@ -751,7 +754,7 @@ local function Icon(o,i)
     slot.cooldown:SetHideCountdownNumbers(false);slot.cooldown.noCooldownCount=true
     local formatter=S.CountdownFormatter()
     if formatter and slot.cooldown.SetCountdownFormatter then slot.cooldown:SetCountdownFormatter(formatter)
-    elseif slot.cooldown.SetCountdownAbbrevThreshold then slot.cooldown:SetCountdownAbbrevThreshold(3600)end
+    elseif slot.cooldown.SetCountdownAbbrevThreshold then slot.cooldown:SetCountdownAbbrevThreshold(60)end
     if slot.cooldown.GetCountdownFontString then
         slot.nativeTime=slot.cooldown:GetCountdownFontString()
         if slot.nativeTime then Font(slot.nativeTime);slot.nativeTime:ClearAllPoints();slot.nativeTime:SetPoint("BOTTOM",slot,"TOP",0,7)end
@@ -1179,7 +1182,12 @@ local function ReadBlizzardPresentation(slot,frame)
     local label=Safe(timer.GetCountdownFontString,timer)
     if Readable(label) and label and M.Compat.Bool(Safe(label.IsVisible,label))then
         local text=Safe(label.GetText,label)
-        if Readable(text) and type(text)=="string" and text~="" then slot.blizzardTimer=text end
+        if Readable(text) and type(text)=="string" and text~="" then
+            local plain=text:gsub("|c%x%x%x%x%x%x%x%x",""):gsub("|r","")
+            local minutes,seconds=plain:match("^(%d+):(%d%d)$")
+            local remaining=minutes and (tonumber(minutes)*60+tonumber(seconds)) or tonumber(plain)
+            slot.blizzardTimer=remaining and S.FormatCountdown(remaining) or text
+        end
     end
 end
 
@@ -1362,7 +1370,7 @@ function S.Paint(view,o,animateOnly)
         elseif view.preview then
             local faded=(i%2==1)~=reversed
             ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);textureAlpha=faded and .5 or 1
-            M.CustomMonitor.SetText(slot.text,tostring(30-i))
+            M.CustomMonitor.SetText(slot.text,S.FormatCountdown(30-i))
             M.CustomMonitor.SetText(slot.count,isAura and "3"or "2")
         elseif slot.duration then
             local desat=DisplayCurve(desaturationCurves,reversed,0,1)

@@ -763,7 +763,7 @@ function O.Paint(view,o,animateOnly)
         if view.preview then
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",1)
             local noTimer=IsMissing(entry) or entry.type=="stance"
-            M.CustomMonitor.SetText(slot.time,custom and (custom.text or "")or(noTimer and ""or tostring(30-i)));M.CustomMonitor.SetText(slot.count,custom and tostring(custom.count or "")or(noTimer and ""or "2"))
+            M.CustomMonitor.SetText(slot.time,custom and (custom.text or "")or(noTimer and ""or S.FormatCountdown(30-i)));M.CustomMonitor.SetText(slot.count,custom and tostring(custom.count or "")or(noTimer and ""or "2"))
             SetGlow(slot.glow,custom and custom.glow or entry.glow,entry.glowColor,now)
         else
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",slot.faded==true);M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",slot.faded and .5 or 1)
