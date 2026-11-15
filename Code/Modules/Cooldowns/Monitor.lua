@@ -304,9 +304,8 @@ end
 function D.RemainingText(seconds)
     if seconds<=0 then return "" end
     if seconds>60 then
-        return string.format("%.1f",seconds/60)..D.MinuteSuffix()
-    elseif seconds<=3 then return "|cffff0000"..math.ceil(seconds).."|r"
-    elseif seconds<=4 then return "|cffff0000"..string.format("%.1f",seconds).."|r"
+        return math.floor(seconds/60)..D.MinuteSuffix()
+    elseif seconds<=4 then return "|cffff0000"..math.ceil(seconds).."|r"
     elseif seconds<=10 then return "|cffffa500"..math.floor(seconds).."|r" end
     return tostring(math.floor(seconds))
 end

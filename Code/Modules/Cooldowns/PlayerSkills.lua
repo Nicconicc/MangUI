@@ -30,11 +30,10 @@ function S.CountdownFormatter()
     local edge=.000001
     local ok=pcall(formatter.SetBreakpoints,formatter,{
         {threshold=0,format="|cffff0000%d|r",rounding=rounding.Up,step=1},
-        {threshold=3+edge,format="|cffff0000%.1f|r"},
         {threshold=4+edge,format="|cffffa500%d|r",rounding=rounding.Down,step=1},
         {threshold=10+edge,format="%d",rounding=rounding.Down,step=1},
-        {threshold=60+edge,format="%.1f"..M.CooldownMonitor.MinuteSuffix(),
-            components={{div=60}}},
+        {threshold=60+edge,format="%d"..M.CooldownMonitor.MinuteSuffix(),
+            components={{div=60,step=1,rounding=rounding.Down}}},
     })
     if ok then countdownFormatter=formatter;return formatter end
 end
@@ -751,7 +750,7 @@ local function Icon(o,i)
     slot.count=slot:CreateFontString(nil,"OVERLAY");CountFont(slot.count);slot.count:SetPoint("BOTTOM",slot,"TOP",0,29)
     slot.cooldown=CreateFrame("Cooldown",nil,slot.timerGate,"CooldownFrameTemplate");slot.cooldown:SetAllPoints();slot.cooldown:EnableMouse(false)
     slot.cooldown:SetDrawEdge(false);slot.cooldown:SetDrawBling(false);slot.cooldown:SetDrawSwipe(false)
-    slot.cooldown:SetHideCountdownNumbers(false);slot.cooldown.noCooldownCount=true
+    M.CustomMonitor.SetVisual(slot.cooldown,"SetHideCountdownNumbers",true);slot.cooldown.noCooldownCount=true
     local formatter=S.CountdownFormatter()
     if formatter and slot.cooldown.SetCountdownFormatter then slot.cooldown:SetCountdownFormatter(formatter)
     elseif slot.cooldown.SetCountdownAbbrevThreshold then slot.cooldown:SetCountdownAbbrevThreshold(60)end
@@ -1185,7 +1184,13 @@ local function ReadBlizzardPresentation(slot,frame)
         if Readable(text) and type(text)=="string" and text~="" then
             local plain=text:gsub("|c%x%x%x%x%x%x%x%x",""):gsub("|r","")
             local minutes,seconds=plain:match("^(%d+):(%d%d)$")
-            local remaining=minutes and (tonumber(minutes)*60+tonumber(seconds)) or tonumber(plain)
+            local minuteValue=plain:match("^(%d+%.?%d*)%s*[mM]$")
+            local remaining=minutes and (tonumber(minutes)*60+tonumber(seconds))
+                or (minuteValue and tonumber(minuteValue)*60) or tonumber(plain)
+            if minuteValue and remaining==60 then
+                slot.blizzardTimer="1"..M.CooldownMonitor.MinuteSuffix()
+                return
+            end
             slot.blizzardTimer=remaining and S.FormatCountdown(remaining) or text
         end
     end
@@ -1200,7 +1205,7 @@ local function PaintEffect(slot,now)
         if native then native:SetAlpha(0)end
         slot.timerGate:SetAlpha(1);slot.cooldown:SetAlpha(0)
         M.CustomMonitor.SetText(slot.text,slot.blizzardTimer)
-        return
+        return false,true
     end
     local useNative=effect and native and not timed and not slot.effectNeedsBind
     if native then native:SetAlpha(useNative and 1 or 0)end
@@ -1209,7 +1214,7 @@ local function PaintEffect(slot,now)
     if timed then
         Remaining(slot,expires-now)
         M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
-        return true
+        return true,true
     end
     if useNative and slot.effectPresence then
         local present=Safe(slot.effectPresence.IsVisible,slot.effectPresence)
@@ -1332,6 +1337,7 @@ function S.Paint(view,o,animateOnly)
     for i=1,#entries do
         local slot=o.skillIcons[i]
         local textureAlpha,shortcutAlpha=1,1
+        local useCooldownNumbers=false
         local reversed=slot.entry.reverseDisplay==true
         -- On Forever, a readable match can draw the complete faded icon even
         -- when the native button's inherited visibility is inaccessible.
@@ -1373,6 +1379,8 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetText(slot.text,S.FormatCountdown(30-i))
             M.CustomMonitor.SetText(slot.count,isAura and "3"or "2")
         elseif slot.duration then
+            useCooldownNumbers=true
+            M.CustomMonitor.SetText(slot.text,"")
             local desat=DisplayCurve(desaturationCurves,reversed,0,1)
             if desat and slot.duration.EvaluateRemainingDuration and slot.texture.SetDesaturation then
                 -- The engine consumes this potentially secret number directly.
@@ -1382,6 +1390,7 @@ function S.Paint(view,o,animateOnly)
             else
                 local remaining=Number(Safe(slot.duration.GetRemainingDuration,slot.duration))
                 if remaining then
+                    useCooldownNumbers=false
                     local faded=(remaining>0)~=reversed
                     M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);Remaining(slot,remaining)
                     textureAlpha=faded and .5 or 1
@@ -1400,7 +1409,8 @@ function S.Paint(view,o,animateOnly)
             if isAura then CountText(slot.count,active and slot.stacks or nil,false)end
         end
         if not view.preview and IsCombined(slot.entry) then
-            local effectVisible=PaintEffect(slot,now)
+            local effectVisible,hasTextTimer=PaintEffect(slot,now)
+            if hasTextTimer then useCooldownNumbers=false end
             if effectVisible then textureAlpha=1
             elseif slot.blizzardDesaturated~=nil then
                 M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",slot.blizzardDesaturated)
@@ -1410,6 +1420,7 @@ function S.Paint(view,o,animateOnly)
                 M.CustomMonitor.Glow(slot,slot.effectGlow==true)
             end
         elseif slot.entry.type=="blizzard" and slot.customGlow then slot.customGlow:Hide() end
+        M.CustomMonitor.SetVisual(slot.cooldown,"SetHideCountdownNumbers",not useCooldownNumbers)
         M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",textureAlpha)
         M.CustomMonitor.SetVisual(slot.shortcutFrame,"SetAlpha",shortcutAlpha)
     end
