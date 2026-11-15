@@ -1,7 +1,7 @@
 local name, M = ...
 _G.MangUIUF = M
-M.name, M.version = name, "833"
-M.optionsTitle = "MangUI - V833 2026/11/16 0047"
+M.name, M.version = name, "834"
+M.optionsTitle = "MangUI - V834 2026/11/16 0057"
 M.errors, M.status = {}, "等待初始化"
 M.ART = "Interface\\AddOns\\MangUI\\Assets\\"
 M.MYRIAD = "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
@@ -132,7 +132,7 @@ local function Start()
     local ok=M:Safe("创建单位框体",M.StartLive,M)
     if ok then
         M.started=true
-        if M.SystemMenu then M:Safe("公会窗口入口",M.SystemMenu.StartGuildCorner) end
+        if M.CornerSocial then M:Safe("社交列表",M.CornerSocial.Start) end
         M.status=#M.errors==0 and "运行中" or "运行中（有错误）"
     end
 end

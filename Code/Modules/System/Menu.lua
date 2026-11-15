@@ -144,43 +144,6 @@ function S.Click(key)
     M:Print("当前客户端不支持此菜单入口。")
 end
 
-function S.StartGuildCorner()
-    if S.guildCorner then return end
-    local watcher=CreateFrame("Frame",nil,UIParent)
-    watcher:SetPoint("TOPLEFT",UIParent,"TOPLEFT")
-    watcher:SetSize(28,28)
-    watcher:EnableMouse(false)
-    S.guildCorner=watcher
-    local elapsed,entered,triggered=0,nil,false
-    watcher:SetScript("OnUpdate",function(_,delta)
-        elapsed=elapsed+delta
-        if elapsed<.05 then return end
-        elapsed=0
-
-        if not M.Compat.MouseOver(watcher) then
-            entered,triggered=nil,false
-            return
-        end
-        if triggered then return end
-        if InCombatLockdown() or (IsMouseButtonDown and (IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton")))then
-            entered=nil
-            return
-        end
-        local now=GetTime()
-        entered=entered or now
-        if now-entered<.35 then return end
-        triggered=true
-
-        local open=ToggleGuildFrame or ToggleCommunitiesFrame
-        if not open then return end
-        M:Safe("公会窗口入口",function()
-            if CommunitiesFrame and CommunitiesFrame:IsShown() then return end
-            if GuildFrame and GuildFrame:IsShown() then return end
-            open()
-        end)
-    end)
-end
-
 local function Reset(slot,visible)
     local progress=visible and 1 or 0
     slot.progress=progress;slot.target=progress;slot.started=nil;slot.hideAt=nil;slot.pressed=nil;slot.hovered=nil
