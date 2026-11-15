@@ -791,6 +791,10 @@ local function BuildProperties(e)
     e.nameFontButton=W.MediaSelect(content,"字体",propertyWidth,"font",function()M:OpenFocusFontPicker()end)
     e.nameFontButton:SetPoint("TOPLEFT",0,y)
     Row(53,{{e.nameFontButton,0,0}},nil,"nameFont");y=y-53
+    e.experienceHoverTop=W.Check(content,"鼠标悬浮屏幕顶部后显示",function(enabled)
+        Change("experienceHoverTop",enabled)
+    end)
+    Row(32,{{e.experienceHoverTop,-4,0}},{},"experienceHoverTop");y=y-32
     e.valueUnit=W.MediaSelect(content,"大数值以单位显示",propertyWidth,"choice",function()
         local owner=Selected();if not M.LargeValueUnits.Supports(owner)then return end
         local drop=e.valueUnit

@@ -149,7 +149,7 @@ local propertyCategories={
     commonItems={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"commonItemsSharedRows"},{"commonItemsSharing"}},
     chatButtons={{"iconSize","buttonSpacing"},{"nameFont","fontSize","fontYOffset","chatTextLabels"},{"customChannelName","pullSeconds"}},
     targetThreat={{"nameFont","fontSize"},{"threatInstanceOnly"}},
-    experienceBar={{"scale","experienceHeight"},{"nameFont"}},
+    experienceBar={{"scale","experienceHeight"},{"nameFont","experienceHoverTop"}},
     systemMenu={{"scale","menuIconSpacing","menuAlwaysVisible"}},combatNotices={{"scale"},{"combatSound"}},
     mouseCircle={{"showMouseCircle","scale"},{"mouseColors"},
         {"mouseShortcutsTitle","mouseUnitMenu","mouseUnitMarks","mouseCombatMarkerKey","mouseAltInvite","mouseShiftFocus"}},

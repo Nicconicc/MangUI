@@ -4,7 +4,7 @@ local WHITE="Interface\\Buttons\\WHITE8X8"
 local function Templates()
     return {
         {id="experienceBar",label="经验条",kind="group",compound="experienceBar",scope="player",unit="player",
-            x=0,y=-100,width=510,height=2,experienceHeight=2,font="游戏默认",scale=1,point="CENTER",anchor="CENTER",screenAnchor="TOP",alpha=1,enabled=true,layer=800,rules={},conditions={}},
+            x=0,y=-100,width=510,height=2,experienceHeight=2,experienceHoverTop=false,font="游戏默认",scale=1,point="CENTER",anchor="CENTER",screenAnchor="TOP",alpha=1,enabled=true,layer=800,rules={},conditions={}},
         {id="experienceBarDisplay",label="经验条",kind="experiencebar",parent="experienceBar",internal=true,locked=true,
             scope="player",unit="player",x=0,y=0,width=510,height=2,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=801},
     }
@@ -12,7 +12,11 @@ end
 function M:EnsureExperienceBarModule(design)
     local seen={};for _,n in ipairs(design.nodes) do
         seen[n.id]=true
-        if n.id=="experienceBar" then n.experienceHeight=n.experienceHeight or n.height or 2;n.font=n.font or "游戏默认" end
+        if n.id=="experienceBar" then
+            n.experienceHeight=n.experienceHeight or n.height or 2
+            n.font=n.font or "游戏默认"
+            if n.experienceHoverTop==nil then n.experienceHoverTop=false end
+        end
     end
     for _,n in ipairs(Templates()) do if not seen[n.id] then design.nodes[#design.nodes+1]=n end end
 end
@@ -38,6 +42,7 @@ function E.RefreshFonts(view,o,force)
 end
 function E.Configure(view,o)
     o.xpRender={};o.xpState=nil;o.nextUpdate=nil;o.xpEventVersion=nil
+    if o.module and o.module.enabled==false then o.xpAtScreenTop=nil;o.xpHideAt=nil end
     E.RefreshFonts(view,o,false)
     o.hover:SetSize(o.spec.width or 510,math.max(38,(o.spec.height or 2)+36))
     local width=o.spec.width or 510
@@ -211,20 +216,43 @@ local function Label(o,index,value)
         if index~=1 then M:FitLocaleText(o.labels[index],o.xpLabelWidths[index],8)end
     end
 end
+local function ScreenTopOpacity(o,now)
+    if not E.screenTopTrigger then
+        local trigger=CreateFrame("Frame",nil,UIParent)
+        trigger:SetPoint("TOPLEFT",UIParent,"TOPLEFT")
+        trigger:SetPoint("TOPRIGHT",UIParent,"TOPRIGHT")
+        trigger:SetHeight(16)
+        trigger:EnableMouse(false)
+        E.screenTopTrigger=trigger
+    end
+    if M.Compat.MouseOver(E.screenTopTrigger) then
+        o.xpHideAt=nil
+        o.xpAtScreenTop=true
+        return 1
+    end
+    if o.xpAtScreenTop then
+        o.xpAtScreenTop=nil
+        o.xpHideAt=now+10
+    end
+    if not o.xpHideAt then return 0 end
+    return M.Clamp(1-(now-o.xpHideAt)/.3,0,1)
+end
 function E.Paint(view,o,animateOnly)
     local n,f=o.spec,o.frame
     if n.enabled==false or (view.hidden and view.hidden[n.id]) or (not view.preview and o.module and o.module.enabled==false) then f:Hide();return end
     local now=GetTime();local s=o.xpState
     -- A capped character wakes through XP/level/world/expansion events or Apply.
     if not view.preview and s and s.maxLevel and o.xpEventVersion==(E.eventVersion or 0) then return end
-    if animateOnly and s and now<(o.nextUpdate or 0) and not o.xpStarted then return end
     local stateChanged=false
     if not animateOnly or not s or not o.nextUpdate or now>=o.nextUpdate then
         s=E.State(view.preview);o.xpState=s;o.nextUpdate=now+.2;stateChanged=true
         o.xpEventVersion=E.eventVersion or 0
     end
-    if s.maxLevel and not view.preview then if f:IsShown() then f:Hide() end;return end
-    if not f:IsShown() then f:Show() end
+    if s.maxLevel and not view.preview then
+        o.xpAtScreenTop=nil;o.xpHideAt=nil
+        if f:IsShown() then f:Hide() end
+        return
+    end
     if not view.preview and not E.timeRequested and RequestTimePlayed then
         E.timeRequested=true
         local function Request()
@@ -234,6 +262,20 @@ function E.Paint(view,o,animateOnly)
         -- StartLive installs event listeners after its first Apply; defer the request.
         if C_Timer and C_Timer.After then C_Timer.After(.5,Request) else Request() end
     end
+    if not view.preview and o.module and o.module.experienceHoverTop==true then
+        local opacity=ScreenTopOpacity(o,now)
+        if opacity==0 then
+            if f:IsShown() then f:Hide() end
+            return
+        end
+        local alpha=(n.alpha or 1)*opacity
+        if f:GetAlpha()~=alpha then f:SetAlpha(alpha) end
+    elseif o.xpAtScreenTop or o.xpHideAt then
+        o.xpAtScreenTop=nil;o.xpHideAt=nil
+        f:SetAlpha(n.alpha or 1)
+    end
+    if not f:IsShown() then f:Show();stateChanged=true end
+    if animateOnly and not stateChanged and not o.xpStarted then return end
     local width,height=n.width or 510,n.height or 2;local maximum=math.max(1,s.maximum)
     local actual=s.current/maximum
     if o.xpRatio==nil or o.xpMaximum~=maximum then

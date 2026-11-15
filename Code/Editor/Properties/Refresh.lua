@@ -189,6 +189,7 @@ local function RefreshProperties(self)
     if n.compound=="chatButtons" then e.chatTextLabels:SetChecked(n.textLabels==true) end
     if n.compound=="targetThreat" then e.threatInstanceOnly:SetChecked(n.instanceOnly~=false) end
     if n.compound=="systemMenu" then e.menuAlwaysVisible:SetChecked(n.menuAlwaysVisible==true) end
+    if n.compound=="experienceBar" then e.experienceHoverTop:SetChecked(n.experienceHoverTop==true) end
     if n.compound=="combatNotices" or n.compound=="bossFrames" then e.combatSound:SetChecked(n.soundEnabled~=false) end
     if n.compound=="partyFrames" then
         e.partyHideInRaid:SetChecked(n.hidePartyInRaid==true)
@@ -491,7 +492,7 @@ local function RefreshProperties(self)
                     or row.key=="distanceIconSize" or row.key=="distanceX" or row.key=="distanceY"
                     or row.key=="distanceTitle" or row.key=="distanceHint" or (row.key and row.key:find("^range")~=nil)
             elseif n.compound=="experienceBar" then
-                visible=row.key=="scale" or row.key=="nameFont" or row.key=="experienceHeight"
+                visible=row.key=="scale" or row.key=="nameFont" or row.key=="experienceHeight" or row.key=="experienceHoverTop"
             elseif n.compound=="systemMenu" then
                 visible=row.key=="scale" or row.key=="menuIconSpacing" or row.key=="menuAlwaysVisible"
             elseif n.compound=="mouseCircle" then
