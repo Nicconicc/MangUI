@@ -42,7 +42,7 @@ function E.RefreshFonts(view,o,force)
 end
 function E.Configure(view,o)
     o.xpRender={};o.xpState=nil;o.nextUpdate=nil;o.xpEventVersion=nil
-    if o.module and o.module.enabled==false then o.xpAtScreenTop=nil;o.xpHideAt=nil end
+    if o.module and o.module.enabled==false then o.xpHovering=nil;o.xpHideAt=nil end
     E.RefreshFonts(view,o,false)
     o.hover:SetSize(o.spec.width or 510,math.max(38,(o.spec.height or 2)+36))
     local width=o.spec.width or 510
@@ -216,22 +216,21 @@ local function Label(o,index,value)
         if index~=1 then M:FitLocaleText(o.labels[index],o.xpLabelWidths[index],8)end
     end
 end
-local function ScreenTopOpacity(o,now)
-    if not E.screenTopTrigger then
-        local trigger=CreateFrame("Frame",nil,UIParent)
-        trigger:SetPoint("TOPLEFT",UIParent,"TOPLEFT")
-        trigger:SetPoint("TOPRIGHT",UIParent,"TOPRIGHT")
-        trigger:SetHeight(16)
+local function HoverOpacity(view,o,now)
+    if not o.xpHoverTrigger then
+        -- Match the tooltip's hit area and keep detection active while the bar is hidden.
+        local trigger=CreateFrame("Frame",nil,view.root)
+        trigger:SetAllPoints(o.hover)
         trigger:EnableMouse(false)
-        E.screenTopTrigger=trigger
+        o.xpHoverTrigger=trigger
     end
-    if M.Compat.MouseOver(E.screenTopTrigger) then
+    if M.Compat.MouseOver(o.xpHoverTrigger) then
         o.xpHideAt=nil
-        o.xpAtScreenTop=true
+        o.xpHovering=true
         return 1
     end
-    if o.xpAtScreenTop then
-        o.xpAtScreenTop=nil
+    if o.xpHovering then
+        o.xpHovering=nil
         o.xpHideAt=now+10
     end
     if not o.xpHideAt then return 0 end
@@ -249,7 +248,7 @@ function E.Paint(view,o,animateOnly)
         o.xpEventVersion=E.eventVersion or 0
     end
     if s.maxLevel and not view.preview then
-        o.xpAtScreenTop=nil;o.xpHideAt=nil
+        o.xpHovering=nil;o.xpHideAt=nil
         if f:IsShown() then f:Hide() end
         return
     end
@@ -262,16 +261,17 @@ function E.Paint(view,o,animateOnly)
         -- StartLive installs event listeners after its first Apply; defer the request.
         if C_Timer and C_Timer.After then C_Timer.After(.5,Request) else Request() end
     end
+    -- Keep the saved option so existing profiles retain their setting.
     if not view.preview and o.module and o.module.experienceHoverTop==true then
-        local opacity=ScreenTopOpacity(o,now)
+        local opacity=HoverOpacity(view,o,now)
         if opacity==0 then
             if f:IsShown() then f:Hide() end
             return
         end
         local alpha=(n.alpha or 1)*opacity
         if f:GetAlpha()~=alpha then f:SetAlpha(alpha) end
-    elseif o.xpAtScreenTop or o.xpHideAt then
-        o.xpAtScreenTop=nil;o.xpHideAt=nil
+    elseif o.xpHovering or o.xpHideAt then
+        o.xpHovering=nil;o.xpHideAt=nil
         f:SetAlpha(n.alpha or 1)
     end
     if not f:IsShown() then f:Show();stateChanged=true end

@@ -10118,18 +10118,18 @@ for locale,labels in pairs({
     local catalog=M.localeTables[locale]
     for i,key in ipairs(previewSortKeys)do catalog[key]=labels[i]end
 end
-local experienceTopSpanish="Mostrar al situar el cursor en el borde superior"
+local experienceHoverSpanish="Mostrar al pasar el cursor por la zona de la barra de experiencia"
 for locale,label in pairs({
-    enUS="Show when hovering at the top of the screen",
-    deDE="Anzeigen, wenn der Mauszeiger am oberen Bildschirmrand ist",
-    frFR="Afficher au survol du bord supérieur de l’écran",
-    esES=experienceTopSpanish,esMX=experienceTopSpanish,
-    itIT="Mostra quando il cursore è sul bordo superiore",
-    ptBR="Mostrar ao passar o cursor no topo da tela",
-    ruRU="Показывать при наведении на верхний край экрана",
-    koKR="마우스를 화면 상단에 올리면 표시",
-    zhTW="滑鼠懸停在螢幕頂端時顯示",
+    enUS="Show when hovering over the experience bar area",
+    deDE="Beim Überfahren des Erfahrungsleistenbereichs anzeigen",
+    frFR="Afficher au survol de la zone de la barre d’expérience",
+    esES=experienceHoverSpanish,esMX=experienceHoverSpanish,
+    itIT="Mostra al passaggio del mouse sull’area della barra esperienza",
+    ptBR="Mostrar ao passar o cursor sobre a área da barra de experiência",
+    ruRU="Показывать при наведении на область полосы опыта",
+    koKR="경험치 바 위치에 마우스를 올리면 표시",
+    zhTW="滑鼠停在經驗條所在位置時顯示",
 })do
-    M.localeTables[locale]["鼠标悬浮屏幕顶部后显示"]=label
+    M.localeTables[locale]["鼠标悬浮到经验条位置后显示"]=label
 end
 M:RebuildLocaleKeys()
