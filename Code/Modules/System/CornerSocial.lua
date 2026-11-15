@@ -333,20 +333,26 @@ function S.Start()
     local panel, entered, leftAt
     local elapsed, refreshAt, requestAt = 0,0,0
     watcher:SetScript("OnUpdate",function(_, delta)
-        elapsed = elapsed + delta
-        if elapsed < .05 then return end
-        elapsed = 0
         local now = GetTime()
+        elapsed = elapsed + delta
+        if elapsed < .05 and not (leftAt and now-leftAt >= .5) then return end
+        elapsed = 0
         local corner = IsHovered(watcher)
         if panel and panel:IsShown() then
             if panel.memberMenu then
-                if panel.memberMenu:IsShown() then leftAt = nil; return end
+                if panel.memberMenu:IsShown() then
+                    if leftAt then panel:SetAlpha(1); leftAt = nil end
+                    return
+                end
                 panel.memberMenu = nil
             end
-            if corner or IsHovered(panel) then leftAt = nil
+            if corner or IsHovered(panel) then
+                if leftAt then panel:SetAlpha(1); leftAt = nil end
             else leftAt = leftAt or now end
             if leftAt and now-leftAt >= .5 then
-                panel:Hide()
+                local alpha = math.max(0,1-(now-leftAt-.5)/.25)
+                panel:SetAlpha(alpha)
+                if alpha == 0 then panel:Hide(); leftAt = nil end
             elseif now >= refreshAt then
                 refreshAt = now+3
                 M:Safe("社交列表",Refresh,panel)
@@ -357,6 +363,7 @@ function S.Start()
                 panel = panel or BuildPanel()
                 panel.friends.offset, panel.guild.offset = 0,0
                 M:Safe("社交列表",Refresh,panel)
+                panel:SetAlpha(1)
                 panel:Show()
                 entered, leftAt, refreshAt = nil,nil,now+3
                 if now >= requestAt and not InCombatLockdown() then
