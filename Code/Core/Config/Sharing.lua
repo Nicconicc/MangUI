@@ -271,7 +271,7 @@ function M:ApplyPlayerSkillMonitorString(input)
     local panel=self.editor and self.editor.skillMonitorPanel
     if panel then
         panel:FinishDrag(false)
-        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus();row.effectEdit:ClearFocus()end
+        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
     end
     local ok,errorText=self.PlayerSkillMonitor.ApplyCharacterSharing("playerSkillMonitor",config)
     if not ok then return false,errorText or INVALID end
