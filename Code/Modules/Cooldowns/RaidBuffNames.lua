@@ -176,14 +176,18 @@ function I.ResolveName(value)
     if record then return value,record.id,record.icon,record.ids,record.revision end
     return name,id,icon
 end
--- Opt-in rank matching for player-Buff reminders only. Other modules can
--- continue resolving a numeric value as one exact spell ID.
+-- Native aura filters take IDs. Augment the name match with ranks learned
+-- from visible auras and the client's known spell data.
 function I.ExpandBuffRanks(spell)
-    spell.matchName=not tonumber(spell.value)and spell.value or nil
-    if tonumber(spell.value)and spell.name~=spell.value then
-        spell.matchName=spell.name
-        local _,_,_,ids,revision=I.ResolveName(spell.name)
-        spell.ids,spell.revision=ids,revision
+    spell.matchName=spell.name
+    if tonumber(spell.value) and spell.name==spell.value then spell.matchName=nil end
+    if spell.matchName then
+        Saved()
+        if spell.id then Remember(spell.matchName,spell.id,spell.icon,false) end
+        local learned=M.PlayerSkillMonitor.LearnedSpell(spell.matchName)
+        if learned then Remember(spell.matchName,learned,nil,false) end
+        local _,_,_,ids,revision=I.ResolveName(spell.matchName)
+        spell.ids,spell.revision=ids or spell.ids,revision or spell.revision
     end
 end
 local function Refresh()

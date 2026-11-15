@@ -73,14 +73,13 @@ local function IsBattleShout(id)
     for _,rank in ipairs(battleShoutRanks)do if rank==id then return true end end
     return false
 end
-local function Find(auras,entry,spellID)
+local function Find(auras,entry,spellID,spellName)
     if not auras then return end
+    if spellName and auras.byName[spellName] then return auras.byName[spellName] end
     if IsBattleShout(spellID) and (entry.type=="buffFound"or entry.type=="buffMissing")then
         for _,rank in ipairs(battleShoutRanks)do if auras.byID[rank]then return auras.byID[rank]end end
     end
-    local id=tonumber(entry.value)
-    if id then return auras.byID[id]end
-    return auras.byName[entry.value] or auras.byID[spellID]
+    return auras.byID[spellID]
 end
 local function Time(text,expires,now)
     local remaining=expires and expires-now
@@ -168,10 +167,11 @@ local function BindNative(slot)
     if entry.type=="equipment"then for id in pairs(slot.item.effects)do ids[id]=true end
     else
         if slot.spellID then ids[slot.spellID]=true end
+        for id in pairs(slot.spellRanks or {})do ids[id]=true end
         if not IsTarget(entry) and IsBattleShout(slot.spellID)then
             for _,id in ipairs(battleShoutRanks)do ids[id]=true end
         end
-        if M.Compat.interface==16001 and not tonumber(entry.value) and slot.observedAuraID then ids[slot.observedAuraID]=true end
+        if slot.observedAuraID then ids[slot.observedAuraID]=true end
     end
     if not next(ids)then if slot.container then slot.container:SetEnabled(false)end;slot.nativeBound=false;return end
     local style={entry.type,tostring(slot.item and slot.item.icon or ""),tostring(entry.glow)}
@@ -224,6 +224,13 @@ local function Resolve(slot,entry)
     if slot.auraInput~=entry.value or slot.auraType~=entry.type then slot.observedAuraID=nil end
     slot.auraInput,slot.auraType=entry.value,entry.type
     slot.entry=entry;slot.spellID=tonumber(entry.value)or id;slot.spellName=name or entry.value
+    slot.spellMatchName=name or (not tonumber(entry.value) and entry.value)
+    if entry.type~="custom" and entry.type~="equipment" and entry.type~="stance" then
+        local spell={value=entry.value,name=slot.spellMatchName,id=slot.spellID,icon=icon}
+        M.RaidBuffMonitor.ExpandBuffRanks(spell)
+        if slot.spellRankRevision~=spell.revision then slot.nativeDirty=true end
+        slot.spellRanks,slot.spellRankRevision=spell.ids,spell.revision
+    else slot.spellRanks,slot.spellRankRevision=nil,nil end
     slot.item=entry.type=="equipment"and O.Effects(entry.slot or 13)or nil
     M.CustomMonitor.SetVisual(slot.texture,"SetTexture",slot.item and slot.item.icon or icon or 134400)
     slot.customFallbackIcon=icon or 134400
@@ -654,7 +661,7 @@ local function Refresh(view,o,now,combat)
                 if stance or info then
                     if not stanceRead then stanceID,stanceName,stanceIcon=ActiveStance();stanceRead=true end
                     local active=stanceID~=nil and (slot.spellID==stanceID
-                        or (not tonumber(entry.value) and stanceName~=nil and stanceName==slot.spellName))
+                        or (stanceName~=nil and stanceName==slot.spellMatchName))
                     slot.active,slot.condition,slot.show,slot.rawKnown=active,active,active,true
                     slot.faded,slot.expires,slot.stacks,slot.auraIndex=false,nil,nil,nil
                     if active and Readable(stanceIcon) and stanceIcon~=nil then
@@ -665,8 +672,8 @@ local function Refresh(view,o,now,combat)
             elseif kind~="custom" and (info or (IsTarget(entry) and target) or (not IsTarget(entry) and player))then
                 local auras=playerAuras
                 if IsTarget(entry) then auras=targetAuras end
-                local aura=Find(auras,entry,slot.spellID);local present=aura~=nil
-                if aura and o.nativeCompact and not tonumber(entry.value)then
+                local aura=Find(auras,entry,slot.spellID,slot.spellMatchName);local present=aura~=nil
+                if aura and o.native and slot.spellMatchName then
                     local id=Number(aura.spellId) or Number(aura.spellID)
                     if id and not (slot.nativeAuraIDs and slot.nativeAuraIDs[id])then
                         slot.observedAuraID=id;slot.nativeDirty=true
@@ -679,7 +686,7 @@ local function Refresh(view,o,now,combat)
                 slot.stacks=not IsMissing(entry)and aura and aura.applications or nil;slot.auraIndex=aura and auras.indices[aura]
                 changed=true
             end
-            if slot.nativeDirty and not InCombatLockdown()then BindNative(slot)end
+            if o.native and slot.nativeDirty and not InCombatLockdown()then BindNative(slot)end
             -- Protected aura existence never drives Lua sounds or hidden timers.
             local known=slot.rawKnown
             if kind~="custom" and (changed or loadChanged) then

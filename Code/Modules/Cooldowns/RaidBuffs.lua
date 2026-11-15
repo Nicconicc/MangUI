@@ -246,10 +246,12 @@ function M:ApplyRaidBuffSharing(config)
     group.raidBuffs=entries
     self:EnsureRaidBuffMonitor(self.db.design);self:Commit();return true
 end
-function I.ResolveValue(value)
+function I.ResolveValue(value,exact)
     value=S.Input(value)
     local name,id,icon,ids,revision=I.ResolveName(value)
-    return {value=value,name=name or value,id=tonumber(value)or id,icon=I.Readable(icon)and icon or nil,ids=ids,revision=revision}
+    local spell={value=value,name=name or value,id=tonumber(value)or id,icon=I.Readable(icon)and icon or nil,ids=ids,revision=revision}
+    if not exact then I.ExpandBuffRanks(spell)end
+    return spell
 end
 function I.Options(entry)
     if entry.type=="weaponAura"then return M.WeaponEnhancements.AuraOptions(entry)end

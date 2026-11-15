@@ -110,8 +110,9 @@ local function Scan(slot,auras,play)
     local matched,seen,new=nil,{},false
     for _,aura in ipairs(auras)do
         local id=Number(aura.spellId)
-        local match=tonumber(slot.entry.value)and id==tonumber(slot.entry.value)or
-            (not tonumber(slot.entry.value)and Readable(aura.name)and aura.name==slot.entry.value)
+        local name=slot.spell.matchName
+        local match=name and Readable(aura.name)and aura.name==name
+            or (not name and id~=nil and id==slot.spell.id)
         if match then
             local instance=Number(aura.instance)
             local key=instance and "instance:"..instance or tostring(id)..":"..aura.source

@@ -92,7 +92,7 @@ function W.Resolve(entry)
     if entry.type=="classWeapon"or entry.type=="weaponAura"then
         local d=W.classes[entry.value];if not d then return {supported=false,name=M:T("选择职业武器强化")}end
         local known,id=W.Known(d);id=id or d.spells[1]
-        local spell=I.ResolveValue(tostring(id))
+        local spell=I.ResolveValue(tostring(id),true)
         return {supported=known==true,definition=d,id=id,name=W.Name(d),icon=spell.icon or d.icon}
     end
     local d,id=W.FindItem(entry.value)

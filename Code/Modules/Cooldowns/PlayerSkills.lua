@@ -778,11 +778,58 @@ local function Shortcut(slot,entry)
     slot.shortcut:SetText((entry.shortcut or ""):gsub("|","||"))
     slot.shortcut:SetShown(entry.showShortcut~=false and entry.shortcut~=nil and entry.shortcut~="")
 end
+local learnedSpells
+function S.LearnedSpell(name)
+    if not name then return end
+    if not learnedSpells then
+        learnedSpells={}
+        local function Add(id)
+            id=Number(id)
+            if not id or id<=0 then return end
+            local spell,_,icon=M.PetBuffs.SpellInfo(id)
+            if spell then learnedSpells[spell]={id,icon} end
+        end
+        local book=C_SpellBook
+        local bank=Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player
+        if bank and book and book.GetSpellBookSkillLineInfo and book.GetSpellBookItemType then
+            for tab=1,Number(Safe(book.GetNumSpellBookSkillLines)) or 0 do
+                local line=Safe(book.GetSpellBookSkillLineInfo,tab)
+                if line and (not line.offSpecID or line.offSpecID==0) then
+                    for index=line.itemIndexOffset+1,line.itemIndexOffset+line.numSpellBookItems do
+                        local kind,action,id=Safe(book.GetSpellBookItemType,index,bank)
+                        if Enum.SpellBookItemType and kind==Enum.SpellBookItemType.Spell then Add(id or action) end
+                    end
+                end
+            end
+        elseif GetSpellBookItemInfo then
+            for tab=1,Number(Safe(GetNumSpellTabs)) or 0 do
+                local _,_,offset,count,_,offSpec=Safe(GetSpellTabInfo,tab)
+                if offset and count and (not offSpec or offSpec==0)then
+                    for index=offset+1,offset+count do
+                        local kind,id=Safe(GetSpellBookItemInfo,index,BOOKTYPE_SPELL or "spell")
+                        if kind=="SPELL" then Add(id) end
+                    end
+                end
+            end
+        end
+    end
+    local spell=learnedSpells[name]
+    if spell then return spell[1],spell[2] end
+    local _,id,icon=M.PetBuffs.SpellInfo(name)
+    return id,icon
+end
 local function Resolve(slot,entry)
     local name,id,icon=M.PetBuffs.SpellInfo(entry.value)
     id=tonumber(entry.value) or id or Safe(C_Spell and C_Spell.GetSpellIDForSpellIdentifier,entry.value)
     if not Readable(id) then id=nil end
+    if name and (entry.type=="cooldown" or entry.type=="usable" or effectTypes[entry.type]~=nil or auraTypes[entry.type])then
+        local current,currentIcon=S.LearnedSpell(name)
+        id,icon=current or id,currentIcon or icon
+    end
+    if slot.auraInput~=entry.value or slot.auraEntryType~=entry.type then slot.observedAuraIDs=nil end
+    slot.auraInput,slot.auraEntryType=entry.value,entry.type
     slot.entry=entry;slot.spellID=id;slot.spellName=name or entry.value
+    slot.auraMatchName=name or (not tonumber(entry.value) and entry.value)
     M.CustomMonitor.SetVisual(slot.texture,"SetTexture",icon or 134400);slot.customFallbackIcon=icon or 134400
     if slot.nativeBackdrop then slot.nativeBackdrop:SetTexture(slot.customFallbackIcon)end
     slot.needsInfo=entry.type~="custom"and(not id or not icon);slot.nextInfo=GetTime()+1
@@ -801,7 +848,16 @@ local function BindAura(slot,enabled)
         slot.nativeAuras:SetAuraGroupFilterString("monitor",aura.filter)
         slot.nativeAuraType=slot.entry.type
     end
-    slot.nativeAuras:SetAuraGroupCandidateFilters("monitor",{includeSpellIDs={[slot.spellID]=true}})
+    local ids={[slot.spellID]=true}
+    local raid=M.RaidBuffMonitor
+    if raid and raid.ExpandBuffRanks then
+        local spell={name=slot.auraMatchName,value=slot.entry.value,id=slot.spellID}
+        raid.ExpandBuffRanks(spell)
+        for id in pairs(spell.ids or {})do ids[id]=true end
+    end
+    for id in pairs(slot.observedAuraIDs or {})do ids[id]=true end
+    slot.boundAuraIDs,slot.nativeAuraDirty=ids,nil
+    slot.nativeAuras:SetAuraGroupCandidateFilters("monitor",{includeSpellIDs=ids})
     slot.nativeAuras:SetAuraGroupMaxFrameCount("monitor",1)
     slot.nativeSpellID=slot.spellID
     slot.nativeAuras:SetEnabled(true);slot.nativeAuras:UpdateAllAuras()
@@ -875,7 +931,17 @@ local function ResolveEffect(slot,preview)
             local numeric=tonumber(entry.effect)
             local effectID=numeric or Number(resolved)
             if effectID and effectID>0 then ids[effectID]=true end
-            if not numeric then name=effectName or entry.effect end
+            name=effectName or (not numeric and entry.effect)
+            if name then
+                local known=S.LearnedSpell(name)
+                if known then ids[known]=true end
+                local raid=M.RaidBuffMonitor
+                if raid and raid.ExpandBuffRanks then
+                    local spell={value=entry.effect,name=name,id=effectID}
+                    raid.ExpandBuffRanks(spell)
+                    for rank in pairs(spell.ids or {})do ids[rank]=true end
+                end
+            end
         end
         if kind and (next(ids) or name)then
             local aura=auraTypes[kind]
@@ -1060,6 +1126,7 @@ local function Usable(slot,now,cache)
     end
 end
 local function NeedsAuraScan(o,slot)
+    if slot.auraMatchName then return true end
     if not o.usesNativeAuras or not slot.nativeSpellID then return true end
     return M.Compat.interface==16001 and not slot.nativeBackdrop
 end
@@ -1073,12 +1140,13 @@ local function ScanAuras(o,kind)
         if entry and entry.type==kind then
             slot.active=false;slot.expires=nil;slot.stacks=nil
             if NeedsAuraScan(o,slot) then
-                local id=tonumber(entry.value)
-                local index,key=byID,id
-                if not id then index,key=byName,entry.value end
-                local slots=index[key]
-                if not slots then slots={};index[key]=slots end
-                slots[#slots+1]=slot
+                local index,key=byName,slot.auraMatchName
+                if not key then index,key=byID,slot.spellID or tonumber(entry.value) end
+                if key then
+                    local slots=index[key]
+                    if not slots then slots={};index[key]=slots end
+                    slots[#slots+1]=slot
+                end
             end
         end
     end
@@ -1100,6 +1168,10 @@ local function ScanAuras(o,kind)
                     if i==1 then slots=named else slots=numbered end
                     for _,slot in ipairs(slots or emptyAuraSlots) do
                         slot.active=true
+                        if id and o.usesNativeAuras and not (slot.boundAuraIDs and slot.boundAuraIDs[id]) then
+                            slot.observedAuraIDs=slot.observedAuraIDs or {}
+                            slot.observedAuraIDs[id]=true;slot.nativeAuraDirty=true
+                        end
                         if stacks and (not slot.stacks or stacks>slot.stacks)then slot.stacks=stacks end
                         if expires and expires>0 and (not slot.expires or expires>slot.expires)then slot.expires=expires end
                         if Readable(aura.icon) and aura.icon~=nil then M.CustomMonitor.SetVisual(slot.texture,"SetTexture",aura.icon)end
@@ -1283,6 +1355,11 @@ function S.Paint(view,o,animateOnly)
         end
         if kinds.buff and S.MonitorRefreshDue(o,"buff",now,1) then ScanAuras(o,"buff")end
         if kinds.debuff and S.MonitorRefreshDue(o,"debuff",now,1) then ScanAuras(o,"debuff")end
+        if o.usesNativeAuras and not InCombatLockdown()then
+            for _,slot in ipairs(o.skillIcons)do
+                if slot.entry and slot.nativeAuraDirty then BindAura(slot,group.enabled~=false)end
+            end
+        end
         local version=view.targetRefreshGeneration or 0
         if o.usesNativeAuras and o.nativeTargetGeneration~=version then
             for _,slot in ipairs(o.skillIcons)do
@@ -1462,6 +1539,7 @@ function S.Event(view,event,unit)
         S.InvalidateMonitor(o,"cooldown")
         S.InvalidateMonitor(o,"usable")
     else
+        learnedSpells=nil
         for _,slot in ipairs(o.skillIcons or {})do slot.needsInfo=true;slot.nextInfo=0;slot.effectDirty=true end
         S.ResetMonitorRefresh(o)
     end

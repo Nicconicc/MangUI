@@ -56,7 +56,10 @@ function P.Inputs(group)
     local result={}
     for i=1,5 do
         local value=P.Input(group and group["petBuff"..i])
-        if value~="" then result[#result+1]={value=value,id=value:match("^%d+$") and tonumber(value),slot=i} end
+        if value~="" then
+            local id=tonumber(value)
+            result[#result+1]={name=id and P.SpellInfo(id) or (not id and value or nil),id=id,slot=i}
+        end
     end
     return result
 end
@@ -70,8 +73,8 @@ function P.Read(group,out)
             if not aura then break end
             local name,id=aura.name,AuraID(aura)
             for slot,input in ipairs(inputs) do
-                local match=input.id and Readable(id) and id==input.id
-                    or (not input.id and Readable(name) and name==input.value)
+                local match=input.name and Readable(name) and name==input.name
+                    or (not input.name and input.id and Readable(id) and id==input.id)
                 if match and not matches[slot] then aura.auraIndex=index;matches[slot]=aura end
             end
         end
