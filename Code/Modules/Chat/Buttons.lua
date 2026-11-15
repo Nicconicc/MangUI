@@ -22,13 +22,15 @@ B.definitions={
     {key="duty",text="Duty",tip="职责确认",texture="cardBack_hover_A",color={.71764708,1,.43921572},hover=1.15,rotation=15},
     {key="ready",text="Ready",tip="就位确认",texture="cardBack_hover_C",color={.42745101,.79607850,1},hover=1.15,rotation=15},
     {key="pull",text="Pull",tip="开怪倒计时",texture="cardBack_hover_B",color={1,.40784317,.37647063},hover=1.15,rotation=15},
-    {key="durability",text="—",texture="DurabilityAnvil.tga",color={1,1,1},hover=1.15},
+    {key="durability",text="—",texture="DurabilityAnvil.tga",color={1,1,1},hover=1.15,iconScale=.72},
+    {key="bags",text="—",tip="背包（B）",atlas="bag-main",fallback="Interface\\Buttons\\Button-Backpack-Up",
+        color={1,.90588242,.34117648},hover=1.15,iconScale=.72},
 }
 local textLabels={say="说",yell="大喊",guild="公会",party="队伍",raid="团队",battle="战场",
     instance="副本",lfg="世界",roll="骰子",duty="职责",ready="就位",pull="倒计时"}
 function B.LabelText(def,group)
-    if def.key=="durability" then return def.text end
-    return group and group.textLabels==true and M:T(textLabels[def.key]) or def.text
+    local label=textLabels[def.key]
+    return label and group and group.textLabels==true and M:T(label) or def.text
 end
 local function Templates()
     return {
@@ -242,15 +244,29 @@ local function ReadDurability(preview)
     end
     return rows,DurabilityPercent(total,capacity),capacity>0 and worst or nil
 end
+local function UpdateCounter(slot,text)
+    if slot.counterText==text then return end
+    slot.counterText=text
+    slot.text:SetText(text);slot.shadow:SetText(text)
+end
+local function RefreshBagSpace(view,o)
+    if not o.bagSlot then return end
+    if view.preview then UpdateCounter(o.bagSlot,"24");return end
+    local freeSlots=(C_Container and C_Container.GetContainerNumFreeSlots) or GetContainerNumFreeSlots
+    if not freeSlots then UpdateCounter(o.bagSlot,"—");return end
+    local bags,reagentBags=M.Compat.PlayerBagCounts()
+    local total=0
+    for id=0,bags+reagentBags do
+        total=total+M.Compat.Number(freeSlots(id),0)
+    end
+    UpdateCounter(o.bagSlot,tostring(total))
+end
 local function RefreshDurability(view,o)
     local slot=o.durabilitySlot
     if not slot then return end
     local rows,percent,status=ReadDurability(view.preview)
     local color=status and DurabilityColor(status) or NORMAL_FONT_COLOR or {r=1,g=1,b=1}
-    if slot.durabilityText~=percent then
-        slot.durabilityText=percent
-        slot.text:SetText(percent);slot.shadow:SetText(percent)
-    end
+    UpdateCounter(slot,percent)
     slot.text:SetTextColor(color.r,color.g,color.b)
     if not slot.durabilityHovered or GameTooltip:GetOwner()~=slot.button then return end
     local tooltip=GameTooltip
@@ -269,15 +285,20 @@ function B.Build(view,o)
         local slot=CreateFrame("Frame",nil,o.frame);slot:SetSize(64,64)
         slot:SetPoint("CENTER",o.frame,"CENTER",(index-7)*44,-15);slot:SetFrameLevel(o.frame:GetFrameLevel()+index)
         local visual=CreateFrame("Frame",nil,slot);visual:SetSize(64,64);visual:SetPoint("CENTER");visual:EnableMouse(false)
-        local texture=visual:CreateTexture(nil,"ARTWORK");texture:SetAllPoints();texture:SetTexture(M:TexturePath(o.spec,ART..def.texture,"button_"..def.key))
+        local texture=visual:CreateTexture(nil,"ARTWORK")
+        if def.iconScale then texture:SetPoint("CENTER",visual,"CENTER")
+        else texture:SetAllPoints() end
+        if def.texture then texture:SetTexture(M:TexturePath(o.spec,ART..def.texture,"button_"..def.key))
+        elseif C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(def.atlas) then texture:SetAtlas(def.atlas)
+        else texture:SetTexture(def.fallback) end
         texture:SetBlendMode("BLEND");texture:SetRotation(math.rad(def.rotation or 0))
         local shadow=visual:CreateFontString(nil,"ARTWORK");local text=visual:CreateFontString(nil,"OVERLAY")
         for _,label in ipairs({shadow,text}) do label:SetFont(M:DefaultFontPath(),11,"OUTLINE");label:SetText(def.text);label:SetJustifyH("CENTER") end
         text:SetPoint("CENTER",0,30);text:SetTextColor(unpack(def.color))
         shadow:SetPoint("CENTER",2,28);shadow:SetTextColor(0,0,0,1)
-        -- Native role/ready APIs and registered slash handlers run on a user click.
-        -- Ordinary buttons let the row hide and reflow when context changes in combat.
-        local click=CreateFrame("Button",nil,slot)
+        local secureBag=def.key=="bags" and not view.preview
+        local template=secureBag and "SecureActionButtonTemplate,SecureHandlerBaseTemplate" or nil
+        local click=CreateFrame("Button",nil,slot,template)
         click:SetAllPoints(slot);click:SetFrameLevel(visual:GetFrameLevel()+1)
         local entry={frame=slot,visual=visual,button=click,texture=texture,text=text,shadow=shadow,definition=def}
         local isDurability=def.key=="durability"
@@ -285,7 +306,8 @@ function B.Build(view,o)
             o.durabilitySlot=entry
         else
             click:RegisterForClicks("LeftButtonUp","RightButtonUp")
-            click:SetScript("OnClick",function(_,button)if not view.preview then B.Click(def,button,o.module) end end)
+            if def.key=="bags" then o.bagSlot=entry
+            else click:SetScript("OnClick",function(_,button)if not view.preview then B.Click(def,button,o.module) end end) end
             click:SetScript("OnMouseDown",function()visual:SetAlpha(.5)end)
             click:SetScript("OnMouseUp",function()visual:SetAlpha(1)end)
         end
@@ -324,7 +346,7 @@ function B.RefreshFonts(view,o,force)
             label:SetWordWrap(false)
             if label.SetNonSpaceWrap then label:SetNonSpaceWrap(false) end
             label:SetWidth(0);label:SetHeight(0);label:SetJustifyV("MIDDLE")
-            label:SetText("");label:SetText(slot.durabilityText or B.LabelText(slot.definition,group))
+            label:SetText("");label:SetText(slot.counterText or B.LabelText(slot.definition,group))
         end
     end
     o.appliedFont={path=font,size=size,textLabels=full,language=language};o.fontFailed=failed;o.fontNeedsSettle=not force
@@ -339,13 +361,17 @@ function B.Configure(view,o)
     for i,slot in ipairs(o.chatButtons) do
         slot.frame:SetSize(size,size)
         slot.visual:SetSize(size,size)
+        local iconScale=slot.definition.iconScale
+        if iconScale then slot.texture:SetSize(size*iconScale,size*iconScale) end
         for _,label in ipairs({slot.text,slot.shadow}) do
             label:ClearAllPoints()
         end
         slot.text:SetPoint("CENTER",0,labelY);slot.shadow:SetPoint("CENTER",2,labelY-2)
     end
+    if not view.preview and o.bagSlot then M.Compat.ConfigureMenuButton(o.bagSlot.button,"bags","paired") end
     o.chatLayout=nil;B.Refresh(view,o)
     RefreshDurability(view,o)
+    RefreshBagSpace(view,o)
 end
 function B.Refresh(view,o)
     local group=o.module or (view.nodes[o.spec.parent] and view.nodes[o.spec.parent].spec)
@@ -359,6 +385,8 @@ function B.Refresh(view,o)
     end
     signature=table.concat(signature)
     if o.chatLayout==signature then return end
+    -- The bag button uses the native secure click route. Apply pending layout on leaving combat.
+    if not view.preview and o.bagSlot and InCombatLockdown() then return end
     o.chatLayout=signature
     local size,gap=group.iconSize or 64,group.buttonSpacing or -20
     -- Keep the full preview row's left edge fixed. New buttons fill to its right.
@@ -372,13 +400,16 @@ end
 function B.Event(view,event)
     local row=view.nodes.chatButtonsRow
     if not row or not row.chatButtons then return end
+    if event=="PLAYER_ENTERING_WORLD" or event=="BAG_UPDATE_DELAYED" then
+        if not row.module or row.module.enabled~=false then RefreshBagSpace(view,row) end
+    end
     if event=="PLAYER_ENTERING_WORLD" or event=="PLAYER_EQUIPMENT_CHANGED" or
         event=="UPDATE_INVENTORY_DURABILITY" or event=="UPDATE_INVENTORY_ALERTS" then
         if not row.module or row.module.enabled~=false then RefreshDurability(view,row) end
     end
     if event=="PLAYER_ENTERING_WORLD" or event=="GROUP_ROSTER_UPDATE" or event=="PARTY_LEADER_CHANGED" or
         event=="PLAYER_GUILD_UPDATE" or event=="GUILD_ROSTER_UPDATE" or event=="ZONE_CHANGED_NEW_AREA" or
-        event=="ZONE_CHANGED" or event=="UPDATE_BATTLEFIELD_STATUS" then
+        event=="ZONE_CHANGED" or event=="UPDATE_BATTLEFIELD_STATUS" or event=="PLAYER_REGEN_ENABLED" then
         B.Refresh(view,row)
     end
 end

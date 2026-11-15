@@ -464,10 +464,13 @@ local function ConfigureSpellRelay(key,tab)
     relay:SetFrameRef("tab",tab);relay:SetAttribute("clickbutton",tab)
     return "MangUIMenuRelay_"..key
 end
+function C.PlayerBagCounts()
+    local inventory=Constants and Constants.InventoryConstants
+    return (inventory and inventory.NumBagSlots) or NUM_BAG_SLOTS or 4,
+        (inventory and inventory.NumReagentBagSlots) or 0
+end
 local function ConfigureBagButton(button)
-    local slots=(Constants and Constants.InventoryConstants and Constants.InventoryConstants.NumBagSlots)
-        or NUM_BAG_SLOTS or 4
-    local reagent=(Constants and Constants.InventoryConstants and Constants.InventoryConstants.NumReagentBagSlots) or 0
+    local slots,reagent=C.PlayerBagCounts()
     local size=(C_Container and C_Container.GetContainerNumSlots) or GetContainerNumSlots
     for id=0,slots+reagent do
         local name=id==0 and "MainMenuBarBackpackButton" or id<=slots and "CharacterBag"..(id-1).."Slot" or "CharacterReagentBag0Slot"
