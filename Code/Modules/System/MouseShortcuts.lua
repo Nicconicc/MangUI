@@ -138,25 +138,53 @@ local function LeftModifier()
     if shift then return "shift" end
 end
 
-local chatWasActiveAt
+local chatClickSerial=0
+local chatDraftBeforeClick
 local function ActiveChatInput()
     local getActive=(ChatFrameUtil and ChatFrameUtil.GetActiveWindow) or ChatEdit_GetActiveWindow
     if getActive then return getActive() end
 end
 
-local function CloseInviteWhisper(name)
-    -- Preserve a chat input the player already had open before this click.
-    if chatWasActiveAt and GetTime()-chatWasActiveAt<=2 then return end
+local function SameChatName(left,right)
+    if left==right then return true end
+    if not Ambiguate then return false end
+    local l,r=Ambiguate(left,"mail"),Ambiguate(right,"mail")
+    return l and r and l:lower()==r:lower()
+end
+
+local function EmptyWhisperCommand(text,name)
+    local command,target=text:match("^%s*(/%S+)%s+(.-)%s*$")
+    if not target or not SameChatName(target,name) then return false end
+    command=command:lower()
+    local index=1
+    while _G["SLASH_WHISPER"..index] do
+        if command==_G["SLASH_WHISPER"..index]:lower() then return true end
+        index=index+1
+    end
+    return command=="/w" or command=="/whisper" or command=="/tell"
+end
+
+local function CloseInviteWhisper(name,chatFrame)
     local input=ActiveChatInput()
-    if not input or (input.IsForbidden and input:IsForbidden()) then return end
-    local chatType=input.GetChatType and input:GetChatType() or input:GetAttribute("chatType")
-    if not C.Readable(chatType) or chatType~="WHISPER" then return end
-    local target=input.GetTellTarget and input:GetTellTarget() or input:GetAttribute("tellTarget")
+    if not input then
+        local box=chatFrame.editBox or _G[chatFrame:GetName().."EditBox"]
+        if box and (not box.IsForbidden or not box:IsForbidden()) and box:HasFocus() then input=box end
+    end
+    if not input or (input.IsForbidden and input:IsForbidden()) then return false end
     local text=input:GetText()
-    if not C.Readable(target) or type(target)~="string" or not C.Readable(text) or text~="" then return end
-    if target~=name and (not Ambiguate or Ambiguate(target,"mail")~=Ambiguate(name,"mail")) then return end
+    if not C.Readable(text) or type(text)~="string" then return false end
+    -- OpenChat can leave the slash command in the box until the edit box updates.
+    if not EmptyWhisperCommand(text,name) then
+        if text~="" then return false end
+        local chatType=input.GetChatType and input:GetChatType() or input:GetAttribute("chatType")
+        local target=input.GetTellTarget and input:GetTellTarget() or input:GetAttribute("tellTarget")
+        if not C.Readable(chatType) or chatType~="WHISPER" or not C.Readable(target)
+            or type(target)~="string" or not SameChatName(target,name) then return false end
+    end
     local deactivate=(ChatFrameUtil and ChatFrameUtil.DeactivateChat) or ChatEdit_DeactivateChat
-    if deactivate then deactivate(input) end
+    if not deactivate then return false end
+    deactivate(input)
+    return true
 end
 
 local function InviteChatPlayer(link,_,button,chatFrame)
@@ -168,9 +196,16 @@ local function InviteChatPlayer(link,_,button,chatFrame)
     local invite=C_PartyInfo and C_PartyInfo.InviteUnit or InviteUnit
     if not name or not invite then return end
     if name~=Name("player") then pcall(invite,name) end
-    -- SetItemRef already ran Blizzard's default click handler.
-    CloseInviteWhisper(name)
-    chatWasActiveAt=nil
+    if chatDraftBeforeClick then return end
+    CloseInviteWhisper(name,chatFrame)
+    if C_Timer and C_Timer.After then
+        local serial=chatClickSerial
+        C_Timer.After(0,function()
+            if serial==chatClickSerial and Setting("mouseChatAltInvite") then
+                CloseInviteWhisper(name,chatFrame)
+            end
+        end)
+    end
 end
 
 local chatInviteHooked=false
@@ -696,10 +731,13 @@ local function OnMouse(listener,event,button,keyDown)
     end
     local combat=InCombatLockdown()
     if event=="GLOBAL_MOUSE_DOWN" then
-        if button=="LeftButton" then
-            chatWasActiveAt=nil
-            if LeftModifier()=="alt" and Setting("mouseChatAltInvite") and ActiveChatInput() then
-                chatWasActiveAt=GetTime()
+        chatClickSerial=chatClickSerial+1
+        chatDraftBeforeClick=false
+        if button=="LeftButton" and LeftModifier()=="alt" and Setting("mouseChatAltInvite") then
+            local input=ActiveChatInput()
+            if input and (not input.IsForbidden or not input:IsForbidden()) then
+                local text=input:GetText()
+                chatDraftBeforeClick=not C.Readable(text) or (type(text)=="string" and text~="")
             end
         end
         generation=generation+1
