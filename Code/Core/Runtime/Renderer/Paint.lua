@@ -403,10 +403,6 @@ local function Paint(view,o,animateOnly,visibleHint)
             o.healthWarning:Hide()
         end
     elseif o.texture then
-        if n.parent=="centerFire" and n.id=="waa3b4cd2bd6" then
-            local file=leaderDecoration and M.ART..[[Library\PortraitLeader.tga]] or n.file
-            CachedValue(o,"centerDecorationTexture",o.texture,"SetTexture",file)
-        end
         if o.rangeDecoration then DecorationTint(view,o,col)
         else CachedColor(o,"textureColor",o.texture,"SetVertexColor",col) end
         if n.id=="wa1537213e27" then M.PlayerCastArt.Draw(o.texture,f,n,1,col) end

@@ -340,13 +340,7 @@ function P.OutOfRange(view,unit)
 end
 function P.ConfigureTexture(o)
     local n=o.spec
-    if n.partyIndex==nil then return end
-    if n.id=="party"..n.partyIndex.."Leader" then
-        o.texture:SetTexture(ART..[[Library\PartyLeader.tga]])
-        o.texture:SetTexCoord(0,1,0,1)
-        return
-    end
-    if not n.textureWrapMode or n.binding=="partyRole" then return end
+    if n.partyIndex==nil or not n.textureWrapMode or n.binding=="partyRole" then return end
     o.texture:SetTexture(n.file,n.textureWrapMode,n.textureWrapMode)
     if o.texture.SetSnapToPixelGrid then o.texture:SetSnapToPixelGrid(false) end
     if o.texture.SetTexelSnappingBias then o.texture:SetTexelSnappingBias(0) end
