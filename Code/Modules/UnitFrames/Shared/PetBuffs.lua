@@ -58,7 +58,7 @@ function P.Inputs(group)
         local value=P.Input(group and group["petBuff"..i])
         if value~="" then
             local id=tonumber(value)
-            result[#result+1]={name=id and P.SpellInfo(id) or (not id and value or nil),id=id,slot=i}
+            result[#result+1]={value=value,name=id and P.SpellInfo(id) or (not id and value or nil),id=id,slot=i}
         end
     end
     return result

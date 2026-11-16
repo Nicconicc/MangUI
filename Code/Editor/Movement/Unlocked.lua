@@ -158,7 +158,7 @@ function M:StartUnlockedMoveMode()
     if M.BossFrames then M.BossFrames.StopTest()end
     local mode=self.unlockedMoveMode
     if not mode then
-        local stage=CreateFrame("Frame",nil,UIParent);stage:SetAllPoints(UIParent)
+        local stage=CreateFrame("Frame",nil,UIParent);stage:Hide();stage:SetAllPoints(UIParent)
         stage:SetFrameStrata("FULLSCREEN");stage:SetFrameLevel(1);stage:EnableMouse(true)
         local dim=stage:CreateTexture(nil,"BACKGROUND");dim:SetAllPoints();dim:SetColorTexture(0,0,0,.3)
         local grid=CreateFrame("Frame",nil,stage);grid:SetAllPoints();grid:EnableMouse(false)
@@ -176,11 +176,14 @@ function M:StartUnlockedMoveMode()
         mode.restore:SetPoint("BOTTOM",-60,10)
         stage:EnableKeyboard(true);stage:SetPropagateKeyboardInput(true)
         stage:SetScript("OnKeyDown",function(self,key)
+            if InCombatLockdown() then M:StopFrameMoveMode(false);return end
             self:SetPropagateKeyboardInput(key~="ESCAPE")
             if key=="ESCAPE"then M:StopFrameMoveMode(true)end
         end)
         stage:RegisterEvent("PLAYER_REGEN_DISABLED")
-        stage:SetScript("OnEvent",function()M:StopFrameMoveMode(false)end)
+        stage:SetScript("OnEvent",function()
+            if M.moveMode==mode then M:StopFrameMoveMode(false) end
+        end)
         stage:SetScript("OnMouseDown",function(_,button)
             if not mode.ready then return end
             if mode.pickMenu then mode.pickMenu:Hide()end
@@ -205,7 +208,6 @@ function M:StartUnlockedMoveMode()
     mode.snapCheck:SetChecked(self.db.editor.snap~=false);mode.snapCheck:Disable()
     mode.panel:ClearAllPoints();mode.panel:SetPoint("CENTER",UIParent,"TOP",0,-UIParent:GetHeight()/3)
     mode.liveAlpha=self.live.root:GetAlpha()
-    R.SetMovementModelsHidden(self.live,true)
     local design={nodes={}};local ids={}
     for _,id in ipairs(topLevelFrames)do
         local group=self.byID[id]
@@ -218,7 +220,8 @@ function M:StartUnlockedMoveMode()
             design.nodes[#design.nodes+1]=n
         end
     end
-    mode.stage:Show();mode.view.root:Show();R.Apply(mode.view,design)
+    -- Prepare the preview before the full-screen stage starts capturing input.
+    mode.view.root:Show();R.Apply(mode.view,design)
     local geometry=self:Geometry();local count=0
     for _,id in ipairs(topLevelFrames)do
         local group=self.byID[id]
@@ -275,8 +278,6 @@ function M:StartUnlockedMoveMode()
     table.sort(ranked,function(a,b)return a.area>b.area end)
     for i,mover in ipairs(ranked)do mover.baseLevel=8000+i;mover:SetFrameLevel(mover.baseLevel)end
     UpdatePreviewGrid(mode,UIParent:GetWidth(),UIParent:GetHeight())
-    self.moveMode=mode
-    if self.editor then self.editor.window:Hide()end
     mode.stage:SetScript("OnUpdate",function()
         if mode.fadeOutStarted then
             local t=M.Clamp(GetTime()-mode.fadeOutStarted,0,1);local alpha=t*t*(3-2*t)
@@ -335,6 +336,10 @@ function M:StartUnlockedMoveMode()
         end
         R.Animate(mode.view)
     end)
+    self.moveMode=mode
+    R.SetMovementModelsHidden(self.live,true)
+    if self.editor then self.editor.window:Hide()end
+    mode.stage:Show()
 end
 
 
