@@ -53,96 +53,70 @@ local function ClearHealthChange(o)
     fx.heal:Hide()
 end
 
-local SHAKE_THRESHOLD,SHAKE_INTERVAL=.004,.20
-local shakeSteps={{1,.24,.035},{-1.60,-.38,.055},{.85,.20,.045},{-.25,-.06,.050}}
+local SHAKE_THRESHOLD,SHAKE_INTERVAL,SHAKE_DURATION=.004,.22,.21
+local RESTRICTED_SHAKE_INTERVAL,RESTRICTED_SHAKE_AMPLITUDE=.32,2.4
 
 local function StopMainHealthShake(view)
     local state=view.mainHealthShake
     if not state then return end
-    if state.animating then
-        for _,o in ipairs(state.roots or {}) do
-            if o.healthShakeGroup then o.healthShakeGroup:Stop() end
-        end
-    end
-    state.animating=nil
-    state.ratio,state.maximum,state.nextAt,state.epoch=nil,nil,nil,nil
+    state.started,state.amplitude=nil,nil
+    state.ratio,state.maximum,state.nextAt,state.epoch,state.maxEpoch=nil,nil,nil,nil,nil
+    R.ResetMainHealthShakeOffset(view)
 end
 
-local function ShakeRoots(view,state)
-    local candidates,roots={},{}
-    for _,o in ipairs(view.ordered or {}) do
-        if o.module and o.module.id=="mainComposite" and o.spec.id~="mainComposite"
-            and o.spec.kind~="hitbox" and o.frame.CreateAnimationGroup
-            and not (o.frame.IsProtected and o.frame:IsProtected()) then
-            candidates[o.frame]=true
-        end
-    end
-    for _,o in ipairs(view.ordered or {}) do
-        local frame=o.frame
-        if candidates[frame] then
-            local parent=frame:GetParent()
-            while parent and parent~=view.root and not candidates[parent] do parent=parent:GetParent() end
-            if not candidates[parent] then roots[#roots+1]=o end
-        end
-    end
-    state.roots=roots;state.apply=view.applyGeneration
-    return roots
-end
-
-local function PlayMainHealthShake(view,state,amplitude)
-    local roots=state.roots and state.apply==view.applyGeneration and state.roots or ShakeRoots(view,state)
-    local scale=view.root:GetEffectiveScale()
-    for _,o in ipairs(roots) do
-        local frame=o.frame
-        if frame:IsVisible() then
-            local group,steps=o.healthShakeGroup,o.healthShakeSteps
-            if not group then
-                group=frame:CreateAnimationGroup()
-                steps={}
-                for i,step in ipairs(shakeSteps) do
-                    local anim=group:CreateAnimation("Translation")
-                    anim:SetOrder(i);anim:SetDuration(step[3]);anim:SetSmoothing("IN_OUT")
-                    steps[i]=anim
-                end
-                o.healthShakeGroup,o.healthShakeSteps=group,steps
-            end
-            local distance=amplitude*scale/math.max(.01,frame:GetEffectiveScale())
-            group:Stop()
-            for i,step in ipairs(shakeSteps) do steps[i]:SetOffset(distance*step[1],distance*step[2]) end
-            group:Play()
-        end
-    end
-    state.animating=true
+function R.MainHealthShakeOffset(view,now)
+    local state=view.mainHealthShake
+    if view.preview or view.encounterActive or not state or not state.started then return 0,0 end
+    local progress=M.Clamp((now-state.started)/SHAKE_DURATION,0,1)
+    if progress>=1 then state.started=nil;return 0,0 end
+    local strength=state.amplitude*(1-progress)^2
+    local swing=progress*math.pi*4
+    return math.sin(swing)*strength,math.sin(swing*1.25)*strength*.24
 end
 
 local function SampleMainHealthShake(view,s)
     if view.preview or view.encounterActive then return end
-    local health=s.healthRatio
-    local maximum=C.Number(s.maxHealth)
     local state=view.mainHealthShake
     if not state then state={};view.mainHealthShake=state end
     local epoch=view.healthChangeUpdates and view.healthChangeUpdates.target
-    if state.epoch==epoch and state.ratio~=nil then return end
-    state.epoch=epoch
-    -- Percent can be public even on a client that restricts raw health.
-    if health==nil and s.exists and UnitHealthPercent and CurveConstants and CurveConstants.ScaleTo100 then
+    local maxEpoch=view.healthChangeMaxUpdates and view.healthChangeMaxUpdates.target
+    if state.epoch==epoch and state.maxEpoch==maxEpoch then return end
+    local firstSample=state.epoch==nil
+    local maxChanged=state.maxEpoch~=maxEpoch
+    state.epoch,state.maxEpoch=epoch,maxEpoch
+    if not s.exists then return end
+
+    local health=s.healthRatio
+    local maximum=C.Number(s.maxHealth)
+    if health==nil and UnitHealthPercent and CurveConstants and CurveConstants.ScaleTo100 then
         local ok,value=pcall(UnitHealthPercent,"target",true,CurveConstants.ScaleTo100)
         if ok then
             local percent=C.Number(value)
             if percent then health=M.Clamp(percent*.01,0,1) end
         end
     end
-    if health==nil or not s.exists or maximum~=state.maximum or state.ratio==nil then
+
+    local previous,previousMaximum=state.ratio,state.maximum
+    if firstSample or maxChanged or maximum~=previousMaximum or (health~=nil and previous==nil) then
         state.ratio,state.maximum=health,maximum
         return
     end
-    local delta=math.abs(health-state.ratio)
-    if delta<SHAKE_THRESHOLD then return end
+    local amplitude,interval
+    if health~=nil then
+        local delta=math.abs(health-previous)
+        if delta<SHAKE_THRESHOLD then return end
+        amplitude=M.Clamp(delta*44,1.25,6)
+        interval=SHAKE_INTERVAL
+    else
+        -- Restricted health still delivers UNIT_HEALTH. Use a short visual
+        -- pulse without trying to calculate a delta from protected values.
+        state.ratio=nil
+        amplitude,interval=RESTRICTED_SHAKE_AMPLITUDE,RESTRICTED_SHAKE_INTERVAL
+    end
     local now=GetTime()
     if state.nextAt and now<state.nextAt then return end
     state.ratio=health
-    state.nextAt=now+SHAKE_INTERVAL
-    PlayMainHealthShake(view,state,M.Clamp(delta*36,.6,4.8))
+    state.started,state.amplitude,state.nextAt=now,amplitude,now+interval
 end
 private.SampleMainHealthShake=SampleMainHealthShake
 

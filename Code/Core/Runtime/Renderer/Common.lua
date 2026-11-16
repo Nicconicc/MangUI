@@ -124,16 +124,32 @@ function R.EntryCurve(spec,progress)
     local scale=1+((spec.scale or 1)-1)*(1-math.cos(eased*2*math.pi))/2
     return shift,scale
 end
-local function EntryTransform(entry,shift,scale,force)
-    if not force and entry.shift==shift and entry.scale==scale then entry.transformPending=nil;return end
+local function EntryTransform(entry,shift,scale,force,shakeX,shakeY)
+    shakeX,shakeY=shakeX or 0,shakeY or 0
+    if not force and entry.shift==shift and entry.scale==scale
+        and entry.shakeX==shakeX and entry.shakeY==shakeY then entry.transformPending=nil;return end
     local f=entry.frame
     if InCombatLockdown() and f.IsProtected then
         local ok,value=pcall(f.IsProtected,f)
         if not ok or not C.Readable(value) or value then entry.transformPending=true;return end
     end
     entry.transformPending=nil
-    f:SetScale(scale);f:ClearAllPoints();f:SetPoint("CENTER",entry.parent,"CENTER",shift/scale,0)
-    entry.shift,entry.scale=shift,scale
+    if force or entry.scale~=scale then f:SetScale(scale) end
+    local toLocal=1
+    if shakeX~=0 or shakeY~=0 then
+        toLocal=entry.root:GetEffectiveScale()/math.max(.001,entry.parent:GetEffectiveScale())
+    end
+    f:ClearAllPoints()
+    f:SetPoint("CENTER",entry.parent,"CENTER",(shift+shakeX*toLocal)/scale,shakeY*toLocal/scale)
+    entry.shift,entry.scale,entry.shakeX,entry.shakeY=shift,scale,shakeX,shakeY
+end
+
+function R.ResetMainHealthShakeOffset(view)
+    for _,entry in pairs(view.entries or {}) do
+        if (entry.shakeX or 0)~=0 or (entry.shakeY or 0)~=0 then
+            EntryTransform(entry,entry.shift or 0,entry.scale or 1)
+        end
+    end
 end
 local function EntryParent(view,id,parent,spec)
     view.entries=view.entries or {}
@@ -142,7 +158,7 @@ local function EntryParent(view,id,parent,spec)
         -- Animate an unprotected visual layer. Secure unit buttons remain on
         -- their original parents, so combat never moves or scales click areas.
         local frame=CreateFrame("Frame",nil,parent);frame:EnableMouse(false)
-        entry={frame=frame,parent=parent,spec=entrySpecs[id],members={}}
+        entry={frame=frame,parent=parent,root=view.root,spec=entrySpecs[id],members={}}
         view.entries[id]=entry
         frame:SetScript("OnHide",function()
             if view.applying then return end
@@ -161,6 +177,8 @@ function R.UpdateEntryAnimations(view,animateOnly)
     if view.applying then return end
     if R.SyncMainPortraitAnchor then R.SyncMainPortraitAnchor(view) end
     local now=GetTime()
+    local shakeX,shakeY=0,0
+    if R.MainHealthShakeOffset then shakeX,shakeY=R.MainHealthShakeOffset(view,now) end
     for _,entry in pairs(view.entries or {}) do
         -- Settled entry animations wake through normal updates or native show.
         if not animateOnly or entry.started or entry.visibilityDirty or entry.transformPending then
@@ -177,7 +195,9 @@ function R.UpdateEntryAnimations(view,animateOnly)
                 if progress<1 then shift,scale=R.EntryCurve(entry.spec,progress)
                 else entry.started=nil end
             elseif not visible then entry.started=nil end
-            EntryTransform(entry,shift,scale)
+            EntryTransform(entry,shift,scale,false,visible and shakeX or 0,visible and shakeY or 0)
+        elseif entry.visible and (entry.shakeX~=shakeX or entry.shakeY~=shakeY) then
+            EntryTransform(entry,entry.shift or 0,entry.scale or 1,false,shakeX,shakeY)
         end
     end
 end
