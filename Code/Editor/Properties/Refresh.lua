@@ -52,10 +52,7 @@ local function RefreshProperties(self)
         e.moduleEnabled:SetChecked(module.enabled~=false)
     end
     if selectedID=="mouseCircle" then
-        for key,check in pairs(e.mouseShortcutChecks) do
-            if key=="mouseChatAltInvite" then check:SetChecked(n[key]==true)
-            else check:SetChecked(n[key]~=false) end
-        end
+        for key,check in pairs(e.mouseShortcutChecks) do check:SetChecked(n[key]~=false) end
     end
     local showMainScale=e.mainPreview and n~=nil and n.id=="mainComposite" and mainRoot~=nil
     if e.propTitle then

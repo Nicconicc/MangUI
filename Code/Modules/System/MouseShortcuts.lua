@@ -138,22 +138,32 @@ local function LeftModifier()
     if shift then return "shift" end
 end
 
-local function InviteChatPlayer(link, _, button, chatFrame)
-    if button~="LeftButton" or LeftModifier()~="alt" then return end
-    local node=M.byID and M.byID.mouseCircle
-    if not node or node.enabled==false or node.mouseChatAltInvite~=true then return end
-    if not C.Readable(link) or type(link)~="string" or not C.Readable(chatFrame) or not chatFrame then return end
-    local frameName=chatFrame.GetName and chatFrame:GetName()
-    if not frameName or not frameName:match("^ChatFrame%d+$") or _G[frameName]~=chatFrame then return end
-    -- Use the link payload to keep cross-realm names intact.
+local function InviteChatPlayer(link,button)
+    if button~="LeftButton" or LeftModifier()~="alt" or not Setting("mouseChatAltInvite") then return false end
+    if not C.Readable(link) or type(link)~="string" then return false end
     local name=link:match("^player:([^:|%c]+)")
-    if not name or name==Name("player") then return end
     local invite=C_PartyInfo and C_PartyInfo.InviteUnit or InviteUnit
-    if invite then pcall(invite,name) end
+    if not name or not invite then return false end
+    if name~=Name("player") then pcall(invite,name) end
+    return true
 end
 
-if type(SetItemRef)=="function" then
-    hooksecurefunc("SetItemRef",InviteChatPlayer)
+local chatClickHandlers=setmetatable({}, {__mode="k"})
+local function InstallChatInviteClicks()
+    for _,frameName in ipairs(CHAT_FRAMES or {}) do
+        local frame=_G[frameName]
+        if frame and not chatClickHandlers[frame] and (not frame.IsForbidden or not frame:IsForbidden()) then
+            local original=frame:GetScript("OnHyperlinkClick")
+            if original then
+                frame:SetScript("OnHyperlinkClick",function(self,link,text,button,...)
+                    -- Consume the invite click before the default handler opens a whisper.
+                    if InviteChatPlayer(link,button) then return end
+                    return original(self,link,text,button,...)
+                end)
+                chatClickHandlers[frame]=true
+            end
+        end
+    end
 end
 
 local clearFocusMacro="/clearfocus [@mouseover,noexists,nocombat,mod:shift,nomod:alt,nomod:ctrl]"
@@ -636,7 +646,10 @@ local function OpenNativeMenu(guid,unit,playerName)
 end
 
 local function OnMouse(listener,event,button,keyDown)
-    if event=="NAME_PLATE_UNIT_ADDED" then
+    if event=="PLAYER_LOGIN" or event=="UPDATE_CHAT_WINDOWS" then
+        InstallChatInviteClicks()
+        return
+    elseif event=="NAME_PLATE_UNIT_ADDED" then
         nameplateUnits[button]=true
         return
     elseif event=="NAME_PLATE_UNIT_REMOVED" then
@@ -761,6 +774,12 @@ local function OnMouse(listener,event,button,keyDown)
 end
 
 local listener=CreateFrame("Frame")
+InstallChatInviteClicks()
+if type(FCF_OpenTemporaryWindow)=="function" then
+    hooksecurefunc("FCF_OpenTemporaryWindow",InstallChatInviteClicks)
+end
+listener:RegisterEvent("PLAYER_LOGIN")
+listener:RegisterEvent("UPDATE_CHAT_WINDOWS")
 listener:RegisterEvent("GLOBAL_MOUSE_DOWN")
 listener:RegisterEvent("GLOBAL_MOUSE_UP")
 listener:RegisterEvent("PLAYER_REGEN_DISABLED")
