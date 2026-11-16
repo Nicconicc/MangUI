@@ -219,7 +219,7 @@ local function NeedsAnimation(view,o)
         return o.numberEstimated and o.numberValue~=o.numberGoal and now>=(o.numberNextStep or 0)
     end
     if n.centerLogo then return o.logoAnimating~=false end
-    if o.bar and (n.binding=="health" or n.binding=="power") then return o.smoothStart~=nil or o.animatedEdge or o.fillEdgeMoving or B.Moving(view,n) end
+    if o.bar and (n.binding=="health" or n.binding=="power") then return o.healthChangeActive or o.smoothStart~=nil or o.animatedEdge or o.fillEdgeMoving or B.Moving(view,n) end
     if n.kind=="spark" and n.followDisplay then
         local owner=view.nodes[n.owner]
         if owner then

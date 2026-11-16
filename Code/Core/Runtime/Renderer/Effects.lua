@@ -36,6 +36,133 @@ local function FillStart(view,n,barFrame)
     if not right or not left or not barScale or barScale==0 then return 0 end
     return M.Clamp((right*edgeScale-left*barScale)/barScale-(n.startOverlap or 24),0,(n.width or 1)*(n.fillExtent or 1))
 end
+local DAMAGE_HOLD,DAMAGE_RETRACT,HEAL_FLASH=.15,.35,.22
+local function ClearHealthChange(o)
+    o.healthChangeRatio=nil
+    o.healthChangeMaximum=nil
+    o.healthChangeActive=nil
+    local fx=o.healthChange
+    if not fx then return end
+    fx.tail,fx.damageAt,fx.damageStep,fx.healFrom,fx.healAt=nil,nil,nil,nil,nil
+    fx.damage:Hide()
+    fx.heal:Hide()
+end
+
+function R.ClearTargetHealthChange(view)
+    local o=view.nodes.wa385c615b2a
+    if o then ClearHealthChange(o) end
+end
+
+local function HealthChangeAllowed(view,o,ratio)
+    return o.healthChangeEnabled and not view.preview and ratio~=nil
+        and not (o.spec.unit=="target" and view.encounterActive)
+end
+
+local function DrawHealthSegment(o,texture,first,last,opacity,inset,start,full)
+    if opacity<=0 or last<=first or full<=start then
+        if texture:IsShown() then texture:Hide() end
+        return
+    end
+    local n=o.spec
+    local span=full-start
+    local inner,outer=inset+start+span*first,inset+start+span*last
+    local left,right=inner,outer
+    if n.reverse then left,right=n.width-outer,n.width-inner end
+    local cropX,cropY=1+(n.cropX or 0),1+(n.cropY or 0)
+    local l,r=.5+(left/n.width-.5)/cropX,.5+(right/n.width-.5)/cropX
+    local top,bottom=.5-.5/cropY,.5+.5/cropY
+    if n.mirror then l,r=r,l end
+    if n.mirrorY then top,bottom=bottom,top end
+    texture:ClearAllPoints()
+    texture:SetPoint("LEFT",o.frame,"LEFT",left,0)
+    texture:SetSize(right-left,n.height)
+    texture:SetTexCoord(l,r,top,bottom)
+    texture:SetAlpha(opacity)
+    if not texture:IsShown() then texture:Show() end
+end
+
+local function HealthChangeLayers(o)
+    if o.healthChange then return o.healthChange end
+    local layer=CreateFrame("Frame",nil,o.frame)
+    layer:SetFrameLevel(o.clip:GetFrameLevel())
+    local damage=layer:CreateTexture(nil,"OVERLAY")
+    damage:SetVertexColor(1,.30,.13)
+    local heal=layer:CreateTexture(nil,"OVERLAY",nil,1)
+    heal:SetVertexColor(1,.90,.60)
+    heal:SetBlendMode("ADD")
+    damage:Hide();heal:Hide()
+    o.healthChange={damage=damage,heal=heal}
+    return o.healthChange
+end
+
+local function PaintHealthChange(view,o,s,animateOnly,inset,start,full)
+    local current=s.healthRatio
+    if not HealthChangeAllowed(view,o,current) or not s.exists then
+        if o.healthChangeRatio~=nil or o.healthChangeActive then ClearHealthChange(o) end
+        return
+    end
+    local previous=o.healthChangeRatio
+    local maximum=s.maxHealth
+    local fx=o.healthChange
+    local now
+    if not animateOnly then
+        if previous==nil or maximum~=o.healthChangeMaximum then
+            ClearHealthChange(o)
+            o.healthChangeRatio=current;o.healthChangeMaximum=maximum
+            return
+        end
+        o.healthChangeRatio=current
+        if previous~=current then
+            now=GetTime()
+            fx=HealthChangeLayers(o)
+            if fx.file~=o.spec.file then
+                fx.file=o.spec.file
+                fx.damage:SetTexture(fx.file);fx.heal:SetTexture(fx.file)
+            end
+            if current<previous then
+                if not fx.damageAt then
+                    fx.tail=previous;fx.damageAt=now+DAMAGE_HOLD
+                    fx.damageStep=fx.damageAt
+                end
+                fx.healFrom,fx.healAt=nil,nil
+            else
+                if not fx.healAt or now-fx.healAt>=HEAL_FLASH then
+                    fx.healFrom,fx.healAt=previous,now
+                end
+            end
+        end
+    end
+    if not fx or (not fx.damageAt and not fx.healAt) then return end
+    now=now or (animateOnly and view.animationNow) or GetTime()
+    if fx.damageAt then
+        local finish=fx.damageAt+DAMAGE_RETRACT
+        if now>=finish or current>=fx.tail then
+            fx.tail,fx.damageAt,fx.damageStep=nil,nil,nil
+        elseif now>fx.damageAt then
+            -- Consecutive hits retarget this same tail without restarting its hold.
+            local step=M.Clamp((now-fx.damageStep)/(finish-fx.damageStep),0,1)
+            fx.tail=fx.tail+(current-fx.tail)*step
+            fx.damageStep=now
+        end
+    end
+    if fx.damageAt then DrawHealthSegment(o,fx.damage,current,fx.tail,.68,inset,start,full)
+    elseif fx.damage:IsShown() then fx.damage:Hide() end
+    if fx.healAt then
+        local progress=M.Clamp((now-fx.healAt)/HEAL_FLASH,0,1)
+        if progress>=1 then fx.healFrom,fx.healAt=nil,nil
+        else
+            local head=fx.healFrom+(current-fx.healFrom)*math.min(1,.22+progress*3)
+            DrawHealthSegment(o,fx.heal,fx.healFrom,head,.78*(1-progress),inset,start,full)
+        end
+    end
+    if not fx.healAt and fx.heal:IsShown() then fx.heal:Hide() end
+    o.healthChangeActive=fx.damageAt~=nil or fx.healAt~=nil
+end
+
+private.ClearHealthChange=ClearHealthChange
+private.HealthChangeAllowed=HealthChangeAllowed
+private.PaintHealthChange=PaintHealthChange
+
 local function CenterLogo(view,o)
     local n,f=o.spec,o.frame
     local player=State(view,"player")

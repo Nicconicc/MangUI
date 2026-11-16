@@ -163,6 +163,10 @@ function M:StartLive()
     local bossTarget,bossDead,bossHealthDue,bossHealthPending=false,false,0,false
     local function RefreshBossMode(resetTarget)
         local view=M.live
+        if resetTarget or view.encounterActive~=encounterActive then
+            view.encounterActive=encounterActive
+            R.ClearTargetHealthChange(view)
+        end
         local encounter=raidInstance and encounterActive
         if (view.raidEncounter==true)~=encounter then
             view.raidEncounter=encounter or nil

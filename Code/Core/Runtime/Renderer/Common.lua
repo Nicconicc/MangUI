@@ -240,6 +240,8 @@ local function PrepareVisual(o)
     local n=o.spec
     o.classHealthColor=M.db and M.db.healthClassColor==true and n.kind=="bar" and n.binding=="health"
     o.customHealthStyle=n.kind=="bar" and n.binding=="health" and (n.healthColor~=nil or n.healthGradient==true)
+    o.healthChangeEnabled=n.kind=="bar" and n.binding=="health" and not n.vertical
+        and (n.id=="wa4f9903a71c" or n.id=="wa385c615b2a")
     o.targetHealthThreshold=n.id=="wa385c615b2a"
     o.targetLevelColor=n.id=="wa38ad2639d2"
     o.healthThresholdActive=false
@@ -332,7 +334,7 @@ local function IndexUpdates(view)
             if ancestor.triggerAny then TriggerUnits(deps,ancestor) end
             ancestor=ancestor.parent and view.byID[ancestor.parent];guard=guard+1
         end
-        if (Animated(n) or o.auraClock) and (view.preview or (n.enabled~=false and (not o.module or o.module.enabled~=false))) then
+        if (Animated(n) or o.auraClock or o.healthChangeEnabled) and (view.preview or (n.enabled~=false and (not o.module or o.module.enabled~=false))) then
             view.animated[#view.animated+1]=o
             if n.kind~="sprite" and not n.partyBuffs and not n.spinPeriod then
                 view.raidAnimated[#view.raidAnimated+1]=o

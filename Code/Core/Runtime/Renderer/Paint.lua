@@ -18,6 +18,9 @@ local Appearance=private.Appearance
 local CastRatio=private.CastRatio
 local DisplayRatio=private.DisplayRatio
 local SmoothBar=private.SmoothBar
+local PaintHealthChange=private.PaintHealthChange
+local HealthChangeAllowed=private.HealthChangeAllowed
+local ClearHealthChange=private.ClearHealthChange
 local RestrictedHealthColor=private.RestrictedHealthColor
 local RestrictedHealthThreshold=private.RestrictedHealthThreshold
 local Text=private.Text
@@ -233,6 +236,7 @@ local function Paint(view,o,animateOnly,visibleHint)
         o.wasShown=shown;if f:IsShown()~=shown then f:SetShown(shown) end
     end
     if not shown or not (visibleHint or f:IsVisible()) then
+        if o.healthChangeRatio~=nil then ClearHealthChange(o) end
         if n.particleFlow then
             ResetParticle(o)
         end
@@ -288,7 +292,7 @@ local function Paint(view,o,animateOnly,visibleHint)
         local shadowColor=o.shadowColor or {0,0,0,1};o.shadowColor=shadowColor;shadowColor[4]=col[4] or 1
         CachedColor(o,"shadowColor",o.shadow,"SetTextColor",shadowColor)
     elseif o.bar then
-        local smooth=SmoothBar(view,n,s)
+        local smooth=SmoothBar(view,n,s) and not HealthChangeAllowed(view,o,s.healthRatio)
         if o.barSmoothing~=smooth then
             o.barSmoothing=smooth;o.nativeReady=nil
         end
@@ -349,6 +353,7 @@ local function Paint(view,o,animateOnly,visibleHint)
             if o.clip:IsShown() then o.clip:Hide() end
             if not o.bar:IsShown() then o.bar:Show() end
         end
+        if o.healthChangeEnabled then PaintHealthChange(view,o,s,animateOnly,inset,start,n.width*extent) end
         if n.binding=="health" and s.healthRatio==nil and not (o.classHealthColor or o.customHealthStyle or o.targetHealthThreshold) and not view.preview and not animateOnly then RestrictedHealthColor(o,s) end
         if n.binding=="health" then
             if not animateOnly then
