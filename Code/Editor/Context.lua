@@ -152,7 +152,7 @@ local propertyCategories={
     experienceBar={{"scale","experienceHeight"},{"nameFont","experienceHoverTop"}},
     systemMenu={{"scale","menuIconSpacing","menuAlwaysVisible","menuCornerSocial"}},combatNotices={{"scale"},{"combatNoticeHold","combatSound"}},
     mouseCircle={{"showMouseCircle","scale"},{"mouseColors"},
-        {"mouseShortcutsTitle","mouseUnitMenu","mouseUnitMarks","mouseCombatMarkerKey","mouseAltInvite","mouseShiftFocus"}},
+        {"mouseShortcutsTitle","mouseUnitMenu","mouseUnitMarks","mouseCombatMarkerKey","mouseAltInvite","mouseChatAltInvite","mouseShiftFocus"}},
     portrait={{"overallScale"},{"portraitAvatarScale","portraitOuterScale","portraitFrameTexture"},
         {"portraitLightEnabled","portraitLightScale"},{"portraitGlassEnabled","portraitGlassScale","portraitGlassAlpha"}},
     generic={{"scale","overallScale","x","y","width","height","alpha","layer","resourceSpacing","resourceHideWithoutTarget"},

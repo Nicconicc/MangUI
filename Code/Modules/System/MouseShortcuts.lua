@@ -138,6 +138,24 @@ local function LeftModifier()
     if shift then return "shift" end
 end
 
+local function InviteChatPlayer(link, _, button, chatFrame)
+    if button~="LeftButton" or LeftModifier()~="alt" then return end
+    local node=M.byID and M.byID.mouseCircle
+    if not node or node.enabled==false or node.mouseChatAltInvite~=true then return end
+    if not C.Readable(link) or type(link)~="string" or not C.Readable(chatFrame) or not chatFrame then return end
+    local frameName=chatFrame.GetName and chatFrame:GetName()
+    if not frameName or not frameName:match("^ChatFrame%d+$") or _G[frameName]~=chatFrame then return end
+    -- Use the link payload to keep cross-realm names intact.
+    local name=link:match("^player:([^:|%c]+)")
+    if not name or name==Name("player") then return end
+    local invite=C_PartyInfo and C_PartyInfo.InviteUnit or InviteUnit
+    if invite then pcall(invite,name) end
+end
+
+if type(SetItemRef)=="function" then
+    hooksecurefunc("SetItemRef",InviteChatPlayer)
+end
+
 local clearFocusMacro="/clearfocus [@mouseover,noexists,nocombat,mod:shift,nomod:alt,nomod:ctrl]"
 
 local function WorldFocusAction()

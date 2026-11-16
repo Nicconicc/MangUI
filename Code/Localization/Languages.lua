@@ -10069,6 +10069,21 @@ for locale,labels in pairs({
     local catalog=M.localeTables[locale]
     for i,key in ipairs(mouseLabels) do catalog[key]=labels[i] end
 end
+local chatInviteLabels={
+    enUS="Alt + left-click a chat name to invite",
+    zhTW="Alt+左鍵點擊聊天角色名稱邀請組隊",
+    deDE="Alt + Linksklick auf Chatnamen: einladen",
+    frFR="Alt + clic gauche sur un nom du chat : inviter",
+    esES="Alt + clic izq. en un nombre del chat: invitar",
+    esMX="Alt + clic izq. en un nombre del chat: invitar",
+    itIT="Alt + clic sinistro sul nome in chat: invita",
+    ptBR="Alt + clique esquerdo no nome no chat: convidar",
+    ruRU="Alt + ЛКМ по имени в чате: пригласить",
+    koKR="채팅 이름을 Alt + 좌클릭하여 파티 초대",
+}
+for locale,label in pairs(chatInviteLabels) do
+    M.localeTables[locale]["Alt+左键点击聊天角色名邀请组队"]=label
+end
 local effectMonitorKeys={"跟随暴雪","玩家Buff优先，然后显示冷却","目标Debuff优先，然后显示冷却","效果名称或ID"}
 local spanishEffectMonitor={"Seguir a Blizzard","Beneficio propio, luego reutilización","Perjuicio del objetivo, luego reutilización","Nombre o ID del efecto"}
 for locale, labels in pairs({
