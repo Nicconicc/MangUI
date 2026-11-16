@@ -1,6 +1,8 @@
 local _,M=...
 local N={};M.CombatNotices=N
 local ART="Interface\\AddOns\\MangUI\\Assets\\CombatNotices\\"
+-- The stock enter atlas fades to transparent over its last three cells.
+local ENTER_HOLD_FRAME=32 -- zero-based
 local function Templates()
     local nodes={
         {id="combatNotices",label="进入和离开战斗提示",kind="group",compound="combatNotices",scope="player",unit="player",
@@ -35,21 +37,31 @@ function N.Paint(view,o)
         if view.preview then view.combatNoticePreviewAt=nil end
         return
     end
-    local now=GetTime();local elapsed
+    local now=GetTime()
+    local elapsed,hold
+    local isEnter=n.combatEvent=="PLAYER_REGEN_DISABLED"
+    local holdEnabled=isEnter and o.module and o.module.showDuringCombat==true
     if view.preview then
         -- Show both sequences in turn without changing combat or playing sounds.
         view.combatNoticePreviewAt=view.combatNoticePreviewAt or now
         local phase=(now-view.combatNoticePreviewAt)%4.75
-        if n.combatEvent=="PLAYER_REGEN_DISABLED" then
-            if phase<2 then elapsed=phase end
+        if isEnter then
+            hold=holdEnabled and phase<2.25
+            if hold or phase<2 then elapsed=phase end
         elseif phase>=2.25 and phase<4.5 then elapsed=phase-2.25 end
-    elseif o.combatNoticeAt then elapsed=now-o.combatNoticeAt end
+    else
+        hold=holdEnabled and InCombatLockdown()
+        if o.combatNoticeAt then elapsed=now-o.combatNoticeAt end
+    end
     local duration,fade=n.noticeDuration or 2,n.noticeFade or 0
-    if not elapsed or elapsed>=duration+fade then
+    if not hold and (not elapsed or elapsed>=duration+fade) then
         if f:IsShown() then f:Hide() end
         o.combatNoticeAt=nil;return
     end
-    local frame=math.min((n.frames or 36)-1,math.floor(math.max(0,elapsed)*(n.fps or 24)))
+    local lastFrame=(n.frames or 36)-1
+    if hold then lastFrame=math.min(lastFrame,ENTER_HOLD_FRAME) end
+    local frame=elapsed and math.min(lastFrame,math.floor(math.max(0,elapsed)*(n.fps or 24))) or lastFrame
+    if hold and frame==lastFrame and not view.preview then o.combatNoticeAt=nil end
     local columns,rows=n.columns or 6,n.rows or 6
     local column,row=frame%columns,math.floor(frame/columns)
     if o.noticeFrame~=frame or o.noticeColumns~=columns or o.noticeRows~=rows then
@@ -57,7 +69,7 @@ function N.Paint(view,o)
         o.texture:SetVertexColor(1,1,1,1)
         o.noticeFrame,o.noticeColumns,o.noticeRows=frame,columns,rows
     end
-    local alpha=elapsed<duration and 1 or 1-(elapsed-duration)/fade
+    local alpha=(hold or elapsed<duration) and 1 or 1-(elapsed-duration)/fade
     alpha=(n.alpha or 1)*alpha
     if o.noticeAlpha~=alpha then f:SetAlpha(alpha);o.noticeAlpha=alpha end
     if not f:IsShown() then f:Show() end
@@ -67,7 +79,15 @@ function N.Event(view,event)
     if event~="PLAYER_REGEN_DISABLED" and event~="PLAYER_REGEN_ENABLED" then return end
     local group=view.nodes.combatNotices
     if not group or group.removed or group.spec.enabled==false then return end
-    local id=event=="PLAYER_REGEN_DISABLED" and "combatNoticeEnter" or "combatNoticeLeave"
+    local entering=event=="PLAYER_REGEN_DISABLED"
+    local id=entering and "combatNoticeEnter" or "combatNoticeLeave"
+    if group.spec.showDuringCombat==true then
+        local previous=view.nodes[entering and "combatNoticeLeave" or "combatNoticeEnter"]
+        if previous and not previous.removed then
+            previous.combatNoticeAt=nil
+            previous.frame:Hide()
+        end
+    end
     local o=view.nodes[id]
     if not o or o.removed or o.spec.enabled==false then return end
     o.combatNoticeAt=GetTime();N.Paint(view,o)

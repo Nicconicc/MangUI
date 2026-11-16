@@ -193,6 +193,7 @@ local function RefreshProperties(self)
         e.menuCornerSocial:SetChecked(n.menuCornerSocial~=false)
     end
     if n.compound=="experienceBar" then e.experienceHoverTop:SetChecked(n.experienceHoverTop==true) end
+    if n.compound=="combatNotices" then e.combatNoticeHold:SetChecked(n.showDuringCombat==true) end
     if n.compound=="combatNotices" or n.compound=="bossFrames" then e.combatSound:SetChecked(n.soundEnabled~=false) end
     if n.compound=="partyFrames" then
         e.partyHideInRaid:SetChecked(n.hidePartyInRaid==true)
@@ -486,7 +487,7 @@ local function RefreshProperties(self)
             elseif n.compound=="partyFrames" then
                 visible=row.key=="scale" or (row.key and row.key:find("^party")~=nil)
             elseif n.compound=="combatNotices" then
-                visible=row.key=="scale" or row.key=="combatSound"
+                visible=row.key=="scale" or row.key=="combatNoticeHold" or row.key=="combatSound"
             elseif n.compound=="targetThreat" then
                 visible=row.key=="nameFont" or row.key=="fontSize" or row.key=="threatInstanceOnly"
             elseif n.compound=="targetDistance" then
