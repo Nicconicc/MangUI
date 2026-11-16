@@ -22,6 +22,7 @@ local PaintHealthChange=private.PaintHealthChange
 local HealthChangeAllowed=private.HealthChangeAllowed
 local PaintNativeHealthChange=private.PaintNativeHealthChange
 local ClearHealthChange=private.ClearHealthChange
+local SampleMainHealthShake=private.SampleMainHealthShake
 local RestrictedHealthColor=private.RestrictedHealthColor
 local RestrictedHealthThreshold=private.RestrictedHealthThreshold
 local Text=private.Text
@@ -357,7 +358,10 @@ local function Paint(view,o,animateOnly,visibleHint)
             if o.clip:IsShown() then o.clip:Hide() end
             if not o.bar:IsShown() then o.bar:Show() end
         end
-        if o.healthChangeEnabled then PaintHealthChange(view,o,s,animateOnly,inset,start,n.width*extent) end
+        if o.healthChangeEnabled then
+            if not animateOnly and n.id=="wa385c615b2a" then SampleMainHealthShake(view,s) end
+            PaintHealthChange(view,o,s,animateOnly,inset,start,n.width*extent)
+        end
         if n.binding=="health" and s.healthRatio==nil and not (o.classHealthColor or o.customHealthStyle or o.targetHealthThreshold) and not view.preview and not animateOnly then RestrictedHealthColor(o,s) end
         if n.binding=="health" then
             if not animateOnly then

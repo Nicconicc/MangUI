@@ -53,7 +53,101 @@ local function ClearHealthChange(o)
     fx.heal:Hide()
 end
 
+local SHAKE_THRESHOLD,SHAKE_INTERVAL=.004,.20
+local shakeSteps={{1,.24,.035},{-1.60,-.38,.055},{.85,.20,.045},{-.25,-.06,.050}}
+
+local function StopMainHealthShake(view)
+    local state=view.mainHealthShake
+    if not state then return end
+    if state.animating then
+        for _,o in ipairs(state.roots or {}) do
+            if o.healthShakeGroup then o.healthShakeGroup:Stop() end
+        end
+    end
+    state.animating=nil
+    state.ratio,state.maximum,state.nextAt,state.epoch=nil,nil,nil,nil
+end
+
+local function ShakeRoots(view,state)
+    local candidates,roots={},{}
+    for _,o in ipairs(view.ordered or {}) do
+        if o.module and o.module.id=="mainComposite" and o.spec.id~="mainComposite"
+            and o.spec.kind~="hitbox" and o.frame.CreateAnimationGroup
+            and not (o.frame.IsProtected and o.frame:IsProtected()) then
+            candidates[o.frame]=true
+        end
+    end
+    for _,o in ipairs(view.ordered or {}) do
+        local frame=o.frame
+        if candidates[frame] then
+            local parent=frame:GetParent()
+            while parent and parent~=view.root and not candidates[parent] do parent=parent:GetParent() end
+            if not candidates[parent] then roots[#roots+1]=o end
+        end
+    end
+    state.roots=roots;state.apply=view.applyGeneration
+    return roots
+end
+
+local function PlayMainHealthShake(view,state,amplitude)
+    local roots=state.roots and state.apply==view.applyGeneration and state.roots or ShakeRoots(view,state)
+    local scale=view.root:GetEffectiveScale()
+    for _,o in ipairs(roots) do
+        local frame=o.frame
+        if frame:IsVisible() then
+            local group,steps=o.healthShakeGroup,o.healthShakeSteps
+            if not group then
+                group=frame:CreateAnimationGroup()
+                steps={}
+                for i,step in ipairs(shakeSteps) do
+                    local anim=group:CreateAnimation("Translation")
+                    anim:SetOrder(i);anim:SetDuration(step[3]);anim:SetSmoothing("IN_OUT")
+                    steps[i]=anim
+                end
+                o.healthShakeGroup,o.healthShakeSteps=group,steps
+            end
+            local distance=amplitude*scale/math.max(.01,frame:GetEffectiveScale())
+            group:Stop()
+            for i,step in ipairs(shakeSteps) do steps[i]:SetOffset(distance*step[1],distance*step[2]) end
+            group:Play()
+        end
+    end
+    state.animating=true
+end
+
+local function SampleMainHealthShake(view,s)
+    if view.preview or view.encounterActive then return end
+    local health=s.healthRatio
+    local maximum=C.Number(s.maxHealth)
+    local state=view.mainHealthShake
+    if not state then state={};view.mainHealthShake=state end
+    local epoch=view.healthChangeUpdates and view.healthChangeUpdates.target
+    if state.epoch==epoch and state.ratio~=nil then return end
+    state.epoch=epoch
+    -- Percent can be public even on a client that restricts raw health.
+    if health==nil and s.exists and UnitHealthPercent and CurveConstants and CurveConstants.ScaleTo100 then
+        local ok,value=pcall(UnitHealthPercent,"target",true,CurveConstants.ScaleTo100)
+        if ok then
+            local percent=C.Number(value)
+            if percent then health=M.Clamp(percent*.01,0,1) end
+        end
+    end
+    if health==nil or not s.exists or maximum~=state.maximum or state.ratio==nil then
+        state.ratio,state.maximum=health,maximum
+        return
+    end
+    local delta=math.abs(health-state.ratio)
+    if delta<SHAKE_THRESHOLD then return end
+    local now=GetTime()
+    if state.nextAt and now<state.nextAt then return end
+    state.ratio=health
+    state.nextAt=now+SHAKE_INTERVAL
+    PlayMainHealthShake(view,state,M.Clamp(delta*36,.6,4.8))
+end
+private.SampleMainHealthShake=SampleMainHealthShake
+
 function R.ClearTargetHealthChange(view)
+    StopMainHealthShake(view)
     local o=view.nodes.wa385c615b2a
     if o then ClearHealthChange(o) end
 end
