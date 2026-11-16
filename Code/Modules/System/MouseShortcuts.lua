@@ -138,32 +138,46 @@ local function LeftModifier()
     if shift then return "shift" end
 end
 
-local function InviteChatPlayer(link,button)
-    if button~="LeftButton" or LeftModifier()~="alt" or not Setting("mouseChatAltInvite") then return false end
-    if not C.Readable(link) or type(link)~="string" then return false end
-    local name=link:match("^player:([^:|%c]+)")
-    local invite=C_PartyInfo and C_PartyInfo.InviteUnit or InviteUnit
-    if not name or not invite then return false end
-    if name~=Name("player") then pcall(invite,name) end
-    return true
+local chatWasActiveAt
+local function ActiveChatInput()
+    local getActive=(ChatFrameUtil and ChatFrameUtil.GetActiveWindow) or ChatEdit_GetActiveWindow
+    if getActive then return getActive() end
 end
 
-local chatClickHandlers=setmetatable({}, {__mode="k"})
-local function InstallChatInviteClicks()
-    for _,frameName in ipairs(CHAT_FRAMES or {}) do
-        local frame=_G[frameName]
-        if frame and not chatClickHandlers[frame] and (not frame.IsForbidden or not frame:IsForbidden()) then
-            local original=frame:GetScript("OnHyperlinkClick")
-            if original then
-                frame:SetScript("OnHyperlinkClick",function(self,link,text,button,...)
-                    -- Consume the invite click before the default handler opens a whisper.
-                    if InviteChatPlayer(link,button) then return end
-                    return original(self,link,text,button,...)
-                end)
-                chatClickHandlers[frame]=true
-            end
-        end
-    end
+local function CloseInviteWhisper(name)
+    -- Preserve a chat input the player already had open before this click.
+    if chatWasActiveAt and GetTime()-chatWasActiveAt<=2 then return end
+    local input=ActiveChatInput()
+    if not input or (input.IsForbidden and input:IsForbidden()) then return end
+    local chatType=input.GetChatType and input:GetChatType() or input:GetAttribute("chatType")
+    if not C.Readable(chatType) or chatType~="WHISPER" then return end
+    local target=input.GetTellTarget and input:GetTellTarget() or input:GetAttribute("tellTarget")
+    local text=input:GetText()
+    if not C.Readable(target) or type(target)~="string" or not C.Readable(text) or text~="" then return end
+    if target~=name and (not Ambiguate or Ambiguate(target,"mail")~=Ambiguate(name,"mail")) then return end
+    local deactivate=(ChatFrameUtil and ChatFrameUtil.DeactivateChat) or ChatEdit_DeactivateChat
+    if deactivate then deactivate(input) end
+end
+
+local function InviteChatPlayer(link,_,button,chatFrame)
+    if button~="LeftButton" or LeftModifier()~="alt" or not Setting("mouseChatAltInvite") then return end
+    if not C.Readable(link) or type(link)~="string" or not C.Readable(chatFrame) or not chatFrame then return end
+    local frameName=chatFrame.GetName and chatFrame:GetName()
+    if not frameName or not frameName:match("^ChatFrame%d+$") or _G[frameName]~=chatFrame then return end
+    local name=link:match("^player:([^:|%c]+)")
+    local invite=C_PartyInfo and C_PartyInfo.InviteUnit or InviteUnit
+    if not name or not invite then return end
+    if name~=Name("player") then pcall(invite,name) end
+    -- SetItemRef already ran Blizzard's default click handler.
+    CloseInviteWhisper(name)
+    chatWasActiveAt=nil
+end
+
+local chatInviteHooked=false
+local function InstallChatInviteHook()
+    if chatInviteHooked or type(SetItemRef)~="function" then return end
+    hooksecurefunc("SetItemRef",InviteChatPlayer)
+    chatInviteHooked=true
 end
 
 local clearFocusMacro="/clearfocus [@mouseover,noexists,nocombat,mod:shift,nomod:alt,nomod:ctrl]"
@@ -646,8 +660,8 @@ local function OpenNativeMenu(guid,unit,playerName)
 end
 
 local function OnMouse(listener,event,button,keyDown)
-    if event=="PLAYER_LOGIN" or event=="UPDATE_CHAT_WINDOWS" then
-        InstallChatInviteClicks()
+    if event=="PLAYER_LOGIN" then
+        InstallChatInviteHook()
         return
     elseif event=="NAME_PLATE_UNIT_ADDED" then
         nameplateUnits[button]=true
@@ -682,6 +696,12 @@ local function OnMouse(listener,event,button,keyDown)
     end
     local combat=InCombatLockdown()
     if event=="GLOBAL_MOUSE_DOWN" then
+        if button=="LeftButton" then
+            chatWasActiveAt=nil
+            if LeftModifier()=="alt" and Setting("mouseChatAltInvite") and ActiveChatInput() then
+                chatWasActiveAt=GetTime()
+            end
+        end
         generation=generation+1
         if not combat and markerWheel and markerWheel:IsShown() and not markerWheel:IsMouseOver() then
             markerWheel:Hide()
@@ -774,12 +794,8 @@ local function OnMouse(listener,event,button,keyDown)
 end
 
 local listener=CreateFrame("Frame")
-InstallChatInviteClicks()
-if type(FCF_OpenTemporaryWindow)=="function" then
-    hooksecurefunc("FCF_OpenTemporaryWindow",InstallChatInviteClicks)
-end
+InstallChatInviteHook()
 listener:RegisterEvent("PLAYER_LOGIN")
-listener:RegisterEvent("UPDATE_CHAT_WINDOWS")
 listener:RegisterEvent("GLOBAL_MOUSE_DOWN")
 listener:RegisterEvent("GLOBAL_MOUSE_UP")
 listener:RegisterEvent("PLAYER_REGEN_DISABLED")
