@@ -21,7 +21,7 @@ B.definitions={
     {key="duty",text="Duty",tip="职责确认",texture="cardBack_hover_A",color={.71764708,1,.43921572},hover=1.15,rotation=15},
     {key="ready",text="Ready",tip="就位确认",texture="cardBack_hover_C",color={.42745101,.79607850,1},hover=1.15,rotation=15},
     {key="pull",text="Pull",tip="开怪倒计时",texture="cardBack_hover_B",color={1,.40784317,.37647063},hover=1.15,rotation=15},
-    {key="roll",text="/Roll",tip="骰子：Shift 点击固定掷出 100",texture="RollDice.tga",color={1,.90588242,.34117648},hover=1.15,iconScale=.84},
+    {key="roll",text="/Roll",tip="骰子：Shift 点击固定掷出 100",texture="RollDice.tga",color={1,.90588242,.34117648},hover=1.15,iconScale=.75},
     {key="durability",text="—",texture="DurabilityAnvil.tga",color={1,1,1},hover=1.15,iconScale=.72},
     {key="bags",text="—",tip="背包（B）",atlas="bag-main",fallback="Interface\\Buttons\\Button-Backpack-Up",
         color={1,.90588242,.34117648},hover=1.15,iconScale=.84},
