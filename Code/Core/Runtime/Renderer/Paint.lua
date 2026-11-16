@@ -182,6 +182,18 @@ local function Paint(view,o,animateOnly,visibleHint)
     if n.unit=="target" and n.binding=="powerText" and s.classification=="worldboss" then shown=false end
     if n.visibleUnit then shown=shown and State(view,n.visibleUnit).exists end
     for _,rule in ipairs(n.rules or {}) do shown=shown and Rule(view,rule) end
+    local leaderDecoration=false
+    if n.parent=="centerFire" then
+        local target=State(view,"target")
+        leaderDecoration=target.exists and target.leader==true
+        if leaderDecoration then
+            if n.id=="waa3b4cd2bd6" then
+                shown=n.enabled~=false
+            elseif n.kind=="sprite" then
+                shown=false
+            end
+        end
+    end
     if n.binding=="partyRole" and n.partyIndex~=nil then
         shown=shown and (s.partyRole=="TANK" or s.partyRole=="HEALER")
     end
@@ -391,6 +403,10 @@ local function Paint(view,o,animateOnly,visibleHint)
             o.healthWarning:Hide()
         end
     elseif o.texture then
+        if n.parent=="centerFire" and n.id=="waa3b4cd2bd6" then
+            local file=leaderDecoration and M.ART..[[Library\PortraitLeader.tga]] or n.file
+            CachedValue(o,"centerDecorationTexture",o.texture,"SetTexture",file)
+        end
         if o.rangeDecoration then DecorationTint(view,o,col)
         else CachedColor(o,"textureColor",o.texture,"SetVertexColor",col) end
         if n.id=="wa1537213e27" then M.PlayerCastArt.Draw(o.texture,f,n,1,col) end

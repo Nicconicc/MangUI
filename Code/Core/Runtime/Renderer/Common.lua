@@ -318,7 +318,7 @@ local function IndexUpdates(view)
             AddUnit(deps,n.unit);if n.visibleUnit then AddUnit(deps,n.visibleUnit) end
             TriggerUnits(deps,n)
             if n.particleFlow or n.spinPeriod or n.centerLogo or n.kind=="resources" then AddUnit(deps,"player") end
-            if n.kind=="resources" then AddUnit(deps,"target") end
+            if n.kind=="resources" or n.parent=="centerFire" then AddUnit(deps,"target") end
             if n.effectOnce then
                 if n.effectTrigger~="cast" then AddUnit(deps,"target") end
                 if n.effectTrigger~="target" then AddUnit(deps,"player") end
