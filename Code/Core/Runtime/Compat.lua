@@ -73,10 +73,29 @@ local function Ratio(value,max)
     if not value or not max then return nil end
     return max>0 and M.Clamp(value/max,0,1) or 0
 end
+local function ClassColorForToken(unit)
+    if not RAID_CLASS_COLORS then return end
+    if UnitClass then
+        local _,class=UnitClass(unit)
+        local color=C.Readable(class) and type(class)=="string" and RAID_CLASS_COLORS[class]
+        if color then return color end
+    end
+    if UnitClassBase then
+        local class=UnitClassBase(unit)
+        if C.Readable(class) and type(class)=="string" then return RAID_CLASS_COLORS[class] end
+    end
+end
+
 local function ClassColor(unit)
-    if not UnitClass then return end
-    local _,class=UnitClass(unit)
-    return C.Readable(class) and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] or nil
+    local color=ClassColorForToken(unit)
+    if color or unit~="targettarget" or not UnitIsUnit then return color end
+    -- A publicly identifiable party member may expose their class on the
+    -- roster token even when the target-of-target token does not.
+    if C.Bool(UnitIsUnit(unit,"player")) then return ClassColorForToken("player") end
+    for i=1,4 do
+        local member="party"..i
+        if C.Bool(UnitIsUnit(unit,member)) then return ClassColorForToken(member) end
+    end
 end
 local function Clear(out)
     for key in pairs(out) do out[key]=nil end
@@ -214,7 +233,7 @@ function C.State(unit,preview,scene,out,fields,bossHealth)
     pc,nc=pc or {},nc or {};nc[1],nc[2],nc[3]=1,1,1
     local player=C.Bool(UnitIsPlayer(unit))
     local reaction=UnitReaction and C.Number(UnitReaction(unit,"player"))
-    if player and UnitClass then
+    if player then
         local col=ClassColor(unit);out.classColor=col
         if col then nc[1],nc[2],nc[3]=col.r,col.g,col.b end
     elseif reaction then

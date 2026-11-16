@@ -89,10 +89,13 @@ local function Appearance(view,n,s,o)
     end
     if o.classHealthColor then
         local class=s.isPlayer and s.classColor
-        if class then tint[1],tint[2],tint[3]=class.r,class.g,class.b
-        elseif s.isPlayer then tint[1],tint[2],tint[3]=1,1,1
-        else tint[1],tint[2],tint[3]=healthGreen[1],healthGreen[2],healthGreen[3] end
-        tint[4]=col[4] or 1;col=tint
+        if class then
+            tint[1],tint[2],tint[3],tint[4]=class.r,class.g,class.b,col[4] or 1
+            col=tint
+        elseif not s.isPlayer then
+            tint[1],tint[2],tint[3],tint[4]=healthGreen[1],healthGreen[2],healthGreen[3],col[4] or 1
+            col=tint
+        end
     end
     -- Creature ownership takes priority over configured health colors. Forever
     -- may use the mainline project id, but must follow the Classic tap rule.
