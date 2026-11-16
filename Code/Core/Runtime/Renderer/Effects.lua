@@ -41,6 +41,11 @@ local function ClearHealthChange(o)
     o.healthChangeRatio=nil
     o.healthChangeMaximum=nil
     o.healthChangeActive=nil
+    local native=o.nativeHealthChange
+    if native and native.ready then
+        native.ready=nil;native.pending=nil;native.pendingHealth=nil
+        native.layer:Hide()
+    end
     local fx=o.healthChange
     if not fx then return end
     fx.tail,fx.damageAt,fx.damageStep,fx.healFrom,fx.healAt=nil,nil,nil,nil,nil
@@ -53,8 +58,8 @@ function R.ClearTargetHealthChange(view)
     if o then ClearHealthChange(o) end
 end
 
-local function HealthChangeAllowed(view,o,ratio)
-    return o.healthChangeEnabled and not view.preview and ratio~=nil
+local function HealthChangeAllowed(view,o)
+    return o.healthChangeEnabled and not view.preview
         and not (o.spec.unit=="target" and view.encounterActive)
 end
 
@@ -84,7 +89,7 @@ end
 local function HealthChangeLayers(o)
     if o.healthChange then return o.healthChange end
     local layer=CreateFrame("Frame",nil,o.frame)
-    layer:SetFrameLevel(o.clip:GetFrameLevel())
+    layer:SetFrameLevel(o.clip:GetFrameLevel()+2)
     local damage=layer:CreateTexture(nil,"OVERLAY")
     damage:SetVertexColor(1,.30,.13)
     local heal=layer:CreateTexture(nil,"OVERLAY",nil,1)
@@ -97,7 +102,7 @@ end
 
 local function PaintHealthChange(view,o,s,animateOnly,inset,start,full)
     local current=s.healthRatio
-    if not HealthChangeAllowed(view,o,current) or not s.exists then
+    if current==nil or not HealthChangeAllowed(view,o) or not s.exists then
         if o.healthChangeRatio~=nil or o.healthChangeActive then ClearHealthChange(o) end
         return
     end
@@ -159,6 +164,98 @@ local function PaintHealthChange(view,o,s,animateOnly,inset,start,full)
     o.healthChangeActive=fx.damageAt~=nil or fx.healAt~=nil
 end
 
+-- Intersect one native fill with the other bar's empty area. The client
+-- computes both edges without exposing protected health to addon Lua.
+local function NativeHealthSegment(layer,bar,filled,emptyEdge,reverse)
+    local fillClip=CreateFrame("Frame",nil,layer)
+    fillClip:SetAllPoints(filled)
+    fillClip:SetClipsChildren(true)
+    local remainder=CreateFrame("Frame",nil,fillClip)
+    if reverse then
+        remainder:SetPoint("TOPLEFT",bar,"TOPLEFT")
+        remainder:SetPoint("BOTTOMRIGHT",emptyEdge,"BOTTOMLEFT")
+    else
+        remainder:SetPoint("TOPLEFT",emptyEdge,"TOPRIGHT")
+        remainder:SetPoint("BOTTOMRIGHT",bar,"BOTTOMRIGHT")
+    end
+    remainder:SetClipsChildren(true)
+    local art=remainder:CreateTexture(nil,"OVERLAY")
+    art:SetAllPoints(layer)
+    return art
+end
+
+local function NativeHealthChangeLayers(o)
+    local bar=o.bar
+    local layer=CreateFrame("Frame",nil,o.frame)
+    layer:SetAllPoints(o.frame)
+    layer:Hide()
+    local trailing=CreateFrame("StatusBar",nil,layer)
+    trailing:SetAllPoints(bar)
+    trailing:SetStatusBarTexture([[Interface\Buttons\WHITE8X8]])
+    local delayed=trailing:GetStatusBarTexture()
+    delayed:SetAlpha(0)
+    local current=bar:GetStatusBarTexture()
+    local damage=NativeHealthSegment(layer,bar,delayed,current,o.spec.reverse)
+    damage:SetVertexColor(1,.28,.10,.80)
+    local heal=NativeHealthSegment(layer,bar,current,delayed,o.spec.reverse)
+    heal:SetVertexColor(1,.92,.68,.9)
+    heal:SetBlendMode("ADD")
+    local fx={layer=layer,trailing=trailing,damage=damage,heal=heal}
+    o.nativeHealthChange=fx
+    return fx
+end
+
+local function PaintNativeHealthChange(view,o,s,enabled,interpolation)
+    local fx=o.nativeHealthChange
+    if not enabled or not s.exists then
+        if fx and fx.ready then
+            fx.ready=nil;fx.pending=nil;fx.pendingHealth=nil;fx.layer:Hide()
+        end
+        return
+    end
+    fx=fx or NativeHealthChangeLayers(o)
+    local spec=o.spec
+    local unit=spec.unit
+    local epoch=view.healthChangeUpdates and view.healthChangeUpdates[unit]
+    local maxEpoch=view.healthChangeMaxUpdates and view.healthChangeMaxUpdates[unit]
+    local refresh=not fx.ready or fx.spec~=spec or fx.maxEpoch~=maxEpoch
+    if not refresh and fx.epoch==epoch then return end
+    fx.epoch,fx.maxEpoch=epoch,maxEpoch
+    local health,maximum=s.health,s.maxHealth
+    if type(health)=="nil" or type(maximum)=="nil" then
+        fx.ready=nil;fx.pending=nil;fx.pendingHealth=nil;fx.layer:Hide()
+        return
+    end
+    if refresh then
+        fx.pending=nil;fx.pendingHealth=nil
+        fx.spec=spec
+        fx.trailing:SetReverseFill(spec.reverse==true)
+        fx.trailing:SetMinMaxValues(0,maximum)
+        fx.trailing:SetValue(health)
+        fx.damage:SetTexture(spec.file);private.TextureCoords(fx.damage,spec)
+        fx.heal:SetTexture(spec.file);private.TextureCoords(fx.heal,spec)
+        fx.layer:SetFrameLevel(o.clip:GetFrameLevel()+2)
+        fx.ready=true;fx.layer:Show()
+    elseif C_Timer and C_Timer.After then
+        fx.pendingHealth=health
+        -- One pending sample per bar. Frequent hits update the value without
+        -- restarting the hold. Clients without interpolation still show a step.
+        if fx.pending then return end
+        local token={}
+        fx.pending=token
+        C_Timer.After(DAMAGE_HOLD,function()
+            if fx.pending~=token or not fx.ready then return end
+            local value=fx.pendingHealth
+            fx.pending=nil;fx.pendingHealth=nil
+            if interpolation then fx.trailing:SetValue(value,interpolation)
+            else fx.trailing:SetValue(value) end
+        end)
+    else
+        fx.trailing:SetValue(health,interpolation)
+    end
+end
+
+private.PaintNativeHealthChange=PaintNativeHealthChange
 private.ClearHealthChange=ClearHealthChange
 private.HealthChangeAllowed=HealthChangeAllowed
 private.PaintHealthChange=PaintHealthChange

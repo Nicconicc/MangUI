@@ -160,6 +160,8 @@ function M:StartLive()
     local function Module(id) dirtyModules[id]=true;pending=true end
     local raidInstance=RaidInstance()
     local encounterActive=C.Bool(IsEncounterInProgress and IsEncounterInProgress())
+    M.live.healthChangeUpdates={player=0,target=0}
+    M.live.healthChangeMaxUpdates={player=0,target=0}
     local bossTarget,bossDead,bossHealthDue,bossHealthPending=false,false,0,false
     local function RefreshBossMode(resetTarget)
         local view=M.live
@@ -252,6 +254,15 @@ function M:StartLive()
         local healthEvent=event=="UNIT_HEALTH" or event=="UNIT_MAXHEALTH"
         local powerEvent=event=="UNIT_POWER_UPDATE" or event=="UNIT_POWER_FREQUENT" or event=="UNIT_MAXPOWER"
         if healthEvent or powerEvent then
+            if healthEvent and (unit=="player" or unit=="vehicle" or (unit=="target" and not encounterActive)) then
+                local barUnit=unit=="vehicle" and "player" or unit
+                local updates=view.healthChangeUpdates
+                updates[barUnit]=updates[barUnit]+1
+                if event=="UNIT_MAXHEALTH" then
+                    local maximums=view.healthChangeMaxUpdates
+                    maximums[barUnit]=maximums[barUnit]+1
+                end
+            end
             local profile=M.ModuleProfiler
             local started=profile and profile.active and debugprofilestop()
             if healthEvent and unit=="target" and bossTarget then

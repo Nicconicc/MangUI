@@ -20,6 +20,7 @@ local DisplayRatio=private.DisplayRatio
 local SmoothBar=private.SmoothBar
 local PaintHealthChange=private.PaintHealthChange
 local HealthChangeAllowed=private.HealthChangeAllowed
+local PaintNativeHealthChange=private.PaintNativeHealthChange
 local ClearHealthChange=private.ClearHealthChange
 local RestrictedHealthColor=private.RestrictedHealthColor
 local RestrictedHealthThreshold=private.RestrictedHealthThreshold
@@ -236,7 +237,7 @@ local function Paint(view,o,animateOnly,visibleHint)
         o.wasShown=shown;if f:IsShown()~=shown then f:SetShown(shown) end
     end
     if not shown or not (visibleHint or f:IsVisible()) then
-        if o.healthChangeRatio~=nil then ClearHealthChange(o) end
+        if o.healthChangeRatio~=nil or (o.nativeHealthChange and o.nativeHealthChange.ready) then ClearHealthChange(o) end
         if n.particleFlow then
             ResetParticle(o)
         end
@@ -292,7 +293,10 @@ local function Paint(view,o,animateOnly,visibleHint)
         local shadowColor=o.shadowColor or {0,0,0,1};o.shadowColor=shadowColor;shadowColor[4]=col[4] or 1
         CachedColor(o,"shadowColor",o.shadow,"SetTextColor",shadowColor)
     elseif o.bar then
-        local smooth=SmoothBar(view,n,s) and not HealthChangeAllowed(view,o,s.healthRatio)
+        local healthChange=HealthChangeAllowed(view,o)
+        local healthInterpolation=Enum and Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
+        local nativeHealthChange=healthChange and s.healthRatio==nil and (healthInterpolation or (C_Timer and C_Timer.After))
+        local smooth=SmoothBar(view,n,s) and not (healthChange and (s.healthRatio~=nil or nativeHealthChange))
         if o.barSmoothing~=smooth then
             o.barSmoothing=smooth;o.nativeReady=nil
         end
@@ -367,6 +371,7 @@ local function Paint(view,o,animateOnly,visibleHint)
                     o.healthValueSample=s.bossHealth;o.healthValueApply=view.applyGeneration
                     o.nativeReady=true
                 end
+                if o.healthChangeEnabled then PaintNativeHealthChange(view,o,s,nativeHealthChange,healthInterpolation) end
             end
         elseif n.binding=="power" then
             if n.thirdResource and s.thirdTimer and o.bar.SetTimerDuration and Enum and Enum.StatusBarTimerDirection then
