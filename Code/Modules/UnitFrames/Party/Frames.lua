@@ -341,6 +341,11 @@ end
 function P.ConfigureTexture(o)
     local n=o.spec
     if n.partyIndex==nil or not n.textureWrapMode or n.binding=="partyRole" then return end
+    if n.id=="party"..n.partyIndex.."Leader" then
+        o.texture:ClearAllPoints()
+        o.texture:SetPoint("TOPLEFT",o.frame,"TOPLEFT",0,-5)
+        o.texture:SetPoint("BOTTOMRIGHT",o.frame,"BOTTOMRIGHT",0,-5)
+    end
     o.texture:SetTexture(n.file,n.textureWrapMode,n.textureWrapMode)
     if o.texture.SetSnapToPixelGrid then o.texture:SetSnapToPixelGrid(false) end
     if o.texture.SetTexelSnappingBias then o.texture:SetTexelSnappingBias(0) end
