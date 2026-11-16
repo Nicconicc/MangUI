@@ -574,6 +574,79 @@ function P.ExtendState(view,s)
     s.partyAFK=s.connected and not s.partyDead and s.afk or false
     s.partyOutOfRange=index>0 and P.OutOfRange(view,unit)or false
 end
+local healCalculator
+local function IncomingHeals(unit)
+    if CreateUnitHealPredictionCalculator and UnitGetDetailedHealPrediction then
+        if not healCalculator then
+            local ok,calculator=pcall(CreateUnitHealPredictionCalculator)
+            if ok then healCalculator=calculator end
+        end
+        if healCalculator and healCalculator.GetTotalIncomingHeals then
+            if pcall(UnitGetDetailedHealPrediction,unit,nil,healCalculator) then
+                local ok,total=pcall(healCalculator.GetTotalIncomingHeals,healCalculator)
+                if ok and type(total)=="number" then return total end
+            end
+        end
+    end
+    if UnitGetIncomingHeals then
+        local ok,total=pcall(UnitGetIncomingHeals,unit)
+        if ok and type(total)=="number" then return total end
+    end
+end
+
+local function HideHealPrediction(o)
+    local layer=o.partyHealPredictionLayer
+    if layer and layer:IsShown() then layer:Hide() end
+end
+
+function P.PaintHealPrediction(view,o,s)
+    local C=M.Compat
+    local maximum=s.maxHealth
+    local readableMaximum=C.Number(maximum)
+    if not s.exists or s.dead or s.connected==false or type(maximum)~="number"
+        or (readableMaximum and readableMaximum<=0) or (s.healthRatio and s.healthRatio>=1) then
+        HideHealPrediction(o)
+        return
+    end
+    local incoming
+    if view.preview then
+        if readableMaximum then incoming=readableMaximum*.20 end
+    else
+        incoming=IncomingHeals(s.unit)
+    end
+    local readableIncoming=C.Number(incoming)
+    if type(incoming)~="number" or (readableIncoming and readableIncoming<=0) then
+        HideHealPrediction(o)
+        return
+    end
+    local edge=s.healthRatio~=nil and o.clip or o.bar:GetStatusBarTexture()
+    if not edge then HideHealPrediction(o);return end
+
+    local layer,bar=o.partyHealPredictionLayer,o.partyHealPrediction
+    if not layer then
+        -- The full-width container clips overhealing at the actual bar boundary.
+        -- The offset bar starts at the native fill edge, so restricted values
+        -- can go straight to SetValue without being added to current health.
+        layer=CreateFrame("Frame",nil,o.frame)
+        layer:SetAllPoints(o.frame);layer:SetClipsChildren(true);layer:EnableMouse(false)
+        layer:SetFrameLevel(o.clip:GetFrameLevel())
+        bar=CreateFrame("StatusBar",nil,layer);bar:EnableMouse(false)
+        bar:SetStatusBarTexture([[Interface\Buttons\WHITE8X8]])
+        bar:SetStatusBarColor(.64,1,.70,.76)
+        o.partyHealPredictionLayer,o.partyHealPrediction=layer,bar
+    end
+    local n=o.spec
+    local props=M.RendererInternals
+    local side=n.reverse and "RIGHT" or "LEFT"
+    local fillEdge=n.reverse and "LEFT" or "RIGHT"
+    props.CachedPoint(o,"partyHealPoint",bar,side,edge,fillEdge,0,0)
+    props.CachedPair(o,"partyHealSize",bar,"SetSize",n.width,n.height)
+    props.CachedValue(o,"partyHealDirection",bar,"SetReverseFill",n.reverse==true)
+    props.CachedPair(o,"partyHealRange",bar,"SetMinMaxValues",0,maximum)
+    props.CachedValue(o,"partyHealValue",bar,"SetValue",incoming)
+    if not layer:IsShown() then layer:Show() end
+end
+
 function P.Texture(o,s)
     if o.spec.binding=="partyClass" then
         local class=classes[s.partyClass]

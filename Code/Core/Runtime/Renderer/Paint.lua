@@ -376,6 +376,7 @@ local function Paint(view,o,animateOnly,visibleHint)
                     o.nativeReady=true
                 end
                 if o.healthChangeEnabled then PaintNativeHealthChange(view,o,s,nativeHealthChange,healthInterpolation) end
+                if n.partyIndex~=nil and M.PartyFrames then M.PartyFrames.PaintHealPrediction(view,o,s) end
             end
         elseif n.binding=="power" then
             if n.thirdResource and s.thirdTimer and o.bar.SetTimerDuration and Enum and Enum.StatusBarTimerDirection then

@@ -119,7 +119,7 @@ function M:StartLive()
     self.live.fontSettleStarted=GetTime();self.live.fontSettleStep=1
     local f=CreateFrame("Frame");self.liveEvents=f
     for _,event in ipairs({"PLAYER_ENTERING_WORLD","UI_SCALE_CHANGED","PLAYER_STARTED_TURNING","PLAYER_STOPPED_TURNING","PLAYER_STARTED_LOOKING","PLAYER_STOPPED_LOOKING","PLAYER_REGEN_DISABLED","PLAYER_REGEN_ENABLED","PLAYER_TARGET_CHANGED","PLAYER_FOCUS_CHANGED","UNIT_PET","UNIT_TARGET",
-        "UNIT_HEALTH","UNIT_MAXHEALTH","UNIT_POWER_UPDATE","UNIT_POWER_FREQUENT","UNIT_MAXPOWER","UNIT_DISPLAYPOWER","UNIT_NAME_UPDATE","UNIT_LEVEL",
+        "UNIT_HEALTH","UNIT_MAXHEALTH","UNIT_HEAL_PREDICTION","UNIT_POWER_UPDATE","UNIT_POWER_FREQUENT","UNIT_MAXPOWER","UNIT_DISPLAYPOWER","UNIT_NAME_UPDATE","UNIT_LEVEL",
         "RUNE_POWER_UPDATE","RUNE_TYPE_UPDATE","ECLIPSE_DIRECTION_CHANGE","UNIT_THREAT_SITUATION_UPDATE","UNIT_THREAT_LIST_UPDATE",
         "NAME_PLATE_UNIT_ADDED","NAME_PLATE_UNIT_REMOVED",
         "PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","UPDATE_EXPANSION_LEVEL","QUEST_LOG_UPDATE","UNIT_QUEST_LOG_CHANGED","TIME_PLAYED_MSG",
@@ -251,6 +251,14 @@ function M:StartLive()
         end
         -- These events have no module dispatch consumers. Custom monitor events
         -- are registered separately, and keep their original delivery.
+        if event=="UNIT_HEAL_PREDICTION" then
+            local module=view.byID.partyFrames
+            if module and module.enabled~=false and (unit=="player" or unit=="vehicle"
+                or (type(unit)=="string" and unit:match("^party[1-4]$"))) then
+                Unit(unit,"health")
+            end
+            return
+        end
         local healthEvent=event=="UNIT_HEALTH" or event=="UNIT_MAXHEALTH"
         local powerEvent=event=="UNIT_POWER_UPDATE" or event=="UNIT_POWER_FREQUENT" or event=="UNIT_MAXPOWER"
         if healthEvent or powerEvent then
