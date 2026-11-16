@@ -285,7 +285,8 @@ local function LegacyCharacterProfiles(id,config,store,portable)
     end
     return consumed
 end
-local function IsStarterPlaceholder(entries)
+local function IsStarterList(entries)
+    if not entries or #entries==0 then return true end
     local entry=entries and #entries==1 and entries[1]
     if not entry or entry.type~="cooldown" or entry.value~="" or (entry.shortcut or "")~=""
         or entry.reverseDisplay or entry.showShortcut==false or entry.effect or entry.blizzardCooldownID then return false end
@@ -302,8 +303,6 @@ function S.BindCharacter(id)
     if not store.migrated then
         LegacyCharacterProfiles(id,db,store,false)
         store.migrated=true
-        if id=="playerSkillMonitor" and M.Compat.interface==16001 and not next(store.profiles)
-            and IsStarterPlaceholder(store.template)then store.blizzardStarterPending=true end
     end
     if S.characterStorageLoaded then
         local consumed=LegacyCharacterProfiles(id,db,{profiles={}},false)
@@ -328,39 +327,58 @@ function S.SetBlizzardSyncEnabled(enabled)
     if enabled then S.QueueBlizzardSync()end
 end
 
+local function NeedsBlizzardStarter(store,group)
+    if store.blizzardStarterImported or not IsStarterList(group.monitors)
+        or not IsStarterList(store.template) then return false end
+    for _,entries in pairs(store.profiles) do
+        if not IsStarterList(entries) then return false end
+    end
+    return true
+end
+
 local observingBlizzard,blizzardSyncTimer,blizzardSyncAfterCombat
+local BLIZZARD_SYNC_FAST_RETRIES=4
+local BLIZZARD_STARTER_RETRIES=12
 local function ObserveBlizzardCooldowns()
-    if not M.db or not S.IsProfileBound("playerSkillMonitor") then return false end
+    if not M.db or not S.IsProfileBound("playerSkillMonitor") then return false,not observedProfile end
     local profile=S.CurrentProfile()
     local group=CharacterGroup("playerSkillMonitor",M.db.design)
-    if not group or not profile then return false end
+    if not group or not profile then return false,not observedProfile end
+    local store=CharacterStore("playerSkillMonitor")
+    local starter=NeedsBlizzardStarter(store,group)
     local desired=Safe(S.ReadBlizzardCooldowns)
-    if not desired then return false end
+    if not desired or (starter and #desired==0) then return false,starter end
     local signature={}
     for i,entry in ipairs(desired)do signature[i]=entry.blizzardCooldownID..":"..entry.value end
     signature=table.concat(signature,",")
 
-    local store=MangUICharacterDB.monitors.playerSkillMonitor
-    local starter=store and store.blizzardStarterPending and IsStarterPlaceholder(group.monitors)
     local changed=observedProfile and (profile~=observedProfile or signature~=observedCooldowns)
-    if changed or (starter and #desired>0) then
-        if not Safe(S.SyncBlizzardCooldowns,group,desired) then return false end
+    if changed or starter then
+        local ready,imported=Safe(S.SyncBlizzardCooldowns,group,desired)
+        if not ready or (starter and not imported) then return false,starter end
+        if starter then
+            store.blizzardStarterImported=true
+            store.blizzardStarterPending=nil
+        end
     end
-    if store and (not starter or #desired>0)then store.blizzardStarterPending=nil end
     observedProfile,observedCooldowns=profile,signature
     return true
 end
 
-function S.QueueBlizzardSync(retries)
+function S.QueueBlizzardSync(attempt)
     if not observingBlizzard or not S.BlizzardSyncEnabled() or blizzardSyncTimer then return end
     if InCombatLockdown() then blizzardSyncAfterCombat=true;return end
     if not C_Timer or not C_Timer.After then return end
+    attempt=attempt or 0
+    local delay=attempt==0 and .25 or (attempt<=BLIZZARD_SYNC_FAST_RETRIES and .4 or 2)
     blizzardSyncTimer=true
-    C_Timer.After(retries and .4 or .25,function()
+    C_Timer.After(delay,function()
         blizzardSyncTimer=nil
         if not S.BlizzardSyncEnabled() then return end
         if InCombatLockdown() then blizzardSyncAfterCombat=true;return end
-        if not ObserveBlizzardCooldowns() and (retries or 4)>0 then S.QueueBlizzardSync((retries or 4)-1)end
+        local ready,waitingForStarter=ObserveBlizzardCooldowns()
+        local retryLimit=waitingForStarter and BLIZZARD_STARTER_RETRIES or BLIZZARD_SYNC_FAST_RETRIES
+        if not ready and attempt<retryLimit then S.QueueBlizzardSync(attempt+1) end
     end)
 end
 
