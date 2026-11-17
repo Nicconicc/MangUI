@@ -26,6 +26,7 @@ B.definitions={
     {key="bags",text="—",tip="背包（B）",atlas="bag-main",fallback="Interface\\Buttons\\Button-Backpack-Up",
         color={1,.90588242,.34117648},hover=1.15,iconScale=.84},
     {key="addons",text="AddOns",tip="插件入口",texture="AddonWrench.tga",color={1,.83,.44},hover=1.15,iconScale=.80},
+    {key="community",text="",tip="加入社区与作者互动",texture="CommunityRing.tga",color={1,.83,.44},hover=1.15,iconScale=.72},
 }
 local textLabels={say="说",yell="大喊",guild="公会",party="队伍",raid="团队",battle="战场",
     instance="副本",lfg="世界",roll="骰子",duty="职责",ready="就位",pull="倒计时",addons="插件入口"}
@@ -294,6 +295,15 @@ function B.Build(view,o)
         elseif C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(def.atlas) then texture:SetAtlas(def.atlas)
         else texture:SetTexture(def.fallback) end
         texture:SetBlendMode("BLEND");texture:SetRotation(math.rad(def.rotation or 0))
+        local community, communityLogo
+        if def.key=="community" then
+            local logoPath
+            community,logoPath=M.FooterLinks.ChatCommunity()
+            communityLogo=visual:CreateTexture(nil,"OVERLAY")
+            communityLogo:SetPoint("CENTER",visual,"CENTER")
+            communityLogo:SetSize(36,36)
+            communityLogo:SetTexture(logoPath)
+        end
         local shadow=visual:CreateFontString(nil,"ARTWORK");local text=visual:CreateFontString(nil,"OVERLAY")
         for _,label in ipairs({shadow,text}) do label:SetFont(M:DefaultFontPath(),11,"OUTLINE");label:SetText(def.text);label:SetJustifyH("CENTER") end
         text:SetPoint("CENTER",0,30);text:SetTextColor(unpack(def.color))
@@ -303,20 +313,26 @@ function B.Build(view,o)
         local click=CreateFrame("Button",nil,slot,template)
         click:SetAllPoints(slot);click:SetFrameLevel(visual:GetFrameLevel()+1)
         local entry={frame=slot,visual=visual,button=click,texture=texture,text=text,shadow=shadow,definition=def}
+        if community then
+            entry.communityLogo=communityLogo
+            entry.counterText=community.en
+            text:SetText(community.en)
+            shadow:SetText(community.en)
+        end
         local isDurability=def.key=="durability"
         if isDurability then
             o.durabilitySlot=entry
         else
             click:RegisterForClicks("LeftButtonUp","RightButtonUp")
             if def.key=="bags" then o.bagSlot=entry
-            elseif def.key~="addons" then click:SetScript("OnClick",function(_,button)if not view.preview then B.Click(def,button,o.module) end end) end
+            elseif def.key~="addons" and not community then click:SetScript("OnClick",function(_,button)if not view.preview then B.Click(def,button,o.module) end end) end
             click:SetScript("OnMouseDown",function()visual:SetAlpha(.5)end)
             click:SetScript("OnMouseUp",function()visual:SetAlpha(1)end)
         end
         click:SetScript("OnEnter",function(self)
             if def.key=="addons" and not view.preview then
                 B.ShowAddonLauncher(self)
-            else
+            elseif not community or view.preview then
                 GameTooltip:SetOwner(self,"ANCHOR_TOP")
                 if isDurability then
                     entry.durabilityHovered=true
@@ -331,6 +347,7 @@ function B.Build(view,o)
         end)
         local function Reset()entry.durabilityHovered=nil;visual:SetScale(1);visual:SetAlpha(1);GameTooltip:Hide()end
         click:SetScript("OnLeave",Reset);click:SetScript("OnHide",Reset)
+        if community and not view.preview then M.FooterLinks.AttachChatCommunity(click,community) end
         o.chatButtons[index]=entry
     end
 end
@@ -369,6 +386,7 @@ function B.Configure(view,o)
         slot.visual:SetSize(size,size)
         local iconScale=slot.definition.iconScale
         if iconScale then slot.texture:SetSize(size*iconScale,size*iconScale) end
+        if slot.communityLogo then slot.communityLogo:SetSize(size*.56,size*.56) end
         for _,label in ipairs({slot.text,slot.shadow}) do
             label:ClearAllPoints()
         end

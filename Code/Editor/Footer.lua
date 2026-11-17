@@ -64,22 +64,9 @@ local function highlight(button, active)
     if button.shine then button.shine:SetShown(active) end
 end
 
-function F.Attach(editor)
-    local window=editor.window
-    local bar = CreateFrame("Frame", nil, window)
-    bar:SetSize(158, 30)
-    bar:SetPoint("BOTTOMRIGHT", -20, 12)
-    bar.buttons = {}
-    editor.footerLinks = bar
-    bar.label = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    bar.label:SetJustifyV("MIDDLE")
-    bar.label:SetPoint("RIGHT", bar, "LEFT", -12, 0)
-    bar.label:SetText(text("加入社区与作者互动", "Community & Support"))
-    bar.label:SetTextColor(0.7, 0.75, 0.8)
-
-    local popup = panel(bar)
+local function createLinkPopup(parent, setHighlight)
+    local popup = panel(parent)
     popup:SetSize(420, 110)
-    popup:SetPoint("BOTTOMRIGHT", bar, "TOPRIGHT", 0, 5)
     popup:SetFrameStrata("TOOLTIP")
     popup:SetClampedToScreen(true)
     popup:EnableMouse(true)
@@ -93,7 +80,6 @@ function F.Attach(editor)
     popup.title:SetPoint("TOPLEFT", 12, -12)
     popup.title:SetTextColor(1, 0.82, 0)
     local popupFont, popupFontSize, popupFontFlags = popup.title:GetFont()
-    bar.label:SetFont(popupFont, popupFontSize, popupFontFlags)
     popup.description = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     popup.description:SetFont(popupFont, popupFontSize, popupFontFlags)
     popup.description:SetPoint("TOPLEFT", popup.title, "BOTTOMLEFT", 0, -8)
@@ -128,10 +114,9 @@ function F.Attach(editor)
     close:SetScript("OnClick", function() popup:Hide() end)
     popup:SetScript("OnHide", function()
         address:ClearFocus()
-        if popup.owner then highlight(popup.owner, false) end
+        if popup.owner then setHighlight(popup.owner, false) end
         popup.owner, popup.copyText, popup.pinned = nil, nil, nil
     end)
-    bar.popup = popup
 
     -- Leave time to cross the small gap into the copyable popup. A click pins
     -- it until closed so copying does not depend on keeping the pointer still.
@@ -159,37 +144,88 @@ function F.Attach(editor)
         popup.description:SetHeight(0)
         local descriptionHeight = math.max(popupFontSize, math.ceil(popup.description:GetStringHeight())) + 2
         popup.description:SetHeight(descriptionHeight)
-        popup:SetHeight(12 + math.ceil(popup.title:GetStringHeight()) + 8
-            + descriptionHeight + 10 + 23 + 8
-            + math.ceil(popup.hint:GetStringHeight()) + 12)
+        local copyHeight = popup.copyText and (10 + 23 + 8 + math.ceil(popup.hint:GetStringHeight())) or 0
+        popup:SetHeight(12 + math.ceil(popup.title:GetStringHeight()) + 8 + descriptionHeight + copyHeight + 12)
     end
 
     local function showPopup(owner, focus)
         cancelHide()
         GameTooltip:Hide()
         local sameOwner = popup.owner == owner
-        if popup.owner and not sameOwner then highlight(popup.owner, false) end
+        if popup.owner and not sameOwner then setHighlight(popup.owner, false) end
         popup.owner = owner
-        popup.pinned = focus or (sameOwner and popup.pinned) or false
+        popup.pinned = (focus and (owner.entry.copyText or owner.entry.url) ~= nil) or (sameOwner and popup.pinned) or false
         local entry = owner.entry
         popup.title:SetText(text(entry.zh, entry.en))
         popup.description:SetHeight(0)
         popup.description:SetText(description(entry))
-        popup.copyText = entry.copyText or entry.url or text("正在建设中", "Under construction")
+        popup.copyText = entry.copyText or entry.url
+        address:SetShown(popup.copyText~=nil)
+        popup.hint:SetShown(popup.copyText~=nil)
         popup.hint:SetText(text("按 Ctrl+C 复制", "Press Ctrl+C to copy"))
         layoutPopup()
         if not sameOwner then address:ClearFocus() end
-        address:SetText(popup.copyText)
+        address:SetText(popup.copyText or "")
         popup:Show()
         C_Timer.After(0, function()
             if popup:IsShown() and popup.owner == owner then layoutPopup() end
         end)
-        highlight(owner, true)
-        if focus then
+        setHighlight(owner, true)
+        if focus and popup.copyText then
             address:SetFocus()
             address:HighlightText()
         end
     end
+
+    return popup, showPopup, scheduleHide
+end
+
+local function refreshPopupFont(popup)
+    for _,label in ipairs({popup.title,popup.description,popup.hint,popup.address}) do
+        local _,size,flags=label:GetFont()
+        label:SetFont(M:InterfaceFontPath(),size,flags or "")
+    end
+end
+
+function F.ChatCommunity()
+    local locale=M:ClientLanguage()
+    local entry=(locale=="zhCN" or locale=="zhTW") and ENTRIES[1] or ENTRIES[2]
+    return entry, ROOT .. entry.activeTexture
+end
+
+function F.AttachChatCommunity(button, entry)
+    button.entry=entry
+    local popup, showPopup, scheduleHide
+    local function open(owner,focus)
+        if not popup then
+            popup,showPopup,scheduleHide=createLinkPopup(button,function() end)
+            popup:SetPoint("BOTTOMRIGHT",button,"TOPRIGHT",0,5)
+        end
+        refreshPopupFont(popup)
+        showPopup(owner,focus)
+    end
+    button:HookScript("OnEnter",function(owner) open(owner,false) end)
+    button:HookScript("OnLeave",function() if scheduleHide then scheduleHide() end end)
+    button:HookScript("OnHide",function() if popup then popup:Hide() end end)
+    button:SetScript("OnClick",function(owner) open(owner,true) end)
+end
+
+function F.Attach(editor)
+    local window=editor.window
+    local bar = CreateFrame("Frame", nil, window)
+    bar:SetSize(158, 30)
+    bar:SetPoint("BOTTOMRIGHT", -20, 12)
+    bar.buttons = {}
+    editor.footerLinks = bar
+    bar.label = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    bar.label:SetJustifyV("MIDDLE")
+    bar.label:SetPoint("RIGHT", bar, "LEFT", -12, 0)
+    bar.label:SetText(text("加入社区与作者互动", "Community & Support"))
+    bar.label:SetTextColor(0.7, 0.75, 0.8)
+
+    local popup, showPopup, scheduleHide = createLinkPopup(bar,highlight)
+    popup:SetPoint("BOTTOMRIGHT",bar,"TOPRIGHT",0,5)
+    bar.popup=popup
 
     for index, entry in ipairs(ENTRIES) do
         local button = CreateFrame("Button", nil, bar)
@@ -250,8 +286,6 @@ function F.Refresh(editor)
     end
     bar:SetWidth(math.max(32, (visible - 1) * 42 + 32))
     bar.label:SetFont(M:InterfaceFontPath(),M:ClientInterfaceFontSize(12),"")
-    for _,label in ipairs({bar.popup.title,bar.popup.description,bar.popup.hint,bar.popup.address})do
-        local _,size,flags=label:GetFont();label:SetFont(M:InterfaceFontPath(),size,flags or "")
-    end
+    refreshPopupFont(bar.popup)
     GameTooltip:Hide()
 end
