@@ -36,16 +36,11 @@ local addonFamilies={
     {"^dbm%-","raids"},{"^details_","raids"},{"^dungeonsforever","explore"},{"^cardmaster_","explore"},{"^lib","tools"},
 }
 local known={
-    baganator={command="/baganator",handler="Baganator",icon=icons.."INV_Misc_Bag_10",
-        hint="适合用分类和搜索快速找到道具，也能在单一背包和分类布局间切换。"},
-    bartender4={command="/bt4",handler="ACECONSOLE_BT4",icon=icons.."INV_Drink_05",
-        hint="适合重新排列动作条，并为不同情境设置显示规则。"},
-    platynator={command="/platy",handler="Platynator",icon=icons.."Ability_Warrior_Challenge",
-        hint="可以把敌我姓名板做成不同风格，并突出重要光环。"},
-    nicedamage={command="/nd",handler="ACECONSOLE_ND",icon=icons.."INV_Knife_1H_Rogue_C_01",
-        hint="装有设置界面的版本还可以调整字体大小与数字的显示方式。"},
-    dynamiccam={command="/dc",handler="ACECONSOLE_DC",icon=icons.."INV_Misc_Spyglass_03",
-        hint="可以为探索、战斗或进入载具分别设置镜头。"},
+    baganator={command="/baganator",handler="Baganator",icon=icons.."INV_Misc_Bag_10"},
+    bartender4={command="/bt4",handler="ACECONSOLE_BT4",icon=icons.."INV_Drink_05"},
+    platynator={command="/platy",handler="Platynator",icon=icons.."Ability_Warrior_Challenge"},
+    nicedamage={command="/nd",handler="ACECONSOLE_ND",icon=icons.."INV_Knife_1H_Rogue_C_01"},
+    dynamiccam={command="/dc",handler="ACECONSOLE_DC",icon=icons.."INV_Misc_Spyglass_03"},
     mangui={command="/mui",handler="MANGUIUF"},
     cardmaster={command="/cm",handler="CARDMASTER"},
     glass={command="/glass",handler="ACECONSOLE_GLASS"},
@@ -238,22 +233,19 @@ local function Description(addon)
     return addon.notes~="" and addon.notes or M:T("插件未提供介绍。")
 end
 local function ShowAddonTip(owner,panel,addon)
-    if not toolsName then return end
+    local metadata=AddOnAPI("GetAddOnMetadata")
+    if not toolsName or not metadata then return end
+    local field="X-MangUI-Tip-"..addon.name
+    local note=PlainText(metadata(toolsName,field.."-"..M:EffectiveLanguage()))
+    if note=="" then note=PlainText(metadata(toolsName,field)) end
+    if note=="" then return end
+
+    local title=PlainText(metadata(toolsName,"X-MangUI-Tip-Title"))
     local status,open,_,command=State(addon,panel.routes)
     GameTooltip:SetOwner(owner,"ANCHOR_RIGHT")
-    GameTooltip:SetText(addon.title,1,.82,.38)
-    if addon.title~=addon.name then GameTooltip:AddLine(addon.name,.7,.76,.82) end
-    local hint=addon.known and addon.known.hint
-    local translatedHint=hint and M:T(hint)
-    if translatedHint==hint and M:EffectiveLanguage()~="zhCN" then translatedHint=nil end
-    GameTooltip:AddLine(translatedHint or Description(addon),.9,.93,.97,true)
-    local metadata=AddOnAPI("GetAddOnMetadata")
-    if metadata then
-        local field="X-MangUI-Tip-"..addon.name
-        local note=PlainText(metadata(toolsName,field.."-"..GetLocale()))
-        if note=="" then note=PlainText(metadata(toolsName,field)) end
-        if note~="" then GameTooltip:AddLine(note,1,.82,.38,true) end
-    end
+    GameTooltip:SetText(title~="" and title or addon.title,1,.82,.38)
+    if title~="" then GameTooltip:AddLine(addon.title,.7,.76,.82,true) end
+    GameTooltip:AddLine(note,.9,.93,.97,true)
     GameTooltip:AddLine(open and command and (M:T(status).."  "..command) or M:T(status),.7,.86,.76)
     GameTooltip:Show()
 end
