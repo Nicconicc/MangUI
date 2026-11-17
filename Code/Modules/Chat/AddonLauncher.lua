@@ -79,7 +79,7 @@ local function Category(name,key,metadata)
     return categoryByName[key] or categoryByKey.other
 end
 
-local catalog
+local catalog,toolsName
 local function ScanAddOns()
     if catalog then return catalog end
     local count,info,metadata=AddOnAPI("GetNumAddOns"),AddOnAPI("GetAddOnInfo"),AddOnAPI("GetAddOnMetadata")
@@ -89,6 +89,7 @@ local function ScanAddOns()
         local name,title,notes=info(i)
         if type(name)=="string" and name~="" then
             local key=name:lower()
+            if key=="manguitools" then toolsName=name end
             local entry=known[key]
             title=PlainText(title)
             if title=="" then title=name end
@@ -161,12 +162,20 @@ local function Description(addon)
     return addon.notes~="" and addon.notes or M:T("插件未提供介绍。")
 end
 local function ShowAddonTip(owner,panel,addon)
+    if not toolsName then return end
     local status,open,_,command=State(addon,panel.routes)
     GameTooltip:SetOwner(owner,"ANCHOR_RIGHT")
     GameTooltip:SetText(addon.title,1,.82,.38)
     if addon.title~=addon.name then GameTooltip:AddLine(addon.name,.7,.76,.82) end
     local hint=addon.known and addon.known.hint
     GameTooltip:AddLine(hint and M:T(hint) or Description(addon),.9,.93,.97,true)
+    local metadata=AddOnAPI("GetAddOnMetadata")
+    if metadata then
+        local field="X-MangUI-Tip-"..addon.name
+        local note=PlainText(metadata(toolsName,field.."-"..GetLocale()))
+        if note=="" then note=PlainText(metadata(toolsName,field)) end
+        if note~="" then GameTooltip:AddLine(note,1,.82,.38,true) end
+    end
     GameTooltip:AddLine(open and command and (M:T(status).."  "..command) or M:T(status),.7,.86,.76)
     GameTooltip:Show()
 end
