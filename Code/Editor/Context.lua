@@ -147,7 +147,7 @@ local propertyCategories={
     receivedBuffs={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"receivedBuffItems"},{"receivedBuffSharing"}},
     raidVulnerability={{"scale","skillMonitorHideWithoutTarget","raidBuffsOnlyRaid","skillMonitorDirection"},{"raidVulnerabilitySharedRows"},{"raidVulnerabilitySharing"}},
     commonItems={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"commonItemsSharedRows"},{"commonItemsSharing"}},
-    chatButtons={{"iconSize","buttonSpacing"},{"nameFont","fontSize","fontYOffset","chatTextLabels"},{"customChannelName","pullSeconds"}},
+    chatButtons={{"iconSize","buttonSpacing"},{"nameFont","fontSize","fontYOffset","chatTextLabels","chatShowCommunity"},{"customChannelName","pullSeconds"}},
     targetThreat={{"nameFont","fontSize"},{"threatInstanceOnly"}},
     experienceBar={{"scale","experienceHeight"},{"nameFont","experienceHoverTop"}},
     systemMenu={{"scale","menuIconSpacing","menuAlwaysVisible","menuCornerSocial"}},combatNotices={{"scale"},{"combatNoticeHold","combatSound"}},

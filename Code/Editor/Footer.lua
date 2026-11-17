@@ -14,6 +14,11 @@ local ENTRIES = {
 }
 F.entries=ENTRIES
 
+local communityLinks = {
+    {description="欢迎前往抖音直播，我在这里与大家互动，解答问题，搜索“队长Nc”或", url="https://live.douyin.com/992901018697"},
+    {description="感谢您的支持，请我喝茶，每份捐助都是我继续下去的动力。", url=ENTRIES[3].url},
+}
+
 local function text(zh, en)
     local language = M:EffectiveLanguage()
     local translated=M:T(zh)
@@ -64,7 +69,7 @@ local function highlight(button, active)
     if button.shine then button.shine:SetShown(active) end
 end
 
-local function createLinkPopup(parent, setHighlight)
+local function createLinkPopup(parent, setHighlight, extraLinks)
     local popup = panel(parent)
     popup:SetSize(420, 110)
     popup:SetFrameStrata("TOOLTIP")
@@ -93,33 +98,59 @@ local function createLinkPopup(parent, setHighlight)
     popup.hint = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     popup.hint:SetFont(popupFont, popupFontSize, popupFontFlags)
     popup.hint:SetTextColor(1, 1, 1)
-    popup.note = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    popup.note:SetFont(popupFont, popupFontSize, popupFontFlags)
-    popup.note:SetWidth(396)
-    popup.note:SetJustifyH("LEFT")
-    popup.note:SetTextColor(1, 1, 1)
-    local address = CreateFrame("EditBox", nil, popup, "InputBoxTemplate")
-    popup.address=address
-    address:SetPoint("TOPLEFT", popup.description, "BOTTOMLEFT", 4, -10)
-    address:SetSize(388, 23)
-    address:SetFont(popupFont, popupFontSize, popupFontFlags)
-    address:SetTextColor(1, 1, 1)
-    popup.note:SetPoint("TOPLEFT", address, "BOTTOMLEFT", -4, -6)
-    popup.hint:SetPoint("TOPLEFT", address, "BOTTOMLEFT", -4, -8)
-    address:SetAutoFocus(false)
-    address:SetScript("OnEscapePressed", function() popup:Hide() end)
-    address:SetScript("OnEditFocusGained", function(owner) owner:HighlightText() end)
-    address:SetScript("OnMouseUp", function(owner) popup.pinned = true; owner:SetFocus(); owner:HighlightText() end)
-    address:SetScript("OnTextChanged", function(owner, userInput)
-        if userInput and popup.copyText then owner:SetText(popup.copyText); owner:HighlightText() end
-    end)
+    popup.fontRegions = {popup.title,popup.description,popup.hint}
+    local addresses = {}
+    local function addAddress(label)
+        local box = CreateFrame("EditBox", nil, popup, "InputBoxTemplate")
+        box:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 4, -10)
+        box:SetSize(388, 23)
+        box:SetFont(popupFont, popupFontSize, popupFontFlags)
+        box:SetTextColor(1, 1, 1)
+        box:SetAutoFocus(false)
+        box:SetScript("OnEscapePressed", function() popup:Hide() end)
+        box:SetScript("OnEditFocusGained", function(owner) owner:HighlightText() end)
+        box:SetScript("OnMouseUp", function(owner) popup.pinned = true; owner:SetFocus(); owner:HighlightText() end)
+        box:SetScript("OnTextChanged", function(owner, userInput)
+            if userInput and owner.copyText then owner:SetText(owner.copyText); owner:HighlightText() end
+        end)
+        addresses[#addresses+1] = box
+        popup.fontRegions[#popup.fontRegions+1] = box
+        return box
+    end
+    local address = addAddress(popup.description)
+    popup.address = address
+    local lastAddress = address
+    local extraDescriptions = {}
+    for _,link in ipairs(extraLinks or {}) do
+        local label = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        label:SetPoint("TOPLEFT", lastAddress, "BOTTOMLEFT", -4, -10)
+        label:SetFont(popupFont, popupFontSize, popupFontFlags)
+        label:SetWidth(396)
+        label:SetJustifyH("LEFT")
+        label:SetJustifyV("TOP")
+        label:SetWordWrap(true)
+        label:SetTextColor(1, 1, 1)
+        label:SetText(link.description)
+        extraDescriptions[#extraDescriptions+1] = label
+        popup.fontRegions[#popup.fontRegions+1] = label
+        lastAddress = addAddress(label)
+        lastAddress.copyText = link.url
+        lastAddress:SetText(link.url)
+    end
+    popup.hint:SetPoint("TOPLEFT", lastAddress, "BOTTOMLEFT", -4, -8)
+    if extraLinks then
+        popup.hint:SetTextColor(.62,.82,1)
+        popup.hint:SetWidth(396)
+        popup.hint:SetJustifyH("LEFT")
+        popup.hint:SetWordWrap(true)
+    end
     local close = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", 0, 0)
     close:SetSize(24, 24)
     M.Widgets.StyleButton(close)
     close:SetScript("OnClick", function() popup:Hide() end)
     popup:SetScript("OnHide", function()
-        address:ClearFocus()
+        for _,box in ipairs(addresses) do box:ClearFocus() end
         if popup.owner then setHighlight(popup.owner, false) end
         popup.owner, popup.copyText, popup.pinned = nil, nil, nil
     end)
@@ -141,8 +172,10 @@ local function createLinkPopup(parent, setHighlight)
     end
     popup:SetScript("OnEnter", cancelHide)
     popup:SetScript("OnLeave", scheduleHide)
-    address:SetScript("OnEnter", cancelHide)
-    address:SetScript("OnLeave", scheduleHide)
+    for _,box in ipairs(addresses) do
+        box:SetScript("OnEnter", cancelHide)
+        box:SetScript("OnLeave", scheduleHide)
+    end
 
     local function layoutPopup()
         -- Clear the last entry's height before measuring; otherwise a short
@@ -150,8 +183,13 @@ local function createLinkPopup(parent, setHighlight)
         popup.description:SetHeight(0)
         local descriptionHeight = math.max(popupFontSize, math.ceil(popup.description:GetStringHeight())) + 2
         popup.description:SetHeight(descriptionHeight)
-        local noteHeight = popup.note:IsShown() and math.ceil(popup.note:GetStringHeight()) + 6 or 0
-        local copyHeight = popup.copyText and (10 + 23 + noteHeight + 8 + math.ceil(popup.hint:GetStringHeight())) or 0
+        local copyHeight = popup.copyText and (10 + 23 + 8 + math.ceil(popup.hint:GetStringHeight())) or 0
+        for _,label in ipairs(extraDescriptions) do
+            label:SetHeight(0)
+            local height = math.max(popupFontSize, math.ceil(label:GetStringHeight())) + 2
+            label:SetHeight(height)
+            copyHeight = copyHeight + 10 + height + 10 + 23
+        end
         popup:SetHeight(12 + math.ceil(popup.title:GetStringHeight()) + 8 + descriptionHeight + copyHeight + 12)
     end
 
@@ -163,17 +201,14 @@ local function createLinkPopup(parent, setHighlight)
         popup.owner = owner
         popup.pinned = (focus and (owner.entry.copyText or owner.entry.url) ~= nil) or (sameOwner and popup.pinned) or false
         local entry = owner.entry
-        popup.title:SetText(text(entry.zh, entry.en))
+        popup.title:SetText(extraLinks and "KOOK社区、抖音直播、发电捐助" or text(entry.zh, entry.en))
         popup.description:SetHeight(0)
         popup.description:SetText(description(entry))
         popup.copyText = entry.copyText or entry.url
+        address.copyText = popup.copyText
         address:SetShown(popup.copyText~=nil)
         popup.hint:SetShown(popup.copyText~=nil)
-        popup.note:SetText(entry.note or "")
-        popup.note:SetShown(popup.copyText~=nil and entry.note~=nil)
-        popup.hint:ClearAllPoints()
-        popup.hint:SetPoint("TOPLEFT",popup.note:IsShown() and popup.note or address,"BOTTOMLEFT",popup.note:IsShown() and 0 or -4,-8)
-        popup.hint:SetText(text("按 Ctrl+C 复制", "Press Ctrl+C to copy"))
+        popup.hint:SetText(extraLinks and "您可在“MangUI插件-聊天与功能按钮”中关闭该图标" or text("按 Ctrl+C 复制", "Press Ctrl+C to copy"))
         layoutPopup()
         if not sameOwner then address:ClearFocus() end
         address:SetText(popup.copyText or "")
@@ -192,7 +227,7 @@ local function createLinkPopup(parent, setHighlight)
 end
 
 local function refreshPopupFont(popup)
-    for _,label in ipairs({popup.title,popup.description,popup.hint,popup.note,popup.address}) do
+    for _,label in ipairs(popup.fontRegions) do
         local _,size,flags=label:GetFont()
         label:SetFont(M:InterfaceFontPath(),size,flags or "")
     end
@@ -202,10 +237,8 @@ function F.ChatCommunity()
     local locale=M:ClientLanguage()
     local entry=(locale=="zhCN" or locale=="zhTW") and ENTRIES[1] or ENTRIES[2]
     if entry.id=="kook" then
-        entry.note="抖音直播搜索“队长Nc”"
-        return entry, "Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\CommunityKOOK.tga"
+        return entry, "Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\CommunityDouyin.tga"
     end
-    entry.note=nil
     return entry, "Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\CommunityDiscord.tga"
 end
 
@@ -214,7 +247,8 @@ function F.AttachChatCommunity(button, entry)
     local popup, showPopup, scheduleHide
     local function open(owner,focus)
         if not popup then
-            popup,showPopup,scheduleHide=createLinkPopup(button,function() end)
+            local extraLinks = entry.id == "kook" and communityLinks or nil
+            popup,showPopup,scheduleHide=createLinkPopup(button,function() end,extraLinks)
             popup:SetPoint("BOTTOMRIGHT",button,"TOPRIGHT",0,5)
         end
         refreshPopupFont(popup)

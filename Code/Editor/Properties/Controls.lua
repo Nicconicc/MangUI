@@ -369,6 +369,8 @@ local function BuildProperties(e)
     Field("文字Y偏移","fontYOffset",true,-40,32)
     e.chatTextLabels=W.Check(content,"文本显示",function(enabled)Change("textLabels",enabled)end)
     Row(32,{{e.chatTextLabels,-4,0}},{},"chatTextLabels");y=y-32
+    e.chatShowCommunity=W.Check(content,"显示社区图标",function(enabled)Change("showCommunity",enabled)end)
+    Row(32,{{e.chatShowCommunity,-4,0}},{},"chatShowCommunity");y=y-32
     e.threatInstanceOnly=W.Check(content,"仅在副本中显示",function(enabled)Change("instanceOnly",enabled)end)
     Row(32,{{e.threatInstanceOnly,-4,0}},{},"threatInstanceOnly");y=y-32
     masks.pullSeconds={};Field("倒计时时间（秒）","pullSeconds",true,10,60,1)

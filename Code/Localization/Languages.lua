@@ -10201,4 +10201,13 @@ for locale,labels in pairs({
     local catalog=M.localeTables[locale]
     catalog["装备耐久度"],catalog["全身耐久度"]=labels[1],labels[2]
 end
+local spanishCommunity="Mostrar el icono de comunidad"
+for locale,label in pairs({
+    enUS="Show community icon",deDE="Community-Symbol anzeigen",
+    frFR="Afficher l’icône de la communauté",esES=spanishCommunity,esMX=spanishCommunity,
+    itIT="Mostra l’icona della community",ptBR="Mostrar ícone da comunidade",
+    ruRU="Показывать значок сообщества",koKR="커뮤니티 아이콘 표시",zhTW="顯示社群圖示",
+})do
+    M.localeTables[locale]["显示社区图标"]=label
+end
 M:RebuildLocaleKeys()

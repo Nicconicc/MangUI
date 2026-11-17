@@ -186,7 +186,10 @@ local function RefreshProperties(self)
         end
     end
     if n.compound=="cooldownMonitor" then e.cooldownBlacklist:SetBlacklist(n.blacklist or "") end
-    if n.compound=="chatButtons" then e.chatTextLabels:SetChecked(n.textLabels==true) end
+    if n.compound=="chatButtons" then
+        e.chatTextLabels:SetChecked(n.textLabels==true)
+        e.chatShowCommunity:SetChecked(n.showCommunity~=false)
+    end
     if n.compound=="targetThreat" then e.threatInstanceOnly:SetChecked(n.instanceOnly~=false) end
     if n.compound=="systemMenu" then
         e.menuAlwaysVisible:SetChecked(n.menuAlwaysVisible==true)
@@ -481,7 +484,7 @@ local function RefreshProperties(self)
                 visible=row.key=="scale" or row.key=="minCooldown" or row.key=="maxCooldown" or row.key=="blacklist"
             elseif n.compound=="chatButtons" then
                 visible=row.key=="iconSize" or row.key=="nameFont" or row.key=="fontSize" or row.key=="fontYOffset" or row.key=="buttonSpacing"
-                    or row.key=="pullSeconds" or row.key=="customChannelName" or row.key=="chatTextLabels"
+                    or row.key=="pullSeconds" or row.key=="customChannelName" or row.key=="chatTextLabels" or row.key=="chatShowCommunity"
             elseif n.compound=="bossFrames" then
                 visible=row.key=="scale" or row.key=="combatSound" or (row.key and row.key:find("^boss")~=nil)
             elseif n.compound=="partyFrames" then
