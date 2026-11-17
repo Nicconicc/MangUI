@@ -58,6 +58,8 @@ function M.ReleaseNotes.Attach(window)
     scroll:SetPoint("BOTTOMRIGHT",-32,12)
     body:SetWidth(416)
     local rows={}
+    local headingGap,paragraphGap,lineGap=10,8,3
+    local bulletIndent=16
     local language,renderedCount
     local pinned,away=false,0
     local function Populate()
@@ -68,10 +70,8 @@ function M.ReleaseNotes.Attach(window)
         for i,release in ipairs(releases) do
             local row=rows[i]
             if not row then
-                row={version=W.Label(body,"",13),summary=W.Label(body,"",12)}
+                row={version=W.Label(body,"",13),paragraphs={}}
                 row.version:SetTextColor(1,.82,.32)
-                row.summary:SetWidth(410)
-                row.summary:SetWordWrap(true)
                 rows[i]=row
             end
             local version,date,summary=unpack(release,1,3)
@@ -85,10 +85,32 @@ function M.ReleaseNotes.Attach(window)
             row.version:ClearAllPoints()
             row.version:SetPoint("TOPLEFT",2,-y)
             row.version:SetText(("v%d %s"):format(version,date))
-            row.summary:ClearAllPoints()
-            row.summary:SetPoint("TOPLEFT",row.version,"BOTTOMLEFT",0,-4)
-            row.summary:SetText("· "..(first or ""):gsub("~","\n\n· "))
-            y=y+row.version:GetStringHeight()+row.summary:GetStringHeight()+16
+            y=y+row.version:GetStringHeight()+headingGap
+            local count=0
+            for paragraph in (first or ""):gmatch("[^~]+") do
+                count=count+1
+                local part=row.paragraphs[count]
+                if not part then
+                    part={dot=W.Label(body,"·",12),text=W.Label(body,"",12)}
+                    part.text:SetWidth(410-bulletIndent)
+                    part.text:SetWordWrap(true)
+                    part.text:SetSpacing(lineGap)
+                    row.paragraphs[count]=part
+                end
+                part.dot:ClearAllPoints()
+                part.dot:SetPoint("TOPLEFT",2,-y)
+                part.text:ClearAllPoints()
+                part.text:SetPoint("TOPLEFT",2+bulletIndent,-y)
+                part.text:SetText(paragraph)
+                part.dot:Show()
+                part.text:Show()
+                y=y+part.text:GetStringHeight()+paragraphGap
+            end
+            for j=count+1,#row.paragraphs do
+                row.paragraphs[j].dot:Hide()
+                row.paragraphs[j].text:Hide()
+            end
+            y=y+12
         end
         body:SetHeight(math.max(1,y))
         scroll:SetVerticalScroll(0)
