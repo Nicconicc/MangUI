@@ -346,7 +346,7 @@ local function CreateCategoryButton(panel,category)
     local hover=button:CreateTexture(nil,"HIGHLIGHT")
     hover:SetAllPoints()
     hover:SetColorTexture(.65,.57,.40,.16)
-    local label=M.Widgets.Label(button,category.label,11)
+    local label=M.Widgets.Label(button,category.label,13)
     label:SetPoint("LEFT",9,0);label:SetPoint("RIGHT",-4,0)
     label:SetWordWrap(false)
     label:SetTextColor(unpack(category.color))
@@ -426,13 +426,20 @@ local function CreatePanel(anchor)
     slider:SetScript("OnValueChanged",function(_,value)RefreshRows(panel,value)end)
     panel:EnableMouseWheel(true)
     panel:SetScript("OnMouseWheel",function(_,delta) slider:SetValue(slider:GetValue()-delta*3) end)
+    panel:SetScript("OnEvent",function(self)
+        if not M.Compat.MouseOver(self) and not M.Compat.MouseOver(anchor) then
+            self:Hide()
+        end
+    end)
+    panel:HookScript("OnShow",function(self) self:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
+    panel:HookScript("OnHide",function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
     anchor:HookScript("OnHide",function()panel:Hide()end)
     return panel
 end
 
-function B.ToggleAddonLauncher(anchor)
+function B.ShowAddonLauncher(anchor)
     local panel=anchor.addonLauncher
-    if panel and panel:IsShown() then panel:Hide();return end
+    if panel and panel:IsShown() then return end
     local addons=LoadedAddOns()
     if not panel then panel=CreatePanel(anchor);anchor.addonLauncher=panel end
     GameTooltip:Hide()

@@ -25,7 +25,7 @@ B.definitions={
     {key="durability",text="—",texture="DurabilityAnvil.tga",color={1,1,1},hover=1.15,iconScale=.72},
     {key="bags",text="—",tip="背包（B）",atlas="bag-main",fallback="Interface\\Buttons\\Button-Backpack-Up",
         color={1,.90588242,.34117648},hover=1.15,iconScale=.84},
-    {key="addons",text="AddOns",tip="插件入口",texture="AddonWrench.tga",color={1,.83,.44},hover=1.15,iconScale=.72},
+    {key="addons",text="AddOns",tip="插件入口",texture="AddonWrench.tga",color={1,.83,.44},hover=1.15,iconScale=.82},
 }
 local textLabels={say="说",yell="大喊",guild="公会",party="队伍",raid="团队",battle="战场",
     instance="副本",lfg="世界",roll="骰子",duty="职责",ready="就位",pull="倒计时",addons="插件入口"}
@@ -309,21 +309,21 @@ function B.Build(view,o)
         else
             click:RegisterForClicks("LeftButtonUp","RightButtonUp")
             if def.key=="bags" then o.bagSlot=entry
-            elseif def.key=="addons" then
-                click:SetScript("OnClick",function(self,button)
-                    if not view.preview and button=="LeftButton" then B.ToggleAddonLauncher(self) end
-                end)
-            else click:SetScript("OnClick",function(_,button)if not view.preview then B.Click(def,button,o.module) end end) end
+            elseif def.key~="addons" then click:SetScript("OnClick",function(_,button)if not view.preview then B.Click(def,button,o.module) end end) end
             click:SetScript("OnMouseDown",function()visual:SetAlpha(.5)end)
             click:SetScript("OnMouseUp",function()visual:SetAlpha(1)end)
         end
         click:SetScript("OnEnter",function(self)
-            GameTooltip:SetOwner(self,"ANCHOR_TOP")
-            if isDurability then
-                entry.durabilityHovered=true
-                RefreshDurability(view,o)
+            if def.key=="addons" and not view.preview then
+                B.ShowAddonLauncher(self)
             else
-                GameTooltip:SetText(B.Tooltip(def,o.module),1,1,1);GameTooltip:Show()
+                GameTooltip:SetOwner(self,"ANCHOR_TOP")
+                if isDurability then
+                    entry.durabilityHovered=true
+                    RefreshDurability(view,o)
+                else
+                    GameTooltip:SetText(B.Tooltip(def,o.module),1,1,1);GameTooltip:Show()
+                end
             end
             -- The visual sibling scales without changing the click area.
             visual:SetScale(def.hover or 1.2)
