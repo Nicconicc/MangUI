@@ -173,6 +173,35 @@ function S.GetBlizzardCooldownInfo(entry, id)
     end
 end
 
+local function OpenBlizzardCooldownManager()
+    if InCombatLockdown() then
+        M:Print("战斗中暂不能修改布局，脱战后即可编辑。")
+        return
+    end
+
+    local settings = CooldownViewerSettings
+    if settings and settings.IsVisible then
+        local ok, visible = pcall(function()
+            if not settings:IsVisible() then
+                if settings.ShowUIPanel then
+                    settings:ShowUIPanel()
+                elseif settings.TogglePanel then
+                    settings:TogglePanel()
+                end
+            end
+            return settings:IsVisible()
+        end)
+        if ok and M.Compat.Bool(visible) then
+            local window = M.editor and M.editor.window
+            if window then window:Hide() end
+            return
+        end
+    end
+
+    local openChat = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
+    if openChat then openChat("/cdm") end
+end
+
 function S.AddBlizzardCooldownButton(panel, current, flush)
     if M.Compat.interface ~= 16001 then return end
     local W=M.Widgets
@@ -190,11 +219,7 @@ function S.AddBlizzardCooldownButton(panel, current, flush)
         end
         M:Print("暴雪冷却监控已同步。")
     end)
-    local openButton = W.Button(panel, "打开管理器", 108, function()
-        -- Let the player submit the command through Blizzard's chat input.
-        local openChat = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
-        if openChat then openChat("/cdm") end
-    end)
+    local openButton = W.Button(panel, "打开管理器", 108, OpenBlizzardCooldownManager)
     button:SetPoint("TOPLEFT",panel,"TOPLEFT",0,0)
     openButton:SetPoint("LEFT",button,"RIGHT",8,0)
     check:SetPoint("LEFT",openButton,"RIGHT",12,0)

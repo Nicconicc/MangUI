@@ -93,6 +93,12 @@ local function createLinkPopup(parent, setHighlight)
     popup.hint = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     popup.hint:SetFont(popupFont, popupFontSize, popupFontFlags)
     popup.hint:SetTextColor(1, 1, 1)
+    popup.note = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    popup.note:SetFont(popupFont, popupFontSize, popupFontFlags)
+    popup.note:SetPoint("TOPLEFT", popup.hint, "BOTTOMLEFT", 0, -6)
+    popup.note:SetWidth(396)
+    popup.note:SetJustifyH("LEFT")
+    popup.note:SetTextColor(1, 1, 1)
     local address = CreateFrame("EditBox", nil, popup, "InputBoxTemplate")
     popup.address=address
     address:SetPoint("TOPLEFT", popup.description, "BOTTOMLEFT", 4, -10)
@@ -144,7 +150,8 @@ local function createLinkPopup(parent, setHighlight)
         popup.description:SetHeight(0)
         local descriptionHeight = math.max(popupFontSize, math.ceil(popup.description:GetStringHeight())) + 2
         popup.description:SetHeight(descriptionHeight)
-        local copyHeight = popup.copyText and (10 + 23 + 8 + math.ceil(popup.hint:GetStringHeight())) or 0
+        local noteHeight = popup.note:IsShown() and math.ceil(popup.note:GetStringHeight()) + 6 or 0
+        local copyHeight = popup.copyText and (10 + 23 + noteHeight + 8 + math.ceil(popup.hint:GetStringHeight())) or 0
         popup:SetHeight(12 + math.ceil(popup.title:GetStringHeight()) + 8 + descriptionHeight + copyHeight + 12)
     end
 
@@ -162,6 +169,10 @@ local function createLinkPopup(parent, setHighlight)
         popup.copyText = entry.copyText or entry.url
         address:SetShown(popup.copyText~=nil)
         popup.hint:SetShown(popup.copyText~=nil)
+        popup.note:SetText(entry.note or "")
+        popup.note:SetShown(popup.copyText~=nil and entry.note~=nil)
+        popup.hint:ClearAllPoints()
+        popup.hint:SetPoint("TOPLEFT",popup.note:IsShown() and popup.note or address,"BOTTOMLEFT",popup.note:IsShown() and 0 or -4,-8)
         popup.hint:SetText(text("按 Ctrl+C 复制", "Press Ctrl+C to copy"))
         layoutPopup()
         if not sameOwner then address:ClearFocus() end
@@ -181,7 +192,7 @@ local function createLinkPopup(parent, setHighlight)
 end
 
 local function refreshPopupFont(popup)
-    for _,label in ipairs({popup.title,popup.description,popup.hint,popup.address}) do
+    for _,label in ipairs({popup.title,popup.description,popup.hint,popup.note,popup.address}) do
         local _,size,flags=label:GetFont()
         label:SetFont(M:InterfaceFontPath(),size,flags or "")
     end
@@ -190,7 +201,12 @@ end
 function F.ChatCommunity()
     local locale=M:ClientLanguage()
     local entry=(locale=="zhCN" or locale=="zhTW") and ENTRIES[1] or ENTRIES[2]
-    return entry, ROOT .. entry.activeTexture
+    if entry.id=="kook" then
+        entry.note="抖音直播搜索“队长Nc”"
+        return entry, "Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\CommunityKOOK.tga"
+    end
+    entry.note=nil
+    return entry, "Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\CommunityDiscord.tga"
 end
 
 function F.AttachChatCommunity(button, entry)
