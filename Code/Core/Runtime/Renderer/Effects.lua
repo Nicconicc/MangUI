@@ -66,6 +66,11 @@ local function StopMainHealthShake(view)
     R.ResetMainHealthShakeOffset(view)
 end
 
+local function MainShakeEnabled(view)
+    local group=view.byID and view.byID.mainComposite
+    return not group or group.shakeEnabled~=false
+end
+
 local function ShakeWave(age,duration,amplitude,decay)
     if age<=0 or age>=duration then return 0,0 end
     local progress=age/duration
@@ -77,6 +82,10 @@ end
 function R.MainHealthShakeOffset(view,now)
     local state=view.mainHealthShake
     if view.preview or view.encounterActive or not state or not state.started then return 0,0,0,0 end
+    if not MainShakeEnabled(view) then
+        StopMainHealthShake(view)
+        return 0,0,0,0
+    end
     local age=now-state.started
     if age>=PORTRAIT_SHAKE_DELAY+PORTRAIT_SHAKE_DURATION then
         state.started=nil
@@ -92,6 +101,10 @@ end
 
 local function SampleMainHealthShake(view,s)
     if view.preview or view.encounterActive then return end
+    if not MainShakeEnabled(view) then
+        if view.mainHealthShake then StopMainHealthShake(view);view.mainHealthShake=nil end
+        return
+    end
     local state=view.mainHealthShake
     if not state then state={};view.mainHealthShake=state end
     local epoch=view.healthChangeUpdates and view.healthChangeUpdates.target

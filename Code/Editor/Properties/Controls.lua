@@ -442,7 +442,7 @@ local function BuildProperties(e)
     e.mainScaleHeader=CreateFrame("Frame",nil,e.right)
     e.mainScaleHeader:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,-38)
     e.mainScaleHeader:SetPoint("TOPRIGHT",e.right,"TOPRIGHT",-30,-38)
-    e.mainScaleHeader:SetHeight(51)
+    e.mainScaleHeader:SetHeight(92)
     e.mainScaleHeader:Hide()
     e.mainScaleLabel=W.Label(e.mainScaleHeader,"缩放",12)
     e.mainScaleLabel:SetTextColor(1,1,1)
@@ -458,6 +458,17 @@ local function BuildProperties(e)
         if math.abs((group.scale or 1)-scale)<.0001 then return end
         M:SetMainCompositeScaleFromCenter(group,scale);M:Commit()
     end)
+    e.mainShakeEnabled=W.Check(e.mainScaleHeader,"震动效果",function(enabled)
+        local group=M.byID.mainComposite
+        if not group then return end
+        if not M:CanEdit() then
+            e.mainShakeEnabled:SetChecked(group.shakeEnabled~=false)
+            return
+        end
+        group.shakeEnabled=not not enabled
+        M:Commit()
+    end)
+    e.mainShakeEnabled:SetPoint("TOPLEFT",e.mainScaleHeader,"TOPLEFT",-2,-64)
     e.overallScaleSlider,e.overallScaleLabel=ScaleSlider("缩放","overallScale",function(group,scale)
         if group.id=="mainComposite" then M:SetMainCompositeScaleFromCenter(group,M:ScaleInputValue(group,scale))
         elseif group.id=="wabc757f81ee" then M:SetTargetProfileScaleFromCenter(group,M:ScaleInputValue(group,scale))

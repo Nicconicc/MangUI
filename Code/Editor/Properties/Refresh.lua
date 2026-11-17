@@ -70,6 +70,7 @@ local function RefreshProperties(self)
         if mainRoot then
             e.mainScaleLabel:SetText("缩放")
             e.mainScaleSlider.updating=true;e.mainScaleSlider:SetValue(M.Clamp(M:ScaleDisplayValue(mainRoot),.1,1.5));e.mainScaleSlider.updating=false
+            e.mainShakeEnabled:SetChecked(mainRoot.shakeEnabled~=false)
         end
     end
     if n and n.noProperties then

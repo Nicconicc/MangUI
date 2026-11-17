@@ -10224,4 +10224,12 @@ for locale,label in pairs({
 })do
     M.localeTables[locale]["仅在窗口打开时估算 MangUI 主要更新和事件处理的耗时。"]=label
 end
+local spanishShake="Efecto de vibración"
+for locale,label in pairs({
+    enUS="Shake effect",deDE="Wackeleffekt",frFR="Effet de secousse",
+    esES=spanishShake,esMX=spanishShake,itIT="Effetto vibrazione",
+    ptBR="Efeito de tremor",ruRU="Эффект встряхивания",koKR="흔들림 효과",zhTW="震動效果",
+})do
+    M.localeTables[locale]["震动效果"]=label
+end
 M:RebuildLocaleKeys()
