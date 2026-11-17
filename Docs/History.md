@@ -1,3 +1,7 @@
+# MangUI 873 — 2026/11/17 0841（北京时间）
+
+- 插件入口换用金环扳手图标，仅在安装 MangUITools 时显示。插件列表新增逐项悬浮说明，并按模块分类排列。
+
 # MangUI 872 — 2026/11/17 0831（北京时间）
 
 - 聊天与功能按钮新增插件入口，可查看 Bartender4、Platynator、NiceDamage、Baganator 和 DynamicCam 的简介及加载状态，并打开可用的插件设置。

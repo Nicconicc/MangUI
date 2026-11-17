@@ -25,9 +25,18 @@ B.definitions={
     {key="durability",text="—",texture="DurabilityAnvil.tga",color={1,1,1},hover=1.15,iconScale=.72},
     {key="bags",text="—",tip="背包（B）",atlas="bag-main",fallback="Interface\\Buttons\\Button-Backpack-Up",
         color={1,.90588242,.34117648},hover=1.15,iconScale=.84},
-    {key="addons",text="AddOns",tip="插件入口",color={1,.83,.44},hover=1.15,iconScale=.80,
-        icon=[[Interface\AddOns\MangUI\Assets\SystemMenu\SystemMenu_systemMenuButtons_button_collections_emblem_2.blp]]},
+    {key="addons",text="AddOns",tip="插件入口",texture="AddonWrench.tga",color={1,.83,.44},hover=1.15,iconScale=.84},
 }
+local toolsInstalled
+local function ButtonCount()
+    if toolsInstalled==nil then
+        local getInfo=(C_AddOns and C_AddOns.GetAddOnInfo) or GetAddOnInfo
+        local name=getInfo and getInfo("MangUITools")
+        toolsInstalled=type(name)=="string" and name:lower()=="manguitools"
+    end
+    -- The optional launcher is the last entry in the row.
+    return #B.definitions-(toolsInstalled and 0 or 1)
+end
 local textLabels={say="说",yell="大喊",guild="公会",party="队伍",raid="团队",battle="战场",
     instance="副本",lfg="世界",roll="骰子",duty="职责",ready="就位",pull="倒计时",addons="插件入口"}
 function B.LabelText(def,group)
@@ -60,7 +69,7 @@ function B.SyncNodes(design)
     group.font=group.font or "Myriad"
     group.fontYOffset=M.Clamp(group.fontYOffset or 0,-40,group.iconSize/2)
     if scale~=1 then group.x=(group.x or 0)*scale;group.y=(group.y or 0)*scale;group.scale=1 end
-    row.width=group.iconSize+(#B.definitions-1)*(group.iconSize+group.buttonSpacing)
+    row.width=group.iconSize+(ButtonCount()-1)*(group.iconSize+group.buttonSpacing)
     row.height=group.iconSize+group.fontSize*2+8+math.abs(group.fontYOffset)*2
     row.y=group.fontSize+4
 end
@@ -283,15 +292,15 @@ local function RefreshDurability(view,o)
 end
 function B.Build(view,o)
     o.chatButtons={}
-    for index,def in ipairs(B.definitions) do
+    for index=1,ButtonCount() do
+        local def=B.definitions[index]
         local slot=CreateFrame("Frame",nil,o.frame);slot:SetSize(64,64)
         slot:SetPoint("CENTER",o.frame,"CENTER",(index-7)*44,-15);slot:SetFrameLevel(o.frame:GetFrameLevel()+index)
         local visual=CreateFrame("Frame",nil,slot);visual:SetSize(64,64);visual:SetPoint("CENTER");visual:EnableMouse(false)
         local texture=visual:CreateTexture(nil,"ARTWORK")
         if def.iconScale then texture:SetPoint("CENTER",visual,"CENTER")
         else texture:SetAllPoints() end
-        if def.icon then texture:SetTexture(def.icon)
-        elseif def.texture then texture:SetTexture(M:TexturePath(o.spec,ART..def.texture,"button_"..def.key))
+        if def.texture then texture:SetTexture(M:TexturePath(o.spec,ART..def.texture,"button_"..def.key))
         elseif C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(def.atlas) then texture:SetAtlas(def.atlas)
         else texture:SetTexture(def.fallback) end
         texture:SetBlendMode("BLEND");texture:SetRotation(math.rad(def.rotation or 0))

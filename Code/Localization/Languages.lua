@@ -10085,6 +10085,15 @@ for locale,label in pairs(chatInviteLabels) do
     M.localeTables[locale]["Alt+左键点击聊天角色名邀请组队"]=label
 end
 M.localeTables.zhTW["插件入口"]="插件入口"
+M.localeTables.zhTW["背包模块"]="背包模組"
+M.localeTables.zhTW["动作条模块"]="快捷列模組"
+M.localeTables.zhTW["副本及战斗模块"]="副本及戰鬥模組"
+M.localeTables.zhTW["辅助功能模块"]="輔助功能模組"
+M.localeTables.zhTW["适合重新排列动作条，并为不同情境设置显示规则。"]="適合重新排列快捷列，並設定不同情境下的顯示規則。"
+M.localeTables.zhTW["可以把敌我姓名板做成不同风格，并突出重要光环。"]="可以分別設定敵我名條樣式，並凸顯重要光環。"
+M.localeTables.zhTW["装有设置界面的版本还可以调整字体大小与数字的显示方式。"]="具備設定介面的版本還可調整字型大小與數字的顯示方式。"
+M.localeTables.zhTW["适合用分类和搜索快速找到道具，也能在单一背包和分类布局间切换。"]="可用分類和搜尋快速找到物品，也能在單一背包與分類配置間切換。"
+M.localeTables.zhTW["可以为探索、战斗或进入载具分别设置镜头。"]="可以分別設定探索、戰鬥或進入載具時的鏡頭。"
 M.localeTables.zhTW["未安装"]="未安裝"
 M.localeTables.zhTW["未加载"]="未載入"
 M.localeTables.zhTW["无设置入口"]="無設定入口"

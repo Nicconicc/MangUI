@@ -1,6 +1,15 @@
 local _,M=...
 local english=M.localeTables.enUS
 english["插件入口"]="AddOn Launcher"
+english["背包模块"]="Bags"
+english["动作条模块"]="Action Bars"
+english["副本及战斗模块"]="Dungeons & Combat"
+english["辅助功能模块"]="Utility"
+english["适合重新排列动作条，并为不同情境设置显示规则。"]="Rearrange action bars and set when they appear."
+english["可以把敌我姓名板做成不同风格，并突出重要光环。"]="Style friendly and enemy nameplates separately and highlight key auras."
+english["装有设置界面的版本还可以调整字体大小与数字的显示方式。"]="Versions with a settings panel may also let you adjust number size and appearance."
+english["适合用分类和搜索快速找到道具，也能在单一背包和分类布局间切换。"]="Use categories and search to find items, or switch to a single bag view."
+english["可以为探索、战斗或进入载具分别设置镜头。"]="Set up different camera behavior for exploration, combat, and vehicles."
 english["未安装"]="Not installed"
 english["未加载"]="Not loaded"
 english["无设置入口"]="No settings"
