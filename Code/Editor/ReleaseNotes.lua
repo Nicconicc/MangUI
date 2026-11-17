@@ -70,8 +70,9 @@ function M.ReleaseNotes.Attach(window)
         for i,release in ipairs(releases) do
             local row=rows[i]
             if not row then
-                row={version=W.Label(body,"",13),paragraphs={}}
+                row={version=W.Label(body,"",13),date=W.Label(body,"",13),paragraphs={}}
                 row.version:SetTextColor(1,.82,.32)
+                row.date:SetTextColor(.68,.68,.68)
                 rows[i]=row
             end
             local version,date,summary=unpack(release,1,3)
@@ -84,8 +85,11 @@ function M.ReleaseNotes.Attach(window)
             end
             row.version:ClearAllPoints()
             row.version:SetPoint("TOPLEFT",2,-y)
-            row.version:SetText(("v%d %s"):format(version,date))
-            y=y+row.version:GetStringHeight()+headingGap
+            row.version:SetText(("v%d"):format(version))
+            row.date:ClearAllPoints()
+            row.date:SetPoint("LEFT",row.version,"RIGHT",6,0)
+            row.date:SetText(date)
+            y=y+math.max(row.version:GetStringHeight(),row.date:GetStringHeight())+headingGap
             local count=0
             for paragraph in (first or ""):gmatch("[^~]+") do
                 count=count+1
