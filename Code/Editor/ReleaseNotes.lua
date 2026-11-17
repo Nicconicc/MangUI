@@ -140,7 +140,7 @@ function M.ReleaseNotes.Attach(window)
     end)
     panel:SetScript("OnUpdate",function(self,elapsed)
         Populate()
-        if pinned or MouseIsOver(button) or MouseIsOver(self) then away=0;return end
+        if pinned or button:IsMouseOver() or self:IsMouseOver() then away=0;return end
         away=away+elapsed
         if away>.35 then Close() end
     end)
