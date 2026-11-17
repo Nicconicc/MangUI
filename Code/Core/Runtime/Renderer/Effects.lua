@@ -55,7 +55,8 @@ end
 
 local SHAKE_THRESHOLD,SHAKE_INTERVAL,SHAKE_DURATION=.004,.22,.21
 local RESTRICTED_SHAKE_INTERVAL,RESTRICTED_SHAKE_AMPLITUDE=.32,2.4
-local PORTRAIT_SHAKE_DELAY,PORTRAIT_SHAKE_DURATION=.024,.25
+local PORTRAIT_SHAKE_DELAY,PORTRAIT_SHAKE_DURATION=.025,.26
+local PORTRAIT_SHAKE_STRENGTH,PORTRAIT_SHAKE_DECAY=.85,1.2
 
 local function StopMainHealthShake(view)
     local state=view.mainHealthShake
@@ -82,9 +83,10 @@ function R.MainHealthShakeOffset(view,now)
         return 0,0,0,0
     end
     local x,y=ShakeWave(age,SHAKE_DURATION,state.amplitude,2)
-    -- The portrait follows the initial impulse, then trails it with a softer
-    -- wave that takes slightly longer to settle.
-    local lagX,lagY=ShakeWave(age-PORTRAIT_SHAKE_DELAY,PORTRAIT_SHAKE_DURATION,state.amplitude*.5,1.5)
+    -- The delayed wave gives the portrait a clear follow-through as the
+    -- underlying frame settles.
+    local lagX,lagY=ShakeWave(age-PORTRAIT_SHAKE_DELAY,PORTRAIT_SHAKE_DURATION,
+        state.amplitude*PORTRAIT_SHAKE_STRENGTH,PORTRAIT_SHAKE_DECAY)
     return x,y,x*.72+lagX,y*.72+lagY
 end
 
