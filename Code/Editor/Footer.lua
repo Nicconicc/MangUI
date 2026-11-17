@@ -76,10 +76,12 @@ local function createLinkPopup(parent, setHighlight, extraLinks)
     popup:SetClampedToScreen(true)
     popup:EnableMouse(true)
     popup:Hide()
-    popup:EnableKeyboard(true);popup:SetPropagateKeyboardInput(true)
+    local keyboardEnabled = false
     popup:SetScript("OnKeyDown",function(owner,key)
-        owner:SetPropagateKeyboardInput(key~="ESCAPE")
-        if key=="ESCAPE"then owner:Hide()end
+        if key == "ESCAPE" and not InCombatLockdown() then
+            M.Widgets.SetEditorKeyboard(owner, nil, false)
+            owner:Hide()
+        end
     end)
     popup.title = popup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     popup.title:SetPoint("TOPLEFT", 12, -12)
@@ -150,6 +152,10 @@ local function createLinkPopup(parent, setHighlight, extraLinks)
     M.Widgets.StyleButton(close)
     close:SetScript("OnClick", function() popup:Hide() end)
     popup:SetScript("OnHide", function()
+        if keyboardEnabled then
+            M.Widgets.SetEditorKeyboard(popup, false)
+            keyboardEnabled = false
+        end
         for _,box in ipairs(addresses) do box:ClearFocus() end
         if popup.owner then setHighlight(popup.owner, false) end
         popup.owner, popup.copyText, popup.pinned = nil, nil, nil
@@ -212,6 +218,9 @@ local function createLinkPopup(parent, setHighlight, extraLinks)
         layoutPopup()
         if not sameOwner then address:ClearFocus() end
         address:SetText(popup.copyText or "")
+        if not keyboardEnabled and not InCombatLockdown() then
+            keyboardEnabled = M.Widgets.SetEditorKeyboard(popup, true, true)
+        end
         popup:Show()
         C_Timer.After(0, function()
             if popup:IsShown() and popup.owner == owner then layoutPopup() end
