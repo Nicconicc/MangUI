@@ -85,6 +85,7 @@ local function ScanAddOns()
     local count,info,metadata=AddOnAPI("GetNumAddOns"),AddOnAPI("GetAddOnInfo"),AddOnAPI("GetAddOnMetadata")
     local result={}
     if not count or not info then return result end
+    local installed={}
     for i=1,count() do
         local name,title,notes=info(i)
         if type(name)=="string" and name~="" then
@@ -98,14 +99,30 @@ local function ScanAddOns()
             local icon=metadata and PlainText(metadata(name,"IconTexture")) or ""
             icon=icon:gsub("%s*%[AllowLoadGameType[^%]]*%]%s*$","")
             local atlas=metadata and PlainText(metadata(name,"IconAtlas")) or ""
+            installed[name]=true
             result[#result+1]={
                 name=name,key=key,title=title,sortTitle=title:lower(),notes=notes,known=entry,
+                group=metadata and PlainText(metadata(i,"Group")) or "",
                 icon=icon~="" and (tonumber(icon) or icon) or (entry and entry.icon) or icons.."INV_Misc_Gear_01",
                 atlas=icon=="" and atlas~="" and atlas or nil,
                 category=Category(name,key,metadata),
             }
         end
     end
+    local mainAddOns={}
+    for _,addon in ipairs(result) do
+        local parent=addon.group
+        if parent=="" or parent==addon.name then
+            -- CardMaster's bundled data modules may ship without Group metadata.
+            if addon.key=="cardmastercollection" or addon.key:match("^cardmaster_.+series$") then
+                parent="CardMaster"
+            end
+        end
+        if parent==addon.name or not installed[parent] then
+            mainAddOns[#mainAddOns+1]=addon
+        end
+    end
+    result=mainAddOns
     table.sort(result,function(a,b)
         if a.category.order~=b.category.order then return a.category.order<b.category.order end
         if a.sortTitle~=b.sortTitle then return a.sortTitle<b.sortTitle end
