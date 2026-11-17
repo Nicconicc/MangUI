@@ -177,6 +177,10 @@ local function IndexSettings()
     return routes
 end
 
+local function OpenMoveAny(button)
+    button:GetScript("OnClick")(button,"LeftButton")
+end
+
 local function BundleRoute(addon)
     local metadata=AddOnAPI("GetAddOnMetadata")
     if not toolsName or not metadata then return end
@@ -186,6 +190,13 @@ local function BundleRoute(addon)
     end
     local command,args=value:match("^(/[%w_%-]+)%s*(.*)$")
     if not command then return end
+    -- D4Lib handles /move in chat edit box hooks instead of SlashCmdList.
+    if addon.key=="moveany" and command:lower()=="/move" then
+        local button=_G.MinimapButton_D4Lib_LibDBIcon_MoveAny
+        if button and type(button:GetScript("OnClick"))=="function" then
+            return OpenMoveAny,button,value
+        end
+    end
     local upper=command:upper()
     local handler=hash_SlashCmdList and hash_SlashCmdList[upper]
     if type(handler)=="function" then return handler,args,value end
