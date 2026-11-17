@@ -321,7 +321,18 @@ end
 local allCategory={label="全部",color={1,.82,.38}}
 
 local function SelectCategory(panel,category)
+    panel.selectedCategory=category
     local addons=panel.byCategory[category]
+    local query=panel.search:GetText():match("^%s*(.-)%s*$"):lower()
+    if query~="" then
+        local matches={}
+        for _,addon in ipairs(addons) do
+            if addon.sortTitle:sub(1,#query)==query then
+                matches[#matches+1]=addon
+            end
+        end
+        addons=matches
+    end
     panel.addons=addons
     for _,button in ipairs(panel.categories) do
         button.selected:SetShown(button.category==category)
@@ -403,6 +414,17 @@ local function CreatePanel(anchor)
     line:SetHeight(1);line:SetColorTexture(.72,.56,.25,.5)
     panel.count=W.Label(panel,"",11);panel.count:SetPoint("RIGHT",close,"LEFT",-8,0)
     panel.count:SetTextColor(.73,.78,.85)
+    local search=W.Edit(panel,240)
+    search:SetPoint("TOPLEFT",157,-9)
+    panel.search=search
+    local placeholder=W.Label(search,SEARCH or "搜索",11)
+    placeholder:SetPoint("LEFT",6,0)
+    placeholder:SetTextColor(.55,.60,.67)
+    search:SetScript("OnTextChanged",function(self,userInput)
+        placeholder:SetShown(self:GetText()=="")
+        if userInput and panel.selectedCategory then SelectCategory(panel,panel.selectedCategory) end
+    end)
+    search:SetScript("OnEnterPressed",function(self) self:ClearFocus() end)
     panel.empty=W.Label(panel,"当前没有可显示的插件。",13)
     panel.empty:SetPoint("TOPLEFT",157,-57)
     local divider=panel:CreateTexture(nil,"ARTWORK")
@@ -432,7 +454,10 @@ local function CreatePanel(anchor)
         end
     end)
     panel:HookScript("OnShow",function(self) self:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
-    panel:HookScript("OnHide",function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
+    panel:HookScript("OnHide",function(self)
+        self:UnregisterEvent("GLOBAL_MOUSE_DOWN")
+        self.search:ClearFocus()
+    end)
     anchor:HookScript("OnHide",function()panel:Hide()end)
     return panel
 end
@@ -444,6 +469,7 @@ function B.ShowAddonLauncher(anchor)
     if not panel then panel=CreatePanel(anchor);anchor.addonLauncher=panel end
     GameTooltip:Hide()
     panel.routes=IndexSettings()
+    panel.search:SetText("")
     LayoutCategories(panel,addons)
     panel:ClearAllPoints();panel:SetPoint("BOTTOMLEFT",anchor,"TOPLEFT",-9,14)
     panel:Show()
