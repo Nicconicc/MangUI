@@ -67,6 +67,7 @@ function M:OpenDesigner()
     if nativeClose then nativeClose:SetScript("OnClick",function()f:Hide()end) end
     UISpecialFrames=UISpecialFrames or {};table.insert(UISpecialFrames,"MangUIUFOptions")
     M.FooterLinks.Attach(e)
+    M.ReleaseNotes.Attach(f)
     e.status=W.Label(f,"",11);e.status:SetPoint("BOTTOMLEFT",18,18);e.status:SetWidth(680);e.status:SetTextColor(.7,.75,.8)
     M.CPUUsage.Attach(e)
     e.designTab=W.Tab(f,"设计",function()if M.general then M.general:Hide()end;e.designTab:SetActive(true);e.generalTab:SetActive(false);M:RefreshEditor()end);e.designTab:SetPoint("TOPLEFT",72,-36);e.designTab:SetActive(true)
