@@ -41,6 +41,8 @@ local known={
     platynator={command="/platy",handler="Platynator",icon=icons.."Ability_Warrior_Challenge"},
     nicedamage={command="/nd",handler="ACECONSOLE_ND",icon=icons.."INV_Knife_1H_Rogue_C_01"},
     dynamiccam={command="/dc",handler="ACECONSOLE_DC",icon=icons.."INV_Misc_Spyglass_03"},
+    hidingbar={command="/hidingbar",handler="HIDDINGBAR"},
+    idtip={command="/idtip",handler="IDTIP"},
     mangui={command="/mui",handler="MANGUIUF"},
     cardmaster={command="/cm",handler="CARDMASTER"},
     glass={command="/glass",handler="ACECONSOLE_GLASS"},
@@ -213,7 +215,11 @@ local function State(addon,routes)
     if entry and entry.command then
         local handler=SlashCmdList and SlashCmdList[entry.handler]
         if type(handler)~="function" and hash_SlashCmdList then handler=hash_SlashCmdList[entry.command:upper()] end
-        if type(handler)=="function" then return "打开设置",handler,entry.args or "",entry.command end
+        if type(handler)=="function" then
+            local arg=entry.args or ""
+            local command=arg~="" and entry.command.." "..arg or entry.command
+            return "打开设置",handler,arg,command
+        end
     end
     local route=routes[addon.key] or routes[addon.sortTitle]
     if route then return "打开设置",route.open,route.arg end
@@ -232,7 +238,8 @@ local function Description(addon)
     if bundled then return bundled end
     return addon.notes~="" and addon.notes or M:T("插件未提供介绍。")
 end
-local function ShowAddonTip(owner,panel,addon)
+local authorTooltip
+local function ShowAddonTip(owner,addon)
     local metadata=AddOnAPI("GetAddOnMetadata")
     if not toolsName or not metadata then return end
     local field="X-MangUI-Tip-"..addon.name
@@ -240,17 +247,23 @@ local function ShowAddonTip(owner,panel,addon)
     if note=="" then note=PlainText(metadata(toolsName,field)) end
     if note=="" then return end
 
-    local title=PlainText(metadata(toolsName,"X-MangUI-Tip-Title"))
-    local status,open,_,command=State(addon,panel.routes)
-    GameTooltip:SetOwner(owner,"ANCHOR_RIGHT")
-    GameTooltip:SetText(title~="" and title or addon.title,1,.82,.38)
-    if title~="" then GameTooltip:AddLine(addon.title,.7,.76,.82,true) end
-    GameTooltip:AddLine(note,.9,.93,.97,true)
-    GameTooltip:AddLine(open and command and (M:T(status).."  "..command) or M:T(status),.7,.86,.76)
-    GameTooltip:Show()
+    local titleKey="X-MangUI-Tip-Title"
+    local title=PlainText(metadata(toolsName,titleKey.."-"..M:EffectiveLanguage()))
+    if title=="" then title=PlainText(metadata(toolsName,titleKey)) end
+
+    if not authorTooltip then
+        authorTooltip=CreateFrame("GameTooltip","MangUIAddonAuthorTooltip",UIParent,"GameTooltipTemplate")
+    end
+    authorTooltip:SetOwner(owner,"ANCHOR_RIGHT")
+    authorTooltip:SetText(title~="" and title or addon.title,1,.82,.38)
+    if title~="" then authorTooltip:AddLine(addon.title,.7,.76,.82,true) end
+    authorTooltip:AddLine(note,.9,.93,.97,true)
+    local body=_G["MangUIAddonAuthorTooltipTextLeft"..authorTooltip:NumLines()]
+    if body then body:SetSpacing(3) end
+    authorTooltip:Show()
 end
 local function HideAddonTip(owner)
-    if GameTooltip:GetOwner()==owner then GameTooltip:Hide() end
+    if authorTooltip and authorTooltip:GetOwner()==owner then authorTooltip:Hide() end
 end
 
 local function CreateRow(panel,index)
@@ -263,8 +276,12 @@ local function CreateRow(panel,index)
     row.logo=row:CreateTexture(nil,"ARTWORK")
     row.logo:SetSize(34,34);row.logo:SetPoint("LEFT",8,0)
     row.nameLabel=W.Label(row,"",14)
-    row.nameLabel:SetPoint("TOPLEFT",50,-6);row.nameLabel:SetPoint("RIGHT",-103,0)
+    row.nameLabel:SetPoint("TOPLEFT",50,-6)
     row.nameLabel:SetWordWrap(false);row.nameLabel:SetTextColor(.96,.88,.68)
+    row.command=W.Label(row,"",11)
+    row.command:SetPoint("LEFT",row.nameLabel,"RIGHT",7,0)
+    row.command:SetTextColor(.63,.64,.66)
+    row.command:SetWordWrap(false)
     row.description=W.Label(row,"",11)
     row.description:SetPoint("BOTTOMLEFT",50,7)
     row.description:SetPoint("RIGHT",row,"RIGHT",-103,0)
@@ -279,7 +296,7 @@ local function CreateRow(panel,index)
     local function OnEnter(owner)
         if not row.addon then return end
         backdrop:SetColorTexture(.34,.47,.61,.35)
-        ShowAddonTip(owner,panel,row.addon)
+        ShowAddonTip(owner,row.addon)
     end
     local function OnLeave(owner)
         backdrop:SetColorTexture(.25,.33,.43,index%2==0 and .23 or .13)
@@ -309,7 +326,14 @@ local function RefreshRows(panel,index)
             else row.logo:SetTexture(addon.icon) end
             row.nameLabel:SetText(addon.title)
             row.description:SetText(Description(addon))
-            local status,open=State(addon,panel.routes)
+            local status,open,_,command=State(addon,panel.routes)
+            row.command:SetText(command or "")
+            row.command:SetShown(command~=nil)
+            local nameWidth=row.nameLabel.GetUnboundedStringWidth and row.nameLabel:GetUnboundedStringWidth()
+                or row.nameLabel:GetStringWidth()
+            local reserved=command and row.command:GetStringWidth()+7 or 0
+            local available=panel:GetWidth()-336
+            row.nameLabel:SetWidth(math.max(1,math.min(math.ceil(nameWidth),available-reserved)))
             row.action:SetText(status)
             if open then row.action:Enable() else row.action:Disable() end
             row.ResetHighlight(row)
