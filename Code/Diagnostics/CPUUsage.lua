@@ -1,6 +1,8 @@
 local _,M=...
 local U={};M.CPUUsage=U
 local profilerDisabledBySetting
+local activeEstimate
+local clock=debugprofilestop
 function U.ApplyLoginSetting()
     if profilerDisabledBySetting or not M.db or not M.db.disableAddOnProfiler then return end
     local profiler=C_AddOnProfiler
@@ -18,45 +20,48 @@ local function Number(value)
     return value
 end
 function U.Reset(sample)
-    sample.total=nil;sample.time=nil;sample.percent=nil;sample.elapsed=0;sample.reason=nil
+    sample.percent=nil;sample.elapsed=0;sample.usedMs=0;sample.reason=nil
 end
-function U.Sample(sample)
-    if profilerDisabledBySetting then
-        U.Reset(sample);sample.reason="disabledBySetting";return
-    end
+local function NativePercent()
+    if profilerDisabledBySetting or (M.db and M.db.disableAddOnProfiler) then return end
     local profiler=C_AddOnProfiler;local metric=Enum and Enum.AddOnProfilerMetric and Enum.AddOnProfilerMetric.RecentAverageTime
     if profiler and type(profiler.GetAddOnMetric)=="function" and metric~=nil
         and (type(profiler.IsEnabled)~="function" or Call(profiler.IsEnabled)==true) then
         local ms=Number(Call(profiler.GetAddOnMetric,M.name or "MangUI",metric))
         local fps=Number(Call(GetFramerate))
         if ms and fps and fps>0 then
-            sample.total=nil;sample.time=nil;sample.reason="modern"
-            sample.percent=M.Clamp(ms*fps/10,0,100);return sample.percent
+            return M.Clamp(ms*fps/10,0,100)
         end
     end
-    local cvar=Call(GetCVar or (C_CVar and C_CVar.GetCVar),"scriptProfile")
-    local active=cvar=="1" or cvar==1 or cvar==true
-    local update=UpdateAddOnCPUUsage or (C_AddOns and C_AddOns.UpdateAddOnCPUUsage)
-    local get=GetAddOnCPUUsage or (C_AddOns and C_AddOns.GetAddOnCPUUsage)
-    if not active then
-        U.Reset(sample);sample.reason="disabled";return
+end
+function U.Begin()
+    if activeEstimate then return activeEstimate,clock() end
+end
+function U.Finish(sample,started)
+    if sample and sample==activeEstimate then
+        sample.usedMs=sample.usedMs+math.max(0,clock()-started)
     end
-    if type(update)~="function" or type(get)~="function" then
-        U.Reset(sample);sample.reason="unavailable";return
+end
+function U.Sample(sample)
+    local native=NativePercent()
+    if native then
+        activeEstimate=nil;sample.percent=native;sample.reason="modern"
+    elseif type(clock)=="function" then
+        if activeEstimate==sample and sample.elapsed>=1 then
+            sample.percent=M.Clamp(sample.usedMs/(sample.elapsed*10),0,100)
+        else
+            sample.percent=nil
+        end
+        activeEstimate=sample;sample.reason="estimate"
+    else
+        activeEstimate=nil;sample.percent=nil;sample.reason="unavailable"
     end
-    local ok=pcall(update)
-    local total=ok and Number(Call(get,M.name or "MangUI"))
-    local now=Number(Call(GetTime))
-    if not total or not now then U.Reset(sample);sample.reason="unavailable";return end
-    local elapsed=sample.time and now-sample.time
-    local used=sample.total and total-sample.total
-    sample.total=total;sample.time=now;sample.reason="legacy"
-    -- Both API counter resets and reopening the window start a fresh interval.
-    if not elapsed or elapsed<=0 or not used or used<0 then sample.percent=nil;return end
-    sample.percent=M.Clamp(used/(elapsed*10),0,100);return sample.percent
+    sample.elapsed=0;sample.usedMs=0
 end
 function U.Text(sample)
-    return M:T("CPU使用率").." : |cffffffff"..(sample.percent and string.format("%.2f%%",sample.percent) or "--%").."|r"
+    local value=sample.percent and string.format("%.2f%%",sample.percent) or "--%"
+    if sample.percent and sample.reason=="estimate" then value="≈"..value end
+    return M:T("CPU使用率").." : |cffffffff"..value.."|r"
 end
 function U.Update(editor)
     U.Sample(editor.cpuSample);editor.status:SetText(U.Text(editor.cpuSample))
@@ -71,28 +76,32 @@ function U.Attach(editor)
     editor.status:ClearAllPoints();editor.status:SetPoint("LEFT",driver,"LEFT",23,0)
     editor.status:SetJustifyV("MIDDLE")
     driver:EnableMouse(true)
-    driver:SetScript("OnShow",function()U.Reset(editor.cpuSample);U.Update(editor)end)
-    driver:SetScript("OnHide",function()U.Reset(editor.cpuSample)end)
+    driver:SetScript("OnShow",function()U.Restart(editor)end)
+    driver:SetScript("OnHide",function()activeEstimate=nil;U.Reset(editor.cpuSample)end)
     driver:SetScript("OnUpdate",function(_,elapsed)
         local sample=editor.cpuSample;sample.elapsed=(sample.elapsed or 0)+elapsed
         if sample.elapsed<1 then return end
-        sample.elapsed=0;U.Update(editor)
+        U.Update(editor)
     end)
     driver:SetScript("OnEnter",function(self)
         GameTooltip:SetOwner(self,"ANCHOR_TOPLEFT");GameTooltip:AddLine(M:T("CPU使用率"),1,.82,0)
         GameTooltip:AddLine(M:T("MangUI 的CPU使用率，每秒更新。"),1,1,1,true)
         GameTooltip:AddLine(M:T("按插件执行时间占单线程时间的比例计算。"),.8,.8,.8,true)
         local reason=editor.cpuSample.reason
-        if reason=="disabledBySetting" then
-            GameTooltip:AddLine(M:T("系统设置已关闭CPU使用记录。取消勾选后重新登录或 /reload。"),.8,.8,.8,true)
-        elseif reason=="disabled" then
-            GameTooltip:AddLine(M:T("CPU统计未开启。输入 /console scriptProfile 1 后 /reload。"),.8,.8,.8,true)
+        if reason=="estimate" then
+            GameTooltip:AddLine(M:T("仅在窗口打开时估算 MangUI 主要更新和事件处理的耗时。"),.8,.8,.8,true)
         elseif reason=="unavailable" then
             GameTooltip:AddLine(M:T("当前客户端未提供可用的CPU统计数据。"),.8,.8,.8,true)
-        elseif editor.cpuSample.percent==nil then
+        end
+        if reason~="unavailable" and editor.cpuSample.percent==nil then
             GameTooltip:AddLine(M:T("正在采集CPU数据…"),.8,.8,.8,true)
         end
         GameTooltip:Show()
     end)
     driver:SetScript("OnLeave",function()GameTooltip:Hide()end)
+end
+function U.Restart(editor)
+    activeEstimate=nil
+    U.Reset(editor.cpuSample)
+    if editor.window:IsVisible() then U.Update(editor) end
 end

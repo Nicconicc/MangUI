@@ -218,7 +218,9 @@ function M:OpenDesigner()
     end)
     local outline=CreateFrame("Frame",nil,e.input,"BackdropTemplate");e.outline=outline
     outline:SetBackdrop({edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=16});outline:SetBackdropBorderColor(1,1,1,1);outline:EnableMouse(false)
+    local cpu=M.CPUUsage
     e.input:SetScript("OnUpdate",function()
+        local cpuSample,cpuStarted=cpu.Begin()
         if e.monitorDrag and IsMouseButtonDown and not IsMouseButtonDown("LeftButton")then
             private.EndMonitorDrag(e)
         end
@@ -258,6 +260,7 @@ function M:OpenDesigner()
         end
         R.Animate(e.view)
         private.UpdateMonitorHighlight(e)
+        cpu.Finish(cpuSample,cpuStarted)
     end)
     f:SetScript("OnHide",function()
         private.CancelMonitorDrag(e);e.monitorGlow:Hide()

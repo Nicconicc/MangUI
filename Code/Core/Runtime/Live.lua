@@ -419,7 +419,9 @@ function M:StartLive()
         else dirty=true;refreshCause=event end
         if started then profile.Total("event",debugprofilestop()-started) end
     end
+    local cpu=M.CPUUsage
     f:SetScript("OnEvent",function(self,event,unit,...)
+        local cpuSample,cpuStarted=cpu.Begin()
         local profile=M.ModuleProfiler
         local sample=profile and profile.targetSampling
         local started=sample and sample.macro and debugprofilestop()
@@ -427,6 +429,7 @@ function M:StartLive()
         if started and profile.targetSampling==sample then
             profile.RecordMacroEvent(event,unit,debugprofilestop()-started)
         end
+        cpu.Finish(cpuSample,cpuStarted)
         if not ok then error(err)end
     end)
     -- Reuse the protected callback instead of allocating a closure every frame.
@@ -473,6 +476,7 @@ function M:StartLive()
         M:RuntimeCall(view,"animate","动画刷新",R.Animate,M.live)
     end
     f:SetScript("OnUpdate",function(self,dt)
+        local cpuSample,cpuStarted=cpu.Begin()
         polled=polled+dt
         local profile=M.ModuleProfiler
         local sample=profile and profile.targetSampling
@@ -491,5 +495,6 @@ function M:StartLive()
                 M.live.lastRefreshError=message;M:Report("刷新异常（继续重试）",message)
             end
         end
+        cpu.Finish(cpuSample,cpuStarted)
     end)
 end

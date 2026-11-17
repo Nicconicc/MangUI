@@ -10210,4 +10210,18 @@ for locale,label in pairs({
 })do
     M.localeTables[locale]["显示社区图标"]=label
 end
+local spanishCPUEstimate="Estima el tiempo de las actualizaciones principales y los eventos de MangUI mientras esta ventana está abierta."
+for locale,label in pairs({
+    enUS="Estimates time spent on MangUI's main updates and events while this window is open.",
+    deDE="Schätzt bei geöffnetem Fenster den Zeitaufwand für die wichtigsten Aktualisierungen und Ereignisse von MangUI.",
+    frFR="Estime le temps consacré aux principales mises à jour et aux événements de MangUI lorsque cette fenêtre est ouverte.",
+    esES=spanishCPUEstimate,esMX=spanishCPUEstimate,
+    itIT="Stima il tempo impiegato per gli aggiornamenti principali e gli eventi di MangUI quando la finestra è aperta.",
+    ptBR="Estima o tempo gasto nas principais atualizações e nos eventos do MangUI enquanto esta janela está aberta.",
+    ruRU="Оценивает время основных обновлений и обработки событий MangUI, пока открыто это окно.",
+    koKR="이 창이 열려 있는 동안 MangUI의 주요 업데이트와 이벤트 처리 시간을 추정합니다.",
+    zhTW="僅在視窗開啟時估算 MangUI 主要更新和事件處理的耗時。",
+})do
+    M.localeTables[locale]["仅在窗口打开时估算 MangUI 主要更新和事件处理的耗时。"]=label
+end
 M:RebuildLocaleKeys()
