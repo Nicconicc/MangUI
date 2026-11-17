@@ -79,6 +79,10 @@ local function Category(name,key,metadata)
     return categoryByName[key] or categoryByKey.other
 end
 
+local hiddenAddOns={
+    ["!buggrabber"]=true,buggrabber=true,sharedmedia_mangui=true,sharedmedia=true,
+    ["libsharedmedia-3.0"]=true,["lib:sharedmedia-3.0"]=true,manguitools=true,dbm=true,
+}
 local catalog,toolsName
 local function ScanAddOns()
     if catalog then return catalog end
@@ -118,7 +122,9 @@ local function ScanAddOns()
                 parent="CardMaster"
             end
         end
-        if parent==addon.name or not installed[parent] then
+        local isDBMCore=addon.key=="dbm-core"
+        local hidden=hiddenAddOns[addon.key] or (not isDBMCore and addon.key:match("^dbm[-_]"))
+        if not hidden and (isDBMCore or parent==addon.name or not installed[parent]) then
             mainAddOns[#mainAddOns+1]=addon
         end
     end
@@ -171,7 +177,32 @@ local function IndexSettings()
     return routes
 end
 
+local function BundleRoute(addon)
+    local metadata=AddOnAPI("GetAddOnMetadata")
+    if not toolsName or not metadata then return end
+    local value=PlainText(metadata(toolsName,"X-MangUI-Open-"..addon.name))
+    if addon.key=="meetinghorn" and value=="system-meeting" and M.SystemMenu and M.SystemMenu.Click then
+        return M.SystemMenu.Click,"meeting"
+    end
+    local command,args=value:match("^(/[%w_%-]+)%s*(.*)$")
+    if not command then return end
+    local upper=command:upper()
+    local handler=hash_SlashCmdList and hash_SlashCmdList[upper]
+    if type(handler)=="function" then return handler,args,value end
+    for key,callback in pairs(SlashCmdList or {}) do
+        local index=1
+        local alias=_G["SLASH_"..key..index]
+        while type(alias)=="string" do
+            if alias:upper()==upper and type(callback)=="function" then return callback,args,value end
+            index=index+1
+            alias=_G["SLASH_"..key..index]
+        end
+    end
+end
+
 local function State(addon,routes)
+    local open,arg,label=BundleRoute(addon)
+    if open then return "打开设置",open,arg,label end
     local entry=addon.known
     if entry and entry.command then
         local handler=SlashCmdList and SlashCmdList[entry.handler]
