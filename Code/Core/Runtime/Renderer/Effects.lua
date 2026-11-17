@@ -55,6 +55,7 @@ end
 
 local SHAKE_THRESHOLD,SHAKE_INTERVAL,SHAKE_DURATION=.004,.22,.21
 local RESTRICTED_SHAKE_INTERVAL,RESTRICTED_SHAKE_AMPLITUDE=.32,2.4
+local PORTRAIT_SHAKE_DELAY,PORTRAIT_SHAKE_DURATION=.024,.25
 
 local function StopMainHealthShake(view)
     local state=view.mainHealthShake
@@ -64,14 +65,27 @@ local function StopMainHealthShake(view)
     R.ResetMainHealthShakeOffset(view)
 end
 
-function R.MainHealthShakeOffset(view,now)
-    local state=view.mainHealthShake
-    if view.preview or view.encounterActive or not state or not state.started then return 0,0 end
-    local progress=M.Clamp((now-state.started)/SHAKE_DURATION,0,1)
-    if progress>=1 then state.started=nil;return 0,0 end
-    local strength=state.amplitude*(1-progress)^2
+local function ShakeWave(age,duration,amplitude,decay)
+    if age<=0 or age>=duration then return 0,0 end
+    local progress=age/duration
+    local strength=amplitude*(1-progress)^decay
     local swing=progress*math.pi*4
     return math.sin(swing)*strength,math.sin(swing*1.25)*strength*.24
+end
+
+function R.MainHealthShakeOffset(view,now)
+    local state=view.mainHealthShake
+    if view.preview or view.encounterActive or not state or not state.started then return 0,0,0,0 end
+    local age=now-state.started
+    if age>=PORTRAIT_SHAKE_DELAY+PORTRAIT_SHAKE_DURATION then
+        state.started=nil
+        return 0,0,0,0
+    end
+    local x,y=ShakeWave(age,SHAKE_DURATION,state.amplitude,2)
+    -- The portrait follows the initial impulse, then trails it with a softer
+    -- wave that takes slightly longer to settle.
+    local lagX,lagY=ShakeWave(age-PORTRAIT_SHAKE_DELAY,PORTRAIT_SHAKE_DURATION,state.amplitude*.5,1.5)
+    return x,y,x*.72+lagX,y*.72+lagY
 end
 
 local function SampleMainHealthShake(view,s)

@@ -115,7 +115,7 @@ end
 local entrySpecs={
     wa70b7aa5607={duration=.3,x=-10},waf0a666c0b7={duration=.4,x=-10},
     waf465575a72={duration=.3,x=10},wae608adf3d8={duration=.4,x=10},
-    wabc757f81ee={duration=.3,scale=1.1},
+    wabc757f81ee={duration=.3,scale=1.1,portraitSway=true},
 }
 function R.EntryCurve(spec,progress)
     -- WA start animations reverse progress before applying easeIn (strength 3).
@@ -177,9 +177,11 @@ function R.UpdateEntryAnimations(view,animateOnly)
     if view.applying then return end
     if R.SyncMainPortraitAnchor then R.SyncMainPortraitAnchor(view) end
     local now=GetTime()
-    local shakeX,shakeY=0,0
-    if R.MainHealthShakeOffset then shakeX,shakeY=R.MainHealthShakeOffset(view,now) end
+    local mainX,mainY,portraitX,portraitY=0,0,0,0
+    if R.MainHealthShakeOffset then mainX,mainY,portraitX,portraitY=R.MainHealthShakeOffset(view,now) end
     for _,entry in pairs(view.entries or {}) do
+        local shakeX,shakeY=mainX,mainY
+        if entry.spec.portraitSway then shakeX,shakeY=portraitX,portraitY end
         -- Settled entry animations wake through normal updates or native show.
         if not animateOnly or entry.started or entry.visibilityDirty or entry.transformPending then
             entry.visibilityDirty=nil
