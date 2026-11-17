@@ -132,6 +132,17 @@ local function ScanAddOns()
     return catalog
 end
 
+local function LoadedAddOns()
+    local result={}
+    local isLoaded=AddOnAPI("IsAddOnLoaded")
+    if isLoaded then
+        for _,addon in ipairs(ScanAddOns()) do
+            if isLoaded(addon.name) then result[#result+1]=addon end
+        end
+    end
+    return result
+end
+
 local login=CreateFrame("Frame")
 login:RegisterEvent("PLAYER_LOGIN")
 login:SetScript("OnEvent",function(self)
@@ -161,8 +172,6 @@ local function IndexSettings()
 end
 
 local function State(addon,routes)
-    local isLoaded=AddOnAPI("IsAddOnLoaded")
-    if not (isLoaded and isLoaded(addon.name)) then return "未加载" end
     local entry=addon.known
     if entry and entry.command then
         local handler=SlashCmdList and SlashCmdList[entry.handler]
@@ -257,7 +266,7 @@ local function RefreshRows(panel,index)
     index=math.floor(index+.5)
     for i,row in ipairs(panel.rows) do
         HideAddonTip(row);HideAddonTip(row.action)
-        local addon=i<=panel.visibleRows and catalog and catalog[index+i]
+        local addon=i<=panel.visibleRows and panel.addons[index+i]
         row.addon=addon
         if addon then
             local r,g,b=unpack(addon.category.color)
@@ -269,7 +278,6 @@ local function RefreshRows(panel,index)
             row.nameLabel:SetText(addon.title)
             row.description:SetText(Description(addon))
             local status,open=State(addon,panel.routes)
-            row.logo:SetDesaturated(status=="未加载")
             row.action:SetText(status)
             if open then row.action:Enable() else row.action:Disable() end
             row.ResetHighlight(row)
@@ -318,12 +326,13 @@ end
 function B.ToggleAddonLauncher(anchor)
     local panel=anchor.addonLauncher
     if panel and panel:IsShown() then panel:Hide();return end
-    local addons=ScanAddOns()
+    local addons=LoadedAddOns()
     if not panel then panel=CreatePanel(anchor);anchor.addonLauncher=panel end
     GameTooltip:Hide()
     panel.routes=IndexSettings()
     local visibleRows=math.min(#panel.rows,math.max(1,math.floor((UIParent:GetHeight()*.65-52)/53)),math.max(1,#addons))
     local maxScroll=math.max(0,#addons-visibleRows)
+    panel.addons=addons
     panel.visibleRows=visibleRows
     panel:SetHeight(52+visibleRows*53)
     panel.count:SetText(tostring(#addons))
