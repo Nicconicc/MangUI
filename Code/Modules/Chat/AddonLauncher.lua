@@ -255,25 +255,16 @@ local function CreateRow(panel,index)
     local W=M.Widgets
     local row=CreateFrame("Frame",nil,panel)
     local y=46+(index-1)*53
-    row:SetPoint("TOPLEFT",13,-y);row:SetPoint("TOPRIGHT",-30,-y);row:SetHeight(48)
+    row:SetPoint("TOPLEFT",153,-y);row:SetPoint("TOPRIGHT",-30,-y);row:SetHeight(48)
     local backdrop=row:CreateTexture(nil,"BACKGROUND")
     backdrop:SetAllPoints()
-    local badge=CreateFrame("Frame",nil,row)
-    badge:SetSize(108,23);badge:SetPoint("LEFT",7,0)
-    row.tint=badge:CreateTexture(nil,"BACKGROUND");row.tint:SetAllPoints()
-    row.stripe=badge:CreateTexture(nil,"ARTWORK")
-    row.stripe:SetWidth(2);row.stripe:SetPoint("TOPLEFT");row.stripe:SetPoint("BOTTOMLEFT")
-    row.categoryLabel=W.Label(badge,"",11)
-    row.categoryLabel:SetPoint("LEFT",5,0);row.categoryLabel:SetPoint("RIGHT",-3,0)
-    row.categoryLabel:SetJustifyH("CENTER");row.categoryLabel:SetWordWrap(false)
-
     row.logo=row:CreateTexture(nil,"ARTWORK")
-    row.logo:SetSize(34,34);row.logo:SetPoint("LEFT",badge,"RIGHT",10,0)
+    row.logo:SetSize(34,34);row.logo:SetPoint("LEFT",8,0)
     row.nameLabel=W.Label(row,"",14)
-    row.nameLabel:SetPoint("TOPLEFT",168,-6);row.nameLabel:SetPoint("RIGHT",-103,0)
+    row.nameLabel:SetPoint("TOPLEFT",50,-6);row.nameLabel:SetPoint("RIGHT",-103,0)
     row.nameLabel:SetWordWrap(false);row.nameLabel:SetTextColor(.96,.88,.68)
     row.description=W.Label(row,"",11)
-    row.description:SetPoint("BOTTOMLEFT",168,7)
+    row.description:SetPoint("BOTTOMLEFT",50,7)
     row.description:SetPoint("RIGHT",row,"RIGHT",-103,0)
     row.description:SetWordWrap(false);row.description:SetTextColor(.77,.82,.87)
     row.action=W.Button(row,"打开设置",92,function()
@@ -311,9 +302,6 @@ local function RefreshRows(panel,index)
         local addon=i<=panel.visibleRows and panel.addons[index+i]
         row.addon=addon
         if addon then
-            local r,g,b=unpack(addon.category.color)
-            row.tint:SetColorTexture(r,g,b,.14);row.stripe:SetColorTexture(r,g,b,.85)
-            row.categoryLabel:SetText(addon.category.label);row.categoryLabel:SetTextColor(r,g,b)
             if addon.atlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(addon.atlas) then
                 row.logo:SetAtlas(addon.atlas)
             else row.logo:SetTexture(addon.icon) end
@@ -330,10 +318,80 @@ local function RefreshRows(panel,index)
     end
 end
 
+local allCategory={label="全部",color={1,.82,.38}}
+
+local function SelectCategory(panel,category)
+    local addons=panel.byCategory[category]
+    panel.addons=addons
+    for _,button in ipairs(panel.categories) do
+        button.selected:SetShown(button.category==category)
+    end
+    local maxScroll=math.max(0,#addons-panel.visibleRows)
+    panel.count:SetText(tostring(#addons))
+    panel.empty:SetShown(#addons==0)
+    panel.slider:SetMinMaxValues(0,maxScroll)
+    panel.slider:SetValue(0)
+    panel.slider:SetShown(maxScroll>0)
+    RefreshRows(panel,0)
+end
+
+local function CreateCategoryButton(panel,category)
+    local button=CreateFrame("Button",nil,panel)
+    button:SetWidth(132)
+    local selected=button:CreateTexture(nil,"BACKGROUND")
+    selected:SetAllPoints()
+    selected:SetColorTexture(.45,.30,.12,.80)
+    button.selected=selected
+    button.category=category
+    local hover=button:CreateTexture(nil,"HIGHLIGHT")
+    hover:SetAllPoints()
+    hover:SetColorTexture(.65,.57,.40,.16)
+    local label=M.Widgets.Label(button,category.label,11)
+    label:SetPoint("LEFT",9,0);label:SetPoint("RIGHT",-4,0)
+    label:SetWordWrap(false)
+    label:SetTextColor(unpack(category.color))
+    button:SetScript("OnClick",function() SelectCategory(panel,category) end)
+    return button
+end
+
+local function LayoutCategories(panel,addons)
+    local groups={[allCategory]=addons}
+    for _,addon in ipairs(addons) do
+        local category=addon.category
+        if not groups[category] then groups[category]={} end
+        local group=groups[category]
+        group[#group+1]=addon
+    end
+    panel.byCategory=groups
+    local count=0
+    for _,button in ipairs(panel.categories) do
+        if groups[button.category] then count=count+1 end
+    end
+    local available=math.floor(UIParent:GetHeight()*.65)
+    local visibleRows=math.min(#panel.rows,math.max(1,math.floor((available-52)/53)),math.max(1,#addons))
+    panel.visibleRows=visibleRows
+    local height=math.max(52+visibleRows*53,math.min(available,52+count*25))
+    panel:SetHeight(height)
+    panel.slider:SetHeight(visibleRows*53-10)
+    local step=math.min(25,math.floor((height-52)/count))
+    local offset=46
+    for _,button in ipairs(panel.categories) do
+        local visible=groups[button.category]~=nil
+        button:SetShown(visible)
+        if visible then
+            button:ClearAllPoints()
+            button:SetPoint("TOPLEFT",13,-offset)
+            button:SetHeight(step-2)
+            offset=offset+step
+        end
+    end
+    SelectCategory(panel,allCategory)
+end
+
 local function CreatePanel(anchor)
     local W=M.Widgets
     local panel=W.Panel(anchor)
-    panel:SetWidth(575);panel:SetFrameStrata("DIALOG")
+    panel:SetWidth(615);panel:SetFrameStrata("DIALOG")
     panel:SetClampedToScreen(true);panel:EnableMouse(true);panel:Hide()
     local title=W.Label(panel,"插件入口",16)
     title:SetPoint("TOPLEFT",17,-14);title:SetTextColor(1,.82,.38)
@@ -346,7 +404,14 @@ local function CreatePanel(anchor)
     panel.count=W.Label(panel,"",11);panel.count:SetPoint("RIGHT",close,"LEFT",-8,0)
     panel.count:SetTextColor(.73,.78,.85)
     panel.empty=W.Label(panel,"当前没有可显示的插件。",13)
-    panel.empty:SetPoint("TOPLEFT",17,-57)
+    panel.empty:SetPoint("TOPLEFT",157,-57)
+    local divider=panel:CreateTexture(nil,"ARTWORK")
+    divider:SetPoint("TOPLEFT",147,-46);divider:SetPoint("BOTTOMLEFT",147,9)
+    divider:SetWidth(1);divider:SetColorTexture(.72,.56,.25,.25)
+    panel.categories={CreateCategoryButton(panel,allCategory)}
+    for _,category in ipairs(categories) do
+        panel.categories[#panel.categories+1]=CreateCategoryButton(panel,category)
+    end
     panel.rows={}
     for i=1,8 do panel.rows[i]=CreateRow(panel,i) end
     local slider=CreateFrame("Slider",nil,panel)
@@ -372,18 +437,7 @@ function B.ToggleAddonLauncher(anchor)
     if not panel then panel=CreatePanel(anchor);anchor.addonLauncher=panel end
     GameTooltip:Hide()
     panel.routes=IndexSettings()
-    local visibleRows=math.min(#panel.rows,math.max(1,math.floor((UIParent:GetHeight()*.65-52)/53)),math.max(1,#addons))
-    local maxScroll=math.max(0,#addons-visibleRows)
-    panel.addons=addons
-    panel.visibleRows=visibleRows
-    panel:SetHeight(52+visibleRows*53)
-    panel.count:SetText(tostring(#addons))
-    panel.empty:SetShown(#addons==0)
-    panel.slider:SetHeight(visibleRows*53-10)
-    panel.slider:SetMinMaxValues(0,maxScroll)
-    panel.slider:SetValue(math.min(panel.slider:GetValue(),maxScroll))
-    panel.slider:SetShown(maxScroll>0)
-    RefreshRows(panel,panel.slider:GetValue())
+    LayoutCategories(panel,addons)
     panel:ClearAllPoints();panel:SetPoint("BOTTOMLEFT",anchor,"TOPLEFT",-9,14)
     panel:Show()
 end
