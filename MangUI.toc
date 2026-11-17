@@ -18,7 +18,7 @@
 ## Category-zhCN: 单位框体
 ## Category-zhTW: 單位框架
 ## Author: Nc
-## Version: 871
+## Version: 872
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\MIcon.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB
@@ -86,6 +86,7 @@ Code\Modules\Cooldowns\RaidVulnerabilityRuntime.lua
 Code\Modules\Cooldowns\RaidVulnerabilityEditor.lua
 Code\Modules\Cooldowns\MonitorSharing.lua
 Code\Modules\Chat\Buttons.lua
+Code\Modules\Chat\AddonLauncher.lua
 Code\Modules\Combat\Notices.lua
 Code\Modules\System\Menu.lua
 Code\Modules\System\CornerSocial.lua

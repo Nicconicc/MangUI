@@ -1,5 +1,16 @@
 local _,M=...
 local english=M.localeTables.enUS
+english["插件入口"]="AddOn Launcher"
+english["未安装"]="Not installed"
+english["未加载"]="Not loaded"
+english["无设置入口"]="No settings"
+english["打开设置"]="Open settings"
+english["脱战后才能打开插件设置。"]="Leave combat to open add-on settings."
+english["调整动作条布局、可见性和快捷键。"]="Customize action bars and key bindings."
+english["自定义姓名板样式、文字和光环。"]="Customize nameplates, text, and auras."
+english["替换跳出的伤害与治疗数字字体。"]="Change floating damage and healing fonts."
+english["整理、分类和搜索背包与银行物品。"]="Sort, group, and search bags and bank items."
+english["按游戏情境调整镜头缩放和视角。"]="Adjust camera zoom and angles by situation."
 english["鼠标功能及提示"]="Mouse Controls & Cues"
 english["鼠标快捷功能"]="Mouse Shortcuts"
 english["战斗标记快捷键（例如 ALT-F8）"]="Combat marker key (e.g. ALT-F8)"

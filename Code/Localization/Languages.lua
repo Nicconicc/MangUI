@@ -10084,6 +10084,17 @@ local chatInviteLabels={
 for locale,label in pairs(chatInviteLabels) do
     M.localeTables[locale]["Alt+左键点击聊天角色名邀请组队"]=label
 end
+M.localeTables.zhTW["插件入口"]="插件入口"
+M.localeTables.zhTW["未安装"]="未安裝"
+M.localeTables.zhTW["未加载"]="未載入"
+M.localeTables.zhTW["无设置入口"]="無設定入口"
+M.localeTables.zhTW["打开设置"]="開啟設定"
+M.localeTables.zhTW["脱战后才能打开插件设置。"]="離開戰鬥後才能開啟插件設定。"
+M.localeTables.zhTW["调整动作条布局、可见性和快捷键。"]="調整快捷列配置、可見性及快捷鍵。"
+M.localeTables.zhTW["自定义姓名板样式、文字和光环。"]="自訂名條樣式、文字及光環。"
+M.localeTables.zhTW["替换跳出的伤害与治疗数字字体。"]="更換浮動傷害與治療數字的字型。"
+M.localeTables.zhTW["整理、分类和搜索背包与银行物品。"]="整理、分類及搜尋背包與銀行物品。"
+M.localeTables.zhTW["按游戏情境调整镜头缩放和视角。"]="依遊戲情境調整鏡頭縮放與視角。"
 local effectMonitorKeys={"跟随暴雪","玩家Buff优先，然后显示冷却","目标Debuff优先，然后显示冷却","效果名称或ID"}
 local spanishEffectMonitor={"Seguir a Blizzard","Beneficio propio, luego reutilización","Perjuicio del objetivo, luego reutilización","Nombre o ID del efecto"}
 for locale, labels in pairs({

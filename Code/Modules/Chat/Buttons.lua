@@ -25,9 +25,11 @@ B.definitions={
     {key="durability",text="—",texture="DurabilityAnvil.tga",color={1,1,1},hover=1.15,iconScale=.72},
     {key="bags",text="—",tip="背包（B）",atlas="bag-main",fallback="Interface\\Buttons\\Button-Backpack-Up",
         color={1,.90588242,.34117648},hover=1.15,iconScale=.84},
+    {key="addons",text="AddOns",tip="插件入口",color={1,.83,.44},hover=1.15,iconScale=.80,
+        icon=[[Interface\AddOns\MangUI\Assets\SystemMenu\SystemMenu_systemMenuButtons_button_collections_emblem_2.blp]]},
 }
 local textLabels={say="说",yell="大喊",guild="公会",party="队伍",raid="团队",battle="战场",
-    instance="副本",lfg="世界",roll="骰子",duty="职责",ready="就位",pull="倒计时"}
+    instance="副本",lfg="世界",roll="骰子",duty="职责",ready="就位",pull="倒计时",addons="插件入口"}
 function B.LabelText(def,group)
     local label=textLabels[def.key]
     return label and group and group.textLabels==true and M:T(label) or def.text
@@ -288,7 +290,8 @@ function B.Build(view,o)
         local texture=visual:CreateTexture(nil,"ARTWORK")
         if def.iconScale then texture:SetPoint("CENTER",visual,"CENTER")
         else texture:SetAllPoints() end
-        if def.texture then texture:SetTexture(M:TexturePath(o.spec,ART..def.texture,"button_"..def.key))
+        if def.icon then texture:SetTexture(def.icon)
+        elseif def.texture then texture:SetTexture(M:TexturePath(o.spec,ART..def.texture,"button_"..def.key))
         elseif C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(def.atlas) then texture:SetAtlas(def.atlas)
         else texture:SetTexture(def.fallback) end
         texture:SetBlendMode("BLEND");texture:SetRotation(math.rad(def.rotation or 0))
@@ -307,6 +310,10 @@ function B.Build(view,o)
         else
             click:RegisterForClicks("LeftButtonUp","RightButtonUp")
             if def.key=="bags" then o.bagSlot=entry
+            elseif def.key=="addons" then
+                click:SetScript("OnClick",function(self,button)
+                    if not view.preview and button=="LeftButton" then B.ToggleAddonLauncher(self) end
+                end)
             else click:SetScript("OnClick",function(_,button)if not view.preview then B.Click(def,button,o.module) end end) end
             click:SetScript("OnMouseDown",function()visual:SetAlpha(.5)end)
             click:SetScript("OnMouseUp",function()visual:SetAlpha(1)end)
