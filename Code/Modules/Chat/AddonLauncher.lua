@@ -242,21 +242,22 @@ local authorTooltip
 local function ShowAddonTip(owner,addon)
     local metadata=AddOnAPI("GetAddOnMetadata")
     if not toolsName or not metadata then return end
-    local field="X-MangUI-Tip-"..addon.name
-    local note=PlainText(metadata(toolsName,field.."-"..M:EffectiveLanguage()))
-    if note=="" then note=PlainText(metadata(toolsName,field)) end
+    -- Keep the locale within the key so the game does not treat it as a TOC locale suffix.
+    local prefix="X-MangUI-Tip-"..M:EffectiveLanguage().."-"
+    local note=PlainText(metadata(toolsName,prefix..addon.name))
+    local title=PlainText(metadata(toolsName,prefix.."Title"))
+    if note=="" then
+        note=PlainText(metadata(toolsName,"X-MangUI-Tip-"..addon.name))
+        title=PlainText(metadata(toolsName,"X-MangUI-Tip-Title"))
+    end
     if note=="" then return end
-
-    local titleKey="X-MangUI-Tip-Title"
-    local title=PlainText(metadata(toolsName,titleKey.."-"..M:EffectiveLanguage()))
-    if title=="" then title=PlainText(metadata(toolsName,titleKey)) end
 
     if not authorTooltip then
         authorTooltip=CreateFrame("GameTooltip","MangUIAddonAuthorTooltip",UIParent,"GameTooltipTemplate")
     end
     authorTooltip:SetOwner(owner,"ANCHOR_RIGHT")
     authorTooltip:SetText(title~="" and title or addon.title,1,.82,.38)
-    if title~="" then authorTooltip:AddLine(addon.title,.7,.76,.82,true) end
+    authorTooltip:AddLine("by Nc",.7,.76,.82,true)
     authorTooltip:AddLine(note,.9,.93,.97,true)
     local body=_G["MangUIAddonAuthorTooltipTextLeft"..authorTooltip:NumLines()]
     if body then body:SetSpacing(3) end
