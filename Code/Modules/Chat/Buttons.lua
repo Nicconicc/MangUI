@@ -291,16 +291,19 @@ function B.Build(view,o)
         local texture=visual:CreateTexture(nil,"ARTWORK")
         if def.iconScale then texture:SetPoint("CENTER",visual,"CENTER")
         else texture:SetAllPoints() end
-        if def.texture then texture:SetTexture(M:TexturePath(o.spec,ART..def.texture,"button_"..def.key))
-        elseif C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(def.atlas) then texture:SetAtlas(def.atlas)
-        else texture:SetTexture(def.fallback) end
-        texture:SetBlendMode("BLEND");texture:SetRotation(math.rad(def.rotation or 0))
         local community
         if def.key=="community" then
             local logoPath
             community,logoPath=M.FooterLinks.ChatCommunity()
             texture:SetTexture(logoPath)
+        elseif def.texture then
+            texture:SetTexture(M:TexturePath(o.spec,ART..def.texture,"button_"..def.key))
+        elseif def.atlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(def.atlas) then
+            texture:SetAtlas(def.atlas)
+        elseif def.fallback then
+            texture:SetTexture(def.fallback)
         end
+        texture:SetBlendMode("BLEND");texture:SetRotation(math.rad(def.rotation or 0))
         local shadow=visual:CreateFontString(nil,"ARTWORK");local text=visual:CreateFontString(nil,"OVERLAY")
         for _,label in ipairs({shadow,text}) do label:SetFont(M:DefaultFontPath(),11,"OUTLINE");label:SetText(def.text);label:SetJustifyH("CENTER") end
         text:SetPoint("CENTER",0,30);text:SetTextColor(unpack(def.color))
@@ -310,10 +313,6 @@ function B.Build(view,o)
         local click=CreateFrame("Button",nil,slot,template)
         click:SetAllPoints(slot);click:SetFrameLevel(visual:GetFrameLevel()+1)
         local entry={frame=slot,visual=visual,button=click,texture=texture,text=text,shadow=shadow,definition=def}
-        if community then
-            -- The community artwork is a single composed icon. Keep its
-            -- KOOK/Discord name out of the label above the button.
-        end
         local isDurability=def.key=="durability"
         if isDurability then
             o.durabilitySlot=entry
@@ -381,7 +380,6 @@ function B.Configure(view,o)
         slot.visual:SetSize(size,size)
         local iconScale=slot.definition.iconScale
         if iconScale then slot.texture:SetSize(size*iconScale,size*iconScale) end
-        if slot.definition.key=="community" then slot.texture:SetSize(size*(slot.definition.iconScale or 1),size*(slot.definition.iconScale or 1)) end
         for _,label in ipairs({slot.text,slot.shadow}) do
             label:ClearAllPoints()
         end

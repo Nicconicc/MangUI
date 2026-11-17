@@ -238,12 +238,14 @@ local function AnimateObject(view,o)
     elseif n.particleFlow then ResetParticle(o)end
 end
 function R.Animate(view)
-    if not view.root:IsVisible() then return end
+    if view.applying or not view.root:IsVisible() then return end
+    local animated = view.raidEncounter and view.raidAnimated or view.animated
+    if not animated then return end
     M:RuntimeCall(view,"decorationRange","装饰范围刷新",R.UpdateDecorationRange,view)
     if not view.preview then view.animationNow=GetTime();view.animationCasting=nil end
     local sample=M.ModuleProfiler and M.ModuleProfiler.targetSampling
     local count=0
-    for _,o in ipairs(view.raidEncounter and view.raidAnimated or view.animated) do
+    for _,o in ipairs(animated) do
         local n=o.spec
         local active=(view.preview and not (view.hidden and view.hidden[n.id])) or not view.preview and
             (independentKinds[n.kind] or n.attackKind or n.centerLogo
