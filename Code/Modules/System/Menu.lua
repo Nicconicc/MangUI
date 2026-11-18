@@ -72,8 +72,8 @@ function S.AvailableDefinitions(interface)
     if expanded then definitions[#definitions+1]={key="achievement",tip="成就",right="collections",rightTip="藏品",file="emblem_9"} end
     if not modern then definitions[#definitions+1]={key="quest",tip="任务日志（L）",atlas="Mobile-LegendaryQuestIcon-Desaturated",fallback="Interface\\GossipFrame\\AvailableQuestIcon"} end
     if expanded then definitions[#definitions+1]={key="lfg",tip="地下城查找器",right="pvp",rightTip="PVP",file="emblem_6"} end
-    definitions[#definitions+1]={key="professions",tip="专业",right=not forever and modern and "housing" or nil,
-        rightTip=not forever and modern and "住宅信息板" or nil,asset=ART.."SystemMenu_systemMenuButtons_button_professions_emblem_10.blp"}
+    definitions[#definitions+1]={key="professions",tip="专业",right=forever and "legacy" or modern and "housing" or nil,
+        rightTip=forever and "传承（Y）" or modern and "住宅信息板" or nil,asset=ART.."SystemMenu_systemMenuButtons_button_professions_emblem_10.blp"}
     definitions[#definitions+1]={key="map",tip="世界地图（M）",right=not forever and modern and "adventure" or nil,
         rightTip=not forever and modern and "冒险指南" or nil,file="emblem_3"}
     definitions[#definitions+1]={key="bags",tip="背包（B）",atlas="bag-main",fallback="Interface\\Buttons\\Button-Backpack-Up"}

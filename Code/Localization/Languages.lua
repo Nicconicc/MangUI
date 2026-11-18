@@ -10232,4 +10232,11 @@ for locale,label in pairs({
 })do
     M.localeTables[locale]["震动效果"]=label
 end
+for locale,label in pairs({
+    enUS="Legacy (Y)",deDE="Vermächtnis (Y)",frFR="Héritage (Y)",
+    esES="Legado (Y)",esMX="Legado (Y)",itIT="Eredità (Y)",ptBR="Legado (Y)",
+    ruRU="Наследие (Y)",koKR="유산 (Y)",zhTW="傳承（Y）",
+})do
+    M.localeTables[locale]["传承（Y）"]=label
+end
 M:RebuildLocaleKeys()

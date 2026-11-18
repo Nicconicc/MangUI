@@ -411,6 +411,16 @@ local function MenuClickable(button)
         and not (button.IsForbidden and button:IsForbidden())
 end
 function C.MenuRoute(key)
+    if key=="legacy" then
+        if C.interface~=16001 then return end
+        if not _G.LegacySystemFrame and not InCombatLockdown() then
+            local load=(C_AddOns and C_AddOns.LoadAddOn) or LoadAddOn
+            if load then pcall(load,"Blizzard_LegacySystem") end
+        end
+        local frame=_G.LegacySystemFrame
+        if frame and not (frame.IsForbidden and frame:IsForbidden()) then return "toggle",frame end
+        return
+    end
     PrepareMenu(key)
     local modern=C.interface==16001 or C.interface>=100000
     if modern and key=="friends" and MenuClickable(_G.QuickJoinToastButton) then
