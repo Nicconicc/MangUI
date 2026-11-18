@@ -418,7 +418,7 @@ function C.MenuRoute(key)
             if load then pcall(load,"Blizzard_LegacySystem") end
         end
         local frame=_G.LegacySystemFrame
-        if frame and not (frame.IsForbidden and frame:IsForbidden()) then return "toggle",frame end
+        if frame and not (frame.IsForbidden and frame:IsForbidden()) then return "legacy",frame end
         return
     end
     PrepareMenu(key)
@@ -477,6 +477,18 @@ function C.MenuRoute(key)
     if key=="pvp" then frame=_G.PVPParentFrame end
     if key=="lfg" then frame=_G.LFDParentFrame end
     if frame and not (frame.IsForbidden and frame:IsForbidden()) then return "toggle",frame end
+end
+function C.ToggleLegacySystem()
+    if C.interface~=16001 then return end
+    if InCombatLockdown() then
+        M:Print("战斗中暂不能修改布局，脱战后即可编辑。")
+        return
+    end
+    local mode,frame=C.MenuRoute("legacy")
+    if mode~="legacy" then M:Print("当前客户端不支持此菜单入口。");return end
+    -- The panel manager must open this window so its page initialization and
+    -- layout run, just as when opening it through the native UI.
+    if frame:IsShown() then HideUIPanel(frame) else ShowUIPanel(frame) end
 end
 local bagButtons={}
 local spellRelays={}

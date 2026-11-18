@@ -217,7 +217,9 @@ function S.Build(view,o)
         -- Never replace the OnClick inherited from a secure template.
         button:SetScript(route and "PostClick" or "OnClick",function(_,mouseButton)
             if view.preview or (o.module and o.module.enabled==false) then return end
-            if route then
+            if def.right=="legacy" and mouseButton=="RightButton" then
+                M:Safe("系统菜单",M.Compat.ToggleLegacySystem)
+            elseif route then
                 local side=mouseButton=="RightButton" and 2 or 1
                 if not slot.secureAvailable[side] then M:Print("当前客户端不支持此菜单入口。") end
             else M:Safe("系统菜单",S.Click,def.key) end
