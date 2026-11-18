@@ -315,6 +315,13 @@ local function Build(view,n)
             slot.artFrame:EnableMouse(false)
             slot.art=slot.artFrame:CreateTexture(nil,"ARTWORK");slot.art:SetSize(40,40)
             slot.art:SetPoint("CENTER")
+            if o.foreverComboPoints and i<=5 then
+                slot.comboGlow=slot.artFrame:CreateTexture(nil,"OVERLAY")
+                slot.comboGlow:SetAllPoints(slot.art)
+                slot.comboGlow:SetBlendMode("ADD")
+                slot.comboGlow:SetVertexColor(1,.78,.36)
+                slot.comboGlow:SetAlpha(0)
+            end
             slot.cooldown=CreateFrame("StatusBar",nil,slot)
             slot.cooldown:SetSize(44,4);slot.cooldown:SetPoint("BOTTOM",0,-8)
             slot.cooldown:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")

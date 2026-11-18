@@ -58,6 +58,15 @@ local function ResourceAnimate(o)
         local phase=slot.resourcePhase
         local elapsed=phase and math.max(0,now-(slot.resourcePhaseAt or now)) or 0
         local scale,alpha,angle=1,1,0
+        if slot.comboGlow then
+            local intensity=0
+            if phase=="glow" then
+                local progress=M.Clamp(elapsed/.28,0,1)
+                intensity=.75*math.sin(math.pi*progress)
+                if progress==1 then intensity=0;slot.resourcePhase=nil end
+            end
+            CachedValue(slot,"comboGlowAlpha",slot.comboGlow,"SetAlpha",intensity)
+        end
         if phase=="enter" then
             local progress=M.Clamp(elapsed/.1,0,1)
             scale=math.max(.001,progress)
@@ -163,7 +172,7 @@ local function ResourcePaint(view,o)
             local previous=slot.resourceActive
             slot.resourceActive=active
             if slot.fixedModelViewport then
-                slot.resourcePhase=nil
+                slot.resourcePhase=active and "glow" or nil
             else
                 slot.resourcePhase=active and "enter" or (previous==true and "exit" or nil)
             end
@@ -203,7 +212,11 @@ local function ResourcePaint(view,o)
                 file,tint,modelIDs,modelSizes=runeStyle.file,runeStyle.color,runeStyle.models,runeStyle.sizes
             end
             local path=M:TexturePath(n,M.ART..file,"resourceArt"..i)
-            if slot.artFile~=path then slot.art:SetTexture(path);slot.artFile=path end
+            if slot.artFile~=path then
+                slot.art:SetTexture(path)
+                if slot.comboGlow then slot.comboGlow:SetTexture(path) end
+                slot.artFile=path
+            end
             local runeColor=deathRune and deathRuneColor or normalRuneColor
             CachedColor(slot,"baseColor",slot.base,"SetVertexColor",runeColor)
             CachedColor(slot,"artColor",slot.art,"SetVertexColor",runeColor)
