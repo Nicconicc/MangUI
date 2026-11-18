@@ -330,13 +330,33 @@ function B.Build(view,o)
             local guide=CreateFrame("Frame",nil,slot)
             guide:Hide()
             guide:SetSize(28,32);guide:EnableMouse(false)
-            local arrow=guide:CreateTexture(nil,"OVERLAY")
-            arrow:SetAllPoints()
-            arrow:SetTexture("Interface\\TutorialFrame\\UI-TutorialFrame-Arrow")
+            -- Draw the arrow from solid textures so it works on every client.
+            for _,stroke in ipairs({{0,2,5,18,0},{-4,-6,5,14,math.pi/4},{4,-6,5,14,-math.pi/4}}) do
+                local shadow=guide:CreateTexture(nil,"ARTWORK")
+                shadow:SetColorTexture(.12,.07,.015,1)
+                shadow:SetPoint("CENTER",guide,"CENTER",stroke[1],stroke[2]-1)
+                shadow:SetSize(stroke[3]+3,stroke[4]+3);shadow:SetRotation(stroke[5])
+                local arrow=guide:CreateTexture(nil,"OVERLAY")
+                arrow:SetColorTexture(1,.8,.25,1)
+                arrow:SetPoint("CENTER",guide,"CENTER",stroke[1],stroke[2])
+                arrow:SetSize(stroke[3],stroke[4]);arrow:SetRotation(stroke[5])
+            end
             local caption=M.Widgets.Label(guide,"各模块的插件使用和介绍在这里打开",12)
             caption:SetPoint("BOTTOM",guide,"TOP",0,5)
             caption:SetTextColor(1,.83,.44)
             caption:SetWordWrap(false)
+            local close=CreateFrame("Button",nil,guide)
+            close:SetSize(20,20)
+            close:SetPoint("LEFT",caption,"RIGHT",4,0)
+            close:SetFrameLevel(click:GetFrameLevel()+2)
+            local cross=M.Widgets.Label(close,"×",16)
+            cross:SetPoint("CENTER");cross:SetTextColor(1,.83,.44)
+            close:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight")
+            close:SetScript("OnClick",function()
+                M.db.addonLauncherGuideDismissed=true
+                guide:Hide()
+            end)
+            entry.addonGuideClose=close
             local animation=guide:CreateAnimationGroup()
             animation:SetLooping("REPEAT")
             for i,offset in ipairs({6,-6}) do
@@ -346,12 +366,10 @@ function B.Build(view,o)
             end
             guide:SetScript("OnShow",function()animation:Play()end)
             guide:SetScript("OnHide",function()animation:Stop()end)
-            guide:SetShown(not M.db.addonLauncherGuideSeen)
+            guide:SetShown(not M.db.addonLauncherGuideDismissed)
             entry.addonGuide=guide
             click:SetScript("OnClick",function(self,button)
                 if button~="LeftButton" then return end
-                M.db.addonLauncherGuideSeen=true
-                guide:Hide()
                 B.ShowAddonLauncher(self)
             end)
         end
@@ -419,7 +437,7 @@ function B.Configure(view,o)
         if slot.addonGuide then
             slot.addonGuide:ClearAllPoints()
             slot.addonGuide:SetPoint("BOTTOM",slot.text,"TOP",0,5)
-            slot.addonGuide:SetShown(not M.db.addonLauncherGuideSeen)
+            slot.addonGuide:SetShown(not M.db.addonLauncherGuideDismissed)
         end
     end
     if not view.preview and o.bagSlot then M.Compat.ConfigureMenuButton(o.bagSlot.button,"bags","paired") end
