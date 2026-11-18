@@ -53,7 +53,7 @@ local function AnimateCombo(slot,elapsed)
     local playing=slot.resourcePhase~=nil and progress<1
     if slot.comboRing:IsShown()~=playing then slot.comboRing:SetShown(playing) end
     if playing then
-        local size=38+67*progress
+        local size=(38+67*progress)*slot.comboScale
         slot.comboRing:SetSize(size,size)
         slot.comboRing:SetAlpha(math.min(progress/.18,(1-progress)/.82))
     else
@@ -211,14 +211,15 @@ local function ResourcePaint(view,o)
                 end
                 slot.layerClass,slot.layerLevel=class,level
             end
-            -- On Forever, use point 1's visual settings for points 2 and 4.
-            local visualIndex=i
-            if o.foreverComboPoints and (i==2 or i==4) then visualIndex=1 end
-            local itemScale=style.slotScales[visualIndex] or 1
+            local itemScale=style.slotScales[i] or 1
             CachedPair(slot,"baseSize",slot.base,"SetSize",50*itemScale,50*itemScale)
             CachedPoint(slot,"basePoint",slot.base,"CENTER",slot.visual,"CENTER",0,-5*itemScale)
             CachedPair(slot,"artFrameSize",slot.artFrame,"SetSize",40*itemScale,40*itemScale)
             CachedPair(slot,"artSize",slot.art,"SetSize",40*itemScale,40*itemScale)
+            if slot.comboGlow then
+                slot.comboScale=itemScale
+                CachedPair(slot,"comboGlowSize",slot.comboGlow,"SetSize",56*itemScale,56*itemScale)
+            end
             local file=style.file;local modelIDs=style.models;local modelSizes=style.sizes
             local tint=style.color
             if class=="DEATHKNIGHT" then
@@ -265,7 +266,7 @@ local function ResourcePaint(view,o)
                     model.resourcePosition=resourceModelPositions[id] or zeroPosition
                     model.resourceFile=id
                     local sequences=resourceSequences[class]
-                    local sequence=sequences and sequences[visualIndex] and sequences[visualIndex][j] or 0
+                    local sequence=sequences and sequences[i] and sequences[i][j] or 0
                     local sequenceChanged=model.resourceSequence~=sequence
                     model.resourceSequence=sequence
                     if changed then
