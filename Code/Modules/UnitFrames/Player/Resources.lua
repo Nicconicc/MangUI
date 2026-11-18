@@ -48,35 +48,17 @@ local function ResourceCoords(texture,degrees)
     local lrx,lry=corner(.5,.5)
     texture:SetTexCoord(ulx,uly,llx,lly,urx,ury,lrx,lry)
 end
-local comboCorners={{0,23},{23,0},{0,-23},{-23,0}}
 local function AnimateCombo(slot,elapsed)
-    local phase=slot.resourcePhase
-    local progress=M.Clamp(elapsed/.4,0,1)
-    local playing=phase~=nil and progress<1
-    local pulse=playing and math.sin(math.pi*progress) or 0
-    local glow=slot.resourceActive and (.23+.57*pulse) or 0
-    CachedValue(slot,"comboGlowAlpha",slot.comboGlow,"SetAlpha",glow)
-    for i,spark in ipairs(slot.comboSparks) do
-        local shown=playing and (i==1 or phase=="glow" or phase=="fullBurst")
-        if spark:IsShown()~=shown then spark:SetShown(shown) end
-        if shown then
-            local x,y
-            if i==1 then
-                local edge=progress*4
-                local corner=math.floor(edge)
-                local a,b=comboCorners[corner+1],comboCorners[(corner+1)%4+1]
-                local fraction=edge-corner
-                x,y=a[1]+(b[1]-a[1])*fraction,a[2]+(b[2]-a[2])*fraction
-            else
-                local direction=comboCorners[i-1]
-                local distance=.65+.65*progress
-                x,y=direction[1]*distance,direction[2]*distance
-            end
-            spark:SetPoint("CENTER",slot.art,"CENTER",x,y)
-            spark:SetAlpha(i==1 and pulse or pulse*(1-progress))
-        end
+    local progress=M.Clamp(elapsed/.65,0,1)
+    local playing=slot.resourcePhase~=nil and progress<1
+    if slot.comboRing:IsShown()~=playing then slot.comboRing:SetShown(playing) end
+    if playing then
+        local size=38+67*progress
+        slot.comboRing:SetSize(size,size)
+        slot.comboRing:SetAlpha(math.min(progress/.18,(1-progress)/.82))
+    else
+        slot.resourcePhase=nil
     end
-    if not playing then slot.resourcePhase=nil end
 end
 local function ResourceAnimate(o)
     if o.retailResourcesActive then M.RetailResources.Animate(o);return end
@@ -197,12 +179,8 @@ local function ResourcePaint(view,o)
             if not active or targetChanged then
                 slot.resourcePhase=nil
             elseif reachedFull or (playCombo and not slot.resourceActive) then
-                if reachedFull then
-                    slot.resourcePhase=slot.resourceActive and "full" or "fullBurst"
-                else
-                    slot.resourcePhase="glow"
-                end
-                slot.resourcePhaseAt=GetTime()+(reachedFull and (i-1)*.035 or 0)
+                slot.resourcePhase="glow"
+                slot.resourcePhaseAt=GetTime()+(reachedFull and (i-1)*.065 or 0)
             end
             slot.resourceActive=active
         elseif not exists then slot.resourcePhase=nil;slot.resourceActive=false
@@ -250,7 +228,7 @@ local function ResourcePaint(view,o)
             local path=M:TexturePath(n,M.ART..file,"resourceArt"..i)
             if slot.artFile~=path then
                 slot.art:SetTexture(path)
-                if slot.comboGlow then slot.comboGlow:SetTexture(path) end
+                if slot.comboFace then slot.comboFace:SetTexture(path) end
                 slot.artFile=path
             end
             local runeColor=deathRune and deathRuneColor or normalRuneColor
