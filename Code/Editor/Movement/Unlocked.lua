@@ -18,6 +18,10 @@ local MainCompositeRoots=private.MainCompositeRoots
 local UpdatePreviewGrid=private.UpdatePreviewGrid
 local FrameMoveBounds=private.FrameMoveBounds
 local MainCompositeMoveBounds=private.MainCompositeMoveBounds
+local centralModules={mainComposite=true,wa8d650f8d3a=true,petComposite=true,totComposite=true,
+    focusComposite=true,playerSkillMonitor=true,playerOtherMonitor=true,cooldownMonitor=true,
+    receivedBuffs=true,raidVulnerability=true,raidBuffs=true,commonItems=true,targetThreat=true}
+local centralColor={1,.35,.68}
 
 function M:FinishUnlockedMoveMode()
     local mode=self.moveMode
@@ -26,6 +30,7 @@ function M:FinishUnlockedMoveMode()
     mode.ready=false;mode.done:Disable()
     mode.restore:Disable()
     mode.snapCheck:Disable()
+    mode.centralCheck:Disable()
     for _,mover in ipairs(mode.movers)do mover.drag=nil;mover:EnableMouse(false)end
     if mode.changed then mode.changed=false;self:Commit()end
     mode.fadeOutStarted=GetTime();mode.fadeOutAlpha=mode.stage:GetAlpha()
@@ -59,6 +64,17 @@ end
 local function PositionUnlockedMover(mode,mover,geometry)
     local x,y,width,height=UnlockedBounds(mover.node,geometry)
     local anchor=mover.node.id=="mainComposite"and geometry.wabc757f81ee
+    if mode.centralGroup and mover.node.id=="mainComposite" then
+        x,y=anchor.x,anchor.y
+        width,height=0,0
+        for _,part in ipairs(mode.movers) do
+            if part.available and centralModules[part.node.id] then
+                local px,py,pw,ph=UnlockedBounds(part.node,geometry)
+                width=math.max(width,2*math.abs(px-x)+pw)
+                height=math.max(height,2*math.abs(py-y)+ph)
+            end
+        end
+    end
     PlaceUnlockedMover(mode,mover,x,y,width,height,anchor and anchor.x or x,anchor and anchor.y or y)
 end
 function M:ResetUnlockedModulePositions()
@@ -71,7 +87,7 @@ function M:ResetUnlockedModulePositions()
     if mode.pickMenu then mode.pickMenu:Hide()end
     for _,mover in ipairs(mode.movers)do
         mover.drag=nil
-        if mover:IsShown()then
+        if mover.available then
             local node=mover.node;local ref=defaults[node.id]
             if ref then
                 node.x=ref.x or 0;node.y=ref.y or 0
@@ -97,13 +113,33 @@ function M:ResetUnlockedModulePositions()
     self:Commit()
     for _,mover in ipairs(mode.movers)do
         local node=mover.node;local copy=mode.view.byID[node.id]
-        if copy and mover:IsShown()then
+        if copy and mover.available then
             copy.x=node.x;copy.y=node.y;copy.moveX=node.moveX;copy.moveY=node.moveY
         end
     end
     R.Apply(mode.view,mode.view.design)
     local geometry=self:Geometry()
     for _,mover in ipairs(mode.movers)do if mover:IsShown()then PositionUnlockedMover(mode,mover,geometry)end end
+end
+local function SetCentralGroup(mode,enabled)
+    local mainAvailable=false
+    for _,mover in ipairs(mode.movers) do
+        if mover.available and mover.node.id=="mainComposite" then mainAvailable=true;break end
+    end
+    mode.centralGroup=enabled==true and mainAvailable
+    mode.centralCheck:SetChecked(mode.centralGroup)
+    mode.selectedMover=nil;mode.pickSelected=nil
+    if mode.pickMenu then mode.pickMenu:Hide() end
+    local geometry=M:Geometry()
+    for _,mover in ipairs(mode.movers) do
+        mover.drag=nil
+        local grouped=mode.centralGroup and centralModules[mover.node.id]
+        mover.groupColor=grouped and centralColor or unlockModuleColors[mover.node.id]
+        mover.label:SetText(grouped and mover.node.id=="mainComposite" and "中间监控区" or
+            mover.node.id=="targetDistance" and "目标距离数字" or private.ModuleName(mover.node))
+        mover:SetShown(mover.available and (not grouped or mover.node.id=="mainComposite"))
+        if mover:IsShown() then PositionUnlockedMover(mode,mover,geometry) end
+    end
 end
 local function UnlockedContains(mover,x,y)
     if not mover or not mover:IsShown()then return false end
@@ -165,11 +201,18 @@ function M:StartUnlockedMoveMode()
         mode={allModules=true,stage=stage,dim=dim,gridFrame=grid,canvas=stage,gridLines={},movers={}}
         self.unlockedMoveMode=mode
         mode.view=R.New(stage,true);mode.view.unlockMode=true;mode.view.scene="cast"
-        local panel=W.Panel(stage);mode.panel=panel;panel:SetSize(350,110)
+        local panel=W.Panel(stage);mode.panel=panel;panel:SetSize(560,110)
         panel:SetPoint("CENTER",UIParent,"TOP",0,-UIParent:GetHeight()/3);panel:SetFrameStrata("FULLSCREEN_DIALOG");panel:SetFrameLevel(9100)
         panel.label=W.Label(panel,"拖动彩色区域调整位置；右键选择重叠框体。",13);panel.label:SetPoint("TOP",0,-12)
         mode.snapCheck=W.Check(panel,"吸附网格线",function(enabled)M.db.editor.snap=enabled==true end)
         mode.snapCheck:SetPoint("TOPLEFT",24,-40)
+        mode.centralCheck=W.Check(panel,"中间监控区整体移动",function(enabled)
+            if not mode.ready or not M:CanEdit() then return end
+            if mode.dragMover then mode.dragMover.drag=nil;mode.dragMover=nil;M:Commit() end
+            SetCentralGroup(mode,enabled)
+            SelectUnlockedMover(mode,nil)
+        end)
+        mode.centralCheck:SetPoint("TOPLEFT",210,-40)
         mode.done=W.Button(panel,"完成移动",100,function()M:FinishUnlockedMoveMode()end)
         mode.done:SetPoint("BOTTOM",60,10);mode.done:SetFullColorStyle(1,.82,0)
         mode.restore=W.Button(panel,"恢复默认",100,function()M:ResetUnlockedModulePositions()end)
@@ -206,6 +249,7 @@ function M:StartUnlockedMoveMode()
     mode.ready=false;mode.fadeOutStarted=nil;mode.fadeStarted=GetTime();mode.stage:SetAlpha(0);mode.done:Disable()
     mode.restore:Disable()
     mode.snapCheck:SetChecked(self.db.editor.snap~=false);mode.snapCheck:Disable()
+    mode.centralGroup=false;mode.centralCheck:SetChecked(false);mode.centralCheck:Disable()
     mode.panel:ClearAllPoints();mode.panel:SetPoint("CENTER",UIParent,"TOP",0,-UIParent:GetHeight()/3)
     mode.liveAlpha=self.live.root:GetAlpha()
     local design={nodes={}};local ids={}
@@ -258,6 +302,26 @@ function M:StartUnlockedMoveMode()
                     for _,part in ipairs(node.id=="mainComposite"and MainCompositeRoots()or {node})do
                         drag.members[#drag.members+1]={node=part,x=part.x or 0,y=part.y or 0,scale=geo[part.id].s}
                     end
+                    if mode.centralGroup and node.id=="mainComposite" then
+                        drag.central={}
+                        for _,part in ipairs(mode.movers) do
+                            local n=part.node
+                            if part.available and n.id~="mainComposite" and centralModules[n.id] then
+                                local g=geo[n.id]
+                                drag.central[#drag.central+1]={node=n,x=g.x,y=g.y}
+                            end
+                        end
+                        local function depth(n)
+                            local count=0
+                            while n and n.parent and count<100 do n=M.byID[n.parent];count=count+1 end
+                            return count
+                        end
+                        table.sort(drag.central,function(a,b)return depth(a.node)<depth(b.node)end)
+                        drag.frameX,drag.frameY=self:GetCenter()
+                        local cx,cy=mode.stage:GetCenter()
+                        drag.frameX,drag.frameY=drag.frameX-cx,drag.frameY-cy
+                        drag.width,drag.height=self:GetWidth(),self:GetHeight()
+                    end
                     self.drag=drag;mode.dragMover=self
                 end)
                 mover:SetScript("OnMouseUp",function(self,button)
@@ -268,11 +332,12 @@ function M:StartUnlockedMoveMode()
                 mode.movers[count]=mover
             end
             mover.node=group;mover.groupColor=unlockModuleColors[id]
+            mover.available=true
             mover.drag=nil;mover.label:SetText(id=="targetDistance" and "目标距离数字" or private.ModuleName(group));mover:EnableMouse(false)
             PositionUnlockedMover(mode,mover,geometry);mover:Show()
         end
     end
-    for i=count+1,#mode.movers do mode.movers[i]:Hide()end
+    for i=count+1,#mode.movers do mode.movers[i].available=false;mode.movers[i]:Hide()end
     SelectUnlockedMover(mode,nil)
     local ranked={};for i=1,count do ranked[i]=mode.movers[i]end
     table.sort(ranked,function(a,b)return a.area>b.area end)
@@ -291,6 +356,7 @@ function M:StartUnlockedMoveMode()
             mode.stage:SetAlpha(alpha);M.live.root:SetAlpha(mode.liveAlpha*(1-alpha))
             if t>=1 then
                 mode.ready=true;mode.done:Enable();mode.restore:Enable();mode.snapCheck:Enable()
+                mode.centralCheck:Enable()
                 for _,mover in ipairs(mode.movers)do if mover:IsShown()then mover:EnableMouse(true)end end
             end
         end
@@ -326,6 +392,19 @@ function M:StartUnlockedMoveMode()
                                 local copy=mode.view.byID[node.id];copy.x=node.x;copy.y=node.y
                                 local object=mode.view.nodes[node.id];R.Position(mode.view,object.frame,copy,object.geometryParent)
                             end
+                        end
+                        if drag.central then
+                            for _,member in ipairs(drag.central) do
+                                local n=member.node
+                                local current=M:Geometry()[n.id]
+                                n.x=(n.x or 0)+(member.x+dx-current.x)/current.s
+                                n.y=(n.y or 0)+(member.y+dy-current.y)/current.s
+                            end
+                            for _,n in ipairs(M.db.design.nodes) do
+                                local copy=mode.view.byID[n.id]
+                                if copy then copy.x=n.x;copy.y=n.y;copy.moveX=n.moveX;copy.moveY=n.moveY end
+                            end
+                            R.Apply(mode.view,mode.view.design)
                         end
                         drag.appliedDX,drag.appliedDY=dx,dy;mode.changed=true
                         PlaceUnlockedMover(mode,mover,drag.frameX+shiftX,drag.frameY+shiftY,drag.width,drag.height,

@@ -10239,4 +10239,19 @@ for locale,label in pairs({
 })do
     M.localeTables[locale]["传承（Y）"]=label
 end
+for locale,labels in pairs({
+    enUS={"Move central monitors together","Central monitors"},
+    deDE={"Zentrale Anzeigen gemeinsam verschieben","Zentrale Anzeigen"},
+    frFR={"Déplacer les suivis centraux ensemble","Suivis centraux"},
+    esES={"Mover juntos los monitores centrales","Monitores centrales"},
+    esMX={"Mover juntos los monitores centrales","Monitores centrales"},
+    itIT={"Sposta insieme i monitor centrali","Monitor centrali"},
+    ptBR={"Mover monitores centrais juntos","Monitores centrais"},
+    ruRU={"Перемещать центральные индикаторы вместе","Центральные индикаторы"},
+    koKR={"중앙 추적 영역 함께 이동","중앙 추적 영역"},
+    zhTW={"中間監控區整體移動","中間監控區"},
+})do
+    M.localeTables[locale]["中间监控区整体移动"]=labels[1]
+    M.localeTables[locale]["中间监控区"]=labels[2]
+end
 M:RebuildLocaleKeys()
