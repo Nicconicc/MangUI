@@ -291,7 +291,10 @@ local function Build(view,n)
             slot.base:SetTexCoord(.5,-.5,-.5,.5,1.5,.5,.5,1.5)
             slot.base:SetAlpha(.8)
             slot.models={};slot.modelReady={}
-            for j=1,2 do
+            -- Isolate the flash reported on Forever by keeping these slots texture-only.
+            local textureOnly=o.foreverRogueComboPoints and (i==2 or i==4)
+            local modelCount=textureOnly and 0 or 2
+            for j=1,modelCount do
                 local model=CreateFrame("PlayerModel",nil,slot.visual);model:SetPoint("CENTER")
                 model:EnableMouse(false)
                 if slot.fixedModelViewport and model.SetIgnoreParentScale then
