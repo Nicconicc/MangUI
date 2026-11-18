@@ -294,6 +294,11 @@ local function Build(view,n)
             for j=1,2 do
                 local model=CreateFrame("PlayerModel",nil,slot.visual);model:SetPoint("CENTER")
                 model:EnableMouse(false)
+                if slot.fixedModelViewport and model.SetIgnoreParentScale then
+                    model:SetIgnoreParentScale(true)
+                    model:SetScale(1)
+                    model.resourceIndependentViewport=true
+                end
                 if model.SetPortraitZoom then model:SetPortraitZoom(0) end
                 local keepModel=slot.fixedModelViewport and model.SetKeepModelOnHide~=nil
                 if model.SetKeepModelOnHide then model:SetKeepModelOnHide(keepModel) end

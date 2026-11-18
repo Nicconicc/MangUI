@@ -79,7 +79,7 @@ local function ResourceModelPose(model)
     -- Apply the old model API in WA's order, after the viewport is sized.
     if model.SetPortraitZoom then model:SetPortraitZoom(0) end
     if model.ClearTransform then model:ClearTransform() end
-    model:SetModelScale(1)
+    model:SetModelScale(model.resourceViewportScale or 1)
     model:SetPosition(position[1],position[2],position[3])
     model:SetFacing(model.resourceFacing or 0)
 end

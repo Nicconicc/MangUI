@@ -188,7 +188,10 @@ local function ResourcePaint(view,o)
                 end
                 slot.layerClass,slot.layerLevel=class,level
             end
-            local itemScale=style.slotScales[i] or 1
+            -- On Forever, use point 1's visual settings for points 2 and 4.
+            local visualIndex=i
+            if o.foreverRogueComboPoints and (i==2 or i==4) then visualIndex=1 end
+            local itemScale=style.slotScales[visualIndex] or 1
             CachedPair(slot,"baseSize",slot.base,"SetSize",50*itemScale,50*itemScale)
             CachedPoint(slot,"basePoint",slot.base,"CENTER",slot.visual,"CENTER",0,-5*itemScale)
             CachedPair(slot,"artFrameSize",slot.artFrame,"SetSize",40*itemScale,40*itemScale)
@@ -216,13 +219,26 @@ local function ResourcePaint(view,o)
                 if id then
                     local changed=not slot.modelIDs or slot.modelIDs[j]~=id
                     local size=modelSizes[j] or 65
+                    local width=size*itemScale
+                    local poseChanged=false
+                    if model.resourceIndependentViewport then
+                        -- Keep a full-size, integer native render target even
+                        -- when the resource group or UI uses a fractional scale.
+                        -- Resize the effect inside it rather than shrinking
+                        -- the particle viewport of the even-numbered points.
+                        local displaySize=width*slot.visual:GetEffectiveScale()
+                        width=math.max(size,math.ceil(displaySize))
+                        local effectScale=displaySize/width
+                        poseChanged=model.resourceViewportScale~=effectScale
+                        model.resourceViewportScale=effectScale
+                    end
                     local viewport=Cache(slot)["modelSize"..j]
-                    local resized=not viewport or viewport[1]~=size*itemScale or viewport[2]~=size*itemScale
-                    CachedPair(slot,"modelSize"..j,model,"SetSize",size*itemScale,size*itemScale)
+                    local resized=not viewport or viewport[1]~=width or viewport[2]~=width
+                    CachedPair(slot,"modelSize"..j,model,"SetSize",width,width)
                     model.resourcePosition=resourceModelPositions[id] or zeroPosition
                     model.resourceFile=id
                     local sequences=resourceSequences[class]
-                    local sequence=sequences and sequences[i] and sequences[i][j] or 0
+                    local sequence=sequences and sequences[visualIndex] and sequences[visualIndex][j] or 0
                     local sequenceChanged=model.resourceSequence~=sequence
                     model.resourceSequence=sequence
                     if changed then
@@ -230,7 +246,7 @@ local function ResourcePaint(view,o)
                         slot.modelReady[j]=ResourceModelRestart(model)
                         Cache(slot)["modelFacing"..j]=nil
                     end
-                    if changed or resized then ResourceModelPose(model) end
+                    if changed or resized or poseChanged then ResourceModelPose(model) end
                     if not model.movementSuppressed and (changed or sequenceChanged) then model:SetAnimation(sequence) end
                     local modelShown=not view.movementModelsHidden and (active or finishing) and slot.modelReady[j]~=false
                     if model:IsShown()~=modelShown then model:SetShown(modelShown) end
