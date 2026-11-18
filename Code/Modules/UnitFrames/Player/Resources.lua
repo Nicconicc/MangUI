@@ -48,7 +48,19 @@ local function ResourceCoords(texture,degrees)
     local lrx,lry=corner(.5,.5)
     texture:SetTexCoord(ulx,uly,llx,lly,urx,ury,lrx,lry)
 end
-local function AnimateCombo(slot,elapsed)
+local function AnimateCombo(slot,now)
+    local breathing=slot.comboBreathAt~=nil and slot.resourceActive
+    if breathing then
+        local cycle=(now-slot.comboBreathAt)/slot.comboBreathHalfPeriod
+        local pulse=(1-math.cos(math.pi*cycle))*.5
+        local scale=.91+.22*pulse
+        -- Scale the image around its center inside a fixed 64-unit quad.
+        -- The source image occupies 56 units at scale 1.
+        local radius=(32/56)/scale
+        slot.comboGlow:SetTexCoord(.5-radius,.5+radius,.5-radius,.5+radius)
+        slot.comboGlow:SetAlpha(.4+.5*pulse)
+    end
+    local elapsed=slot.resourcePhase and math.max(0,now-slot.resourcePhaseAt) or 0
     local progress=M.Clamp(elapsed/.65,0,1)
     local playing=slot.resourcePhase~=nil and progress<1
     if slot.comboRing:IsShown()~=playing then slot.comboRing:SetShown(playing) end
@@ -59,6 +71,7 @@ local function AnimateCombo(slot,elapsed)
     else
         slot.resourcePhase=nil
     end
+    return breathing or playing
 end
 local function ResourceAnimate(o)
     if o.retailResourcesActive then M.RetailResources.Animate(o);return end
@@ -66,13 +79,17 @@ local function ResourceAnimate(o)
     if o.resourceAnimating==false then return end
     local now=GetTime()
     local animating=false
+    if o.foreverComboPoints then
+        for _,slot in ipairs(o.resourceSlots) do
+            if slot.comboGlow and AnimateCombo(slot,now) then animating=true end
+        end
+        o.resourceAnimating=animating
+        return
+    end
     for _,slot in ipairs(o.resourceSlots) do
         local phase=slot.resourcePhase
         local elapsed=phase and math.max(0,now-(slot.resourcePhaseAt or now)) or 0
         local scale,alpha,angle=1,1,0
-        if slot.comboGlow then
-            AnimateCombo(slot,elapsed)
-        end
         if phase=="enter" then
             local progress=M.Clamp(elapsed/.1,0,1)
             scale=math.max(.001,progress)
@@ -218,7 +235,7 @@ local function ResourcePaint(view,o)
             CachedPair(slot,"artSize",slot.art,"SetSize",40*itemScale,40*itemScale)
             if slot.comboGlow then
                 slot.comboScale=itemScale
-                CachedPair(slot,"comboGlowSize",slot.comboGlow,"SetSize",56*itemScale,56*itemScale)
+                CachedPair(slot,"comboGlowSize",slot.comboGlow,"SetSize",64*itemScale,64*itemScale)
             end
             local file=style.file;local modelIDs=style.models;local modelSizes=style.sizes
             local tint=style.color
