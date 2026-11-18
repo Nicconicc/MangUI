@@ -10254,4 +10254,18 @@ for locale,labels in pairs({
     M.localeTables[locale]["中间监控区整体移动"]=labels[1]
     M.localeTables[locale]["中间监控区"]=labels[2]
 end
+for locale,label in pairs({
+    enUS="Open add-on instructions and introductions here",
+    deDE="Hier findest du Anleitungen und Beschreibungen der Add-ons",
+    frFR="Ouvrez ici les instructions et descriptions des extensions",
+    esES="Abre aquí las instrucciones y descripciones de los complementos",
+    esMX="Abre aquí las instrucciones y descripciones de los complementos",
+    itIT="Apri qui le istruzioni e le descrizioni degli add-on",
+    ptBR="Abra aqui as instruções e descrições dos addons",
+    ruRU="Здесь можно открыть инструкции и описания дополнений",
+    koKR="여기에서 애드온 사용법과 소개를 확인하세요",
+    zhTW="各模組的插件使用和介紹在這裡開啟",
+})do
+    M.localeTables[locale]["各模块的插件使用和介绍在这里打开"]=label
+end
 M:RebuildLocaleKeys()
