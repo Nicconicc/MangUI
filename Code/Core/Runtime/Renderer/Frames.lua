@@ -278,12 +278,12 @@ local function Build(view,n)
         local _,class,classID=UnitClass("player")
         local forever=WOW_PROJECT_CAMELOT~=nil and WOW_PROJECT_ID==WOW_PROJECT_CAMELOT
         if WOW_PROJECT_CAMELOT==nil then forever=tonumber(C.interface)==16001 end
-        o.foreverRogueComboPoints=forever and (class=="ROGUE" or classID==4)
+        o.foreverComboPoints=forever and (class=="ROGUE" or class=="DRUID" or classID==4 or classID==11)
         for i=1,6 do
             local slot=CreateFrame("Frame",nil,f);slot:SetSize(50,50);slot:EnableMouse(false)
-            -- All five rogue combo slots on Forever can flash when an
+            -- All five combo slots on Forever can flash when an
             -- animation changes the model viewport.
-            slot.fixedModelViewport=o.foreverRogueComboPoints and i<=5
+            slot.fixedModelViewport=o.foreverComboPoints and i<=5
             slot.visual=CreateFrame("Frame",nil,slot);slot.visual:SetSize(50,50);slot.visual:SetPoint("CENTER")
             slot.visual:EnableMouse(false)
             slot.base=slot.visual:CreateTexture(nil,"ARTWORK");slot.base:SetSize(50,50)
@@ -294,7 +294,7 @@ local function Build(view,n)
             slot.base:SetAlpha(.8)
             slot.models={};slot.modelReady={}
             -- Isolate the flash reported on Forever by keeping these slots texture-only.
-            local modelCount=o.foreverRogueComboPoints and 0 or 2
+            local modelCount=o.foreverComboPoints and 0 or 2
             for j=1,modelCount do
                 local model=CreateFrame("PlayerModel",nil,slot.visual);model:SetPoint("CENTER")
                 model:EnableMouse(false)

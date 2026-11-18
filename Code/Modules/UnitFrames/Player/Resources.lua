@@ -124,7 +124,7 @@ local function ResourcePaint(view,o)
     local targetChanged=not view.preview and view.resourceTargetChanged
     if targetChanged then view.resourceTargetChanged=nil end
     local targetExists=UnitExists("target")
-    local targetDead=not view.preview and o.foreverRogueComboPoints and targetExists
+    local targetDead=not view.preview and o.foreverComboPoints and targetExists
         and C.Bool(UnitIsDeadOrGhost("target"))
     local clearCombo=targetChanged or not targetExists or targetDead
     if view.preview then amount=style.count
@@ -190,7 +190,7 @@ local function ResourcePaint(view,o)
             end
             -- On Forever, use point 1's visual settings for points 2 and 4.
             local visualIndex=i
-            if o.foreverRogueComboPoints and (i==2 or i==4) then visualIndex=1 end
+            if o.foreverComboPoints and (i==2 or i==4) then visualIndex=1 end
             local itemScale=style.slotScales[visualIndex] or 1
             CachedPair(slot,"baseSize",slot.base,"SetSize",50*itemScale,50*itemScale)
             CachedPoint(slot,"basePoint",slot.base,"CENTER",slot.visual,"CENTER",0,-5*itemScale)
