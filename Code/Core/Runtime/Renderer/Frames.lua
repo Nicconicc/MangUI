@@ -275,8 +275,10 @@ local function Build(view,n)
         f:SetScript("OnHide",function()M.CooldownMonitor.Reset(o)end)
     elseif n.kind=="resources" then
         o.resourceSlots={}
-        local _,class=UnitClass("player")
-        o.foreverRogueComboPoints=C.interface==16001 and class=="ROGUE"
+        local _,class,classID=UnitClass("player")
+        local forever=WOW_PROJECT_CAMELOT~=nil and WOW_PROJECT_ID==WOW_PROJECT_CAMELOT
+        if WOW_PROJECT_CAMELOT==nil then forever=tonumber(C.interface)==16001 end
+        o.foreverRogueComboPoints=forever and (class=="ROGUE" or classID==4)
         for i=1,6 do
             local slot=CreateFrame("Frame",nil,f);slot:SetSize(50,50);slot:EnableMouse(false)
             -- All five rogue combo slots on Forever can flash when an
