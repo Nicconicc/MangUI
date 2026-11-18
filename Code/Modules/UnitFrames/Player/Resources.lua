@@ -48,6 +48,36 @@ local function ResourceCoords(texture,degrees)
     local lrx,lry=corner(.5,.5)
     texture:SetTexCoord(ulx,uly,llx,lly,urx,ury,lrx,lry)
 end
+local comboCorners={{0,23},{23,0},{0,-23},{-23,0}}
+local function AnimateCombo(slot,elapsed)
+    local phase=slot.resourcePhase
+    local progress=M.Clamp(elapsed/.4,0,1)
+    local playing=phase~=nil and progress<1
+    local pulse=playing and math.sin(math.pi*progress) or 0
+    local glow=slot.resourceActive and (.23+.57*pulse) or 0
+    CachedValue(slot,"comboGlowAlpha",slot.comboGlow,"SetAlpha",glow)
+    for i,spark in ipairs(slot.comboSparks) do
+        local shown=playing and (i==1 or phase=="glow" or phase=="fullBurst")
+        if spark:IsShown()~=shown then spark:SetShown(shown) end
+        if shown then
+            local x,y
+            if i==1 then
+                local edge=progress*4
+                local corner=math.floor(edge)
+                local a,b=comboCorners[corner+1],comboCorners[(corner+1)%4+1]
+                local fraction=edge-corner
+                x,y=a[1]+(b[1]-a[1])*fraction,a[2]+(b[2]-a[2])*fraction
+            else
+                local direction=comboCorners[i-1]
+                local distance=.65+.65*progress
+                x,y=direction[1]*distance,direction[2]*distance
+            end
+            spark:SetPoint("CENTER",slot.art,"CENTER",x,y)
+            spark:SetAlpha(i==1 and pulse or pulse*(1-progress))
+        end
+    end
+    if not playing then slot.resourcePhase=nil end
+end
 local function ResourceAnimate(o)
     if o.retailResourcesActive then M.RetailResources.Animate(o);return end
     if o.mistsResourceMode then M.MistsResources.Animate(o);return end
@@ -59,13 +89,7 @@ local function ResourceAnimate(o)
         local elapsed=phase and math.max(0,now-(slot.resourcePhaseAt or now)) or 0
         local scale,alpha,angle=1,1,0
         if slot.comboGlow then
-            local intensity=0
-            if phase=="glow" then
-                local progress=M.Clamp(elapsed/.28,0,1)
-                intensity=.75*math.sin(math.pi*progress)
-                if progress==1 then intensity=0;slot.resourcePhase=nil end
-            end
-            CachedValue(slot,"comboGlowAlpha",slot.comboGlow,"SetAlpha",intensity)
+            AnimateCombo(slot,elapsed)
         end
         if phase=="enter" then
             local progress=M.Clamp(elapsed/.1,0,1)
@@ -135,7 +159,7 @@ local function ResourcePaint(view,o)
     local targetExists=UnitExists("target")
     local targetDead=not view.preview and o.foreverComboPoints and targetExists
         and C.Bool(UnitIsDeadOrGhost("target"))
-    local clearCombo=targetChanged or not targetExists or targetDead
+    local clearCombo=(targetChanged and not o.foreverComboPoints) or not targetExists or targetDead
     if view.preview then amount=style.count
     elseif class=="ROGUE" or class=="DRUID" then
         if not clearCombo then
@@ -146,6 +170,10 @@ local function ResourcePaint(view,o)
             end
         end
     elseif class=="SHAMAN" then amount=ResourceAuraStacks() end
+    local playCombo=o.foreverComboPoints and not view.preview and not targetChanged
+        and o.comboAmount~=nil and amount>o.comboAmount
+    local reachedFull=playCombo and amount>=style.count
+    if o.foreverComboPoints then o.comboAmount=amount end
     for i,slot in ipairs(o.resourceSlots) do
         local exists=i<=style.count
         local active=exists and i<=amount
@@ -165,17 +193,25 @@ local function ResourcePaint(view,o)
                 end
             end
         end
-        if not exists then slot.resourcePhase=nil;slot.resourceActive=false
+        if slot.comboGlow then
+            if not active or targetChanged then
+                slot.resourcePhase=nil
+            elseif reachedFull or (playCombo and not slot.resourceActive) then
+                if reachedFull then
+                    slot.resourcePhase=slot.resourceActive and "full" or "fullBurst"
+                else
+                    slot.resourcePhase="glow"
+                end
+                slot.resourcePhaseAt=GetTime()+(reachedFull and (i-1)*.035 or 0)
+            end
+            slot.resourceActive=active
+        elseif not exists then slot.resourcePhase=nil;slot.resourceActive=false
         elseif (class=="ROGUE" or class=="DRUID") and not view.preview and clearCombo then
             slot.resourcePhase=nil;slot.resourceActive=false
         elseif slot.resourceActive~=active then
             local previous=slot.resourceActive
             slot.resourceActive=active
-            if slot.fixedModelViewport then
-                slot.resourcePhase=active and "glow" or nil
-            else
-                slot.resourcePhase=active and "enter" or (previous==true and "exit" or nil)
-            end
+            slot.resourcePhase=active and "enter" or (previous==true and "exit" or nil)
             slot.resourcePhaseAt=GetTime()
         end
         slot.resourceKeepSlot=class=="DEATHKNIGHT"

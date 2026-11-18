@@ -321,6 +321,17 @@ local function Build(view,n)
                 slot.comboGlow:SetBlendMode("ADD")
                 slot.comboGlow:SetVertexColor(1,.78,.36)
                 slot.comboGlow:SetAlpha(0)
+                slot.comboSparks={}
+                for j=1,5 do
+                    local spark=slot.artFrame:CreateTexture(nil,"OVERLAY",nil,1)
+                    spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
+                    spark:SetBlendMode("ADD")
+                    spark:SetVertexColor(1,.74,.32)
+                    local size=j==1 and 19 or 8
+                    spark:SetSize(size,size)
+                    spark:Hide()
+                    slot.comboSparks[j]=spark
+                end
             end
             slot.cooldown=CreateFrame("StatusBar",nil,slot)
             slot.cooldown:SetSize(44,4);slot.cooldown:SetPoint("BOTTOM",0,-8)
