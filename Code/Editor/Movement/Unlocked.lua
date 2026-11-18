@@ -20,7 +20,7 @@ local FrameMoveBounds=private.FrameMoveBounds
 local MainCompositeMoveBounds=private.MainCompositeMoveBounds
 local centralModules={mainComposite=true,wa8d650f8d3a=true,petComposite=true,totComposite=true,
     focusComposite=true,playerSkillMonitor=true,playerOtherMonitor=true,cooldownMonitor=true,
-    receivedBuffs=true,raidVulnerability=true,raidBuffs=true,commonItems=true,targetThreat=true}
+    receivedBuffs=true,raidVulnerability=true,raidBuffs=true,commonItems=true,targetThreat=true,targetDistance=true}
 local centralColor={1,.35,.68}
 
 function M:FinishUnlockedMoveMode()

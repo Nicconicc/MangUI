@@ -326,6 +326,31 @@ function B.Build(view,o)
             click:SetScript("OnMouseDown",function()visual:SetAlpha(.5)end)
             click:SetScript("OnMouseUp",function()visual:SetAlpha(1)end)
         end
+        if def.key=="addons" and not view.preview then
+            local guide=CreateFrame("Frame",nil,slot)
+            guide:Hide()
+            guide:SetSize(28,32);guide:EnableMouse(false)
+            local arrow=guide:CreateTexture(nil,"OVERLAY")
+            arrow:SetAllPoints()
+            arrow:SetTexture("Interface\\TutorialFrame\\UI-TutorialFrame-Arrow")
+            local animation=guide:CreateAnimationGroup()
+            animation:SetLooping("REPEAT")
+            for i,offset in ipairs({6,-6}) do
+                local step=animation:CreateAnimation("Translation")
+                step:SetOrder(i);step:SetOffset(0,offset);step:SetDuration(.55)
+                step:SetSmoothing("IN_OUT")
+            end
+            guide:SetScript("OnShow",function()animation:Play()end)
+            guide:SetScript("OnHide",function()animation:Stop()end)
+            guide:SetShown(not M.db.addonLauncherGuideSeen)
+            entry.addonGuide=guide
+            click:SetScript("OnClick",function(self,button)
+                if button~="LeftButton" then return end
+                M.db.addonLauncherGuideSeen=true
+                guide:Hide()
+                B.ShowAddonLauncher(self)
+            end)
+        end
         click:SetScript("OnEnter",function(self)
             if def.key=="addons" and not view.preview then
                 B.ShowAddonLauncher(self)
@@ -387,6 +412,11 @@ function B.Configure(view,o)
             label:ClearAllPoints()
         end
         slot.text:SetPoint("CENTER",0,labelY);slot.shadow:SetPoint("CENTER",2,labelY-2)
+        if slot.addonGuide then
+            slot.addonGuide:ClearAllPoints()
+            slot.addonGuide:SetPoint("BOTTOM",slot.text,"TOP",0,5)
+            slot.addonGuide:SetShown(not M.db.addonLauncherGuideSeen)
+        end
     end
     if not view.preview and o.bagSlot then M.Compat.ConfigureMenuButton(o.bagSlot.button,"bags","paired") end
     o.chatLayout=nil;B.Refresh(view,o)
