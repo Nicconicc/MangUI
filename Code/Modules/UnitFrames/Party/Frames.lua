@@ -634,6 +634,7 @@ function P.PaintHealPrediction(view,o,s)
         bar:SetStatusBarTexture([[Interface\Buttons\WHITE8X8]])
         bar:SetStatusBarColor(.64,1,.70,.76)
         o.partyHealPredictionLayer,o.partyHealPrediction=layer,bar
+        M.HealthAbsorbs.SyncPartyLayers(o)
     end
     local n=o.spec
     local props=M.RendererInternals

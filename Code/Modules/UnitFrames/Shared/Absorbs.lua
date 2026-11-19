@@ -3,6 +3,19 @@ local A = {}
 M.HealthAbsorbs = A
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 
+function A.SyncPartyLayers(o)
+    if o.spec.partyIndex == nil or not o.absorbBar then return end
+    local shieldLevel = o.frame:GetFrameLevel()
+    local fillLevel = math.max(0, shieldLevel - 1)
+    for _, region in pairs({o.bar, o.clip, o.nativeClip, o.nativeArtFrame,
+        o.partyHealPredictionLayer, o.partyHealPrediction}) do
+        region:SetFrameLevel(fillLevel)
+    end
+    o.absorbBar:SetFrameLevel(shieldLevel)
+    o.absorbClip:SetFrameLevel(shieldLevel)
+    o.absorbArt:SetFrameLevel(shieldLevel)
+end
+
 function A.Configure(o)
     local n = o.spec
     local supported = n.binding == "health" and not n.vertical
@@ -27,7 +40,7 @@ function A.Configure(o)
         mask:SetAllPoints(art)
         local fill = art:CreateTexture(nil, "ARTWORK")
         fill:SetAllPoints(art)
-        fill:SetColorTexture(1, .78, .24, .55)
+        fill:SetColorTexture(1, .78, .24, n.partyIndex ~= nil and .80 or .55)
         fill:AddMaskTexture(mask)
         local edge = art:CreateTexture(nil, "OVERLAY")
         edge:SetColorTexture(1, .91, .52, .95)
@@ -47,9 +60,14 @@ function A.Configure(o)
             lines[i] = line
         end
         o.absorbBar, o.absorbMask, o.absorbEdge = bar, mask, edge
+        o.absorbClip, o.absorbArt = clip, art
         o.absorbLines = lines
     end
-    o.absorbBar:SetFrameLevel(math.max(o.bar:GetFrameLevel(), o.clip:GetFrameLevel()) + 2)
+    if n.partyIndex ~= nil then
+        A.SyncPartyLayers(o)
+    else
+        o.absorbBar:SetFrameLevel(math.max(o.bar:GetFrameLevel(), o.clip:GetFrameLevel()) + 2)
+    end
     o.absorbBar:SetReverseFill(not n.reverse)
     o.absorbMask:SetTexture(n.file or WHITE, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     M.RendererInternals.TextureCoords(o.absorbMask, n)

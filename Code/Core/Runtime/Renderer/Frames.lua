@@ -123,6 +123,7 @@ function R.SyncPreviewLayers(view,force)
             if strata and child.GetFrameStrata and child:GetFrameStrata()~=strata then child:SetFrameStrata(strata) end
             if child:GetFrameLevel()~=level+1 then child:SetFrameLevel(level+1) end
         end
+        M.HealthAbsorbs.SyncPartyLayers(o)
         if o.portraitViewport and o.portraitViewport:GetFrameLevel()~=level then
             o.portraitViewport:SetFrameLevel(level)
         end
@@ -831,7 +832,13 @@ function R.Apply(view,design,unchanged)
         end
     end
     end
-    if M.PartyFrames and (levelsChanged or affectedModules.partyFrames) then M.PartyFrames.ConfigurePortraits(view) end
+    if M.PartyFrames and (levelsChanged or affectedModules.partyFrames) then
+        for i=0,4 do
+            local health=view.nodes["party"..i.."Health"]
+            if health then M.HealthAbsorbs.SyncPartyLayers(health) end
+        end
+        M.PartyFrames.ConfigurePortraits(view)
+    end
     if M.PartyFrames and (reindex or affectedModules.partyFrames) then M.PartyFrames.ConfigureHighlight(view) end
     if reindex then IndexUpdates(view) end
     view.indexRevision=prepared.indexRevision
