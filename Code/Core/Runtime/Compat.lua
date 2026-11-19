@@ -73,29 +73,73 @@ local function Ratio(value,max)
     if not value or not max then return nil end
     return max>0 and M.Clamp(value/max,0,1) or 0
 end
-local function ClassColorForToken(unit)
-    if not RAID_CLASS_COLORS then return end
-    if UnitClass then
-        local _,class=UnitClass(unit)
-        local color=C.Readable(class) and type(class)=="string" and RAID_CLASS_COLORS[class]
-        if color then return color end
-    end
-    if UnitClassBase then
-        local class=UnitClassBase(unit)
-        if C.Readable(class) and type(class)=="string" then return RAID_CLASS_COLORS[class] end
+local function ClassColorForFile(class)
+    if C.Readable(class) and type(class)=="string" then
+        return RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
     end
 end
 
-local function ClassColor(unit)
-    local color=ClassColorForToken(unit)
-    if color or unit~="targettarget" or not UnitIsUnit then return color end
-    -- A publicly identifiable party member may expose their class on the
-    -- roster token even when the target-of-target token does not.
-    if C.Bool(UnitIsUnit(unit,"player")) then return ClassColorForToken("player") end
-    for i=1,4 do
-        local member="party"..i
-        if C.Bool(UnitIsUnit(unit,member)) then return ClassColorForToken(member) end
+local function ClassColorForToken(unit)
+    if not RAID_CLASS_COLORS then return end
+    local classID
+    if UnitClass then
+        local _,class,id=UnitClass(unit)
+        local color=ClassColorForFile(class)
+        if color then return color end
+        classID=C.Number(id)
     end
+    if UnitClassBase then
+        local class,id=UnitClassBase(unit)
+        local color=ClassColorForFile(class)
+        if color then return color end
+        classID=classID or C.Number(id)
+    end
+    if classID and C_CreatureInfo and C_CreatureInfo.GetClassInfo then
+        local info=C_CreatureInfo.GetClassInfo(classID)
+        if info then return ClassColorForFile(info.classFile) end
+    end
+end
+
+local function TargetTargetClass(player)
+    if player then
+        local color=ClassColorForToken("targettarget")
+        if color then return true,color end
+    end
+
+    local guid=UnitGUID and UnitGUID("targettarget")
+    local readableGUID=C.Readable(guid)
+    if readableGUID and type(guid)=="string" then
+        if guid:sub(1,7)=="Player-" then player=true
+        elseif not player then return false end
+    end
+    -- The official player-info API accepts opaque GUIDs and returns player data
+    -- only when the client makes it available. Never inspect an opaque GUID.
+    if GetPlayerInfoByGUID and (not readableGUID or type(guid)=="string") then
+        local ok,_,class=pcall(GetPlayerInfoByGUID,guid)
+        local color=ok and ClassColorForFile(class)
+        if color then return true,color end
+    end
+    if player and UnitClassFromGUID and (not readableGUID or type(guid)=="string") then
+        local ok,_,class=pcall(UnitClassFromGUID,guid)
+        local color=ok and ClassColorForFile(class)
+        if color then return true,color end
+    end
+
+    if UnitIsUnit and C.Bool(UnitIsUnit("targettarget","player")) then
+        return true,ClassColorForToken("player")
+    end
+    local raid=IsInRaid and IsInRaid()
+    local prefix=raid and "raid" or "party"
+    local count=raid and GetNumGroupMembers and GetNumGroupMembers() or 4
+    if UnitIsUnit then
+        for i=1,count do
+            local member=prefix..i
+            if C.Bool(UnitIsUnit("targettarget",member)) then
+                return true,ClassColorForToken(member)
+            end
+        end
+    end
+    return player,player and ClassColorForToken("targettarget") or nil
 end
 local function Clear(out)
     for key in pairs(out) do out[key]=nil end
@@ -211,7 +255,7 @@ function C.State(unit,preview,scene,out,fields,bossHealth)
         end
         out.name,out.level=previewNames[unit] or M:T("预览"),80
         out.dead,out.friendly,out.isPlayer=scene=="dead",unit~="target",unit=="player"
-        if out.isPlayer and M.db and M.db.healthClassColor then out.classColor=ClassColor("player") end
+        if out.isPlayer and M.db and M.db.healthClassColor then out.classColor=ClassColorForToken("player") end
         out.reaction,out.classification,out.raid=unit=="target" and 4 or 5,scene=="elite" and "elite" or "normal",scene=="elite" and 8 or nil
         out.leader,out.afk,out.connected=scene=="leader",scene=="afk",true
         out.powerColor,out.nameColor,out.petStatus=pc,nc,"快乐"
@@ -233,10 +277,16 @@ function C.State(unit,preview,scene,out,fields,bossHealth)
     pc,nc=pc or {},nc or {};nc[1],nc[2],nc[3]=1,1,1
     local player=C.Bool(UnitIsPlayer(unit))
     local reaction=UnitReaction and C.Number(UnitReaction(unit,"player"))
+    local col
+    if unit=="targettarget" then
+        player,col=TargetTargetClass(player)
+    elseif player then
+        col=ClassColorForToken(unit)
+    end
     if player then
-        local col=ClassColor(unit);out.classColor=col
+        out.classColor=col
         if col then nc[1],nc[2],nc[3]=col.r,col.g,col.b end
-    elseif reaction then
+    elseif reaction and unit~="targettarget" then
         local col=FACTION_BAR_COLORS and FACTION_BAR_COLORS[reaction]
         if col then nc[1],nc[2],nc[3]=col.r,col.g,col.b end
     end
