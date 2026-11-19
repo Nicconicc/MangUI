@@ -32,6 +32,16 @@ local function MonitorTarget(e,drag)
     local object=e.view.nodes[chat and "chatButtonsRow" or group.id.."Icons"]
     if not object then return end
     local x,y=GetCursorPosition();local scale=e.input:GetEffectiveScale()
+    if chat and drag and drag.startX then
+        local left,right,bottom,top=e.input:GetLeft(),e.input:GetRight(),e.input:GetBottom(),e.input:GetTop()
+        if not left or x<left*scale or x>right*scale or y<bottom*scale or y>top*scale then return end
+        local pitch=((group.iconSize or 64)+(group.buttonSpacing or -20))*object.frame:GetEffectiveScale()
+        if pitch<=0 then return end
+        local index=M.Clamp(drag.index+math.floor((x-drag.startX)/pitch+.5),1,#list)
+        local key=list[index]
+        local item=object.chatButtonsByKey[key]
+        return {group=group,list=list,entry=key,slot=item.frame,index=index,texture=item.texture}
+    end
     x,y=x/scale,y/scale
     if not e.input:GetLeft() or x<e.input:GetLeft() or x>e.input:GetRight()
         or y<e.input:GetBottom() or y>e.input:GetTop() then return end
@@ -80,7 +90,8 @@ local function BeginMonitorDrag(e,target)
     local icon=target.texture
     local scale=slot:GetEffectiveScale()
     local x,y=GetCursorPosition();local cx,cy=slot:GetCenter()
-    target.offsetX,target.offsetY=cx*scale-x,cy*scale-y
+    if target.group.id=="chatButtons" then target.startX=x end
+    target.offsetX,target.offsetY=cx and cx*scale-x or 0,cy and cy*scale-y or 0
     target.alpha=slot:GetAlpha()
     e.monitorDrag=target
     ghost:SetSize(slot:GetWidth()*scale/ghost:GetEffectiveScale(),slot:GetHeight()*scale/ghost:GetEffectiveScale())
@@ -118,16 +129,33 @@ local function RefreshChatToggles(e,group)
             handle=CreateFrame("Button",nil,e.input)
             handle:SetFrameLevel(e.input:GetFrameLevel()+1)
             handle:EnableMouse(true)
-            handle:RegisterForDrag("LeftButton")
-            handle:SetScript("OnDragStart",function()
-                local target=MonitorTarget(e)
-                if target and M:CanEdit() then BeginMonitorDrag(e,target) end
+            if handle.SetMouseClickEnabled then handle:SetMouseClickEnabled(true) end
+            handle:SetScript("OnMouseDown",function(self,mouseButton)
+                local current=Selected()
+                if mouseButton~="LeftButton" or e.monitorDrag or not current
+                    or current.id~="chatButtons" or not M:CanEdit()then return end
+                local list=current.buttonOrder
+                for position,entry in ipairs(list) do
+                    if entry==key then
+                        local item=self.chatSlot
+                        BeginMonitorDrag(e,{group=current,list=list,entry=key,slot=item.frame,
+                            index=position,texture=item.texture})
+                        break
+                    end
+                end
             end)
-            handle:SetScript("OnDragStop",function()EndMonitorDrag(e)end)
+            handle:SetScript("OnMouseUp",function(_,mouseButton)
+                if mouseButton=="LeftButton" then EndMonitorDrag(e) end
+            end)
             e.chatDragButtons[index]=handle
         end
+        handle.chatSlot=slot
+        local ratio=slot.frame:GetEffectiveScale()/e.input:GetEffectiveScale()
+        local size=group.iconSize or 64
+        local pitch=size+(group.buttonSpacing or -20)
         handle:ClearAllPoints()
-        handle:SetAllPoints(slot.frame)
+        handle:SetSize(math.max(1,math.min(size,pitch)*ratio),math.max(1,size*ratio))
+        handle:SetPoint("CENTER",slot.frame,"CENTER")
         handle:Show()
         local button=e.chatToggles[index]
         if not button then
