@@ -83,20 +83,53 @@ local trimColors={{1,.49,.56},{.52,.81,1},{.75,.55,1},{.55,1,.66},{1,.73,.42},{.
 local borderParts={"TopLeftCorner","TopRightCorner","BottomLeftCorner","BottomRightCorner",
     "TopEdge","BottomEdge","LeftEdge","RightEdge","BotLeftCorner","BotRightCorner",
     "TopBorder","BottomBorder","BotBorder","LeftBorder","RightBorder"}
-local function ChangeTrimColor(window)
-    local index=math.random(#trimColors)
-    if index==window.supportTrim then index=index%#trimColors+1 end
-    window.supportTrim=index
-    local color=trimColors[index]
-    local r,g,b=color[1],color[2],color[3]
+local unpack=unpack or table.unpack
+local heartSize,heartPeriod=27,3
+local beatOffsets={0,.15,.31,.47,.72}
+local beatScales={1,1.43,1.02,1.29,1}
+local function HeartScale(progress)
+    -- CSS ease-in-out from the preview, followed by linear keyframe interpolation.
+    local t=progress
+    for _=1,4 do
+        local x=t*(1.26+t*(-.78+.52*t))
+        t=t-(x-progress)/(1.26+1.56*t*(t-1))
+    end
+    local eased=t*t*(3-2*t)
+    for i=2,#beatOffsets do
+        if eased<beatOffsets[i] then
+            local fraction=(eased-beatOffsets[i-1])/(beatOffsets[i]-beatOffsets[i-1])
+            return beatScales[i-1]+(beatScales[i]-beatScales[i-1])*fraction
+        end
+    end
+end
+
+local function SetTrimColor(window,color)
     local slice=window.NineSlice
     if slice and slice.SetBorderColor then
-        slice:SetBorderColor(r,g,b,1)
+        if color then
+            if not window.supportTrimBase then
+                local base=slice.borderColor
+                window.supportTrimBase=base and {base.r,base.g,base.b,base.a or 1} or {1,1,1,1}
+            end
+            slice:SetBorderColor(color[1],color[2],color[3],1)
+        elseif window.supportTrimBase then
+            slice:SetBorderColor(unpack(window.supportTrimBase))
+            window.supportTrimBase=nil
+        end
     else
         local name=window:GetName()
+        local original=window.supportTrimPieces or {}
         for _,part in ipairs(borderParts) do
             local piece=(slice and slice[part]) or window[part] or (name and _G[name..part])
-            if piece and piece.SetVertexColor then piece:SetVertexColor(r,g,b) end
+            if color and piece and piece.SetVertexColor then
+                if not original[piece] then original[piece]={piece:GetVertexColor()} end
+                piece:SetVertexColor(color[1],color[2],color[3],original[piece][4] or 1)
+            end
+        end
+        if color then window.supportTrimPieces=original
+        else
+            for piece,rgba in pairs(original) do piece:SetVertexColor(unpack(rgba)) end
+            window.supportTrimPieces=nil
         end
     end
 end
@@ -117,23 +150,8 @@ local function SetupSupportHeart(button,window)
     art:SetFrameLevel(window:GetFrameLevel()+100)
     art:EnableMouse(false)
 
-    local beat=button:CreateAnimationGroup()
-    local beatScales={1,1.43,1.02,1.29,1}
-    local beatTimes={.45,.48,.48,.75}
-    for _,target in ipairs({button.icon,button.shine}) do
-        for i,duration in ipairs(beatTimes) do
-            local scale=beat:CreateAnimation("Scale")
-            scale:SetTarget(target)
-            scale:SetOrder(i)
-            scale:SetScaleFrom(beatScales[i],beatScales[i])
-            scale:SetScaleTo(beatScales[i+1],beatScales[i+1])
-            scale:SetDuration(duration)
-            scale:SetSmoothing("IN_OUT")
-        end
-    end
-
     local particles={}
-    local particleSize=27*.8
+    local particleSize=heartSize*.8
     for i=1,30 do
         local heart=art:CreateTexture(nil,"OVERLAY")
         heart:SetTexture(heartTexture)
@@ -185,23 +203,45 @@ local function SetupSupportHeart(button,window)
         clicks=clicks+1
         if clicks==10 then
             clicks=0
-            ChangeTrimColor(window)
+            local index=math.random(#trimColors)
+            if index==window.supportTrim then index=index%#trimColors+1 end
+            window.supportTrim=index
+            SetTrimColor(window,trimColors[index])
         end
+    end
+    button.resetSupportTrim=function()
+        clicks,lastClick=0,nil
+        window.supportTrim=nil
+        SetTrimColor(window)
+    end
+    local function StopBeat()
+        art:SetScript("OnUpdate",nil)
+        button.icon:SetSize(heartSize,heartSize)
+    end
+    local function Pulse()
+        if not button:IsVisible() then return end
+        local started=GetTime()
+        art:SetScript("OnUpdate",function()
+            local progress=(GetTime()-started)/heartPeriod
+            if progress>=1 then StopBeat();return end
+            local scale=HeartScale(progress)
+            if not scale then StopBeat();return end
+            local size=heartSize*scale
+            button.icon:SetSize(size,size)
+        end)
+        ReleaseHearts()
     end
     local ticker
     local function Start()
         if ticker then return end
-        ticker=C_Timer.NewTicker(3,function()
-            if not button:IsVisible() then return end
-            beat:Play()
-            ReleaseHearts()
-        end)
+        Pulse()
+        ticker=C_Timer.NewTicker(heartPeriod,Pulse)
     end
     button:HookScript("OnShow",Start)
     button:HookScript("OnHide",function()
         clicks,lastClick=0,nil
         if ticker then ticker:Cancel();ticker=nil end
-        beat:Stop()
+        StopBeat()
         for _,particle in ipairs(particles) do
             particle.flight:Stop()
             particle.heart:Hide()
@@ -439,7 +479,7 @@ function F.Attach(editor)
         button.icon = button:CreateTexture(nil, "ARTWORK")
         -- Other footer marks have 12px transparent margins in a 128px image.
         -- Match their visible size with this full-canvas brand image.
-        local iconSize=entry.heart and 27 or (entry.fullColor and 30*104/128 or 30)
+        local iconSize=entry.heart and heartSize or (entry.fullColor and 30*104/128 or 30)
         button.icon:SetSize(iconSize, iconSize)
         button.icon:SetPoint("CENTER")
         if entry.heart then
@@ -459,7 +499,12 @@ function F.Attach(editor)
             highlight(owner, not entry.fullColor and popup:IsShown() and popup.owner == owner)
             scheduleHide()
         end)
-        button:SetScript("OnClick", function(owner)
+        if entry.heart then button:RegisterForClicks("LeftButtonUp","RightButtonUp") end
+        button:SetScript("OnClick", function(owner,mouseButton)
+            if mouseButton=="RightButton" and owner.resetSupportTrim then
+                owner.resetSupportTrim()
+                return
+            end
             if owner.releaseSupportHearts then owner.releaseSupportHearts() end
             showPopup(owner, true)
         end)
