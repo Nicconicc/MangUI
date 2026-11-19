@@ -259,6 +259,10 @@ function M:StartLive()
             end
             return
         end
+        if event=="UNIT_ABSORB_AMOUNT_CHANGED" then
+            Unit(unit,"health")
+            return
+        end
         local healthEvent=event=="UNIT_HEALTH" or event=="UNIT_MAXHEALTH"
         local powerEvent=event=="UNIT_POWER_UPDATE" or event=="UNIT_POWER_FREQUENT" or event=="UNIT_MAXPOWER"
         if healthEvent or powerEvent then

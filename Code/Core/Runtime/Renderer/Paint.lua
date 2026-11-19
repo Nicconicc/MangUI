@@ -364,6 +364,7 @@ local function Paint(view,o,animateOnly,visibleHint)
         end
         if n.binding=="health" and s.healthRatio==nil and not (o.classHealthColor or o.customHealthStyle or o.targetHealthThreshold) and not view.preview and not animateOnly then RestrictedHealthColor(o,s) end
         if n.binding=="health" then
+            M.HealthAbsorbs.Paint(view,o,s,inset,start,n.width*extent)
             if not animateOnly then
                 CachedPair(o,"barRange",o.bar,"SetMinMaxValues",0,s.maxHealth or 1)
                 if not s.bossHealth or o.healthValueSample~=s.bossHealth or not o.nativeReady

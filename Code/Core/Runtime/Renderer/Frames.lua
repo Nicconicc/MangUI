@@ -766,6 +766,7 @@ function R.Apply(view,design,unchanged)
                     o.healthWarning:Hide()
                 end
                 if M.BossFrames then M.BossFrames.ConfigureHealthFill(o) end
+                M.HealthAbsorbs.Configure(o)
             elseif o.model then
                 R.SuppressMovementModel(view,o.model)
                 local id=tonumber(n.model) or 165577

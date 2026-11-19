@@ -67,7 +67,14 @@ function B.SyncNodes(design)
     for _,def in ipairs(B.definitions) do
         if not seen[def.key] then order[#order+1]=def.key end
     end
-    group.buttonOrder=order
+    local previous=group.buttonOrder
+    local same=type(previous)=="table" and #previous==#order
+    if same then
+        for i,key in ipairs(order) do
+            if previous[i]~=key then same=false;break end
+        end
+    end
+    if not same then group.buttonOrder=order end
     if type(group.disabledButtons)~="table" then group.disabledButtons={} end
     if group.showCommunity==false then group.disabledButtons.community=true end
     group.showCommunity=nil
@@ -331,6 +338,7 @@ function B.Build(view,o)
         local template=secureBag and "SecureActionButtonTemplate,SecureHandlerBaseTemplate" or nil
         local click=CreateFrame("Button",nil,slot,template)
         click:SetAllPoints(slot);click:SetFrameLevel(visual:GetFrameLevel()+1)
+        if view.preview then click:EnableMouse(false) end
         local entry={frame=slot,visual=visual,button=click,texture=texture,text=text,shadow=shadow,definition=def}
         local isDurability=def.key=="durability"
         if isDurability then

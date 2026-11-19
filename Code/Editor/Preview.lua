@@ -109,9 +109,26 @@ end
 
 local function RefreshChatToggles(e,group)
     e.chatToggles=e.chatToggles or {}
+    e.chatDragButtons=e.chatDragButtons or {}
     local row=group and e.view.nodes.chatButtonsRow
     for index,slot in ipairs(row and row.chatButtons or {}) do
         local key=slot.definition.key
+        local handle=e.chatDragButtons[index]
+        if not handle then
+            handle=CreateFrame("Button",nil,e.input)
+            handle:SetFrameLevel(e.input:GetFrameLevel()+1)
+            handle:EnableMouse(true)
+            handle:RegisterForDrag("LeftButton")
+            handle:SetScript("OnDragStart",function()
+                local target=MonitorTarget(e)
+                if target and M:CanEdit() then BeginMonitorDrag(e,target) end
+            end)
+            handle:SetScript("OnDragStop",function()EndMonitorDrag(e)end)
+            e.chatDragButtons[index]=handle
+        end
+        handle:ClearAllPoints()
+        handle:SetAllPoints(slot.frame)
+        handle:Show()
         local button=e.chatToggles[index]
         if not button then
             button=W.Check(e.input,"",function(checked)
@@ -134,6 +151,7 @@ local function RefreshChatToggles(e,group)
     end
     if not row then
         for _,button in ipairs(e.chatToggles) do button:Hide() end
+        for _,handle in ipairs(e.chatDragButtons) do handle:Hide() end
     end
 end
 
