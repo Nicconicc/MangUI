@@ -76,13 +76,30 @@ local function highlight(button, active)
 end
 
 local heartTexture=ROOT.."SupportHeart.tga"
-local heartParticles={
-    {-28,43,10,1.04,1,.32,.55},
-    {-15,57,12,1.16,1,.69,.24},
-    {  2,66, 9,1.24,.49,.79,1},
-    { 18,55,12,1.13,.75,.43,1},
-    { 32,39, 8,.96,.48,1,.68},
+local heartColors={
+    {1,.32,.55},{1,.69,.24},{.49,.79,1},{.75,.43,1},{.48,1,.68},
 }
+local trimColors={{1,.49,.56},{.52,.81,1},{.75,.55,1},{.55,1,.66},{1,.73,.42},{.62,1,.94}}
+local borderParts={"TopLeftCorner","TopRightCorner","BottomLeftCorner","BottomRightCorner",
+    "TopEdge","BottomEdge","LeftEdge","RightEdge","BotLeftCorner","BotRightCorner",
+    "TopBorder","BottomBorder","BotBorder","LeftBorder","RightBorder"}
+local function ChangeTrimColor(window)
+    local index=math.random(#trimColors)
+    if index==window.supportTrim then index=index%#trimColors+1 end
+    window.supportTrim=index
+    local color=trimColors[index]
+    local r,g,b=color[1],color[2],color[3]
+    local slice=window.NineSlice
+    if slice and slice.SetBorderColor then
+        slice:SetBorderColor(r,g,b,1)
+    else
+        local name=window:GetName()
+        for _,part in ipairs(borderParts) do
+            local piece=(slice and slice[part]) or window[part] or (name and _G[name..part])
+            if piece and piece.SetVertexColor then piece:SetVertexColor(r,g,b) end
+        end
+    end
+end
 
 local function SetupSupportHeart(button,window)
     button.icon:SetTexture(heartTexture)
@@ -96,12 +113,13 @@ local function SetupSupportHeart(button,window)
 
     local art=CreateFrame("Frame",nil,button)
     art:SetAllPoints(button)
+    art:SetFrameStrata("TOOLTIP")
     art:SetFrameLevel(window:GetFrameLevel()+100)
     art:EnableMouse(false)
 
     local beat=button:CreateAnimationGroup()
-    local beatScales={1,1.23,1,1.15,1}
-    local beatTimes={.12,.13,.1,.22}
+    local beatScales={1,1.43,1.02,1.29,1}
+    local beatTimes={.45,.48,.48,.75}
     for _,target in ipairs({button.icon,button.shine}) do
         for i,duration in ipairs(beatTimes) do
             local scale=beat:CreateAnimation("Scale")
@@ -115,45 +133,73 @@ local function SetupSupportHeart(button,window)
     end
 
     local particles={}
-    for i,spec in ipairs(heartParticles) do
+    local particleSize=27*.8
+    for i=1,30 do
         local heart=art:CreateTexture(nil,"OVERLAY")
         heart:SetTexture(heartTexture)
-        heart:SetVertexColor(spec[5],spec[6],spec[7])
-        heart:SetSize(spec[3],spec[3])
-        heart:SetPoint("CENTER",button,"CENTER",(i-3)*3,4)
+        heart:SetSize(particleSize,particleSize)
         local flight=heart:CreateAnimationGroup()
         local rise=flight:CreateAnimation("Translation")
-        rise:SetOffset(spec[1],spec[2])
         rise:SetSmoothing("OUT")
         local shrink=flight:CreateAnimation("Scale")
         shrink:SetScaleFrom(1,1)
-        shrink:SetScaleTo(.18,.18)
+        shrink:SetScaleTo(.625,.625)
+        local spin=flight:CreateAnimation("Rotation")
         local fade=flight:CreateAnimation("Alpha")
         fade:SetFromAlpha(.95)
         fade:SetToAlpha(0)
-        for _,animation in ipairs({rise,shrink,fade}) do
-            animation:SetOrder(1)
-            animation:SetDuration(spec[4])
-        end
+        local animations={rise,shrink,spin,fade}
+        for _,animation in ipairs(animations) do animation:SetOrder(1) end
         flight:SetScript("OnFinished",function()heart:Hide()end)
         heart:Hide()
-        particles[i]={heart=heart,flight=flight}
+        particles[i]={heart=heart,flight=flight,rise=rise,spin=spin,animations=animations}
     end
 
+    local nextParticle=1
+    local function ReleaseHearts()
+        for _=1,math.random(5,8) do
+            local particle=particles[nextParticle]
+            nextParticle=nextParticle%#particles+1
+            particle.flight:Stop()
+            local heart=particle.heart
+            local color=heartColors[math.random(#heartColors)]
+            heart:SetVertexColor(color[1],color[2],color[3])
+            heart:ClearAllPoints()
+            heart:SetPoint("CENTER",button,"CENTER",math.random(-10,10),math.random(-3,8))
+            heart:SetRotation(math.rad(math.random(-28,28)))
+            particle.rise:SetOffset(math.random(-48,48),math.random(48,94))
+            particle.spin:SetDegrees(math.random(25,154)*(math.random(2)==1 and -1 or 1))
+            local duration=math.random(152,245)/100
+            for _,animation in ipairs(particle.animations) do animation:SetDuration(duration) end
+            heart:Show()
+            particle.flight:Play()
+        end
+    end
+
+    local clicks,lastClick=0
+    button.releaseSupportHearts=function()
+        ReleaseHearts()
+        local now=GetTime()
+        if lastClick and now-lastClick>2 then clicks=0 end
+        lastClick=now
+        clicks=clicks+1
+        if clicks==10 then
+            clicks=0
+            ChangeTrimColor(window)
+        end
+    end
     local ticker
     local function Start()
         if ticker then return end
-        ticker=C_Timer.NewTicker(10,function()
+        ticker=C_Timer.NewTicker(3,function()
             if not button:IsVisible() then return end
             beat:Play()
-            for _,particle in ipairs(particles) do
-                particle.heart:Show()
-                particle.flight:Play()
-            end
+            ReleaseHearts()
         end)
     end
     button:HookScript("OnShow",Start)
     button:HookScript("OnHide",function()
+        clicks,lastClick=0,nil
         if ticker then ticker:Cancel();ticker=nil end
         beat:Stop()
         for _,particle in ipairs(particles) do
@@ -393,7 +439,7 @@ function F.Attach(editor)
         button.icon = button:CreateTexture(nil, "ARTWORK")
         -- Other footer marks have 12px transparent margins in a 128px image.
         -- Match their visible size with this full-canvas brand image.
-        local iconSize=entry.fullColor and 30*104/128 or 30
+        local iconSize=entry.heart and 27 or (entry.fullColor and 30*104/128 or 30)
         button.icon:SetSize(iconSize, iconSize)
         button.icon:SetPoint("CENTER")
         if entry.heart then
@@ -414,6 +460,7 @@ function F.Attach(editor)
             scheduleHide()
         end)
         button:SetScript("OnClick", function(owner)
+            if owner.releaseSupportHearts then owner.releaseSupportHearts() end
             showPopup(owner, true)
         end)
         bar.buttons[index] = button
