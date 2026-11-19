@@ -7,8 +7,8 @@ local ROOT = "Interface\\AddOns\\MangUI\\Assets\\Footer\\"
 local ENTRIES = {
     { id = "kook", zh = "KOOK", en = "KOOK", chinese = true, activeTexture = "kook_color.tga", url = "https://kook.vip/DqQ5U4" },
     { id = "discord", zh = "Discord", en = "Discord", chinese = false, activeTexture = "discord_color.tga", pending = true },
-    { id = "afdian", zh = "爱发电", en = "Afdian", chinese = true, activeTexture = "afdian_color.tga", url = "https://ifdian.net/a/cardmaster" },
-    { id = "patreon", zh = "Patreon", en = "Patreon", chinese = false, activeTexture = "patreon_color.tga", pending = true },
+    { id = "afdian", zh = "爱发电", en = "Afdian", chinese = true, heart = true, url = "https://ifdian.net/a/cardmaster" },
+    { id = "patreon", zh = "Patreon", en = "Patreon", chinese = false, heart = true, pending = true },
     { id = "cardmaster", zh = "CardMaster 卡牌大师", en = "CardMaster", fullColor = true, copyText = "CardMaster" },
     { id = "github", zh = "GitHub", en = "GitHub", url = "https://github.com/Nicconicc/MangUI" },
 }
@@ -60,6 +60,12 @@ end
 
 local function highlight(button, active)
     local entry = button.entry
+    if entry.heart then
+        local hovered=button:IsMouseOver()
+        button.glow:SetShown(hovered)
+        button.shine:SetShown(hovered)
+        return
+    end
     button.icon:SetTexture(entry.fullColor and (ROOT .. "CardMaster.png") or
         (ROOT .. (active and entry.activeTexture or (entry.id .. (active and "_white" or "") .. ".tga"))))
     button.icon:SetDesaturated(not active)
@@ -67,6 +73,95 @@ local function highlight(button, active)
     button.icon:SetAlpha(active and 1 or 0.65)
     button.glow:SetShown(active)
     if button.shine then button.shine:SetShown(active) end
+end
+
+local heartTexture=ROOT.."SupportHeart.tga"
+local heartParticles={
+    {-28,43,10,1.04,1,.32,.55},
+    {-15,57,12,1.16,1,.69,.24},
+    {  2,66, 9,1.24,.49,.79,1},
+    { 18,55,12,1.13,.75,.43,1},
+    { 32,39, 8,.96,.48,1,.68},
+}
+
+local function SetupSupportHeart(button,window)
+    button.icon:SetTexture(heartTexture)
+    button.icon:SetVertexColor(1,.17,.29,1)
+    button.shine=button:CreateTexture(nil,"OVERLAY")
+    button.shine:SetAllPoints(button.icon)
+    button.shine:SetTexture(heartTexture)
+    button.shine:SetVertexColor(1,.38,.49,1)
+    button.shine:SetBlendMode("ADD")
+    button.shine:SetAlpha(.48)
+
+    local art=CreateFrame("Frame",nil,button)
+    art:SetAllPoints(button)
+    art:SetFrameLevel(window:GetFrameLevel()+100)
+    art:EnableMouse(false)
+
+    local beat=button:CreateAnimationGroup()
+    local beatScales={1,1.23,1,1.15,1}
+    local beatTimes={.12,.13,.1,.22}
+    for _,target in ipairs({button.icon,button.shine}) do
+        for i,duration in ipairs(beatTimes) do
+            local scale=beat:CreateAnimation("Scale")
+            scale:SetTarget(target)
+            scale:SetOrder(i)
+            scale:SetScaleFrom(beatScales[i],beatScales[i])
+            scale:SetScaleTo(beatScales[i+1],beatScales[i+1])
+            scale:SetDuration(duration)
+            scale:SetSmoothing("IN_OUT")
+        end
+    end
+
+    local particles={}
+    for i,spec in ipairs(heartParticles) do
+        local heart=art:CreateTexture(nil,"OVERLAY")
+        heart:SetTexture(heartTexture)
+        heart:SetVertexColor(spec[5],spec[6],spec[7])
+        heart:SetSize(spec[3],spec[3])
+        heart:SetPoint("CENTER",button,"CENTER",(i-3)*3,4)
+        local flight=heart:CreateAnimationGroup()
+        local rise=flight:CreateAnimation("Translation")
+        rise:SetOffset(spec[1],spec[2])
+        rise:SetSmoothing("OUT")
+        local shrink=flight:CreateAnimation("Scale")
+        shrink:SetScaleFrom(1,1)
+        shrink:SetScaleTo(.18,.18)
+        local fade=flight:CreateAnimation("Alpha")
+        fade:SetFromAlpha(.95)
+        fade:SetToAlpha(0)
+        for _,animation in ipairs({rise,shrink,fade}) do
+            animation:SetOrder(1)
+            animation:SetDuration(spec[4])
+        end
+        flight:SetScript("OnFinished",function()heart:Hide()end)
+        heart:Hide()
+        particles[i]={heart=heart,flight=flight}
+    end
+
+    local ticker
+    local function Start()
+        if ticker then return end
+        ticker=C_Timer.NewTicker(10,function()
+            if not button:IsVisible() then return end
+            beat:Play()
+            for _,particle in ipairs(particles) do
+                particle.heart:Show()
+                particle.flight:Play()
+            end
+        end)
+    end
+    button:HookScript("OnShow",Start)
+    button:HookScript("OnHide",function()
+        if ticker then ticker:Cancel();ticker=nil end
+        beat:Stop()
+        for _,particle in ipairs(particles) do
+            particle.flight:Stop()
+            particle.heart:Hide()
+        end
+    end)
+    if button:IsVisible() then Start() end
 end
 
 local function createLinkPopup(parent, setHighlight, extraLinks)
@@ -301,7 +396,9 @@ function F.Attach(editor)
         local iconSize=entry.fullColor and 30*104/128 or 30
         button.icon:SetSize(iconSize, iconSize)
         button.icon:SetPoint("CENTER")
-        if entry.fullColor then
+        if entry.heart then
+            SetupSupportHeart(button,window)
+        elseif entry.fullColor then
             button.shine = button:CreateTexture(nil, "OVERLAY")
             button.shine:SetAllPoints(button.icon)
             button.shine:SetTexture(ROOT .. "CardMaster.png")
