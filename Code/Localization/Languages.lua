@@ -10268,4 +10268,23 @@ for locale,label in pairs({
 })do
     M.localeTables[locale]["各模块的插件使用和介绍在这里打开"]=label
 end
+local launcherAndSystemKeys="插件入口|界面与布局|单位框体|动作条与皮肤|战斗与技能|副本与团队|背包与物品|交易与邮件|聊天与社交|任务与探索|工具与组件|其他插件|搜索|关闭系统中CPU使用记录（降低性能）|最大化地面植被显示"
+local launcherAndSystemText={
+    koKR="애드온 실행기|인터페이스 및 배치|유닛 프레임|행동 단축바 및 스킨|전투 및 기술|던전 및 공격대|가방 및 아이템|거래 및 우편|채팅 및 소셜|퀘스트 및 탐험|도구 및 라이브러리|기타 애드온|검색|시스템 CPU 프로파일링 끄기 (프로파일링은 성능을 저하시킵니다)|지면 식생 밀도 최대화",
+    deDE="Addon-Starter|Oberfläche und Layout|Einheitenfenster|Leisten und Skins|Kampf und Zauber|Dungeons und Schlachtzüge|Taschen und Gegenstände|Handel und Post|Chat und Soziales|Quests und Erkundung|Werkzeuge und Bibliotheken|Andere Addons|Suchen|CPU-Profiling deaktivieren (Profiling senkt die Leistung)|Bodendichte der Vegetation maximieren",
+    frFR="Lanceur d’extensions|Interface et disposition|Cadres d’unités|Barres et habillages|Combat et sorts|Donjons et raids|Sacs et objets|Commerce et courrier|Discussion et social|Quêtes et exploration|Outils et bibliothèques|Autres extensions|Rechercher|Désactiver le profilage CPU (il réduit les performances)|Maximiser la densité de la végétation au sol",
+    esES="Lanzador de addons|Interfaz y diseño|Marcos de unidad|Barras y estilos|Combate y hechizos|Mazmorras y bandas|Bolsas y objetos|Comercio y correo|Chat y social|Misiones y exploración|Herramientas y bibliotecas|Otros addons|Buscar|Desactivar el perfilado de CPU (reduce el rendimiento)|Maximizar la densidad de la vegetación del suelo",
+    itIT="Avvio addon|Interfaccia e disposizione|Riquadri unità|Barre e stili|Combattimento e magie|Spedizioni e incursioni|Borse e oggetti|Commercio e posta|Chat e social|Missioni ed esplorazione|Strumenti e librerie|Altri addon|Cerca|Disattiva la profilazione CPU (riduce le prestazioni)|Massimizza la densità della vegetazione al suolo",
+    ptBR="Inicializador de addons|Interface e layout|Quadros de unidade|Barras e estilos|Combate e feitiços|Masmorras e raides|Bolsas e itens|Comércio e correio|Bate-papo e social|Missões e exploração|Ferramentas e bibliotecas|Outros addons|Pesquisar|Desativar o perfilamento da CPU (reduz o desempenho)|Maximizar a densidade da vegetação no solo",
+    ruRU="Запуск аддонов|Интерфейс и компоновка|Рамки персонажей|Панели и стили|Бой и заклинания|Подземелья и рейды|Сумки и предметы|Торговля и почта|Чат и общение|Задания и исследование|Инструменты и библиотеки|Другие аддоны|Поиск|Отключить профилирование ЦП (оно снижает производительность)|Максимальная плотность наземной растительности",
+    zhTW="插件入口|介面與版面|單位框架|快捷列與外觀|戰鬥與技能|地城與團隊|背包與物品|交易與郵件|聊天與社交|任務與探索|工具與元件|其他插件|搜尋|關閉系統 CPU 效能分析（分析會降低效能）|最大化地面植被密度",
+    enUS="AddOn Launcher|UI & Layout|Unit Frames|Bars & Skins|Combat & Spells|Dungeons & Raids|Bags & Items|Trade & Mail|Chat & Social|Quests & Maps|Tools & Libraries|Other AddOns|Search|Disable system CPU profiling (profiling reduces performance)|Maximize ground vegetation density",
+}
+launcherAndSystemText.esMX=launcherAndSystemText.esES
+for locale,values in pairs(launcherAndSystemText) do
+    local nextValue=values:gmatch("[^|]+")
+    for key in launcherAndSystemKeys:gmatch("[^|]+") do
+        M.localeTables[locale][key]=assert(nextValue())
+    end
+end
 M:RebuildLocaleKeys()

@@ -259,8 +259,16 @@ local function ShowAddonTip(owner,addon)
     authorTooltip:SetText(title~="" and title or addon.title,1,.82,.38)
     authorTooltip:AddLine("by Nc",.7,.76,.82,true)
     authorTooltip:AddLine(note,.9,.93,.97,true)
-    local body=_G["MangUIAddonAuthorTooltipTextLeft"..authorTooltip:NumLines()]
-    if body then body:SetSpacing(3) end
+    local font=M:InterfaceFontPath()
+    local lines=authorTooltip:NumLines()
+    for i=1,lines do
+        local label=_G["MangUIAddonAuthorTooltipTextLeft"..i]
+        if label then
+            local _,size,flags=label:GetFont()
+            label:SetFont(font,size,flags or "")
+            if i==lines then label:SetSpacing(3) end
+        end
+    end
     authorTooltip:Show()
 end
 local function HideAddonTip(owner)
@@ -433,6 +441,7 @@ local function CreatePanel(anchor)
     panel:SetClampedToScreen(true);panel:EnableMouse(true);panel:Hide()
     local title=W.Label(panel,"插件入口",16)
     title:SetPoint("TOPLEFT",17,-14);title:SetTextColor(1,.82,.38)
+    M:FitLocaleText(title,132,10)
     local line=panel:CreateTexture(nil,"ARTWORK")
     line:SetPoint("TOPLEFT",14,-40);line:SetPoint("TOPRIGHT",-14,-40)
     line:SetHeight(1);line:SetColorTexture(.72,.56,.25,.5)
@@ -441,7 +450,7 @@ local function CreatePanel(anchor)
     local search=W.Edit(panel,240)
     search:SetPoint("TOPLEFT",157,-9)
     panel.search=search
-    local placeholder=W.Label(search,SEARCH or "搜索",11)
+    local placeholder=W.Label(search,"搜索",11)
     placeholder:SetPoint("LEFT",6,0)
     placeholder:SetTextColor(.55,.60,.67)
     search:SetScript("OnTextChanged",function(self,userInput)
