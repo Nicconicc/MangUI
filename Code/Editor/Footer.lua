@@ -84,7 +84,7 @@ local borderParts={"TopLeftCorner","TopRightCorner","BottomLeftCorner","BottomRi
     "TopEdge","BottomEdge","LeftEdge","RightEdge","BotLeftCorner","BotRightCorner",
     "TopBorder","BottomBorder","BotBorder","LeftBorder","RightBorder"}
 local unpack=unpack or table.unpack
-local heartSize,heartPeriod=27,3
+local heartSize,beatDuration,heartInterval=27,3,10
 local beatOffsets={0,.15,.31,.47,.72}
 local beatScales={1,1.43,1.02,1.29,1}
 local function HeartScale(progress)
@@ -222,7 +222,7 @@ local function SetupSupportHeart(button,window)
         if not button:IsVisible() then return end
         local started=GetTime()
         art:SetScript("OnUpdate",function()
-            local progress=(GetTime()-started)/heartPeriod
+            local progress=(GetTime()-started)/beatDuration
             if progress>=1 then StopBeat();return end
             local scale=HeartScale(progress)
             if not scale then StopBeat();return end
@@ -235,7 +235,7 @@ local function SetupSupportHeart(button,window)
     local function Start()
         if ticker then return end
         Pulse()
-        ticker=C_Timer.NewTicker(heartPeriod,Pulse)
+        ticker=C_Timer.NewTicker(heartInterval,Pulse)
     end
     button:HookScript("OnShow",Start)
     button:HookScript("OnHide",function()
