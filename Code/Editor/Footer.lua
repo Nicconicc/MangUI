@@ -142,6 +142,7 @@ local function PaintHeart(icon)
 end
 
 local function SetupSupportHeart(button,window,interval)
+    local baseSize=button.icon:GetWidth()
     PaintHeart(button.icon)
     button.shine=button:CreateTexture(nil,"OVERLAY")
     button.shine:SetAllPoints(button.icon)
@@ -158,7 +159,7 @@ local function SetupSupportHeart(button,window,interval)
     art:EnableMouse(false)
 
     local particles={}
-    local particleSize=heartSize*.8
+    local particleSize=baseSize*.8
     for i=1,30 do
         local heart=art:CreateTexture(nil,"OVERLAY")
         heart:SetTexture(heartTexture)
@@ -226,7 +227,7 @@ local function SetupSupportHeart(button,window,interval)
     end
     local function StopBeat()
         art:SetScript("OnUpdate",nil)
-        button.icon:SetSize(heartSize,heartSize)
+        button.icon:SetSize(baseSize,baseSize)
     end
     local function Pulse()
         if not button:IsVisible() then return end
@@ -236,7 +237,7 @@ local function SetupSupportHeart(button,window,interval)
             if progress>=1 then StopBeat();return end
             local scale=HeartScale(progress)
             if not scale then StopBeat();return end
-            local size=heartSize*scale
+            local size=baseSize*scale
             button.icon:SetSize(size,size)
         end)
         ReleaseHearts()
@@ -442,15 +443,27 @@ local function refreshPopupFont(popup)
 end
 
 function F.ChatCommunityArt(visual,ring,preview)
-    ring:SetTexture("Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\CommunityRing.tga")
+    local artPath="Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\"
+    ring:SetTexture(artPath.."CommunityHeartRing.tga")
     local heart=CreateFrame("Frame",nil,visual)
     heart:SetSize(heartSize,heartSize)
     heart:SetPoint("CENTER",visual,"CENTER")
     heart.icon=heart:CreateTexture(nil,"ARTWORK")
-    heart.icon:SetPoint("CENTER")
-    heart.icon:SetSize(heartSize,heartSize)
+    heart.icon:SetPoint("CENTER",heart,"CENTER",3,1)
+    heart.icon:SetSize(55,55)
+    local angle=math.rad(-30)
+    heart.icon:SetRotation(angle)
     if preview then PaintHeart(heart.icon)
     else SetupSupportHeart(heart,nil,60) end
+    local mask=heart:CreateMaskTexture()
+    mask:SetTexture(artPath.."CommunityHeartMask.tga","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+    mask:SetSize(82,82)
+    mask:SetPoint("CENTER",heart,"CENTER")
+    heart.icon:AddMaskTexture(mask)
+    if heart.shine then
+        heart.shine:SetRotation(angle)
+        heart.shine:AddMaskTexture(mask)
+    end
     return heart
 end
 

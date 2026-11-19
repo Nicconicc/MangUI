@@ -3,6 +3,7 @@ local B={};M.ChatButtons=B
 local ART="Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\"
 local bagIconScale=.84
 local launcherIconScale=.80
+local anvilIconScale=.72
 function B.ChannelInput(value)
     if type(value)~="string" then return "" end
     return (value:gsub("[\r\n]",""):gsub("^%s+",""):gsub("%s+$",""))
@@ -24,11 +25,11 @@ B.definitions={
     {key="ready",text="Ready",tip="就位确认",texture="cardBack_hover_C",color={.42745101,.79607850,1},hover=1.15,rotation=15},
     {key="pull",text="Pull",tip="开怪倒计时",texture="cardBack_hover_B",color={1,.40784317,.37647063},hover=1.15,rotation=15},
     {key="roll",text="/Roll",tip="骰子：Shift 点击固定掷出 100",texture="RollDice.tga",color={1,.90588242,.34117648},hover=1.15,iconScale=.75},
-    {key="durability",text="—",texture="DurabilityAnvil.tga",color={1,1,1},hover=1.15,iconScale=.72},
+    {key="durability",text="—",texture="DurabilityAnvil.tga",color={1,1,1},hover=1.15,iconScale=anvilIconScale},
     {key="bags",text="—",tip="背包（B）",atlas="bag-main",fallback="Interface\\Buttons\\Button-Backpack-Up",
         color={1,.90588242,.34117648},hover=1.15,iconScale=bagIconScale},
     {key="addons",text="AddOns",tip="插件入口",texture="AddonWrench.tga",color={1,.83,.44},hover=1.15,iconScale=launcherIconScale},
-    {key="community",text="",tip="加入社区与作者互动",color={1,.83,.44},hover=1.15,iconScale=launcherIconScale},
+    {key="community",text="",tip="加入社区与作者互动",color={1,.83,.44},hover=1.15,iconScale=anvilIconScale},
 }
 local textLabels={say="说",yell="大喊",guild="公会",party="队伍",raid="团队",battle="战场",
     instance="副本",lfg="世界",roll="骰子",duty="职责",ready="就位",pull="倒计时",addons="插件入口"}
