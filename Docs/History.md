@@ -1,3 +1,11 @@
+# MangUI 944 — 2026/11/19 2128（北京时间）
+
+- 显示设置新增战斗中隐藏当前目标悬浮提示的选项，默认关闭。
+
+# MangUI 943 — 2026/11/19 2128 (UTC+8)
+
+- Recolored the community heart icon to rose pink while preserving the original silhouette and gold ring.
+
 # MangUI 942 — 2026/11/19 2120（北京时间）
 
 - 社区金环图标换用确认后的红心贴图，预览画布和游戏按钮栏使用同一素材。
