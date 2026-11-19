@@ -1,7 +1,7 @@
 local name, M = ...
 _G.MangUIUF = M
-M.name, M.version = name, "949"
-M.optionsTitle = "MangUI - V949 2026/11/20 0150"
+M.name, M.version = name, "950"
+M.optionsTitle = "MangUI - V950 2026/11/20 0153"
 M.errors, M.status = {}, "等待初始化"
 M.ART = "Interface\\AddOns\\MangUI\\Assets\\"
 M.MYRIAD = "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
