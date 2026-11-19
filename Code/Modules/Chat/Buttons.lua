@@ -317,11 +317,10 @@ function B.Build(view,o)
         local texture=visual:CreateTexture(nil,"ARTWORK")
         if def.iconScale then texture:SetPoint("CENTER",visual,"CENTER")
         else texture:SetAllPoints() end
-        local community
-        if def.key=="community" then
-            local logoPath
-            community,logoPath=M.FooterLinks.ChatCommunity()
-            texture:SetTexture(logoPath)
+        local community=def.key=="community"
+        local communityHeart
+        if community then
+            communityHeart=M.FooterLinks.ChatCommunityArt(visual,texture,view.preview)
         elseif def.texture then
             texture:SetTexture(M:TexturePath(o.spec,ART..def.texture,"button_"..def.key))
         elseif def.atlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(def.atlas) then
@@ -415,7 +414,8 @@ function B.Build(view,o)
         end)
         local function Reset()entry.durabilityHovered=nil;visual:SetScale(1);visual:SetAlpha(1);GameTooltip:Hide()end
         click:SetScript("OnLeave",Reset);click:SetScript("OnHide",Reset)
-        if community and not view.preview then M.FooterLinks.AttachChatCommunity(click,community) end
+        entry.communityHeart=communityHeart
+        if community and not view.preview then M.FooterLinks.AttachChatCommunity(click,communityHeart) end
         o.chatButtons[index]=entry
         o.chatButtonsByKey[def.key]=entry
     end
@@ -455,6 +455,7 @@ function B.Configure(view,o)
         slot.visual:SetSize(size,size)
         local iconScale=slot.definition.iconScale
         if iconScale then slot.texture:SetSize(size*iconScale,size*iconScale) end
+        if slot.communityHeart then slot.communityHeart:SetScale(size*iconScale/39) end
         for _,label in ipairs({slot.text,slot.shadow}) do
             label:ClearAllPoints()
         end

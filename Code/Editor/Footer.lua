@@ -15,8 +15,10 @@ local ENTRIES = {
 F.entries=ENTRIES
 
 local communityLinks = {
-    {description="欢迎前往抖音直播，我在这里与大家互动，解答问题，搜索“队长Nc”或", url="https://live.douyin.com/992901018697"},
-    {description="感谢您的支持，请我喝茶，每份捐助都是我继续下去的动力。", url=ENTRIES[3].url},
+    {description="欢迎前往抖音直播，我在这里与大家互动，解答问题，搜索“队长Nc”或",
+        traditional="歡迎前往抖音直播，我在這裡與大家互動，解答問題，搜尋「隊長Nc」或",url="https://live.douyin.com/992901018697"},
+    {description="感谢您的支持，请我喝茶，每份捐助都是我继续下去的动力。",
+        traditional="感謝您的支持，請我喝茶，每份捐助都是我繼續下去的動力。",url=ENTRIES[3].url},
 }
 
 local function text(zh, en)
@@ -134,20 +136,25 @@ local function SetTrimColor(window,color)
     end
 end
 
-local function SetupSupportHeart(button,window)
-    button.icon:SetTexture(heartTexture)
-    button.icon:SetVertexColor(1,.17,.29,1)
+local function PaintHeart(icon)
+    icon:SetTexture(heartTexture)
+    icon:SetVertexColor(1,.17,.29,1)
+end
+
+local function SetupSupportHeart(button,window,interval)
+    PaintHeart(button.icon)
     button.shine=button:CreateTexture(nil,"OVERLAY")
     button.shine:SetAllPoints(button.icon)
     button.shine:SetTexture(heartTexture)
     button.shine:SetVertexColor(1,.38,.49,1)
     button.shine:SetBlendMode("ADD")
     button.shine:SetAlpha(.48)
+    button.shine:Hide()
 
     local art=CreateFrame("Frame",nil,button)
     art:SetAllPoints(button)
     art:SetFrameStrata("TOOLTIP")
-    art:SetFrameLevel(window:GetFrameLevel()+100)
+    art:SetFrameLevel((window or button):GetFrameLevel()+100)
     art:EnableMouse(false)
 
     local particles={}
@@ -195,24 +202,27 @@ local function SetupSupportHeart(button,window)
     end
 
     local clicks,lastClick=0
-    button.releaseSupportHearts=function()
-        ReleaseHearts()
-        local now=GetTime()
-        if lastClick and now-lastClick>2 then clicks=0 end
-        lastClick=now
-        clicks=clicks+1
-        if clicks==10 then
-            clicks=0
-            local index=math.random(#trimColors)
-            if index==window.supportTrim then index=index%#trimColors+1 end
-            window.supportTrim=index
-            SetTrimColor(window,trimColors[index])
+    button.releaseSupportHearts=ReleaseHearts
+    if window then
+        button.releaseSupportHearts=function()
+            ReleaseHearts()
+            local now=GetTime()
+            if lastClick and now-lastClick>2 then clicks=0 end
+            lastClick=now
+            clicks=clicks+1
+            if clicks==10 then
+                clicks=0
+                local index=math.random(#trimColors)
+                if index==window.supportTrim then index=index%#trimColors+1 end
+                window.supportTrim=index
+                SetTrimColor(window,trimColors[index])
+            end
         end
-    end
-    button.resetSupportTrim=function()
-        clicks,lastClick=0,nil
-        window.supportTrim=nil
-        SetTrimColor(window)
+        button.resetSupportTrim=function()
+            clicks,lastClick=0,nil
+            window.supportTrim=nil
+            SetTrimColor(window)
+        end
     end
     local function StopBeat()
         art:SetScript("OnUpdate",nil)
@@ -234,8 +244,8 @@ local function SetupSupportHeart(button,window)
     local ticker
     local function Start()
         if ticker then return end
-        Pulse()
-        ticker=C_Timer.NewTicker(heartInterval,Pulse)
+        if not interval then Pulse() end
+        ticker=C_Timer.NewTicker(interval or heartInterval,Pulse)
     end
     button:HookScript("OnShow",Start)
     button:HookScript("OnHide",function()
@@ -388,14 +398,22 @@ local function createLinkPopup(parent, setHighlight, extraLinks)
         popup.owner = owner
         popup.pinned = (focus and (owner.entry.copyText or owner.entry.url) ~= nil) or (sameOwner and popup.pinned) or false
         local entry = owner.entry
-        popup.title:SetText(extraLinks and "KOOK社区、抖音直播、发电捐助" or text(entry.zh, entry.en))
+        local traditional=M:EffectiveLanguage()=="zhTW"
+        popup.title:SetText(extraLinks and (traditional and "KOOK 社群、抖音直播、發電捐助" or "KOOK社区、抖音直播、发电捐助") or text(entry.zh, entry.en))
         popup.description:SetHeight(0)
         popup.description:SetText(description(entry))
         popup.copyText = entry.copyText or entry.url
         address.copyText = popup.copyText
         address:SetShown(popup.copyText~=nil)
         popup.hint:SetShown(popup.copyText~=nil)
-        popup.hint:SetText(extraLinks and "您可在“MangUI插件-聊天与功能按钮”中关闭该图标" or text("按 Ctrl+C 复制", "Press Ctrl+C to copy"))
+        if extraLinks then
+            for index,link in ipairs(extraLinks) do
+                extraDescriptions[index]:SetText(traditional and link.traditional or link.description)
+            end
+            popup.hint:SetText(traditional and "可在「聊天與功能按鈕」預覽中關閉此圖示" or "可在「聊天与功能按钮」预览中关闭此图标")
+        else
+            popup.hint:SetText(text("按 Ctrl+C 复制", "Press Ctrl+C to copy"))
+        end
         layoutPopup()
         if not sameOwner then address:ClearFocus() end
         address:SetText(popup.copyText or "")
@@ -423,31 +441,45 @@ local function refreshPopupFont(popup)
     end
 end
 
-function F.ChatCommunity()
-    local locale=M:ClientLanguage()
-    local entry=(locale=="zhCN" or locale=="zhTW") and ENTRIES[1] or ENTRIES[2]
-    if entry.id=="kook" then
-        return entry, "Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\CommunityDouyin.tga"
-    end
-    return entry, "Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\CommunityDiscord.tga"
+function F.ChatCommunityArt(visual,ring,preview)
+    ring:SetTexture("Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\CommunityRing.tga")
+    local heart=CreateFrame("Frame",nil,visual)
+    heart:SetSize(heartSize,heartSize)
+    heart:SetPoint("CENTER",visual,"CENTER")
+    heart.icon=heart:CreateTexture(nil,"ARTWORK")
+    heart.icon:SetPoint("CENTER")
+    heart.icon:SetSize(heartSize,heartSize)
+    if preview then PaintHeart(heart.icon)
+    else SetupSupportHeart(heart,nil,60) end
+    return heart
 end
 
-function F.AttachChatCommunity(button, entry)
-    button.entry=entry
-    local popup, showPopup, scheduleHide
+function F.AttachChatCommunity(button, heart)
+    local popups,active={},nil
     local function open(owner,focus)
-        if not popup then
+        local entry=chineseClient() and ENTRIES[1] or ENTRIES[2]
+        owner.entry=entry
+        local route=popups[entry.id]
+        if not route then
             local extraLinks = entry.id == "kook" and communityLinks or nil
-            popup,showPopup,scheduleHide=createLinkPopup(button,function() end,extraLinks)
+            local popup,showPopup,scheduleHide=createLinkPopup(button,function() end,extraLinks)
             popup:SetPoint("BOTTOMRIGHT",button,"TOPRIGHT",0,5)
+            route={popup=popup,show=showPopup,leave=scheduleHide}
+            popups[entry.id]=route
         end
-        refreshPopupFont(popup)
-        showPopup(owner,focus)
+        if active and active~=route then active.popup:Hide() end
+        active=route
+        refreshPopupFont(route.popup)
+        route.show(owner,focus)
     end
-    button:HookScript("OnEnter",function(owner) open(owner,false) end)
-    button:HookScript("OnLeave",function() if scheduleHide then scheduleHide() end end)
-    button:HookScript("OnHide",function() if popup then popup:Hide() end end)
-    button:SetScript("OnClick",function(owner) open(owner,true) end)
+    button:HookScript("OnEnter",function(owner) heart.shine:Show();open(owner,false) end)
+    button:HookScript("OnLeave",function() heart.shine:Hide();if active then active.leave() end end)
+    button:HookScript("OnHide",function() heart.shine:Hide();if active then active.popup:Hide() end end)
+    button:SetScript("OnClick",function(owner,mouseButton)
+        if mouseButton~="LeftButton" then return end
+        heart.releaseSupportHearts()
+        open(owner,true)
+    end)
 end
 
 function F.Attach(editor)
