@@ -108,6 +108,16 @@ function M:ApplyLive()
     if not self.live then return end
     R.Apply(self.live,self.db.design);self:RefreshTargetMouseShortcuts();self:BlizzardVisibility()
 end
+function M:RefreshCombatTargetTooltip()
+    local tip=GameTooltip
+    if not (self.db and self.db.hideCombatTargetTooltip and InCombatLockdown()
+        and tip and tip:IsShown() and tip.GetUnit) then return end
+    local _,unit=tip:GetUnit()
+    if C.Readable(unit) and type(unit)=="string" and C.Bool(UnitIsUnit(unit,"target")) then
+        tip:Hide()
+    end
+end
+
 function M:StartLive()
     if not self.live then
         self.live=R.New(UIParent,false);self.live.root:SetFrameStrata("LOW")
@@ -115,6 +125,17 @@ function M:StartLive()
     end
     self:ApplyLive()
     if self.liveEvents then return end
+    if GameTooltip then
+        local function Refresh(tip)
+            if tip==GameTooltip then M:RefreshCombatTargetTooltip() end
+        end
+        GameTooltip:HookScript("OnShow",Refresh)
+        if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
+            TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit,Refresh)
+        elseif GameTooltip:HasScript("OnTooltipSetUnit") then
+            GameTooltip:HookScript("OnTooltipSetUnit",Refresh)
+        end
+    end
     -- Also arm recovery when loaded after PLAYER_ENTERING_WORLD already fired.
     self.live.fontSettleStarted=GetTime();self.live.fontSettleStep=1
     local f=CreateFrame("Frame");self.liveEvents=f
@@ -215,6 +236,9 @@ function M:StartLive()
     end
     local function OnEvent(_,event,unit,...)
         local view=M.live
+        if event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_TARGET_CHANGED" then
+            M:RefreshCombatTargetTooltip()
+        end
         if type(unit)=="string" and C.Readable(unit) and partyUnits[unit]
             and view.partyGroupGate and not view.partyGroupGate:IsVisible() then return end
         if event=="UNIT_AURA" then
