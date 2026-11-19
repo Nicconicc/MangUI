@@ -110,7 +110,7 @@ function M:ApplyLive()
 end
 function M:RefreshCombatTargetTooltip()
     local tip=GameTooltip
-    if not (self.db and self.db.hideCombatTargetTooltip and InCombatLockdown()
+    if not (self.db and self.db.hideCombatTargetTooltip~=false and InCombatLockdown()
         and tip and tip:IsShown() and tip.GetUnit) then return end
     local _,unit=tip:GetUnit()
     if C.Readable(unit) and type(unit)=="string" and C.Bool(UnitIsUnit(unit,"target")) then
