@@ -109,6 +109,9 @@ function M:OpenDesigner()
     BuildProperties(e)
     -- The main player/target composite supports local preview dragging.
     e.input=CreateFrame("Frame",nil,e.canvas);e.input:SetAllPoints();e.input:SetFrameLevel(5000);e.input:EnableMouse(true)
+    e.input:RegisterEvent("GLOBAL_MOUSE_DOWN")
+    e.input:RegisterEvent("GLOBAL_MOUSE_UP")
+    e.input:SetScript("OnEvent",function(_,event,button)private.ChatDragMouseEvent(e,event,button)end)
     e.previewXYIcon=e.gridFrame:CreateTexture(nil,"OVERLAY")
     e.previewXYIcon:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\PreviewXY.tga")
     e.previewXYIcon:SetSize(27,27);e.previewXYIcon:Hide()
@@ -191,6 +194,7 @@ function M:OpenDesigner()
         if e.bossPreview or e.partyPreview then return end
         if button~="LeftButton" and button~="RightButton" then return end
         if button=="LeftButton" then
+            if e.monitorDrag then return end
             local monitor=private.MonitorTarget(e)
             if monitor then
                 if M:CanEdit()then private.BeginMonitorDrag(e,monitor)end

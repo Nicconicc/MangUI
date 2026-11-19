@@ -118,6 +118,46 @@ local function EndMonitorDrag(e)
     M:Commit()
 end
 
+local function StartChatDrag(e,handle)
+    local group=Selected()
+    if e.monitorDrag or not group or group.id~="chatButtons" then return end
+    local item=handle and handle.chatSlot
+    if item then
+        local list=group.buttonOrder
+        local key=item.definition.key
+        for index,entry in ipairs(list) do
+            if entry==key then
+                if M:CanEdit() then
+                    BeginMonitorDrag(e,{group=group,list=list,entry=key,slot=item.frame,index=index,texture=item.texture})
+                end
+                return
+            end
+        end
+    else
+        local target=MonitorTarget(e)
+        if target and M:CanEdit() then BeginMonitorDrag(e,target) end
+    end
+end
+
+local function ChatDragMouseEvent(e,event,button)
+    if button~="LeftButton" or not e.input:IsVisible() or M.selection~="chatButtons" then return end
+    if event=="GLOBAL_MOUSE_UP" then
+        EndMonitorDrag(e)
+        return
+    end
+    if e.monitorDrag then return end
+    for _,toggle in ipairs(e.chatToggles or {}) do
+        if toggle:IsVisible() and toggle.IsMouseOver and toggle:IsMouseOver() then return end
+    end
+    for _,handle in ipairs(e.chatDragButtons or {}) do
+        if handle:IsVisible() and handle.IsMouseOver and handle:IsMouseOver() then
+            StartChatDrag(e,handle)
+            return
+        end
+    end
+    StartChatDrag(e)
+end
+
 local function RefreshChatToggles(e,group)
     e.chatToggles=e.chatToggles or {}
     e.chatDragButtons=e.chatDragButtons or {}
@@ -131,18 +171,7 @@ local function RefreshChatToggles(e,group)
             handle:EnableMouse(true)
             if handle.SetMouseClickEnabled then handle:SetMouseClickEnabled(true) end
             handle:SetScript("OnMouseDown",function(self,mouseButton)
-                local current=Selected()
-                if mouseButton~="LeftButton" or e.monitorDrag or not current
-                    or current.id~="chatButtons" or not M:CanEdit()then return end
-                local list=current.buttonOrder
-                for position,entry in ipairs(list) do
-                    if entry==key then
-                        local item=self.chatSlot
-                        BeginMonitorDrag(e,{group=current,list=list,entry=key,slot=item.frame,
-                            index=position,texture=item.texture})
-                        break
-                    end
-                end
+                if mouseButton=="LeftButton" then StartChatDrag(e,self) end
             end)
             handle:SetScript("OnMouseUp",function(_,mouseButton)
                 if mouseButton=="LeftButton" then EndMonitorDrag(e) end
@@ -445,6 +474,7 @@ M.EditorInternals.LayoutEditorPanels=LayoutEditorPanels
 M.EditorInternals.HitCandidates=HitCandidates
 M.EditorInternals.OverlapMenu=OverlapMenu
 M.EditorInternals.MonitorTarget=MonitorTarget
+M.EditorInternals.ChatDragMouseEvent=ChatDragMouseEvent
 M.EditorInternals.BeginMonitorDrag=BeginMonitorDrag
 M.EditorInternals.CancelMonitorDrag=CancelMonitorDrag
 M.EditorInternals.UpdateMonitorHighlight=UpdateMonitorHighlight
