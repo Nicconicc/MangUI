@@ -1,7 +1,7 @@
 local name, M = ...
 _G.MangUIUF = M
-M.name, M.version = name, "940"
-M.optionsTitle = "MangUI - V940 2026/11/19 2111"
+M.name, M.version = name, "942"
+M.optionsTitle = "MangUI - V942 2026/11/19 2120"
 M.errors, M.status = {}, "等待初始化"
 M.ART = "Interface\\AddOns\\MangUI\\Assets\\"
 M.MYRIAD = "Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
@@ -147,6 +147,7 @@ events:SetScript("OnEvent",function(_,event,arg,action)
         end
     elseif event=="ADDON_LOADED" and arg==name then
         if M.InitStore then M:Safe("加载配置",M.InitStore,M) else M:Report("配置","Store.lua 未载入") end
+        M:RefreshBindingLabels()
         if M.db then M:Safe("小地图入口",M.CreateMinimap,M) end
         if M.db and M.RegisterSettingsEntry then M:Safe("系统设置入口",M.RegisterSettingsEntry,M) end
         if IsLoggedIn and IsLoggedIn() then

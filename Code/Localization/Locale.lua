@@ -220,7 +220,13 @@ function M:ReleaseLocaleScope(scope)
     for object in pairs(scope.localeObjects or {})do self.localizedText[object]=nil end
     scope.localeObjects=nil
 end
+BINDING_HEADER_MANGUI="MangUI"
+function M:RefreshBindingLabels()
+    BINDING_NAME_MANGUI_OPEN_SETTINGS=self:T("打开 MangUI 设置")
+    BINDING_NAME_MANGUI_OPEN_ADDON_LAUNCHER=self:T("打开插件入口")
+end
 function M:RefreshLanguage()
+    self:RefreshBindingLabels()
     for object in pairs(self.localizedText) do object.localeRenderCache=nil;object.localeFitCache=nil;object:SetText(object.localeSource) end
     for object in pairs(self.localizedInputs)do self:ApplyLocaleFont(object,object:GetText(),true)end
     if self.RefreshEditor then self:RefreshEditor() end

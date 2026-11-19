@@ -351,6 +351,7 @@ function B.Build(view,o)
             click:SetScript("OnMouseUp",function()visual:SetAlpha(1)end)
         end
         if def.key=="addons" and not view.preview then
+            B.addonLauncherAnchor=click
             local guide=CreateFrame("Frame",nil,slot)
             guide:Hide()
             guide:SetSize(28,32);guide:EnableMouse(false)

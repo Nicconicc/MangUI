@@ -449,19 +449,19 @@ function F.ChatCommunityArt(visual,ring,preview)
     heart:SetSize(heartSize,heartSize)
     heart:SetPoint("CENTER",visual,"CENTER")
     heart.icon=heart:CreateTexture(nil,"ARTWORK")
-    heart.icon:SetPoint("CENTER",heart,"CENTER",3,1)
-    heart.icon:SetSize(55,55)
-    local angle=math.rad(-30)
-    heart.icon:SetRotation(angle)
-    if preview then PaintHeart(heart.icon)
-    else SetupSupportHeart(heart,nil,60) end
+    heart.icon:SetPoint("CENTER",heart,"CENTER")
+    heart.icon:SetSize(40.5,40.5)
+    if not preview then SetupSupportHeart(heart,nil,60) end
+    heart.icon:SetTexture(artPath.."CommunityHeart.tga")
+    heart.icon:SetVertexColor(1,1,1)
     local mask=heart:CreateMaskTexture()
     mask:SetTexture(artPath.."CommunityHeartMask.tga","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
     mask:SetSize(82,82)
     mask:SetPoint("CENTER",heart,"CENTER")
     heart.icon:AddMaskTexture(mask)
     if heart.shine then
-        heart.shine:SetRotation(angle)
+        heart.shine:SetTexture(artPath.."CommunityHeart.tga")
+        heart.shine:SetVertexColor(1,1,1)
         heart.shine:AddMaskTexture(mask)
     end
     return heart

@@ -434,6 +434,20 @@ local function LayoutCategories(panel,addons)
     SelectCategory(panel,allCategory)
 end
 
+local function OpenKeybindings(panel)
+    if InCombatLockdown() then return end
+    if Settings and Settings.OpenToCategory and Settings.KEYBINDINGS_CATEGORY_ID then
+        panel:Hide()
+        Settings.OpenToCategory(Settings.KEYBINDINGS_CATEGORY_ID)
+    elseif KeyBindingFrame_LoadUI or KeyBindingFrame then
+        if KeyBindingFrame_LoadUI then KeyBindingFrame_LoadUI() end
+        if KeyBindingFrame then
+            panel:Hide()
+            ShowUIPanel(KeyBindingFrame)
+        end
+    end
+end
+
 local function CreatePanel(anchor)
     local W=M.Widgets
     local panel=W.Panel(anchor)
@@ -447,6 +461,9 @@ local function CreatePanel(anchor)
     line:SetHeight(1);line:SetColorTexture(.72,.56,.25,.5)
     panel.count=W.Label(panel,"",11);panel.count:SetPoint("TOPRIGHT",-16,-17)
     panel.count:SetTextColor(.73,.78,.85)
+    local bindings=W.Button(panel,"快捷键绑定",125,function() OpenKeybindings(panel) end)
+    bindings:SetPoint("TOPRIGHT",-60,-7)
+    M:FitLocaleText(bindings:GetFontString(),115,9)
     local search=W.Edit(panel,240)
     search:SetPoint("TOPLEFT",157,-9)
     panel.search=search
@@ -482,7 +499,7 @@ local function CreatePanel(anchor)
     panel:EnableMouseWheel(true)
     panel:SetScript("OnMouseWheel",function(_,delta) slider:SetValue(slider:GetValue()-delta*3) end)
     panel:SetScript("OnEvent",function(self)
-        if not M.Compat.MouseOver(self) and not M.Compat.MouseOver(anchor) then
+        if not M.Compat.MouseOver(self) and (anchor==UIParent or not M.Compat.MouseOver(anchor)) then
             self:Hide()
         end
     end)
@@ -491,20 +508,31 @@ local function CreatePanel(anchor)
         self:UnregisterEvent("GLOBAL_MOUSE_DOWN")
         self.search:ClearFocus()
     end)
-    anchor:HookScript("OnHide",function()panel:Hide()end)
+    if anchor~=UIParent then anchor:HookScript("OnHide",function()panel:Hide()end) end
     return panel
 end
 
 function B.ShowAddonLauncher(anchor)
     local panel=anchor.addonLauncher
     if panel and panel:IsShown() then return end
+    if B.activeAddonLauncher and B.activeAddonLauncher~=panel then B.activeAddonLauncher:Hide() end
     local addons=LoadedAddOns()
     if not panel then panel=CreatePanel(anchor);anchor.addonLauncher=panel end
     GameTooltip:Hide()
     panel.routes=IndexSettings()
     panel.search:SetText("")
     LayoutCategories(panel,addons)
-    panel:ClearAllPoints();panel:SetPoint("BOTTOMLEFT",anchor,"TOPLEFT",-9,14)
+    panel:ClearAllPoints()
+    if anchor==UIParent then panel:SetPoint("CENTER",UIParent,"CENTER")
+    else panel:SetPoint("BOTTOMLEFT",anchor,"TOPLEFT",-9,14) end
+    B.activeAddonLauncher=panel
     panel:Show()
+end
+
+function B.ToggleAddonLauncher()
+    local panel=B.activeAddonLauncher
+    if panel and panel:IsShown() then panel:Hide();return end
+    local anchor=B.addonLauncherAnchor
+    B.ShowAddonLauncher(anchor and anchor:IsVisible() and anchor or UIParent)
 end
 
