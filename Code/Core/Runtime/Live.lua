@@ -108,13 +108,42 @@ function M:ApplyLive()
     if not self.live then return end
     R.Apply(self.live,self.db.design);self:RefreshTargetMouseShortcuts();self:BlizzardVisibility()
 end
-function M:RefreshCombatTargetTooltip()
+local targetTooltipAlpha
+local function RestoreTargetTooltipAlpha(tip)
+    if targetTooltipAlpha~=nil then
+        tip:SetAlpha(targetTooltipAlpha)
+        targetTooltipAlpha=nil
+    end
+end
+
+function M:RefreshCombatTargetTooltip(unitTooltip)
     local tip=GameTooltip
     if not (self.db and self.db.hideCombatTargetTooltip~=false and InCombatLockdown()
-        and tip and tip:IsShown() and tip.GetUnit) then return end
+        and tip and tip:IsShown() and tip.GetUnit) then
+        if tip then RestoreTargetTooltipAlpha(tip) end
+        return
+    end
     local _,unit=tip:GetUnit()
-    if C.Readable(unit) and type(unit)=="string" and C.Bool(UnitIsUnit(unit,"target")) then
+    if not C.Readable(unit) or type(unit)~="string" then
+        local data=tip.GetPrimaryTooltipData and tip:GetPrimaryTooltipData()
+        local unitType=Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit
+        if tip:GetOwner()==UIParent and (unitTooltip or (unitType and data and data.type==unitType)) then
+            unit="mouseover"
+        else
+            RestoreTargetTooltipAlpha(tip)
+            return
+        end
+    end
+    local matches=UnitIsUnit(unit,"target")
+    if not C.Readable(matches) and tip.SetAlphaFromBoolean then
+        -- Let the client apply the protected comparison to opacity.
+        if targetTooltipAlpha==nil then targetTooltipAlpha=tip:GetAlpha() end
+        tip:SetAlphaFromBoolean(matches,0,targetTooltipAlpha)
+    elseif C.Bool(matches) then
+        RestoreTargetTooltipAlpha(tip)
         tip:Hide()
+    else
+        RestoreTargetTooltipAlpha(tip)
     end
 end
 
@@ -127,9 +156,11 @@ function M:StartLive()
     if self.liveEvents then return end
     if GameTooltip then
         local function Refresh(tip)
-            if tip==GameTooltip then M:RefreshCombatTargetTooltip() end
+            if tip==GameTooltip then M:RefreshCombatTargetTooltip(true) end
         end
-        GameTooltip:HookScript("OnShow",Refresh)
+        GameTooltip:HookScript("OnShow",function() M:RefreshCombatTargetTooltip() end)
+        GameTooltip:HookScript("OnHide",RestoreTargetTooltipAlpha)
+        GameTooltip:HookScript("OnTooltipCleared",RestoreTargetTooltipAlpha)
         if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
             TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit,Refresh)
         elseif GameTooltip:HasScript("OnTooltipSetUnit") then
@@ -236,7 +267,7 @@ function M:StartLive()
     end
     local function OnEvent(_,event,unit,...)
         local view=M.live
-        if event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_TARGET_CHANGED" then
+        if event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_REGEN_ENABLED" or event=="PLAYER_TARGET_CHANGED" then
             M:RefreshCombatTargetTooltip()
         end
         if type(unit)=="string" and C.Readable(unit) and partyUnits[unit]
