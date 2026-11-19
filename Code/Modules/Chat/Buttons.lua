@@ -40,7 +40,7 @@ local function Templates()
     return {
         {id="chatButtons",label="聊天与功能按钮",kind="group",compound="chatButtons",scope="player",unit="player",
             x=300,y=30,width=2,height=2,scale=1,iconSize=64,font="Myriad",fontSize=11,fontYOffset=0,buttonSpacing=-20,
-            pullSeconds=10,customChannelName="",textLabels=false,showCommunity=true,
+            pullSeconds=10,customChannelName="",textLabels=false,
             point="CENTER",anchor="BOTTOMLEFT",screenAnchor="BOTTOMLEFT",alpha=1,enabled=true,layer=450,rules={},conditions={}},
         {id="chatButtonsRow",label="聊天与功能按钮",kind="chatbuttons",parent="chatButtons",internal=true,locked=true,
             scope="player",unit="player",x=0,y=15,width=592,height=94,scale=1,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=451},
@@ -55,7 +55,22 @@ function B.SyncNodes(design)
     group.pullSeconds=B.Countdown(group)
     group.customChannelName=B.ChannelInput(group.customChannelName)
     group.textLabels=group.textLabels==true
-    group.showCommunity=group.showCommunity~=false
+    local known,seen,order={},{},{}
+    for _,def in ipairs(B.definitions) do known[def.key]=true end
+    if type(group.buttonOrder)=="table" then
+        for _,key in ipairs(group.buttonOrder) do
+            if type(key)=="string" and known[key] and not seen[key] then
+                order[#order+1]=key;seen[key]=true
+            end
+        end
+    end
+    for _,def in ipairs(B.definitions) do
+        if not seen[def.key] then order[#order+1]=def.key end
+    end
+    group.buttonOrder=order
+    if type(group.disabledButtons)~="table" then group.disabledButtons={} end
+    if group.showCommunity==false then group.disabledButtons.community=true end
+    group.showCommunity=nil
     local scale=group.scale or 1
     group.iconSize=M.Clamp((group.iconSize or 64)*scale,1,256)
     group.fontSize=math.max(.1,(group.fontSize or 11)*scale)
@@ -286,6 +301,7 @@ local function RefreshDurability(view,o)
 end
 function B.Build(view,o)
     o.chatButtons={}
+    o.chatButtonsByKey={}
     for index=1,#B.definitions do
         local def=B.definitions[index]
         local slot=CreateFrame("Frame",nil,o.frame);slot:SetSize(64,64)
@@ -393,6 +409,7 @@ function B.Build(view,o)
         click:SetScript("OnLeave",Reset);click:SetScript("OnHide",Reset)
         if community and not view.preview then M.FooterLinks.AttachChatCommunity(click,community) end
         o.chatButtons[index]=entry
+        o.chatButtonsByKey[def.key]=entry
     end
 end
 function B.RefreshFonts(view,o,force)
@@ -450,13 +467,17 @@ function B.Refresh(view,o)
     if not group then return end
     if o.appliedFont and o.appliedFont.language~=M:EffectiveLanguage() then B.RefreshFonts(view,o,false) end
     local context=B.Context();local visible,signature={},{}
-    for _,slot in ipairs(o.chatButtons) do
-        local allowed=slot.definition.key~="community" or group.showCommunity~=false
-        local shown=allowed and (view.preview or B.IsVisible(slot.definition,context))
-        signature[#signature+1]=shown and "1" or "0"
-        if shown then visible[#visible+1]=slot end
+    local shown={}
+    for _,key in ipairs(group.buttonOrder) do
+        local slot=o.chatButtonsByKey[key]
+        local enabled=group.disabledButtons[key]~=true
+        if view.preview or (enabled and B.IsVisible(slot.definition,context)) then
+            visible[#visible+1]=slot
+            shown[key]=true
+            signature[#signature+1]=enabled and key or "-"..key
+        end
     end
-    signature=table.concat(signature)
+    signature=table.concat(signature,",")
     if o.chatLayout==signature then return end
     -- The bag button uses the native secure click route. Apply pending layout on leaving combat.
     if not view.preview and o.bagSlot and InCombatLockdown() then return end
@@ -464,7 +485,11 @@ function B.Refresh(view,o)
     local size,gap=group.iconSize or 64,group.buttonSpacing or -20
     -- Keep the full preview row's left edge fixed. New buttons fill to its right.
     o.frame:SetWidth(size+(#o.chatButtons-1)*(size+gap))
-    for i,slot in ipairs(o.chatButtons) do slot.frame:SetShown(signature:sub(i,i)=="1") end
+    for _,slot in ipairs(o.chatButtons) do
+        local key=slot.definition.key
+        slot.frame:SetShown(shown[key]==true)
+        if view.preview then slot.frame:SetAlpha(group.disabledButtons[key]==true and .4 or 1) end
+    end
     for i,slot in ipairs(visible) do
         slot.frame:ClearAllPoints()
         slot.frame:SetPoint("CENTER",o.frame,"CENTER",(i-(#o.chatButtons+1)/2)*(size+gap),-(o.spec.y or 0))

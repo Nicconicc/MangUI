@@ -25,10 +25,11 @@ local monitorPreview={
 
 local function MonitorTarget(e,drag)
     local group=Selected()
+    local chat=group and group.id=="chatButtons"
     local config=group and monitorPreview[group.id]
-    local list=config and group[config.list]
+    local list=chat and group.buttonOrder or config and group[config.list]
     if not list or (drag and (drag.group~=group or drag.list~=list))then return end
-    local object=e.view.nodes[group.id.."Icons"]
+    local object=e.view.nodes[chat and "chatButtonsRow" or group.id.."Icons"]
     if not object then return end
     local x,y=GetCursorPosition();local scale=e.input:GetEffectiveScale()
     x,y=x/scale,y/scale
@@ -37,9 +38,11 @@ local function MonitorTarget(e,drag)
     local indices={}
     for i,entry in ipairs(list)do indices[entry]=i end
     local best,distance
-    for _,slot in ipairs(object[config.slots] or {})do
-        local entry=slot.entry
-        local index=entry and (indices[entry] or indices[entry.source])
+    local slots=chat and object.chatButtons or object[config.slots]
+    for _,item in ipairs(slots or {})do
+        local slot=chat and item.frame or item
+        local entry=chat and item.definition.key or item.entry
+        local index=entry and (indices[entry] or (not chat and indices[entry.source]))
         if index and slot:IsVisible() then
             local left,right,top,bottom=slot:GetLeft(),slot:GetRight(),slot:GetTop(),slot:GetBottom()
             local ratio=slot:GetEffectiveScale()/scale
@@ -47,7 +50,7 @@ local function MonitorTarget(e,drag)
                 left,right,top,bottom=left*ratio,right*ratio,top*ratio,bottom*ratio
                 local gap=math.abs(x-(left+right)/2)
                 if (drag or (x>=left and x<=right and y>=bottom and y<=top)) and (not distance or gap<distance)then
-                    best,distance={group=group,list=list,entry=list[index],slot=slot,index=index},gap
+                    best,distance={group=group,list=list,entry=list[index],slot=slot,index=index,texture=item.texture},gap
                 end
             end
         end
@@ -74,7 +77,7 @@ end
 
 local function BeginMonitorDrag(e,target)
     local slot,ghost=target.slot,e.monitorGhost
-    local icon=slot.texture
+    local icon=target.texture
     local scale=slot:GetEffectiveScale()
     local x,y=GetCursorPosition();local cx,cy=slot:GetCenter()
     target.offsetX,target.offsetY=cx*scale-x,cy*scale-y
@@ -102,6 +105,36 @@ local function EndMonitorDrag(e)
     if not target or target.entry==drag.entry or drag.list[drag.index]~=drag.entry or not M:CanEdit()then return end
     table.remove(drag.list,drag.index);table.insert(drag.list,target.index,drag.entry)
     M:Commit()
+end
+
+local function RefreshChatToggles(e,group)
+    e.chatToggles=e.chatToggles or {}
+    local row=group and e.view.nodes.chatButtonsRow
+    for index,slot in ipairs(row and row.chatButtons or {}) do
+        local key=slot.definition.key
+        local button=e.chatToggles[index]
+        if not button then
+            button=W.Check(e.input,"",function(checked)
+                if M:CanEdit() then
+                    local current=M.byID.chatButtons
+                    current.disabledButtons[key]=not checked or nil
+                    M:Commit()
+                else
+                    e.chatToggles[index]:SetChecked(not checked)
+                end
+            end)
+            button:SetSize(18,18)
+            button:SetFrameLevel(e.input:GetFrameLevel()+2)
+            e.chatToggles[index]=button
+        end
+        button:ClearAllPoints()
+        button:SetPoint("TOP",slot.frame,"BOTTOM",0,-2)
+        button:SetChecked(group.disabledButtons[key]~=true)
+        button:Show()
+    end
+    if not row then
+        for _,button in ipairs(e.chatToggles) do button:Hide() end
+    end
 end
 
 function M:FitPreview()
@@ -241,7 +274,8 @@ function M:RefreshEditor(unchanged)
         if e.overlap then e.overlap:Hide() end
     end
     e.mainPreview=MainPreviewSelection(selected)
-    local previewHeight=e.mainPreview and 200 or 125
+    local chatPreview=selected and selected.id=="chatButtons"
+    local previewHeight=e.mainPreview and 200 or (chatPreview and 145 or 125)
     LayoutEditorPanels(e,PreviewModuleID(selected)=="partyFrames",previewHeight)
     if e.previewDragHint then
         local showHint=selected~=nil and e.mainPreview
@@ -283,6 +317,7 @@ function M:RefreshEditor(unchanged)
     e.view.previewScope=focusID or e.scope
     R.Apply(e.view,self.db.design,unchanged==true)
     if e.mainPreview or HasDedicatedPreview(selected) or not e.fit or e.refit then self:FitPreview();e.refit=false end
+    RefreshChatToggles(e,chatPreview and selected)
     if e.previewXYIcon then
         local occupied=false
         for _,hint in ipairs({e.previewDragHint,e.previewDistanceHint,e.previewThreatHint,e.previewChatHint,e.previewSystemHint})do
