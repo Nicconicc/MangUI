@@ -101,7 +101,8 @@ local function PlayAttack()
     for offset=0,#pool-1 do
         local id=pool[(first+offset-1)%#pool+1]
         if not V.failedSounds[id] then
-            if PlaySoundFile(id,"SFX") then return end
+            local path=M.ART.."Sounds\\AttackVoice\\"..id..".ogg"
+            if PlaySoundFile(path,"SFX") then return end
             V.failedSounds[id]=true
         end
     end

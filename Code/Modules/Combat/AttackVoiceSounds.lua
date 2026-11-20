@@ -1,4 +1,4 @@
--- Built-in WoW FileDataIDs from the wowdev community listfile.
+-- IDs identify the corresponding bundled Ogg files.
 local _,M=...
 M.AttackVoiceSounds={
     Human={{951346,951348,951350,951352,951354,951356,951358,542374,542370,542373},{542361,542360,542368,542362,951308,951310,951312,951314,951316,951318}},
