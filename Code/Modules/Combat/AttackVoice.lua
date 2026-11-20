@@ -127,7 +127,7 @@ local function PlayDialogue(stage)
     if chance<1 and math.random()>=chance then return end
     local index=math.random(#clips)
     local path=M.ART..("Sounds\\AttackDialogue\\%s\\%s\\%02d.ogg"):format(locale,stage,index)
-    local played,handle=PlaySoundFile(path,"SFX")
+    local played,handle=PlaySoundFile(path,"Dialog")
     if played then
         if playing then StopSound(V.dialogueHandle) end
         V.dialogueEnds=now+clips[index]
