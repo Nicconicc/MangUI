@@ -492,6 +492,8 @@ local function RefreshProperties(self)
                 visible=row.key=="scale" or (row.key and row.key:find("^party")~=nil)
             elseif n.compound=="attackVoice" then
                 visible=row.key=="attackVoiceEnabled" or row.key=="attackVoiceChance"
+                    or row.key=="attackVoiceDialogueTarget" or row.key=="attackVoiceDialogueCombat"
+                    or row.key=="attackVoiceDialogueAfter"
             elseif n.compound=="combatNotices" then
                 visible=row.key=="scale" or row.key=="combatNoticeHold" or row.key=="combatSound"
             elseif n.compound=="targetThreat" then

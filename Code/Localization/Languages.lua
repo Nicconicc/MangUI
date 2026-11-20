@@ -10348,3 +10348,6 @@ for locale,strings in pairs(attackVoiceText) do
         catalog["人声攻击音效增强"]=strings[3]
     end
 end
+M.localeTables.zhTW["人声对白增强（选中敌对目标）"]="人聲對白增強（選中敵對目標）"
+M.localeTables.zhTW["人声对白增强（战斗中）"]="人聲對白增強（戰鬥中）"
+M.localeTables.zhTW["人声对白增强（战斗后）"]="人聲對白增強（戰鬥後）"

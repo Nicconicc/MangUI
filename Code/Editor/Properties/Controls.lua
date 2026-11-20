@@ -364,6 +364,12 @@ local function BuildProperties(e)
     Row(34,{{e.attackVoiceEnabled,-4,0}},{},"attackVoiceEnabled");y=y-34
     local _,attackChance=Field("人声攻击音效增强","attackVoiceChance",true,0,1,.01)
     attackChance:SetIsPercent(true)
+    local _,targetDialogue=Field("人声对白增强（选中敌对目标）","attackVoiceDialogueTarget",true,0,1,.01)
+    targetDialogue:SetIsPercent(true)
+    local _,combatDialogue=Field("人声对白增强（战斗中）","attackVoiceDialogueCombat",true,0,1,.01)
+    combatDialogue:SetIsPercent(true)
+    local _,afterDialogue=Field("人声对白增强（战斗后）","attackVoiceDialogueAfter",true,0,1,.01)
+    afterDialogue:SetIsPercent(true)
     e.combatNoticeHold=W.Check(content,"战斗中显示提示",function(enabled)Change("showDuringCombat",enabled)end)
     Row(32,{{e.combatNoticeHold,-4,0}},{},"combatNoticeHold");y=y-32
     e.combatSound=W.Check(content,"播放音效",function(enabled)Change("soundEnabled",enabled)end)

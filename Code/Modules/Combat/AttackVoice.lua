@@ -3,6 +3,7 @@ local C=M.Compat
 local V={}
 M.AttackVoice=V
 local MODULE="attackVoice"
+local dialogueStages={"Target","Combat","After"}
 
 -- Unit spellcast events report successful abilities even where the combat log is restricted.
 -- Keep the list explicit so heals, ranged attacks and spells cast at point-blank range stay silent.
@@ -65,12 +66,20 @@ end
 
 function M:EnsureAttackVoiceModule(design)
     for _,node in ipairs(design.nodes) do
-        if node.id==MODULE then return end
+        if node.id==MODULE then
+            for _,stage in ipairs(dialogueStages) do
+                local key="attackVoiceDialogue"..stage
+                if node[key]==nil then node[key]=0 end
+            end
+            return
+        end
     end
     design.nodes[#design.nodes+1]={
         id=MODULE,label="音效增强",kind="group",compound=MODULE,scope="player",unit="player",
         x=0,y=0,width=2,height=2,scale=1,point="CENTER",anchor="CENTER",alpha=0,
-        enabled=true,attackVoiceEnabled=false,attackVoiceChance=.5,layer=500,rules={},conditions={},
+        enabled=true,attackVoiceEnabled=false,attackVoiceChance=.5,
+        attackVoiceDialogueTarget=0,attackVoiceDialogueCombat=0,attackVoiceDialogueAfter=0,
+        layer=500,rules={},conditions={},
     }
 end
 M.moduleIDs[MODULE]=true
@@ -78,6 +87,7 @@ M:EnsureAttackVoiceModule(M.defaults)
 if M.recordedDefaults then M:EnsureAttackVoiceModule(M.recordedDefaults) end
 
 local function UpdatePlayer()
+    V.hasDialogue=false
     local name,race=UnitRace("player")
     local sex=C.Number(UnitSex("player"))
     V.guid=UnitGUID("player")
@@ -91,10 +101,43 @@ local function UpdatePlayer()
     end
     local pool=race and M.AttackVoiceSounds[race]
     V.sounds=pool and (sex==2 and pool[1] or sex==3 and pool[2] or nil)
+    V.hasDialogue=race=="Scourge" and sex==2
     V.failedSounds={}
 end
 
+local function DialoguePlaying()
+    return V.dialogueEnds and GetTime()<V.dialogueEnds
+end
+
+local function PlayDialogue(stage)
+    local chance=V.dialogueChance[stage]
+    if not V.hasDialogue or chance<=0 then return end
+    local playing=DialoguePlaying()
+    if playing and (stage~="After" or not V.dialogueHandle or not StopSound) then return end
+    local language=M:EffectiveLanguage()
+    local locale=(language=="zhCN" or language=="zhTW") and "zhCN" or "enUS"
+    local clips=M.AttackVoiceDialogue[locale]
+    clips=clips and clips[stage]
+    if not clips then return end
+    local now=GetTime()
+    if stage=="Combat" then
+        if now<(V.nextCombatDialogue or 0) then return end
+        V.nextCombatDialogue=now+4
+    end
+    if chance<1 and math.random()>=chance then return end
+    local index=math.random(#clips)
+    local path=M.ART..("Sounds\\AttackDialogue\\%s\\%s\\%02d.ogg"):format(locale,stage,index)
+    local played,handle=PlaySoundFile(path,"SFX")
+    if played then
+        if playing then StopSound(V.dialogueHandle) end
+        V.dialogueEnds=now+clips[index]
+        V.dialogueHandle=handle
+    end
+end
+
 local function PlayAttack()
+    if V.inCombat then PlayDialogue("Combat") end
+    if DialoguePlaying() then return end
     local pool=V.sounds
     if not pool or V.chance<=0 or V.chance<1 and math.random()>=V.chance then return end
     local first=math.random(#pool)
@@ -120,8 +163,19 @@ end
 local function OnEvent(_,event,arg1,arg2,arg3)
     if event=="PLAYER_ENTERING_WORLD" then
         UpdatePlayer()
+        V.inCombat=C.Bool(UnitAffectingCombat("player"))
         IndexSpells(meleeSpells,meleeByID,meleeByName)
         IndexSpells(queuedSpells,queuedByID,queuedByName)
+    elseif event=="PLAYER_TARGET_CHANGED" then
+        if C.Bool(UnitCanAttack("player","target")) and not C.Bool(UnitIsDeadOrGhost("target")) then
+            PlayDialogue("Target")
+        end
+    elseif event=="PLAYER_REGEN_DISABLED" then
+        V.inCombat=true
+        V.nextCombatDialogue=nil
+    elseif event=="PLAYER_REGEN_ENABLED" then
+        if V.inCombat then PlayDialogue("After") end
+        V.inCombat=false
     elseif event=="COMBAT_LOG_EVENT_UNFILTERED" then
         if C.CombatLogAvailable() then CombatLog(CombatLogGetCurrentEventInfo()) end
     elseif event=="PLAYER_SWING" then
@@ -141,8 +195,15 @@ function V.Configure(view)
     if view.preview then return end
     local module=view.byID[MODULE]
     V.chance=module and M.Clamp(tonumber(module.attackVoiceChance) or .5,0,1) or 0
+    V.dialogueChance=V.dialogueChance or {}
+    local hasChance=V.chance>0
+    for _,stage in ipairs(dialogueStages) do
+        local chance=module and M.Clamp(tonumber(module["attackVoiceDialogue"..stage]) or 0,0,1) or 0
+        V.dialogueChance[stage]=chance
+        hasChance=hasChance or chance>0
+    end
     local enabled=module and module.enabled~=false and module.attackVoiceEnabled==true
-        and V.chance>0 and type(PlaySoundFile)=="function" or false
+        and hasChance and type(PlaySoundFile)=="function" or false
     if enabled==V.enabled then return end
     V.enabled=enabled
     if not enabled then
@@ -154,6 +215,9 @@ function V.Configure(view)
         V.frame:SetScript("OnEvent",OnEvent)
     end
     V.frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    V.frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+    V.frame:RegisterEvent("PLAYER_REGEN_DISABLED")
+    V.frame:RegisterEvent("PLAYER_REGEN_ENABLED")
     V.frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED","player")
     if C.CombatLogAvailable() then
         V.frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
