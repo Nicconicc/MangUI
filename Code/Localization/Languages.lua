@@ -10328,3 +10328,23 @@ M.localeTables.ruRU["战斗中隐藏当前目标的鼠标悬浮提示"]="Скр�
 M.localeTables.koKR["战斗中隐藏当前目标的鼠标悬浮提示"]="전투 중 현재 대상의 툴팁 숨기기"
 M.localeTables.zhTW["战斗中隐藏当前目标的鼠标悬浮提示"]="戰鬥中隱藏目前目標的滑鼠懸停提示"
 M:RebuildLocaleKeys()
+
+local attackVoiceText={
+    zhTW={"音效增強","啟動人聲增強","人聲攻擊音效增強"},
+    deDE={"Klangverbesserung","Kampfstimmen aktivieren","Chance auf Kampfstimme"},
+    frFR={"Amélioration sonore","Activer les voix de combat","Chance de jouer une voix d’attaque"},
+    esES={"Mejora de sonido","Activar voces de combate","Probabilidad de voz de ataque"},
+    esMX={"Mejora de sonido","Activar voces de combate","Probabilidad de voz de ataque"},
+    itIT={"Miglioramento audio","Attiva le voci di combattimento","Probabilità di voce d’attacco"},
+    ptBR={"Melhoria de áudio","Ativar vozes de combate","Chance de voz de ataque"},
+    ruRU={"Улучшение звука","Включить боевые голоса","Вероятность озвучки атаки"},
+    koKR={"음향 강화","전투 음성 사용","공격 음성 재생 확률"},
+}
+for locale,strings in pairs(attackVoiceText) do
+    local catalog=M.localeTables[locale]
+    if catalog then
+        catalog["音效增强"]=strings[1]
+        catalog["启动人声增强"]=strings[2]
+        catalog["人声攻击音效增强"]=strings[3]
+    end
+end

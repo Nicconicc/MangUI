@@ -804,3 +804,7 @@ english["启动距离数字显示"]="Enable numeric distance display"
 english["目标距离数字"]="Target distance number"
 
 english["目标为友方时隐藏"]="Hide for friendly targets"
+
+english["音效增强"]="Sound Enhancement"
+english["启动人声增强"]="Enable Voice Enhancement"
+english["人声攻击音效增强"]="Attack Voice Chance"

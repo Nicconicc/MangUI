@@ -803,6 +803,7 @@ function R.Apply(view,design,unchanged)
     end
     EnsureFocusMenu(view,active)
     if M.AttackProgress then M.AttackProgress.Configure(view) end
+    if M.AttackVoice then M.AttackVoice.Configure(view) end
     -- Parenting/entry-animation frames can shift descendants' native levels.
     -- Restore every requested level after all parents have been configured,
     -- then place native models on their portrait's final layer and strata.

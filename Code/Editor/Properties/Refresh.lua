@@ -143,10 +143,10 @@ local function RefreshProperties(self)
     end
     e.empty:SetText("从左侧列表或画布选择元素")
     e.props:SetShown(n~=nil);e.empty:SetShown(n==nil)
-    e.propTitle:SetShown(n~=nil and not IsUnitComposite(n) and n.id~="wa8d650f8d3a" and n.compound~="partyFrames" and n.compound~="bossFrames" and n.compound~="playerSkillMonitor" and n.compound~="playerOtherMonitor" and n.compound~="cooldownMonitor" and n.compound~="raidBuffs" and n.compound~="receivedBuffs" and n.compound~="raidVulnerability" and n.compound~="commonItems" and n.compound~="chatButtons" and n.compound~="combatNotices" and n.compound~="systemMenu" and n.compound~="mouseCircle" and n.compound~="experienceBar" and n.compound~="targetThreat" and n.compound~="targetDistance")
+    e.propTitle:SetShown(n~=nil and not IsUnitComposite(n) and n.id~="wa8d650f8d3a" and n.compound~="partyFrames" and n.compound~="bossFrames" and n.compound~="playerSkillMonitor" and n.compound~="playerOtherMonitor" and n.compound~="cooldownMonitor" and n.compound~="raidBuffs" and n.compound~="receivedBuffs" and n.compound~="raidVulnerability" and n.compound~="commonItems" and n.compound~="chatButtons" and n.compound~="combatNotices" and n.compound~="attackVoice" and n.compound~="systemMenu" and n.compound~="mouseCircle" and n.compound~="experienceBar" and n.compound~="targetThreat" and n.compound~="targetDistance")
     if not n then ResetDividers(e);e.propertyLayoutSignature=nil;return end
     e.propScroll:ClearAllPoints()
-    e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,((IsUnitComposite(n) or n.id=="wa8d650f8d3a" or n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="playerSkillMonitor" or n.compound=="playerOtherMonitor" or n.compound=="cooldownMonitor" or n.compound=="raidBuffs"or n.compound=="receivedBuffs"or n.compound=="raidVulnerability"or n.compound=="commonItems" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="systemMenu" or n.compound=="mouseCircle" or n.compound=="experienceBar" or n.compound=="targetThreat" or n.compound=="targetDistance") and -12 or -42)-headerOffset)
+    e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,((IsUnitComposite(n) or n.id=="wa8d650f8d3a" or n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="playerSkillMonitor" or n.compound=="playerOtherMonitor" or n.compound=="cooldownMonitor" or n.compound=="raidBuffs"or n.compound=="receivedBuffs"or n.compound=="raidVulnerability"or n.compound=="commonItems" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="attackVoice" or n.compound=="systemMenu" or n.compound=="mouseCircle" or n.compound=="experienceBar" or n.compound=="targetThreat" or n.compound=="targetDistance") and -12 or -42)-headerOffset)
     e.propScroll:SetPoint("BOTTOMRIGHT",e.right,"BOTTOMRIGHT",-30,12)
     e.propScroll:Show()
     local valueTextTitle=n.id=="wadb51e41246" or n.id=="wa8ee62b16d6" or n.id=="wa6edbcf125a"
@@ -196,6 +196,7 @@ local function RefreshProperties(self)
         e.menuCornerSocial:SetChecked(n.menuCornerSocial~=false)
     end
     if n.compound=="experienceBar" then e.experienceHoverTop:SetChecked(n.experienceHoverTop==true) end
+    if n.compound=="attackVoice" then e.attackVoiceEnabled:SetChecked(n.attackVoiceEnabled==true) end
     if n.compound=="combatNotices" then e.combatNoticeHold:SetChecked(n.showDuringCombat==true) end
     if n.compound=="combatNotices" or n.compound=="bossFrames" then e.combatSound:SetChecked(n.soundEnabled~=false) end
     if n.compound=="partyFrames" then
@@ -489,6 +490,8 @@ local function RefreshProperties(self)
                 visible=row.key=="scale" or row.key=="combatSound" or (row.key and row.key:find("^boss")~=nil)
             elseif n.compound=="partyFrames" then
                 visible=row.key=="scale" or (row.key and row.key:find("^party")~=nil)
+            elseif n.compound=="attackVoice" then
+                visible=row.key=="attackVoiceEnabled" or row.key=="attackVoiceChance"
             elseif n.compound=="combatNotices" then
                 visible=row.key=="scale" or row.key=="combatNoticeHold" or row.key=="combatSound"
             elseif n.compound=="targetThreat" then

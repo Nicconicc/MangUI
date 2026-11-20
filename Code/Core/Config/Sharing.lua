@@ -61,6 +61,7 @@ local function CleanNodes(nodes)
     if M.EnsureRaidVulnerability then M:EnsureRaidVulnerability({nodes=nodes})end
     if M.EnsureChatButtonsModule then M:EnsureChatButtonsModule({nodes=nodes}) end
     if M.EnsureCombatNoticesModule then M:EnsureCombatNoticesModule({nodes=nodes}) end
+    if M.EnsureAttackVoiceModule then M:EnsureAttackVoiceModule({nodes=nodes}) end
     if M.EnsureSystemMenuModule then M:EnsureSystemMenuModule({nodes=nodes}) end
     if M.EnsureMouseCircleModule then M:EnsureMouseCircleModule({nodes=nodes}) end
     if M.EnsureExperienceBarModule then M:EnsureExperienceBarModule({nodes=nodes}) end
