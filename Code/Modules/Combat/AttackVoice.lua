@@ -44,6 +44,25 @@ local function IsMeleeSkill(id)
     return not HasSpell(queuedByID,queuedByName,id,name) and HasSpell(meleeByID,meleeByName,id,name)
 end
 
+local function IsInstantSpell(id)
+    -- Auto attacks and Classic queued swings already use the weapon event.
+    if id==6603 or id==75 or id==5019 then return false end
+    local passive=C_Spell and C_Spell.IsSpellPassive or IsPassiveSpell
+    if passive and C.Bool(passive(id)) then return false end
+    local name,castTime
+    if C_Spell and C_Spell.GetSpellInfo then
+        local info=C_Spell.GetSpellInfo(id)
+        if not C.Readable(info) or type(info)~="table"
+            or (canaccesstable and not canaccesstable(info)) then return false end
+        name,castTime=info.name,info.castTime
+    elseif GetSpellInfo then
+        local spellName,_,_,duration=GetSpellInfo(id)
+        name,castTime=spellName,duration
+    end
+    if (C.interface or 0)<40000 and HasSpell(queuedByID,queuedByName,id,name) then return false end
+    return C.Number(castTime)==0
+end
+
 function M:EnsureAttackVoiceModule(design)
     for _,node in ipairs(design.nodes) do
         if node.id==MODULE then return end
@@ -113,7 +132,7 @@ local function OnEvent(_,event,arg1,arg2,arg3)
         end
     elseif arg1=="player" then
         local spellID=C.Number(arg3)
-        if spellID and IsMeleeSkill(spellID) then PlayAttack() end
+        if spellID and (IsMeleeSkill(spellID) or IsInstantSpell(spellID)) then PlayAttack() end
     end
 end
 
