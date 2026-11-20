@@ -109,6 +109,25 @@ local function DialoguePlaying()
     return V.dialogueEnds and GetTime()<V.dialogueEnds
 end
 
+local function PlayerHealthPercent()
+    local health=C.Number(UnitHealth("player"))
+    local maximum=C.Number(UnitHealthMax("player"))
+    if health and maximum and maximum>0 then return health/maximum*100 end
+    if UnitHealthPercent and CurveConstants and CurveConstants.ScaleTo100 then
+        local ok,value=pcall(UnitHealthPercent,"player",true,CurveConstants.ScaleTo100)
+        if ok then return C.Number(value) end
+    end
+end
+
+local function DialogueGroup(stage)
+    if stage=="Target" then return "TargetExtra" end
+    local percent=PlayerHealthPercent()
+    if not percent then return end
+    if percent<50 then return stage.."Low" end
+    if stage=="Combat" then return "CombatNormal" end
+    return percent>=80 and "AfterHigh" or "AfterNormal"
+end
+
 local function PlayDialogue(stage)
     local chance=V.dialogueChance[stage]
     if not V.hasDialogue or chance<=0 then return end
@@ -116,16 +135,22 @@ local function PlayDialogue(stage)
     if playing and (stage~="After" or not V.dialogueHandle or not StopSound) then return end
     local language=M:EffectiveLanguage()
     local locale=(language=="zhCN" or language=="zhTW") and "zhCN" or "enUS"
-    local clips=M.AttackVoiceDialogue[locale]
-    clips=clips and clips[stage]
-    if not clips then return end
+    local pools=M.AttackVoiceDialogue[locale]
+    local clips=pools and pools[stage]
+    if not clips or #clips==0 then return end
     local now=GetTime()
     if stage=="Combat" then
         if now<(V.nextCombatDialogue or 0) then return end
         V.nextCombatDialogue=now+4
     end
     if chance<1 and math.random()>=chance then return end
-    local index=math.random(#clips)
+    local group=DialogueGroup(stage)
+    local extra=group and pools[group]
+    local index=math.random(#clips+(extra and #extra or 0))
+    if index>#clips then
+        index=index-#clips
+        stage,clips=group,extra
+    end
     local path=M.ART..("Sounds\\AttackDialogue\\%s\\%s\\%02d.ogg"):format(locale,stage,index)
     local played,handle=PlaySoundFile(path,"Dialog")
     if played then
