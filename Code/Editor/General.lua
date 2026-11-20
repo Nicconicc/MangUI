@@ -84,6 +84,7 @@ function M:RefreshOtherSettings()
     panel.minimapCheck:SetChecked(not self.db.minimap.hide)
     panel.cpuProfilerCheck:SetChecked(self.db.disableAddOnProfiler)
     panel.groundDensityCheck:SetChecked(self.db.maxGroundDensity)
+    if panel.cameraSmoothingCheck then panel.cameraSmoothingCheck:SetChecked(self.db.cameraSmoothing == true) end
     if panel.archiveCheck then panel.archiveCheck:SetChecked(ArchiveSetting()=="0") end
     panel.targetVisibilityCheck:SetChecked(self.db.hideWithoutTarget==true)
     panel.portrait3DCheck:SetChecked(self.db.portrait3D==true)
@@ -161,6 +162,17 @@ function M:OpenGeneral()
         groundDensityText:SetTextColor(1,1,1)
         groundDensityCheck:SetScript("OnClick",ToggleGroundDensity)
         panel.groundDensityCheck=groundDensityCheck
+        if M.CameraSmoothing then
+            local camera = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+            camera:SetSize(28,28);camera:SetPoint("TOPLEFT", 295, -160)
+            local cameraText = Label(camera, "镜头平滑")
+            cameraText:SetPoint("LEFT",camera,"RIGHT",5,0)
+            cameraText:SetTextColor(1,1,1)
+            camera:SetScript("OnClick", function(self)
+                self:SetChecked(M.CameraSmoothing.SetEnabled(self:GetChecked() == true))
+            end)
+            panel.cameraSmoothingCheck = camera
+        end
         local systemOffset=68
         local archiveRow=self:ClientLanguage()=="zhCN" and 34 or 0
         local displayOffset=systemOffset+archiveRow
