@@ -10328,14 +10328,3 @@ M.localeTables.ruRU["战斗中隐藏当前目标的鼠标悬浮提示"]="Скр�
 M.localeTables.koKR["战斗中隐藏当前目标的鼠标悬浮提示"]="전투 중 현재 대상의 툴팁 숨기기"
 M.localeTables.zhTW["战斗中隐藏当前目标的鼠标悬浮提示"]="戰鬥中隱藏目前目標的滑鼠懸停提示"
 M:RebuildLocaleKeys()
-
-M.localeTables.enUS["镜头平滑"]="Camera smoothing"
-M.localeTables.zhTW["镜头平滑"]="鏡頭平滑"
-M.localeTables.deDE["镜头平滑"]="Kameraglättung"
-M.localeTables.frFR["镜头平滑"]="Lissage de la caméra"
-M.localeTables.esES["镜头平滑"]="Suavizado de cámara"
-M.localeTables.esMX["镜头平滑"]="Suavizado de cámara"
-M.localeTables.itIT["镜头平滑"]="Fluidità della visuale"
-M.localeTables.ptBR["镜头平滑"]="Suavização da câmera"
-M.localeTables.ruRU["镜头平滑"]="Плавность камеры"
-M.localeTables.koKR["镜头平滑"]="카메라 움직임 완화"

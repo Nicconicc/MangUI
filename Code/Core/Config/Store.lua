@@ -1,8 +1,39 @@
 local _,M=...
+local function RestoreLegacyCameraSpeeds(db)
+    db.cameraSmoothing = nil
+    local saved = db.cameraSmoothingSpeeds
+    if type(saved) ~= "table" then
+        db.cameraSmoothingSpeeds = nil
+        return
+    end
+    local get = C_CVar and C_CVar.GetCVar or GetCVar
+    local set = C_CVar and C_CVar.SetCVar or SetCVar
+    if not get or not set then return end
+    for _, key in ipairs({"cameraYawMoveSpeed", "cameraPitchMoveSpeed"}) do
+        local entry = saved[key]
+        if type(entry) ~= "table" or type(entry.original) ~= "number"
+            or entry.original <= 0 or type(entry.applied) ~= "number" then
+            saved[key] = nil
+        else
+            local ok, value = pcall(get, key)
+            local current = ok and tonumber(value)
+            if current and current ~= entry.applied then
+                saved[key] = nil
+            elseif current and pcall(set, key, tostring(entry.original)) then
+                local readOK, restored = pcall(get, key)
+                if readOK and tonumber(restored) == entry.original then saved[key] = nil end
+            end
+        end
+    end
+    if not saved.cameraYawMoveSpeed and not saved.cameraPitchMoveSpeed then
+        db.cameraSmoothingSpeeds = nil
+    end
+end
 function M:InitStore()
     if type(MangUIUFDB)~="table" then MangUIUFDB={} end
     local db=MangUIUFDB
     if db.schema and db.schema>82 then error("配置由更新版本创建，请更新 MangUI；现有配置未修改。") end
+    RestoreLegacyCameraSpeeds(db)
     if type(db.design)~="table" or type(db.design.nodes)~="table" then
         db.design=self.Copy(self.recordedDefaults or self.defaults)
         for key,value in pairs(self.recordedSettings or {}) do
