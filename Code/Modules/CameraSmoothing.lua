@@ -6,7 +6,6 @@ local frame = CreateFrame("Frame")
 local axes = {"cameraYawMoveSpeed", "cameraPitchMoveSpeed"}
 local filter = {}
 local active = false
-local elapsed = 0
 local get = C_CVar and C_CVar.GetCVar or GetCVar
 local set = C_CVar and C_CVar.SetCVar or SetCVar
 
@@ -20,13 +19,13 @@ local function write(key, value)
 end
 
 -- This journal also restores the constant sensitivity override from v951.
-local function restore()
+local function restore(onlyKey)
     local db = M.db
     local saved = db and db.cameraSmoothingSpeeds
     if not saved then return end
     for _, key in ipairs(axes) do
         local entry = saved[key]
-        if entry then
+        if entry and (not onlyKey or key == onlyKey) then
             local value = read(key)
             if value and (value ~= entry.applied or write(key, entry.original) == entry.original) then
                 saved[key] = nil
@@ -43,26 +42,79 @@ local function stop()
     wipe(filter)
 end
 
-local function updateAxis(key, delta, dt, flush)
-    local axis = filter[key]
-    if not axis then return end
-    local speed = delta / dt
-    -- Integrate signed mouse velocity so a reversal must cross zero first.
-    axis.velocity = axis.velocity + (speed - axis.velocity) * (1 - math.exp(-dt / 0.085))
-    if not flush or delta == 0 then return end
-    local gain = math.max(0.03, math.min(1, axis.velocity / speed))
-    local target = math.floor(axis.original * gain * 10 + 0.5) / 10
-    if target == axis.requested then return end
+local reverseDistance = 2
+local idleReset = 0.24
+local transitionDuration = 0.16
+local writeInterval = 1/60
+
+local function applyGain(key, axis, gain)
     local current = read(key)
-    if current ~= axis.applied then
+    if not current or (axis.applied and current ~= axis.applied) then
+        -- A newer setting from the game or another addon takes precedence.
         filter[key] = nil
+        restore(key)
         return
     end
+    local target = gain == 1 and axis.original or math.max(1, axis.original * gain)
+    if target == current then return end
     local applied = write(key, target)
-    if applied then
-        axis.requested, axis.applied = target, applied
-        M.db.cameraSmoothingSpeeds = M.db.cameraSmoothingSpeeds or {}
-        M.db.cameraSmoothingSpeeds[key] = {original = axis.original, applied = applied}
+    if not applied or applied == current then return end
+    axis.applied = applied
+    M.db.cameraSmoothingSpeeds = M.db.cameraSmoothingSpeeds or {}
+    local saved = M.db.cameraSmoothingSpeeds
+    if applied == axis.original then
+        saved[key] = nil
+        if not next(saved) then M.db.cameraSmoothingSpeeds = nil end
+    else
+        saved[key] = {original = axis.original, applied = applied}
+    end
+end
+
+local function updateAxis(key, delta, dt)
+    local axis = filter[key]
+    if not axis then return end
+
+    local startGain
+    if delta == 0 then
+        axis.idle = axis.idle + dt
+        if axis.idle >= idleReset then axis.direction, axis.distance = 0, 0 end
+    else
+        axis.idle = 0
+        local direction = delta > 0 and 1 or -1
+        if axis.direction == 0 then
+            axis.direction = direction
+            startGain = 0.45
+        else
+            axis.distance = math.max(0, axis.distance - delta * axis.direction)
+            if axis.distance >= reverseDistance then
+                axis.direction, axis.distance = direction, 0
+                startGain = 0.18
+            end
+        end
+    end
+
+    if startGain then
+        if not axis.transition then
+            axis.original = read(key)
+            if not axis.original or axis.original <= 1 then return end
+            axis.applied = axis.original
+        end
+        axis.transition, axis.sinceWrite = 0, 0
+        axis.startGain = startGain
+        applyGain(key, axis, startGain)
+        return
+    end
+    if not axis.transition then return end
+    axis.transition = axis.transition + dt
+    axis.sinceWrite = axis.sinceWrite + dt
+    if axis.transition >= transitionDuration then
+        applyGain(key, axis, 1)
+        axis.transition = nil
+    elseif axis.sinceWrite >= writeInterval then
+        axis.sinceWrite = axis.sinceWrite - writeInterval
+        local t = axis.transition / transitionDuration
+        local ease = t * t * (3 - 2 * t)
+        applyGain(key, axis, axis.startGain + (1 - axis.startGain) * ease)
     end
 end
 
@@ -70,11 +122,8 @@ local function update(_, dt)
     if not IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton") then stop(); return end
     if dt <= 0 then return end
     local x, y = GetCursorDelta()
-    elapsed = elapsed + dt
-    local flush = elapsed >= 1/60
-    if flush then elapsed = 0 end
-    updateAxis(axes[1], x, dt, flush)
-    updateAxis(axes[2], y, dt, flush)
+    updateAxis(axes[1], x, dt)
+    updateAxis(axes[2], y, dt)
 end
 
 local hooksInstalled = false
@@ -92,10 +141,10 @@ function Camera.SetEnabled(enabled)
             for _, key in ipairs(axes) do
                 local original = read(key)
                 if original and original > 0 then
-                    filter[key] = {original = original, applied = original, requested = original, velocity = 0}
+                    filter[key] = {direction = 0, distance = 0, idle = 0}
                 end
             end
-            active, elapsed = true, 0
+            active = true
             frame:SetScript("OnUpdate", update)
         end)
         hooksecurefunc("CameraOrSelectOrMoveStop", function() if active then stop() end end)
