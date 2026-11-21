@@ -89,10 +89,13 @@ local function Appearance(view,n,s,o)
     end
     if o.classHealthColor then
         local class=s.isPlayer and s.classColor
-        if class then
+        if s.nativeClassTint then
+            tint[1],tint[2],tint[3],tint[4]=s.classR,s.classG,s.classB,col[4] or 1
+            col=tint
+        elseif class then
             tint[1],tint[2],tint[3],tint[4]=class.r,class.g,class.b,col[4] or 1
             col=tint
-        elseif not s.isPlayer then
+        elseif not s.isPlayer or n.unit=="targettarget" then
             tint[1],tint[2],tint[3],tint[4]=healthGreen[1],healthGreen[2],healthGreen[3],col[4] or 1
             col=tint
         end

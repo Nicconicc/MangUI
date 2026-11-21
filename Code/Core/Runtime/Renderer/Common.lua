@@ -48,6 +48,11 @@ local function HealthTint(o,key,target,col,force)
         and n.healthGradient==true and (n.healthGradientEnd or col) or nil
     local a=col[4] or 1;local ea=finish and (finish[4] or a)
     local cache=o.healthTintCache or {};o.healthTintCache=cache
+    if not Readable(col[1]) or not Readable(col[2]) or not Readable(col[3]) then
+        cache[key]=nil
+        target:SetVertexColor(col[1],col[2],col[3],a)
+        return
+    end
     local last=cache[key]
     if not force and last and last.texture==target and last[1]==col[1] and last[2]==col[2]
         and last[3]==col[3] and last[4]==a and last[5]==(finish and finish[1])

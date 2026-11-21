@@ -100,46 +100,66 @@ local function ClassColorForToken(unit)
     end
 end
 
-local function TargetTargetClass(player)
-    if player then
-        local color=ClassColorForToken("targettarget")
-        if color then return true,color end
-    end
+local function TargetTargetClass(playerResult, useHealthColor)
+    local player = C.Bool(playerResult)
+    local color = ClassColorForToken("targettarget")
+    if player and color then return true,color end
 
-    local guid=UnitGUID and UnitGUID("targettarget")
-    local readableGUID=C.Readable(guid)
+    local guid = UnitGUID and UnitGUID("targettarget")
+    local readableGUID = C.Readable(guid)
     if readableGUID and type(guid)=="string" then
-        if guid:sub(1,7)=="Player-" then player=true
+        if guid:sub(1,7)=="Player-" then
+            player=true
+            if color then return true,color end
         elseif not player then return false end
     end
-    -- The official player-info API accepts opaque GUIDs and returns player data
-    -- only when the client makes it available. Never inspect an opaque GUID.
+    -- Pass opaque GUIDs only to the client APIs that accept them.
     if GetPlayerInfoByGUID and (not readableGUID or type(guid)=="string") then
         local ok,_,class=pcall(GetPlayerInfoByGUID,guid)
-        local color=ok and ClassColorForFile(class)
-        if color then return true,color end
+        local fromGUID=ok and ClassColorForFile(class)
+        if fromGUID then return true,fromGUID end
     end
     if player and UnitClassFromGUID and (not readableGUID or type(guid)=="string") then
         local ok,_,class=pcall(UnitClassFromGUID,guid)
-        local color=ok and ClassColorForFile(class)
-        if color then return true,color end
+        local fromGUID=ok and ClassColorForFile(class)
+        if fromGUID then return true,fromGUID end
     end
 
-    if UnitIsUnit and C.Bool(UnitIsUnit("targettarget","player")) then
-        return true,ClassColorForToken("player")
+    local selectColor=useHealthColor and C_CurveUtil and C_CurveUtil.EvaluateColorValueFromBoolean
+    local r,g,b=0,1,.42745101451874
+    local hasNativeColor
+    local function SelectRGB(match, classColor)
+        -- UnitIsUnit can return an opaque boolean in instances. The color
+        -- selector can combine it with the previous RGB without exposing it to Lua.
+        r=selectColor(match,classColor.r,r)
+        g=selectColor(match,classColor.g,g)
+        b=selectColor(match,classColor.b,b)
+        hasNativeColor=true
     end
-    local raid=IsInRaid and IsInRaid()
-    local prefix=raid and "raid" or "party"
-    local count=raid and GetNumGroupMembers and GetNumGroupMembers() or 4
+    if selectColor and color and not C.Readable(playerResult) then
+        SelectRGB(playerResult,color)
+    end
     if UnitIsUnit then
-        for i=1,count do
-            local member=prefix..i
-            if C.Bool(UnitIsUnit("targettarget",member)) then
-                return true,ClassColorForToken(member)
+        local raid=IsInRaid and IsInRaid()
+        local prefix=raid and "raid" or "party"
+        local count=raid and GetNumGroupMembers and GetNumGroupMembers() or 4
+        for i=0,count do
+            local member=i==0 and "player" or prefix..i
+            if i==0 or C.Bool(UnitExists(member)) then
+                local ok,match=pcall(UnitIsUnit,"targettarget",member)
+                if ok then
+                    if C.Readable(match) then
+                        if match then return true,ClassColorForToken(member) or color end
+                    elseif selectColor then
+                        local memberColor=ClassColorForToken(member)
+                        if memberColor then SelectRGB(match,memberColor) end
+                    end
+                end
             end
         end
     end
-    return player,player and ClassColorForToken("targettarget") or nil
+    if hasNativeColor then return player,nil,true,r,g,b end
+    return player,player and color or nil
 end
 local function Clear(out)
     for key in pairs(out) do out[key]=nil end
@@ -275,11 +295,13 @@ function C.State(unit,preview,scene,out,fields,bossHealth)
     local pt,token,r,g,b=UnitPowerType(unit)
     local powerColor=C.Readable(token) and PowerBarColor and PowerBarColor[token]
     pc,nc=pc or {},nc or {};nc[1],nc[2],nc[3]=1,1,1
-    local player=C.Bool(UnitIsPlayer(unit))
+    local playerResult=UnitIsPlayer(unit)
+    local player=C.Bool(playerResult)
     local reaction=UnitReaction and C.Number(UnitReaction(unit,"player"))
     local col
     if unit=="targettarget" then
-        player,col=TargetTargetClass(player)
+        player,col,out.nativeClassTint,out.classR,out.classG,out.classB=TargetTargetClass(
+            playerResult,M.db and M.db.healthClassColor==true)
     elseif player then
         col=ClassColorForToken(unit)
     end
