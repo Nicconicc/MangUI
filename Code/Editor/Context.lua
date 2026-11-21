@@ -151,7 +151,7 @@ local propertyCategories={
     targetThreat={{"nameFont","fontSize"},{"threatInstanceOnly"}},
     experienceBar={{"scale","experienceHeight"},{"nameFont","experienceHoverTop"}},
     systemMenu={{"scale","menuIconSpacing","menuAlwaysVisible","menuCornerSocial"}},combatNotices={{"scale"},{"combatNoticeHold","combatSound"}},
-    attackVoice={{"attackVoiceEnabled","attackVoiceChance","attackVoiceDialogueTarget","attackVoiceDialogueCombat","attackVoiceDialogueAfter"}},
+    attackVoice={{"attackVoiceEnabled","attackVoiceChance","attackVoiceDialogueTarget","attackVoiceDialogueCombat","attackVoiceDialogueAfter","attackVoiceDialogueDeath"}},
     mouseCircle={{"showMouseCircle","scale"},{"mouseColors"},
         {"mouseShortcutsTitle","mouseUnitMenu","mouseUnitMarks","mouseCombatMarkerKey","mouseAltInvite","mouseChatAltInvite","mouseShiftFocus"}},
     portrait={{"overallScale"},{"portraitAvatarScale","portraitOuterScale","portraitFrameTexture"},

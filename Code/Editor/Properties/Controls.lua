@@ -370,6 +370,8 @@ local function BuildProperties(e)
     combatDialogue:SetIsPercent(true)
     local _,afterDialogue=Field("人声对白增强（战斗后）","attackVoiceDialogueAfter",true,0,1,.01)
     afterDialogue:SetIsPercent(true)
+    local _,deathDialogue=Field("人声对白增强（死亡）","attackVoiceDialogueDeath",true,0,1,.01)
+    deathDialogue:SetIsPercent(true)
     e.combatNoticeHold=W.Check(content,"战斗中显示提示",function(enabled)Change("showDuringCombat",enabled)end)
     Row(32,{{e.combatNoticeHold,-4,0}},{},"combatNoticeHold");y=y-32
     e.combatSound=W.Check(content,"播放音效",function(enabled)Change("soundEnabled",enabled)end)

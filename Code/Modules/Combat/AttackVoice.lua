@@ -3,7 +3,7 @@ local C=M.Compat
 local V={}
 M.AttackVoice=V
 local MODULE="attackVoice"
-local dialogueStages={"Target","Combat","After"}
+local dialogueStages={"Target","Combat","After","Death"}
 
 -- Unit spellcast events report successful abilities even where the combat log is restricted.
 -- Keep the list explicit so heals, ranged attacks and spells cast at point-blank range stay silent.
@@ -79,6 +79,7 @@ function M:EnsureAttackVoiceModule(design)
         x=0,y=0,width=2,height=2,scale=1,point="CENTER",anchor="CENTER",alpha=0,
         enabled=true,attackVoiceEnabled=false,attackVoiceChance=.5,
         attackVoiceDialogueTarget=0,attackVoiceDialogueCombat=0,attackVoiceDialogueAfter=0,
+        attackVoiceDialogueDeath=0,
         layer=500,rules={},conditions={},
     }
 end
@@ -121,6 +122,7 @@ end
 
 local function DialogueGroup(stage)
     if stage=="Target" then return "TargetExtra" end
+    if stage=="Death" then return end
     local percent=PlayerHealthPercent()
     if not percent then return end
     if percent<50 then return stage.."Low" end
@@ -132,7 +134,8 @@ local function PlayDialogue(stage)
     local chance=V.dialogueChance[stage]
     if not V.hasDialogue or chance<=0 then return end
     local playing=DialoguePlaying()
-    if playing and (stage~="After" or not V.dialogueHandle or not StopSound) then return end
+    local priority=stage=="After" or stage=="Death"
+    if playing and (not priority or not V.dialogueHandle or not StopSound) then return end
     local language=M:EffectiveLanguage()
     local locale=(language=="zhCN" or language=="zhTW") and "zhCN" or "enUS"
     local pools=M.AttackVoiceDialogue[locale]
@@ -198,8 +201,11 @@ local function OnEvent(_,event,arg1,arg2,arg3)
     elseif event=="PLAYER_REGEN_DISABLED" then
         V.inCombat=true
         V.nextCombatDialogue=nil
+    elseif event=="PLAYER_DEAD" then
+        V.inCombat=false
+        PlayDialogue("Death")
     elseif event=="PLAYER_REGEN_ENABLED" then
-        if V.inCombat then PlayDialogue("After") end
+        if V.inCombat and not C.Bool(UnitIsDeadOrGhost("player")) then PlayDialogue("After") end
         V.inCombat=false
     elseif event=="COMBAT_LOG_EVENT_UNFILTERED" then
         if C.CombatLogAvailable() then CombatLog(CombatLogGetCurrentEventInfo()) end
@@ -243,6 +249,7 @@ function V.Configure(view)
     V.frame:RegisterEvent("PLAYER_TARGET_CHANGED")
     V.frame:RegisterEvent("PLAYER_REGEN_DISABLED")
     V.frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    V.frame:RegisterEvent("PLAYER_DEAD")
     V.frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED","player")
     if C.CombatLogAvailable() then
         V.frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
