@@ -10352,3 +10352,4 @@ M.localeTables.zhTW["人声对白增强（选中敌对目标）"]="人聲對白�
 M.localeTables.zhTW["人声对白增强（战斗中）"]="人聲對白增強（戰鬥中）"
 M.localeTables.zhTW["人声对白增强（战斗后）"]="人聲對白增強（戰鬥後）"
 M.localeTables.zhTW["人声对白增强（死亡）"]="人聲對白增強（死亡）"
+M.localeTables.zhTW["人声对白增强（读条开始）"]="人聲對白增強（讀條開始）"

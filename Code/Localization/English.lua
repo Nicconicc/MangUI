@@ -812,3 +812,4 @@ english["人声对白增强（选中敌对目标）"]="Dialogue Chance (Hostile 
 english["人声对白增强（战斗中）"]="Dialogue Chance (In Combat)"
 english["人声对白增强（战斗后）"]="Dialogue Chance (After Combat)"
 english["人声对白增强（死亡）"]="Dialogue Chance (On Death)"
+english["人声对白增强（读条开始）"]="Dialogue Chance (Cast Start)"

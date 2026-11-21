@@ -493,7 +493,7 @@ local function RefreshProperties(self)
             elseif n.compound=="attackVoice" then
                 visible=row.key=="attackVoiceEnabled" or row.key=="attackVoiceChance"
                     or row.key=="attackVoiceDialogueTarget" or row.key=="attackVoiceDialogueCombat"
-                    or row.key=="attackVoiceDialogueAfter" or row.key=="attackVoiceDialogueDeath"
+                    or row.key=="attackVoiceDialogueCast" or row.key=="attackVoiceDialogueAfter" or row.key=="attackVoiceDialogueDeath"
             elseif n.compound=="combatNotices" then
                 visible=row.key=="scale" or row.key=="combatNoticeHold" or row.key=="combatSound"
             elseif n.compound=="targetThreat" then

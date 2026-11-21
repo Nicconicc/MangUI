@@ -3,7 +3,12 @@ local C=M.Compat
 local V={}
 M.AttackVoice=V
 local MODULE="attackVoice"
-local dialogueStages={"Target","Combat","After","Death"}
+local dialogueStages={"Target","Combat","Cast","After","Death"}
+local dialogueRaceAliases={
+    KulTiran="Human", DarkIronDwarf="Dwarf", EarthenDwarf="Dwarf", Earthen="Dwarf",
+    Nightborne="NightElf", Haranir="NightElf", VoidElf="BloodElf", Mechagnome="Gnome",
+    LightforgedDraenei="Draenei", MagharOrc="Orc", HighmountainTauren="Tauren", ZandalariTroll="Troll",
+}
 
 -- Unit spellcast events report successful abilities even where the combat log is restricted.
 -- Keep the list explicit so heals, ranged attacks and spells cast at point-blank range stay silent.
@@ -79,7 +84,7 @@ function M:EnsureAttackVoiceModule(design)
         x=0,y=0,width=2,height=2,scale=1,point="CENTER",anchor="CENTER",alpha=0,
         enabled=true,attackVoiceEnabled=false,attackVoiceChance=.5,
         attackVoiceDialogueTarget=0,attackVoiceDialogueCombat=0,attackVoiceDialogueAfter=0,
-        attackVoiceDialogueDeath=0,
+        attackVoiceDialogueDeath=0,attackVoiceDialogueCast=0,
         layer=500,rules={},conditions={},
     }
 end
@@ -88,7 +93,7 @@ M:EnsureAttackVoiceModule(M.defaults)
 if M.recordedDefaults then M:EnsureAttackVoiceModule(M.recordedDefaults) end
 
 local function UpdatePlayer()
-    V.hasDialogue=false
+    V.dialogueRace,V.dialogueSex=nil,nil
     local name,race=UnitRace("player")
     local sex=C.Number(UnitSex("player"))
     V.guid=UnitGUID("player")
@@ -102,7 +107,7 @@ local function UpdatePlayer()
     end
     local pool=race and M.AttackVoiceSounds[race]
     V.sounds=pool and (sex==2 and pool[1] or sex==3 and pool[2] or nil)
-    V.hasDialogue=race=="Scourge" and sex==2
+    V.dialogueRace,V.dialogueSex=dialogueRaceAliases[race] or race,sex
     V.failedSounds={}
 end
 
@@ -121,24 +126,24 @@ local function PlayerHealthPercent()
 end
 
 local function DialogueGroup(stage)
-    if stage=="Target" then return "TargetExtra" end
-    if stage=="Death" then return end
+    if stage~="After" then return end
     local percent=PlayerHealthPercent()
     if not percent then return end
-    if percent<50 then return stage.."Low" end
-    if stage=="Combat" then return "CombatNormal" end
+    if percent<50 then return "AfterLow" end
     return percent>=80 and "AfterHigh" or "AfterNormal"
 end
 
 local function PlayDialogue(stage)
     local chance=V.dialogueChance[stage]
-    if not V.hasDialogue or chance<=0 then return end
+    if not V.dialogueRace or not chance or chance<=0 then return end
     local playing=DialoguePlaying()
     local priority=stage=="After" or stage=="Death"
     if playing and (not priority or not V.dialogueHandle or not StopSound) then return end
     local language=M:EffectiveLanguage()
     local locale=(language=="zhCN" or language=="zhTW") and "zhCN" or "enUS"
-    local pools=M.AttackVoiceDialogue[locale]
+    local languagePools=M.AttackVoiceDialogue[locale]
+    local racePools=languagePools and languagePools[V.dialogueRace]
+    local pools=racePools and racePools[V.dialogueSex]
     local clips=pools and pools[stage]
     if not clips or #clips==0 then return end
     local now=GetTime()
@@ -154,11 +159,12 @@ local function PlayDialogue(stage)
         index=index-#clips
         stage,clips=group,extra
     end
-    local path=M.ART..("Sounds\\AttackDialogue\\%s\\%s\\%02d.ogg"):format(locale,stage,index)
+    local clip=clips[index]
+    local path=M.ART..("Sounds\\AttackDialogue\\%s\\%s\\%s.ogg"):format(locale,pools.folder,clip[1])
     local played,handle=PlaySoundFile(path,"Dialog")
     if played then
         if playing then StopSound(V.dialogueHandle) end
-        V.dialogueEnds=now+clips[index]
+        V.dialogueEnds=now+clip[2]
         V.dialogueHandle=handle
     end
 end
@@ -217,8 +223,18 @@ local function OnEvent(_,event,arg1,arg2,arg3)
             PlayAttack()
         end
     elseif arg1=="player" then
-        local spellID=C.Number(arg3)
-        if spellID and (IsMeleeSkill(spellID) or IsInstantSpell(spellID)) then PlayAttack() end
+        if event=="UNIT_SPELLCAST_START" then
+            V.castGUID=C.Readable(arg2) and arg2 or nil
+            PlayDialogue("Cast")
+        elseif event=="UNIT_SPELLCAST_SUCCEEDED" then
+            local wasCast=V.castGUID and C.Readable(arg2) and arg2==V.castGUID
+            if wasCast then
+                V.castGUID=nil
+                return
+            end
+            local spellID=C.Number(arg3)
+            if spellID and (IsMeleeSkill(spellID) or IsInstantSpell(spellID)) then PlayAttack() end
+        end
     end
 end
 
@@ -250,6 +266,7 @@ function V.Configure(view)
     V.frame:RegisterEvent("PLAYER_REGEN_DISABLED")
     V.frame:RegisterEvent("PLAYER_REGEN_ENABLED")
     V.frame:RegisterEvent("PLAYER_DEAD")
+    V.frame:RegisterUnitEvent("UNIT_SPELLCAST_START","player")
     V.frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED","player")
     if C.CombatLogAvailable() then
         V.frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")

@@ -18,7 +18,7 @@
 ## Category-zhCN: 单位框体
 ## Category-zhTW: 單位框架
 ## Author: Nc
-## Version: 966
+## Version: 967
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\MIcon.png
 ## OptionalDeps: SharedMedia
 ## SavedVariables: MangUIUFDB
@@ -104,6 +104,7 @@ Code\Core\Runtime\Compat.lua
 Code\Modules\System\MouseShortcuts.lua
 Code\Modules\UnitFrames\Player\AttackProgress.lua
 Code\Modules\Combat\AttackVoiceSounds.lua
+Code\Modules\Combat\AttackVoiceDialogue.lua
 Code\Modules\Combat\AttackVoice.lua
 Code\Modules\UnitFrames\Shared\Portraits.lua
 Code\Modules\UnitFrames\Main\Sweep.lua
