@@ -4,6 +4,7 @@ local V={}
 M.AttackVoice=V
 local MODULE="attackVoice"
 local dialogueStages={"Target","Combat","Cast","After","Death"}
+local dialogueDefaults={Target=.2,Combat=.3,Cast=.3,After=.2,Death=1}
 local dialogueRaceAliases={
     KulTiran="Human", DarkIronDwarf="Dwarf", EarthenDwarf="Dwarf", Earthen="Dwarf",
     Nightborne="NightElf", Haranir="NightElf", VoidElf="BloodElf", Mechagnome="Gnome",
@@ -72,21 +73,24 @@ end
 function M:EnsureAttackVoiceModule(design)
     for _,node in ipairs(design.nodes) do
         if node.id==MODULE then
+            if node.attackVoiceChance==nil then node.attackVoiceChance=.5 end
             for _,stage in ipairs(dialogueStages) do
                 local key="attackVoiceDialogue"..stage
-                if node[key]==nil then node[key]=0 end
+                if node[key]==nil then node[key]=dialogueDefaults[stage] end
             end
             return
         end
     end
-    design.nodes[#design.nodes+1]={
+    local node={
         id=MODULE,label="音效增强",kind="group",compound=MODULE,scope="player",unit="player",
         x=0,y=0,width=2,height=2,scale=1,point="CENTER",anchor="CENTER",alpha=0,
         enabled=true,attackVoiceEnabled=false,attackVoiceChance=.5,
-        attackVoiceDialogueTarget=0,attackVoiceDialogueCombat=0,attackVoiceDialogueAfter=0,
-        attackVoiceDialogueDeath=0,attackVoiceDialogueCast=0,
         layer=500,rules={},conditions={},
     }
+    for _,stage in ipairs(dialogueStages) do
+        node["attackVoiceDialogue"..stage]=dialogueDefaults[stage]
+    end
+    design.nodes[#design.nodes+1]=node
 end
 M.moduleIDs[MODULE]=true
 M:EnsureAttackVoiceModule(M.defaults)
@@ -245,7 +249,7 @@ function V.Configure(view)
     V.dialogueChance=V.dialogueChance or {}
     local hasChance=V.chance>0
     for _,stage in ipairs(dialogueStages) do
-        local chance=module and M.Clamp(tonumber(module["attackVoiceDialogue"..stage]) or 0,0,1) or 0
+        local chance=module and M.Clamp(tonumber(module["attackVoiceDialogue"..stage]) or dialogueDefaults[stage],0,1) or 0
         V.dialogueChance[stage]=chance
         hasChance=hasChance or chance>0
     end
