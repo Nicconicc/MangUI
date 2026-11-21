@@ -212,6 +212,7 @@ function W.MediaMenu(anchor,items,kind,selectedPath,onSelect,selectedName)
     end)
     local selectedIndex
     local function SameMedia(path)
+        if kind=="choice" then return path==selectedPath end
         if kind=="font" then path=M:ResolveFontPath(path);return M:SameTexture(path,M:ResolveFontPath(selectedPath)) end
         return M:SameTexture(path,selectedPath)
     end

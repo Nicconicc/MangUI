@@ -361,18 +361,34 @@ local function BuildProperties(e)
     e.menuCornerSocial=W.Check(content,"鼠标悬浮屏幕左上角显示好友及公会成员",function(enabled)Change("menuCornerSocial",enabled)end)
     Row(32,{{e.menuCornerSocial,-4,0}},{},"menuCornerSocial");y=y-32
     e.attackVoiceChannels={}
+    local channelItems,channelLabels={},{}
+    for _,choice in ipairs(M.AttackVoice.channelChoices) do
+        channelItems[#channelItems+1]={path=choice[1],name=choice[2]}
+        channelLabels[choice[1]]=choice[2]
+    end
     local function VoiceChance(label,key,stage,tip)
         local _,control=Field(label,key,true,0,1,.01)
         control:SetIsPercent(true)
         control:SetHoverTooltip(label,tip or "百分比表示此功能在满足触发条件时播放音效的概率。")
         local button=W.Button(content,"试听",76,function()M.AttackVoice.Preview(Selected(),stage)end)
-        local dropdown=W.Drop(content,112,M.AttackVoice.channelChoices,function(value)
-            Change("attackVoiceChannel"..stage,value)
+        local dropdown
+        dropdown=W.MediaSelect(content,"",112,"choice",function()
+            if dropdown.menu and dropdown.menu:IsShown() then dropdown.menu:Hide();return end
+            local node=Selected()
+            if not node or node.compound~="attackVoice" or not M:CanEdit() then return end
+            local items={}
+            for index,item in ipairs(channelItems) do
+                items[index]={path=item.path,name=M:T(item.name)}
+            end
+            W.MediaMenu(dropdown,items,"choice",M.AttackVoice.Channel(node,stage),function(item)
+                if Selected()==node then Change("attackVoiceChannel"..stage,item.path) end
+            end)
         end)
+        function dropdown:SetValue(value) self:SetMedia(M:T(channelLabels[value]),nil) end
         e.attackVoiceChannels[stage]=dropdown
         local controls=e.propRows[#e.propRows].controls
         controls[#controls+1]={button,256,-20}
-        controls[#controls+1]={dropdown,342,-20}
+        controls[#controls+1]={dropdown,342,1}
     end
     VoiceChance("攻击音效增强","attackVoiceChance","Attack")
     VoiceChance("对白增强（选中敌对目标）","attackVoiceDialogueTarget","Target")
