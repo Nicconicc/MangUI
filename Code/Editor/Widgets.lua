@@ -397,6 +397,21 @@ function W.SpinBox(parent,width,minimum,maximum,step)
     function f:SetMinMaxValues(lo,hi)nativeSetMinMaxValues(self,lo,hi);Update()end
     f:HookScript("OnShow",Update);f:HookScript("OnSizeChanged",Update)
     f:HookScript("OnHide",function()handle.dragging=false;M.EditorUndo.Finish(handle);handle:Hide();edit:ClearFocus()end)
+    function f:SetHoverTooltip(title,text)
+        for _,control in ipairs({left,edit,handle,right}) do
+            control:HookScript("OnEnter",function(self)
+                GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
+                GameTooltip:SetText(M:T(title))
+                GameTooltip:AddLine(M:T(text),1,1,1,true)
+                GameTooltip:Show()
+            end)
+            local function Hide(self)
+                if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+            end
+            control:HookScript("OnLeave",Hide)
+            control:HookScript("OnHide",Hide)
+        end
+    end
     function f:HasFocus()return edit:HasFocus()end
     function f:ClearFocus()edit:ClearFocus()end
     function f:IsEnabled()return enabled end
