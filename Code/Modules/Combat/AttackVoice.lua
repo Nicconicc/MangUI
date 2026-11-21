@@ -3,6 +3,17 @@ local C=M.Compat
 local V={}
 M.AttackVoice=V
 local MODULE="attackVoice"
+V.channelChoices={
+    {"Master","主音量"},{"SFX","音效"},{"Music","音乐"},{"Ambience","环境音"},{"Dialog","对白"},
+}
+local validChannels={}
+for _,choice in ipairs(V.channelChoices) do validChannels[choice[1]]=true end
+
+function V.Channel(node,stage)
+    local channel=node and node["attackVoiceChannel"..stage]
+    return validChannels[channel] and channel or (stage=="Attack" and "SFX" or "Dialog")
+end
+
 local dialogueStages={"Target","Combat","Cast","After","Death"}
 local dialogueDefaults={Target=.2,Combat=.3,Cast=.3,After=.2,Death=1}
 local dialogueRaceAliases={
@@ -73,6 +84,11 @@ end
 function M:EnsureAttackVoiceModule(design)
     for _,node in ipairs(design.nodes) do
         if node.id==MODULE then
+            node.label="人声增强"
+            if node.attackVoiceEnabled~=nil then
+                node.enabled=node.enabled~=false and node.attackVoiceEnabled==true
+                node.attackVoiceEnabled=nil
+            end
             if node.attackVoiceChance==nil then node.attackVoiceChance=.5 end
             for _,stage in ipairs(dialogueStages) do
                 local key="attackVoiceDialogue"..stage
@@ -82,9 +98,9 @@ function M:EnsureAttackVoiceModule(design)
         end
     end
     local node={
-        id=MODULE,label="音效增强",kind="group",compound=MODULE,scope="player",unit="player",
+        id=MODULE,label="人声增强",kind="group",compound=MODULE,scope="player",unit="player",
         x=0,y=0,width=2,height=2,scale=1,point="CENTER",anchor="CENTER",alpha=0,
-        enabled=true,attackVoiceEnabled=false,attackVoiceChance=.5,
+        enabled=false,attackVoiceChance=.5,
         layer=500,rules={},conditions={},
     }
     for _,stage in ipairs(dialogueStages) do
@@ -112,7 +128,6 @@ local function UpdatePlayer()
     local pool=race and M.AttackVoiceSounds[race]
     V.sounds=pool and (sex==2 and pool[1] or sex==3 and pool[2] or nil)
     V.dialogueRace,V.dialogueSex=dialogueRaceAliases[race] or race,sex
-    V.failedSounds={}
 end
 
 local function DialoguePlaying()
@@ -137,14 +152,61 @@ local function DialogueGroup(stage)
     return percent>=80 and "AfterHigh" or "AfterNormal"
 end
 
+local function DialogueLocale()
+    local language=M:EffectiveLanguage()
+    return (language=="zhCN" or language=="zhTW") and "zhCN" or "enUS"
+end
+
+local function DialoguePath(locale,pool,clip)
+    return M.ART..("Sounds\\AttackDialogue\\%s\\%s\\%s.ogg"):format(locale,pool.folder,clip[1])
+end
+
+local function AttackPath(id)
+    return M.ART.."Sounds\\AttackVoice\\"..id..".ogg"
+end
+
+function V.Preview(node,stage)
+    if type(PlaySoundFile)~="function" then return end
+    local candidates={}
+    if stage=="Attack" then
+        local seen={}
+        for _,race in pairs(M.AttackVoiceSounds) do
+            for _,body in ipairs(race) do
+                for _,id in ipairs(body) do
+                    if not seen[id] then
+                        seen[id]=true
+                        candidates[#candidates+1]=AttackPath(id)
+                    end
+                end
+            end
+        end
+    else
+        local locale=DialogueLocale()
+        if not M.AttackVoiceDialogue[locale] then locale="zhCN" end
+        local groups=stage=="After" and {"After","AfterLow","AfterNormal","AfterHigh"} or {stage}
+        for _,race in pairs(M.AttackVoiceDialogue[locale] or {}) do
+            for _,body in pairs(race) do
+                for _,group in ipairs(groups) do
+                    for _,clip in ipairs(body[group] or {}) do
+                        candidates[#candidates+1]=DialoguePath(locale,body,clip)
+                    end
+                end
+            end
+        end
+    end
+    if #candidates==0 then return end
+    if V.previewHandle and StopSound then StopSound(V.previewHandle) end
+    local played,handle=PlaySoundFile(candidates[math.random(#candidates)],V.Channel(node,stage))
+    V.previewHandle=played and handle or nil
+end
+
 local function PlayDialogue(stage)
     local chance=V.dialogueChance[stage]
     if not V.dialogueRace or not chance or chance<=0 then return end
     local playing=DialoguePlaying()
     local priority=stage=="After" or stage=="Death"
     if playing and (not priority or not V.dialogueHandle or not StopSound) then return end
-    local language=M:EffectiveLanguage()
-    local locale=(language=="zhCN" or language=="zhTW") and "zhCN" or "enUS"
+    local locale=DialogueLocale()
     local languagePools=M.AttackVoiceDialogue[locale]
     local racePools=languagePools and languagePools[V.dialogueRace]
     local pools=racePools and racePools[V.dialogueSex]
@@ -164,8 +226,7 @@ local function PlayDialogue(stage)
         stage,clips=group,extra
     end
     local clip=clips[index]
-    local path=M.ART..("Sounds\\AttackDialogue\\%s\\%s\\%s.ogg"):format(locale,pools.folder,clip[1])
-    local played,handle=PlaySoundFile(path,"Dialog")
+    local played,handle=PlaySoundFile(DialoguePath(locale,pools,clip),V.channels[stage])
     if played then
         if playing then StopSound(V.dialogueHandle) end
         V.dialogueEnds=now+clip[2]
@@ -178,15 +239,7 @@ local function PlayAttack()
     if DialoguePlaying() then return end
     local pool=V.sounds
     if not pool or V.chance<=0 or V.chance<1 and math.random()>=V.chance then return end
-    local first=math.random(#pool)
-    for offset=0,#pool-1 do
-        local id=pool[(first+offset-1)%#pool+1]
-        if not V.failedSounds[id] then
-            local path=M.ART.."Sounds\\AttackVoice\\"..id..".ogg"
-            if PlaySoundFile(path,"SFX") then return end
-            V.failedSounds[id]=true
-        end
-    end
+    PlaySoundFile(AttackPath(pool[math.random(#pool)]),V.channels.Attack)
 end
 
 local function CombatLog(_,event,_,source,_,_,_,_,_,_,_,spellID,spellName)
@@ -247,13 +300,16 @@ function V.Configure(view)
     local module=view.byID[MODULE]
     V.chance=module and M.Clamp(tonumber(module.attackVoiceChance) or .5,0,1) or 0
     V.dialogueChance=V.dialogueChance or {}
+    V.channels=V.channels or {}
+    V.channels.Attack=V.Channel(module,"Attack")
     local hasChance=V.chance>0
     for _,stage in ipairs(dialogueStages) do
         local chance=module and M.Clamp(tonumber(module["attackVoiceDialogue"..stage]) or dialogueDefaults[stage],0,1) or 0
         V.dialogueChance[stage]=chance
+        V.channels[stage]=V.Channel(module,stage)
         hasChance=hasChance or chance>0
     end
-    local enabled=module and module.enabled~=false and module.attackVoiceEnabled==true
+    local enabled=module and module.enabled~=false
         and hasChance and type(PlaySoundFile)=="function" or false
     if enabled==V.enabled then return end
     V.enabled=enabled

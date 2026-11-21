@@ -196,7 +196,11 @@ local function RefreshProperties(self)
         e.menuCornerSocial:SetChecked(n.menuCornerSocial~=false)
     end
     if n.compound=="experienceBar" then e.experienceHoverTop:SetChecked(n.experienceHoverTop==true) end
-    if n.compound=="attackVoice" then e.attackVoiceEnabled:SetChecked(n.attackVoiceEnabled==true) end
+    if n.compound=="attackVoice" then
+        for stage,dropdown in pairs(e.attackVoiceChannels) do
+            dropdown:SetValue(M.AttackVoice.Channel(n,stage))
+        end
+    end
     if n.compound=="combatNotices" then e.combatNoticeHold:SetChecked(n.showDuringCombat==true) end
     if n.compound=="combatNotices" or n.compound=="bossFrames" then e.combatSound:SetChecked(n.soundEnabled~=false) end
     if n.compound=="partyFrames" then
@@ -491,7 +495,7 @@ local function RefreshProperties(self)
             elseif n.compound=="partyFrames" then
                 visible=row.key=="scale" or (row.key and row.key:find("^party")~=nil)
             elseif n.compound=="attackVoice" then
-                visible=row.key=="attackVoiceEnabled" or row.key=="attackVoiceChance"
+                visible=row.key=="attackVoiceChance"
                     or row.key=="attackVoiceDialogueTarget" or row.key=="attackVoiceDialogueCombat"
                     or row.key=="attackVoiceDialogueCast" or row.key=="attackVoiceDialogueAfter" or row.key=="attackVoiceDialogueDeath"
             elseif n.compound=="combatNotices" then
