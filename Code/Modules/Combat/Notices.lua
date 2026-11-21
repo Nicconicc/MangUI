@@ -7,7 +7,7 @@ local function Templates()
     local nodes={
         {id="combatNotices",label="进入和离开战斗提示",kind="group",compound="combatNotices",scope="player",unit="player",
             x=-310,y=-100,width=2,height=2,scale=.6,point="CENTER",anchor="CENTER",alpha=1,enabled=true,layer=500,
-            soundEnabled=true,rules={},conditions={}},
+            soundEnabled=true,showDuringCombat=false,rules={},conditions={}},
     }
     for _,entry in ipairs({{"Enter","进入战斗提示","PLAYER_REGEN_DISABLED","Incombat",0},
         {"Leave","离开战斗提示","PLAYER_REGEN_ENABLED","Outcombat",.25}}) do

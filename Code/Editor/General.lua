@@ -116,9 +116,23 @@ function M:OpenGeneral()
         panel:SetBackdropColor(.12,.12,.13,.6)
         panel:SetPoint("TOPLEFT",14,-61);panel:SetPoint("BOTTOMRIGHT",-14,49)
         panel:SetFrameStrata("DIALOG");panel:SetFrameLevel(7000);panel:EnableMouse(true)
-        local content=CreateFrame("Frame",nil,panel)
-        content:SetPoint("TOPLEFT",35,-28);content:SetPoint("BOTTOMRIGHT",-35,20)
+        local scroll,content=W.Scroll(panel)
+        scroll:SetPoint("TOPLEFT",35,-16);scroll:SetPoint("BOTTOMRIGHT",-35,12)
+        content:SetPoint("TOPLEFT")
         content:SetFrameLevel(panel:GetFrameLevel()+2)
+        scroll:HookScript("OnSizeChanged",function(_,width)
+            content:SetWidth(math.max(1,width))
+        end)
+        content:SetWidth(math.max(1,scroll:GetWidth()))
+        scroll:EnableMouseWheel(true)
+        scroll:SetScript("OnMouseWheel",function(frame,delta)
+            local offset=frame:GetVerticalScroll()-delta*48
+            frame:SetVerticalScroll(M.Clamp(offset,0,frame:GetVerticalScrollRange()))
+        end)
+        scroll:HookScript("OnVerticalScroll",function()
+            CloseDropDownMenus()
+            if panel.globalFontSelect and panel.globalFontSelect.menu then panel.globalFontSelect.menu:Hide() end
+        end)
         Section(content,"系统",0,172)
         local row=CreateFrame("Frame",nil,content);row:SetSize(560,62);row:SetPoint("TOPLEFT",16,-30)
         local caption=Label(row,"语言版本");caption:SetTextColor(1,.82,0);caption:SetPoint("TOPLEFT",0,0)
@@ -164,6 +178,8 @@ function M:OpenGeneral()
         local systemOffset=68
         local archiveRow=self:ClientLanguage()=="zhCN" and 34 or 0
         local displayOffset=systemOffset+archiveRow
+        -- Include the full sharing section and leave room below its border.
+        content:SetHeight(581+displayOffset)
         Section(content,"显示",-145-systemOffset,306+archiveRow)
         if archiveRow>0 then
             local archiveCheck=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")

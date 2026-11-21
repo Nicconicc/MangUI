@@ -95,6 +95,8 @@ local function CleanNodes(nodes)
     fields.menuAlwaysVisible={boolean=true}
     fields.menuCornerSocial={boolean=true}
     fields.showMouseCircle={boolean=true}
+    fields.mouseCombatMarkerKey={string=true}
+    fields.mouseChatAltInvite={boolean=true}
     fields.menuIconSpacing={number=true}
     fields.castHorizontalScale={number=true}
     fields.showRangedProgress={boolean=true};fields.showMeleeProgress={boolean=true}
