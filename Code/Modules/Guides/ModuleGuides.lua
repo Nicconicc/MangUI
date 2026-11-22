@@ -17,6 +17,11 @@ G.definitions={
     targetDistance={label="距离监控",anchor="targetDistanceNumber",mode="distance"},
     mouseCircle={label="鼠标光圈提示",anchor="mouseCircleRings",mode="mouse"},
 }
+function G.MainAnchor(view)
+    local bar=view.nodes.minimalHealth
+    if bar and not bar.removed then return bar,true end
+    return view.nodes[M.MainBarLayout.tokenID],false
+end
 function G.Supports(group)return group and G.definitions[group.id]~=nil end
 function G.DefaultText(group)
     local definition=group and G.definitions[group.id]or G.definitions.raidBuffs
@@ -117,7 +122,7 @@ function G.Refresh(view,force)
                             if definition.mode=="distance"then
                                 -- Mirror digits toward the connector when the module
                                 -- crosses the main frame; keep fixed connector bounds.
-                                local target=view.nodes[M.MainBarLayout.tokenID]
+                                local target=G.MainAnchor(view)
                                 local cx=owner.frame:GetCenter()
                                 local tx=target and target.frame:GetCenter()
                                 local side=1

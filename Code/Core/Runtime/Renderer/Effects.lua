@@ -175,34 +175,40 @@ end
 private.SampleMinimalTargetHealth=SampleMinimalTargetHealth
 
 local MINIMAL_LOW_HEALTH=.30
-local MINIMAL_FLASH_RED=.96
+local MINIMAL_BREATH_PERIOD=.80
 local lowHealthCurve
 local function PaintMinimalLowHealth(view,o,s,animateOnly)
+    local flash=o.minimalRedFlash
+    if not flash then return end
+    local now=(animateOnly and view.animationNow) or GetTime()
     if not animateOnly or view.preview then
         local ratio=Readable(s.healthRatio) and s.healthRatio or nil
         o.minimalLowFlash=s.exists and not s.dead and ratio~=nil and ratio<MINIMAL_LOW_HEALTH
         o.minimalLowFlashRestricted=s.exists and not s.dead and ratio==nil and UnitHealthPercent
             and C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor
             and Enum and Enum.LuaCurveType and Enum.LuaCurveType.Step
-    end
-    local now=(animateOnly and view.animationNow) or GetTime()
-    local dim=(now%.9)>=.45
-    if animateOnly and o.minimalFlashDim==dim then return end
-    o.minimalFlashDim=dim
-    local alpha=o.minimalLowFlash and dim and MINIMAL_FLASH_RED or 0
-    if o.minimalLowFlashRestricted and dim then
-        if not lowHealthCurve then
-            lowHealthCurve=C_CurveUtil.CreateColorCurve()
-            lowHealthCurve:SetType(Enum.LuaCurveType.Step)
-            lowHealthCurve:AddPoint(0,CreateColor(1,1,1,MINIMAL_FLASH_RED))
-            lowHealthCurve:AddPoint(MINIMAL_LOW_HEALTH,CreateColor(1,1,1,0))
-            lowHealthCurve:AddPoint(1,CreateColor(1,1,1,0))
+        local alpha=o.minimalLowFlash and 1 or 0
+        if o.minimalLowFlashRestricted then
+            if not lowHealthCurve then
+                lowHealthCurve=C_CurveUtil.CreateColorCurve()
+                lowHealthCurve:SetType(Enum.LuaCurveType.Step)
+                lowHealthCurve:AddPoint(0,CreateColor(1,1,1,1))
+                lowHealthCurve:AddPoint(MINIMAL_LOW_HEALTH,CreateColor(1,1,1,0))
+                lowHealthCurve:AddPoint(1,CreateColor(1,1,1,0))
+            end
+            local color=C.HealthPercent(s,lowHealthCurve)
+            if color and color.GetRGBA then local _,_,_,value=color:GetRGBA();alpha=value end
         end
-        local color=C.HealthPercent(s,lowHealthCurve)
-        if color and color.GetRGBA then local _,_,_,value=color:GetRGBA();alpha=value end
+        CachedValue(o,"minimalFlashAlpha",flash,"SetAlpha",alpha)
     end
-    -- Pulse only the warning layer beneath the filled health.
-    if o.minimalRedFlash then CachedValue(o,"minimalFlashAlpha",o.minimalRedFlash,"SetAlpha",alpha) end
+    if not (o.minimalLowFlash or o.minimalLowFlashRestricted) then o.minimalBreathStart=nil;return end
+    o.minimalBreathStart=o.minimalBreathStart or now
+    local phase=((now-o.minimalBreathStart)%MINIMAL_BREATH_PERIOD)/MINIMAL_BREATH_PERIOD
+    local pulse=.48*(1-math.cos(phase*2*math.pi))
+    -- Use local texture alpha for the animation; a protected threshold result
+    -- can stay on the containing frame without participating in arithmetic.
+    CachedValue(o,"minimalBreathBody",flash.body,"SetAlpha",pulse)
+    CachedValue(o,"minimalBreathCap",flash.cap,"SetAlpha",pulse)
 end
 private.PaintMinimalLowHealth=PaintMinimalLowHealth
 

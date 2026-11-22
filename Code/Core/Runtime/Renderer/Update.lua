@@ -20,6 +20,10 @@ function R.UpdateUnitMenuBounds(view)
     local function Button(id)return view.nodes[id] and view.nodes[id].frame end
     Add(Button("wab9dab4b3b1"),"mainComposite",{"wa70b7aa5607","waf0a666c0b7"})
     Add(Button("wa24502fe64f"),"mainComposite",{"waf465575a72","wae608adf3d8"})
+    if view.minimalPlayerMenu and view.minimalPlayerMenu.manguiVisibility then
+        local region={button=view.minimalPlayerMenu,root=true}
+        regions[#regions+1]=region;owners.minimalHealth=region;owners.minimalPower=region
+    end
     Add(Button("petHitbox"),"petComposite",{"petComposite"})
     Add(Button("totHitbox"),"totComposite",{"totComposite"})
     Add(view.focusMenu,"focusComposite",{"focusComposite"})
@@ -49,7 +53,8 @@ function R.UpdateUnitMenuBounds(view)
         end
     end
     for _,region in ipairs(regions) do
-        local anchor=view.nodes[region.anchorID];local g=geometry[region.anchorID]
+        local anchor=region.root and {frame=view.root} or view.nodes[region.anchorID]
+        local g=region.root and {x=0,y=0,s=1} or geometry[region.anchorID]
         if region.left and anchor and g then
             local button=region.button;local scale=math.max(.001,g.s)
             local x=((region.left+region.right)/2-g.x)/scale

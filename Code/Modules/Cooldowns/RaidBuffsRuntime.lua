@@ -185,8 +185,11 @@ local function UpdateConnector(view,o)
     if mouse and IsMouseButtonDown and (IsMouseButtonDown("LeftButton")or IsMouseButtonDown("RightButton"))then
         HideConnector(connector);return
     end
-    local target=view.nodes[M.MainBarLayout.tokenID]
-    if (view.raidEncounter and not view.preview)or not I.GuideLinesShown(group)or not frame:IsVisible()or not target or target.spec.enabled==false or not target.frame:IsVisible()then
+    local target,rect=M.ModuleGuides.MainAnchor(view)
+    local anchorVisible=target and (target.frame:IsVisible() or (rect and view.preview))
+    if (view.raidEncounter and not view.preview)or not I.GuideLinesShown(group)or not frame:IsVisible()
+        or not target or target.removed or target.spec.enabled==false or not anchorVisible
+        or (rect and not view.preview and view.minimalRevealValue==0) then
         HideConnector(connector);return
     end
     -- Read only our own artwork frames. The external secure portrait anchor and
@@ -211,21 +214,25 @@ local function UpdateConnector(view,o)
     local horizontalLength=mouse and 0 or I.GuideHorizontalLength(group)
     if rx<=0 or ry<=0 or not pixel then HideConnector(connector);return end
     if connector.tx~=tx or connector.ty~=ty or connector.rx~=rx or connector.ry~=ry
-        or connector.width~=width or connector.height~=height or connector.pixel~=pixel
+        or connector.rect~=rect or connector.width~=width or connector.height~=height or connector.pixel~=pixel
         or connector.rowWidth~=rowWidth or connector.length~=length or connector.horizontalLength~=horizontalLength or connector.mouse~=mouse or connector.rowOffset~=rowOffset then
         local side=tx<0 and -1 or 1
         local innerX,y=side*width/2,height/2+rowOffset
         local iconEdge=side*(rowWidth/2+8)
         innerX=iconEdge+(innerX-iconEdge)*horizontalLength
         local vx,vy=innerX-tx,y-ty
-        local distance=math.sqrt(vx*vx/(rx*rx)+vy*vy/(ry*ry))
+        local function EdgeDistance(x,y)
+            if rect then return math.max(math.abs(x)/rx,math.abs(y)/ry) end
+            return math.sqrt(x*x/(rx*rx)+y*y/(ry*ry))
+        end
+        local distance=EdgeDistance(vx,vy)
         local edgeX,edgeY
         if mouse then
             -- Both endpoints follow the ray between the artwork centers. The
             -- mouse endpoint lies on the pulsing halo, with no horizontal arm.
             local mx,my=0,height/2
             vx,vy=mx-tx,my-ty
-            local targetDistance=math.sqrt(vx*vx/(rx*rx)+vy*vy/(ry*ry))
+            local targetDistance=EdgeDistance(vx,vy)
             local haloRX,haloRY=rowWidth/2,frame.layoutBodyHeight/2
             local haloDistance=math.sqrt(vx*vx/(haloRX*haloRX)+vy*vy/(haloRY*haloRY))
             connector.outside=targetDistance>0 and haloDistance>0 and 1/targetDistance+1/haloDistance<1
@@ -256,7 +263,7 @@ local function UpdateConnector(view,o)
                 connector.jointMask:SetAllPoints(connector.joint)
             end
         end
-        connector.tx,connector.ty,connector.rx,connector.ry=tx,ty,rx,ry
+        connector.tx,connector.ty,connector.rx,connector.ry,connector.rect=tx,ty,rx,ry,rect
         connector.width,connector.height,connector.pixel,connector.rowWidth=width,height,pixel,rowWidth
         connector.length=length
         connector.horizontalLength=horizontalLength;connector.mouse=mouse;connector.rowOffset=rowOffset

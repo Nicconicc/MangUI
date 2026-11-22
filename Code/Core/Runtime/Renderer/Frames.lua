@@ -418,6 +418,35 @@ local function Border(o,n)
     e[3]:SetPoint("TOPLEFT");e[3]:SetPoint("BOTTOMLEFT");e[3]:SetWidth(w)
     e[4]:SetPoint("TOPRIGHT");e[4]:SetPoint("BOTTOMRIGHT");e[4]:SetWidth(w)
 end
+local function EnsureMinimalPlayerMenu(view,active)
+    if view.preview or InCombatLockdown() then return end
+    local bar=active.minimalHealth
+    local power=active.minimalPower
+    local group=active.mainComposite
+    local enabled=group and group.enabled~=false and
+        ((bar and bar.enabled~=false) or (power and power.enabled~=false))
+    local button=view.minimalPlayerMenu
+    if not enabled then
+        if button and button.manguiVisibility then
+            UnregisterStateDriver(button,"visibility");button.manguiVisibility=nil;button:Hide()
+        end
+        local standard=view.nodes.wab9dab4b3b1
+        if standard and not standard.removed then M.playerButton=standard.frame end
+        return
+    end
+    if not button then
+        -- Keep the secure click region separate from the animated visual layers.
+        button=CreateFrame("Button",nil,view.root,"SecureUnitButtonTemplate")
+        button:SetFrameLevel(view.root:GetFrameLevel()+400)
+        C.Menu(button,"player")
+        view.minimalPlayerMenu=button
+    end
+    M.playerButton=button
+    local condition=M.db.hideWithoutTarget and "[@target,exists] show; hide" or "show"
+    if button.manguiVisibility~=condition then
+        RegisterStateDriver(button,"visibility",condition);button.manguiVisibility=condition
+    end
+end
 local function EnsureFocusMenu(view,active)
     if view.preview then return end
     local group=active.focusComposite and view.nodes.focusComposite
@@ -911,6 +940,7 @@ function R.Apply(view,design,unchanged)
         if o.fontFailed then view.fontsPending=true end
         view.ordered[#view.ordered+1]=o
     end
+    EnsureMinimalPlayerMenu(view,active)
     EnsureFocusMenu(view,active)
     if M.AttackProgress then M.AttackProgress.Configure(view) end
     if M.AttackVoice then M.AttackVoice.Configure(view) end
