@@ -365,7 +365,10 @@ local function Paint(view,o,animateOnly,visibleHint)
             if not o.bar:IsShown() then o.bar:Show() end
         end
         if o.healthChangeEnabled then
-            if not animateOnly and n.id=="wa385c615b2a" then SampleMainHealthShake(view,s) end
+            if not animateOnly then
+                if n.id=="wa385c615b2a" then SampleMainHealthShake(view,s,"target")
+                elseif n.id=="minimalHealth" then SampleMainHealthShake(view,s,"player") end
+            end
             PaintHealthChange(view,o,s,animateOnly,inset,start,n.width*extent)
         end
         if n.binding=="health" and s.healthRatio==nil and not (o.classHealthColor or o.customHealthStyle or o.targetHealthThreshold) and not view.preview and not animateOnly then RestrictedHealthColor(o,s) end

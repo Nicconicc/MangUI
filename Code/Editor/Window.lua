@@ -81,6 +81,7 @@ function M:OpenDesigner()
         local minimal=M.DisplayModes.Minimal()
         e.standardMode:SetCurrent(not minimal)
         e.minimalMode:SetCurrent(minimal)
+        e.standardMode.previewDirty=true;e.minimalMode.previewDirty=true
     end
     e.modeTab=W.Tab(f,"模式",function()
         if M.general then M.general:Hide() end
@@ -92,7 +93,7 @@ function M:OpenDesigner()
     e.designTab=W.Tab(f,"设计",ShowDesign);e.designTab:SetPoint("LEFT",e.modeTab,"RIGHT",4,0);e.designTab:SetActive(true)
     e.modePanel=W.Panel(f)
     e.modePanel:SetPoint("TOPLEFT",14,-61);e.modePanel:SetPoint("BOTTOMRIGHT",-14,49)
-    local function ModeCard(mode,label,file,description)
+    local function ModeCard(mode,label,description)
         local card=CreateFrame("Button",nil,e.modePanel)
         card:SetSize(365,285)
         card:RegisterForClicks("LeftButtonUp")
@@ -102,7 +103,7 @@ function M:OpenDesigner()
         content:SetPoint("TOPLEFT",card,"TOPLEFT",2,-2)
         content:SetPoint("BOTTOMRIGHT",card,"BOTTOMRIGHT",-2,2)
         content:SetColorTexture(.095,.105,.125,1)
-        local canvas=W.Panel(card)
+        local canvas=W.Panel(card);card.previewCanvas=canvas
         canvas:SetPoint("TOPLEFT",card,"TOPLEFT",8,-8)
         canvas:SetPoint("TOPRIGHT",card,"TOPRIGHT",-8,-8)
         canvas:SetHeight(172)
@@ -119,30 +120,38 @@ function M:OpenDesigner()
         local art=CreateFrame("Frame",nil,canvas)
         art:SetAllPoints(canvas);art:SetFrameLevel(grid:GetFrameLevel()+1)
         art:EnableMouse(false)
-        local image=art:CreateTexture(nil,"ARTWORK")
-        image:SetPoint("TOPLEFT",art,"TOPLEFT",7,3)
-        image:SetPoint("TOPRIGHT",art,"TOPRIGHT",-7,3)
-        image:SetHeight(167.5)
-        image:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\"..file..".tga")
-        if mode=="standard" then
-            local icons={"Spell_Shadow_ShadowWordPain","Spell_Shadow_AbominationExplosion",
-                "Spell_Shadow_CurseOfSargeras","Spell_Shadow_CurseOfMannoroth",
-                "Spell_Shadow_CurseOfAchimonde","Spell_Shadow_CurseOfTounges","Spell_Shadow_UnholyFrenzy"}
-            for i,icon in ipairs(icons) do
-                local x=26+(i-1)*16
-                local trim=art:CreateTexture(nil,"ARTWORK",nil,1)
-                trim:SetSize(15,15);trim:SetPoint("TOPLEFT",art,"TOP",x,-116)
-                trim:SetColorTexture(.50,.48,.42,1)
-                local aura=art:CreateTexture(nil,"ARTWORK",nil,2)
-                aura:SetSize(13,13);aura:SetPoint("CENTER",trim)
-                aura:SetTexture("Interface\\Icons\\"..icon);aura:SetTexCoord(.08,.92,.08,.92)
+        local stage=CreateFrame("Frame",nil,canvas)
+        stage:SetPoint("CENTER",canvas,"CENTER")
+        stage:SetFrameLevel(grid:GetFrameLevel()+1)
+        stage:EnableMouse(false);canvas:SetClipsChildren(true)
+        -- The two cards use the same scene, viewport and renderer as Design.
+        -- Wait for the card's measured width before setting its viewport.
+        canvas:SetScript("OnUpdate",function(_,elapsed)
+            if card.previewDirty then
+                local width=canvas:GetWidth()
+                if not width or width<20 or not e.canvas then return end
+                card.previewDirty=nil
+                local reference=math.max(1,e.canvas:GetWidth())
+                local fit=math.min((width-10)/reference,(canvas:GetHeight()-10)/200)
+                stage:SetSize(reference,200);stage:SetScale(fit)
+                local design=M.DisplayModes.MainPreviewDesign(mode)
+                if not design then return end
+                local view=card.previewView
+                if not view then
+                    view=R.New(stage,true)
+                    view.hidden={};view.previewScope="mainComposite";view.selected="mainComposite"
+                    card.previewView=view
+                    art:SetFrameLevel(view.root:GetFrameLevel()+500)
+                end
+                view.root:SetScale(UIParent:GetEffectiveScale()/math.max(.001,e.canvas:GetEffectiveScale()))
+                R.Apply(view,design)
+                local geo=M:Geometry(view.byID)
+                local center=geo[mode=="minimal" and "minimalHealth" or "wabc757f81ee"]
+                view.root:ClearAllPoints()
+                view.root:SetPoint("CENTER",stage,"CENTER",center and -center.x or 0,center and -center.y or 0)
             end
-            local progress=art:CreateTexture(nil,"ARTWORK",nil,2)
-            progress:SetPoint("TOPLEFT",art,"TOP",27,-134)
-            progress:SetSize(108,8)
-            progress:SetTexture("Interface\\AddOns\\MangUI\\Assets\\Player\\Cast\\Player_playerMeleeProgressFrame_CenterBlackCastbarKuang.blp")
-            progress:SetVertexColor(.45,1,1)
-        end
+            if card.previewView then R.Animate(card.previewView) end
+        end)
         local axes=art:CreateTexture(nil,"OVERLAY")
         axes:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\PreviewXY.tga")
         axes:SetSize(27,27);axes:SetPoint("TOPLEFT",art,"TOPLEFT",10,-10)
@@ -188,9 +197,9 @@ function M:OpenDesigner()
         end)
         return card
     end
-    e.standardMode=ModeCard("standard","标准模式","StandardModePreview",
+    e.standardMode=ModeCard("standard","标准模式",
         "同时查看玩家和目标的详细信息，适合地下城、团队副本或需要密切关注目标的战斗。")
-    e.minimalMode=ModeCard("minimal","极简模式","MinimalModePreview",
+    e.minimalMode=ModeCard("minimal","极简模式",
         "只保留玩家生命、能量和职业资源，目标信息看姓名板，适合野外任务、练级和探索。")
     e.standardMode:SetPoint("TOPRIGHT",e.modePanel,"TOP",-8,-16)
     e.minimalMode:SetPoint("TOPLEFT",e.modePanel,"TOP",8,-16)

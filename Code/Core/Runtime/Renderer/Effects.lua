@@ -82,7 +82,7 @@ end
 function R.MainHealthShakeOffset(view,now)
     local state=view.mainHealthShake
     if view.preview or view.encounterActive or not state or not state.started then return 0,0,0,0 end
-    if not MainShakeEnabled(view) then
+    if not MainShakeEnabled(view) or state.unit~=(M.DisplayModes.Minimal() and "player" or "target") then
         StopMainHealthShake(view)
         return 0,0,0,0
     end
@@ -99,16 +99,19 @@ function R.MainHealthShakeOffset(view,now)
     return x,y,x*.72+lagX,y*.72+lagY
 end
 
-local function SampleMainHealthShake(view,s)
+local function SampleMainHealthShake(view,s,unit)
     if view.preview or view.encounterActive then return end
     if not MainShakeEnabled(view) then
         if view.mainHealthShake then StopMainHealthShake(view);view.mainHealthShake=nil end
         return
     end
     local state=view.mainHealthShake
-    if not state then state={};view.mainHealthShake=state end
-    local epoch=view.healthChangeUpdates and view.healthChangeUpdates.target
-    local maxEpoch=view.healthChangeMaxUpdates and view.healthChangeMaxUpdates.target
+    if not state or state.unit~=unit then
+        if state then StopMainHealthShake(view) end
+        state={unit=unit};view.mainHealthShake=state
+    end
+    local epoch=view.healthChangeUpdates and view.healthChangeUpdates[unit]
+    local maxEpoch=view.healthChangeMaxUpdates and view.healthChangeMaxUpdates[unit]
     if state.epoch==epoch and state.maxEpoch==maxEpoch then return end
     local firstSample=state.epoch==nil
     local maxChanged=state.maxEpoch~=maxEpoch
@@ -118,7 +121,7 @@ local function SampleMainHealthShake(view,s)
     local health=s.healthRatio
     local maximum=C.Number(s.maxHealth)
     if health==nil and UnitHealthPercent and CurveConstants and CurveConstants.ScaleTo100 then
-        local ok,value=pcall(UnitHealthPercent,"target",true,CurveConstants.ScaleTo100)
+        local ok,value=pcall(UnitHealthPercent,s.unit or unit,true,CurveConstants.ScaleTo100)
         if ok then
             local percent=C.Number(value)
             if percent then health=M.Clamp(percent*.01,0,1) end
@@ -150,7 +153,7 @@ end
 private.SampleMainHealthShake=SampleMainHealthShake
 
 function R.ClearTargetHealthChange(view)
-    StopMainHealthShake(view)
+    if not M.DisplayModes.Minimal() or view.encounterActive then StopMainHealthShake(view) end
     local o=view.nodes.wa385c615b2a
     if o then ClearHealthChange(o) end
 end

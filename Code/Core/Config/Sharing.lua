@@ -81,7 +81,7 @@ local function CleanNodes(nodes)
         end
     end
     for _,key in ipairs({"fontPath","fontName","materialPath","materialName"}) do fields[key]={string=true} end
-    fields.barBackgroundColor={table=true}
+    fields.barBackgroundColor={table=true};fields.shakeEnabled={boolean=true}
     fields.healthGradient={boolean=true};fields.healthColor={table=true};fields.healthGradientEnd={table=true}
     fields.healthThresholdEnabled={boolean=true};fields.healthThreshold={number=true};fields.healthThresholdColor={table=true}
     fields.targetDistanceHint={boolean=true}

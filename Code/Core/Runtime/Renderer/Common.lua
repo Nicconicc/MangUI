@@ -157,7 +157,34 @@ local function EntryTransform(entry,shift,scale,force,shakeX,shakeY)
     entry.shift,entry.scale,entry.shakeX,entry.shakeY=shift,scale,shakeX,shakeY
 end
 
+-- The minimal layout's visual-only carriers move the bar reveal clips and
+-- the fading text/resource roots together, leaving their local anchors intact.
+local function MoveMinimalShakeLayers(view,x,y)
+    for parent,layer in pairs(view.minimalShakeLayers or {}) do
+        if (layer.shakeX~=x or layer.shakeY~=y) and not (InCombatLockdown() and layer.IsProtected and layer:IsProtected()) then
+            local scale=view.root:GetEffectiveScale()/math.max(.001,parent:GetEffectiveScale())
+            layer:ClearAllPoints()
+            layer:SetPoint("TOPLEFT",parent,"TOPLEFT",x*scale,y*scale)
+            layer:SetPoint("BOTTOMRIGHT",parent,"BOTTOMRIGHT",x*scale,y*scale)
+            layer.shakeX,layer.shakeY=x,y
+        end
+    end
+end
+
+function R.MinimalShakeParent(view,parent)
+    view.minimalShakeLayers=view.minimalShakeLayers or {}
+    local layer=view.minimalShakeLayers[parent]
+    if not layer then
+        layer=CreateFrame("Frame",nil,parent)
+        layer:EnableMouse(false);layer:SetAllPoints(parent)
+        layer.shakeX,layer.shakeY=0,0
+        view.minimalShakeLayers[parent]=layer
+    end
+    return layer
+end
+
 function R.ResetMainHealthShakeOffset(view)
+    MoveMinimalShakeLayers(view,0,0)
     for _,entry in pairs(view.entries or {}) do
         if (entry.shakeX or 0)~=0 or (entry.shakeY or 0)~=0 then
             EntryTransform(entry,entry.shift or 0,entry.scale or 1)
@@ -192,6 +219,10 @@ function R.UpdateEntryAnimations(view,animateOnly)
     local now=GetTime()
     local mainX,mainY,portraitX,portraitY=0,0,0,0
     if R.MainHealthShakeOffset then mainX,mainY,portraitX,portraitY=R.MainHealthShakeOffset(view,now) end
+    if not view.preview and view.minimalShakeLayers then
+        if M.DisplayModes.Minimal() then MoveMinimalShakeLayers(view,mainX,mainY)
+        else MoveMinimalShakeLayers(view,0,0) end
+    end
     for _,entry in pairs(view.entries or {}) do
         local shakeX,shakeY=mainX,mainY
         if entry.spec.portraitSway then shakeX,shakeY=portraitX,portraitY end
@@ -295,8 +326,9 @@ function R.TargetVisibilityParent(view,moduleID,parent)
         view.minimalTargetFades=view.minimalTargetFades or {}
         local gate=view.minimalTargetFades[parent]
         if not gate then
-            gate=CreateFrame("Frame",nil,parent)
-            gate:SetAllPoints(parent)
+            local layer=R.MinimalShakeParent(view,parent)
+            gate=CreateFrame("Frame",nil,layer)
+            gate:SetAllPoints(layer)
             gate:EnableMouse(false)
             view.minimalTargetFades[parent]=gate
         end

@@ -68,9 +68,10 @@ function D.Ensure(design)
     power.healthGradient,power.healthColor,power.healthGradientEnd=nil,nil,nil
 end
 
-function D.Visible(node,index)
-    if node.modeMinimal then return D.Minimal() end
-    if not D.Minimal() or M:ModuleID(node,index)~="mainComposite" then return true end
+function D.Visible(node,index,minimal)
+    if minimal==nil then minimal=D.Minimal() end
+    if node.modeMinimal then return minimal end
+    if not minimal or M:ModuleID(node,index)~="mainComposite" then return true end
     return node.id=="mainComposite" or node.id=="playerResources" or node.parent=="playerResources"
 end
 
@@ -89,6 +90,29 @@ function D.RenderDesign(design)
     for i=#projection.nodes,count+1,-1 do projection.nodes[i]=nil end
     projections[design]=projection
     return projection
+end
+
+-- The mode picker renders a copy of each profile, without applying it.
+function D.MainPreviewDesign(mode)
+    local minimal=mode=="minimal"
+    local profile=(minimal==D.Minimal()) and M.db or M.db.inactiveDesign
+    if not profile or not profile.design then return end
+    local index,include={},{}
+    for _,n in ipairs(profile.design.nodes) do index[n.id]=n end
+    for _,n in ipairs(profile.design.nodes) do
+        if n.kind~="hitbox" and M:ModuleID(n,index)=="mainComposite"
+            and (n.kind=="group" or D.Visible(n,index,minimal)) then
+            local parent=n
+            while parent and not include[parent.id] do
+                include[parent.id]=true;parent=index[parent.parent]
+            end
+        end
+    end
+    local design={nodes={},modeProjection=true}
+    for _,n in ipairs(profile.design.nodes) do
+        if include[n.id] then design.nodes[#design.nodes+1]=M.Copy(n) end
+    end
+    return design
 end
 
 local profileFields={

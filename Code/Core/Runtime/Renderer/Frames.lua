@@ -696,6 +696,7 @@ function R.Apply(view,design,unchanged)
             local parentModule=n.parent and byID[n.parent] and M:ModuleID(byID[n.parent],byID)
             local growthParent
             if not view.preview and M.DisplayModes.Minimal() and M.DisplayModes.IsBar(n) then
+                p=R.MinimalShakeParent(view,p)
                 growthParent=R.MinimalBarRevealParent(view,o,p)
             elseif moduleID~=parentModule then p=R.TargetVisibilityParent(view,moduleID,p) end
             if M.PartyFrames then p=M.PartyFrames.VisibilityParent(view,n,p) end
@@ -831,7 +832,7 @@ function R.Apply(view,design,unchanged)
                             MinimalSlices(o,f,o.minimalMetalBody,o.minimalMetalCap,n,frameSpec.file)
                         end
                         o.minimalMaxEdge:SetTexture((n.file:gsub("%.tga$","MaxEdge.tga")))
-                        o.minimalMaxEdge:SetSize(n.height*(n.id=="minimalHealth" and .495 or .402),n.height)
+                        o.minimalMaxEdge:SetSize(n.height*(n.id=="minimalHealth" and .59 or .49),n.height)
                         o.fill:Hide()
                         o.material:Show()
                         MinimalSlices(o,f,o.material,o.minimalFillCap,n,n.file,nativeMaterial,o.materialMask,o.minimalFillMask)
