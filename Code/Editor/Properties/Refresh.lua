@@ -531,7 +531,7 @@ local function RefreshProperties(self)
         if row.key=="healthThresholdEnabled" or row.key=="healthThreshold" then visible=n.id=="waf465575a72" end
         if MainTextElement(n) then
             visible=row.key=="x" or row.key=="y" or row.key=="fontSize" or row.key=="nameFont"
-                or (n.id=="playerHealthPercent" and row.key=="playerHealthPercentHidden")
+                or (M.DisplayModes.CanHideHealthText(n) and row.key=="playerHealthPercentHidden")
         end
         if row.key=="valueUnit"then visible=M.LargeValueUnits.Supports(n)end
         if n.id=="wa026b04c50e" then

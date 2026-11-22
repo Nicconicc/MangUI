@@ -10,6 +10,14 @@ function D.UsesPowerColor(n)
     return n.id=="minimalPower" or n.id=="minimalPowerValue" or n.id=="minimalPowerPercent"
 end
 
+function D.IsValueText(n)
+    return n and n.modeMinimal and n.kind=="text"
+end
+
+function D.CanHideHealthText(n)
+    return n and (n.id=="playerHealthPercent" or n.id=="minimalHealthValue" or n.id=="minimalHealthPercent")
+end
+
 function D.IsBar(node)
     return node and (node.id=="minimalHealth" or node.id=="minimalPower")
 end

@@ -219,8 +219,87 @@ end
 -- Gate every physical root of these modules. Some main-frame elements use
 -- treeParent for module membership while retaining different geometry parents.
 -- Secure visibility also hides unit buttons safely when targets change in combat.
+-- Minimal bars are plain frames. A separate viewport reveals their artwork
+-- without changing the layout, resources, or the actual health/power fill.
+function R.MinimalBarRevealParent(view,o,parent)
+    local frame=o.frame
+    local clip=view.minimalBarClips and view.minimalBarClips[o]
+    if not clip then
+        view.minimalBarClips=view.minimalBarClips or {}
+        clip=CreateFrame("Frame",nil,parent)
+        clip:EnableMouse(false)
+        -- The bar itself is positioned relative to its original layout parent.
+        clip:SetPoint("TOPLEFT",frame,"TOPLEFT")
+        clip:SetPoint("BOTTOMLEFT",frame,"BOTTOMLEFT")
+        view.minimalBarClips[o]=clip
+    elseif clip:GetParent()~=parent then clip:SetParent(parent) end
+    return clip
+end
+
+local function ApplyMinimalReveal(view,value)
+    view.minimalRevealValue=value
+    for o,clip in pairs(view.minimalBarClips or {}) do
+        if not o.removed then
+            local partial=value>0 and value<1
+            -- The clip has scale 1; convert the child's logical width.
+            if partial then clip:SetWidth(math.max(.001,o.frame:GetWidth()*o.frame:GetScale()*value)) end
+            if clip.manguiClipping~=partial then
+                clip:SetClipsChildren(partial);clip.manguiClipping=partial
+            end
+            clip:SetShown(value>0)
+        end
+    end
+    for _,gate in pairs(view.minimalTargetFades or {}) do
+        gate:SetAlpha(value)
+        gate:SetShown(value>0)
+    end
+end
+
+function R.SyncMinimalTargetReveal(view,animate)
+    if view.preview or not (view.minimalBarClips or view.minimalTargetFades) then return false end
+    local enabled=M.DisplayModes.Minimal() and M.db.hideWithoutTarget==true
+    local wanted=(not enabled or C.Bool(UnitExists("target"))) and 1 or 0
+    local old=view.minimalRevealGoal
+    if old==wanted and view.minimalRevealEnabled==enabled then
+        if not animate then ApplyMinimalReveal(view,view.minimalRevealValue or wanted) end
+        return false
+    end
+    view.minimalRevealEnabled,view.minimalRevealGoal=enabled,wanted
+    local driver=view.minimalRevealDriver
+    if animate and enabled and old~=nil and view.minimalRevealValue~=wanted then
+        if not driver then
+            driver=CreateFrame("Frame",nil,view.root)
+            view.minimalRevealDriver=driver
+        end
+        if wanted==1 and view.minimalRevealValue==0 then ApplyMinimalReveal(view,.001) end
+        driver:SetScript("OnUpdate",function(self,elapsed)
+            local current=view.minimalRevealValue
+            local goal=view.minimalRevealGoal
+            local step=elapsed/.2
+            local nextValue=goal>current and math.min(goal,current+step) or math.max(goal,current-step)
+            ApplyMinimalReveal(view,nextValue)
+            if nextValue==goal then self:SetScript("OnUpdate",nil) end
+        end)
+    else
+        if driver then driver:SetScript("OnUpdate",nil) end
+        ApplyMinimalReveal(view,wanted)
+    end
+    return true
+end
+
 function R.TargetVisibilityParent(view,moduleID,parent)
     if view.preview or not noTargetModules[moduleID] then return parent end
+    if moduleID=="mainComposite" and M.DisplayModes.Minimal() then
+        view.minimalTargetFades=view.minimalTargetFades or {}
+        local gate=view.minimalTargetFades[parent]
+        if not gate then
+            gate=CreateFrame("Frame",nil,parent)
+            gate:SetAllPoints(parent)
+            gate:EnableMouse(false)
+            view.minimalTargetFades[parent]=gate
+        end
+        return gate
+    end
     view.targetGates=view.targetGates or {}
     local gates=view.targetGates[moduleID]
     if not gates then gates={};view.targetGates[moduleID]=gates end

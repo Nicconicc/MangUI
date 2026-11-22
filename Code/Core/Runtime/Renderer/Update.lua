@@ -97,7 +97,13 @@ function R.RefreshTarget(view,moduleID)
             if n.kind=="portrait" then o.portraitRefresh=true end
         end
     end
-    local ok,err=pcall(R.Update,view,targetUnits,gateModules[moduleID])
+    local modules=gateModules[moduleID]
+    if R.SyncMinimalTargetReveal(view,true) and M.DisplayModes.Minimal() then
+        if modules and not modules.mainComposite then
+            modules=M.Copy(modules);modules.mainComposite=true
+        else modules=gateModules.mainComposite end
+    end
+    local ok,err=pcall(R.Update,view,targetUnits,modules)
     view.targetRefreshing=nil
     if not ok then error(err) end
 end

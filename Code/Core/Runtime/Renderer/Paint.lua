@@ -152,7 +152,8 @@ local function Paint(view,o,animateOnly,visibleHint)
     if n.centerLogo then CenterLogo(view,o);return end
     if n.kind=="group" then
         if n.id=="playerResources"then
-            f:SetShown(n.enabled~=false and(view.preview or not n.hideWithoutTarget or C.Bool(UnitExists("target"))))
+            f:SetShown(n.enabled~=false and (view.preview or not n.hideWithoutTarget
+                or (M.DisplayModes.Minimal() and M.db.hideWithoutTarget) or C.Bool(UnitExists("target"))))
             return
         end
         -- Tab isolation hides parent groups as well as their visuals. Restore
@@ -210,7 +211,7 @@ local function Paint(view,o,animateOnly,visibleHint)
     end
     -- Keep the optional player percentage selectable in the design preview
     -- after hiding it in the live UI, including after reopening the editor.
-    if view.preview and (view.selected==n.id or n.id=="playerHealthPercent") then shown=true end
+    if view.preview and (view.selected==n.id or M.DisplayModes.CanHideHealthText(n)) then shown=true end
     if n.id=="minimalPowerValue" and s.powerType~=0 then shown=false end
     if view.hidden and view.hidden[n.id] then shown=false end
     if n.kind=="hitbox" then shown=false end
@@ -249,6 +250,9 @@ local function Paint(view,o,animateOnly,visibleHint)
     if animateOnly and o.animationColor then col,alpha=o.animationColor,o.animationAlpha
     else
         col,alpha=Appearance(view,n,s,o);o.animationColor,o.animationAlpha=col,alpha
+    end
+    if view.preview and M.DisplayModes.IsValueText(n) and M.DisplayModes.CanHideHealthText(n) and n.enabled==false then
+        alpha=alpha*.40
     end
     if not animateOnly then
         o.fastReady=o.fastVisual and Readable(alpha) and Readable(col[1]) and Readable(col[2]) and Readable(col[3]) and Readable(col[4] or 1)

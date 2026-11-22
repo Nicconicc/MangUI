@@ -994,7 +994,7 @@ local function BuildProperties(e)
     Row(32,{{e.debuffHidden,-4,0}},{},"debuffHidden");y=y-32
     e.playerHealthPercentHidden=W.Check(content,"隐藏",function(hidden)
         local node=Selected()
-        if not node or node.id~="playerHealthPercent" or not M:CanEdit() then return end
+        if not M.DisplayModes.CanHideHealthText(node) or not M:CanEdit() then return end
         Change("enabled",not hidden)
     end)
     Row(32,{{e.playerHealthPercentHidden,-4,0}},{},"playerHealthPercentHidden");y=y-32

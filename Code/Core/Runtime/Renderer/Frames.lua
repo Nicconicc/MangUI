@@ -692,7 +692,10 @@ function R.Apply(view,design,unchanged)
             ResetParticle(o)
             local p=n.parent and view.nodes[n.parent] and view.nodes[n.parent].frame or view.root
             local parentModule=n.parent and byID[n.parent] and M:ModuleID(byID[n.parent],byID)
-            if moduleID~=parentModule then p=R.TargetVisibilityParent(view,moduleID,p) end
+            local growthParent
+            if not view.preview and M.DisplayModes.Minimal() and M.DisplayModes.IsBar(n) then
+                growthParent=R.MinimalBarRevealParent(view,o,p)
+            elseif moduleID~=parentModule then p=R.TargetVisibilityParent(view,moduleID,p) end
             if M.PartyFrames then p=M.PartyFrames.VisibilityParent(view,n,p) end
             if n.kind~="hitbox" and entrySpecs[n.parent] then p=EntryParent(view,n.parent,p,byID[n.parent]) end
             o.entryID=nil
@@ -707,7 +710,8 @@ function R.Apply(view,design,unchanged)
                     ancestor=ancestor.parent and byID[ancestor.parent];guard=guard+1
                 end
             end
-            if f:GetParent()~=p then f:SetParent(p);levelsChanged=true end
+            local frameParent=growthParent or p
+            if f:GetParent()~=frameParent then f:SetParent(frameParent);levelsChanged=true end
             o.geometryParent=p;f:SetSize(math.max(1,n.width or 2),math.max(1,n.height or 2));f:SetScale(M.Clamp(M:NodeScale(n),.05,10))
             R.Position(view,f,n,p)
             local level=view.root:GetFrameLevel()+math.max(1,math.floor(n.layer or 1))
@@ -728,8 +732,10 @@ function R.Apply(view,design,unchanged)
             elseif n.kind=="targetdistancenumber" then M.TargetDistance.ConfigureNumber(view,o)
             elseif o.text then
                 o.shadow:ClearAllPoints()
-                o.shadow:SetPoint("TOPLEFT",f,"TOPLEFT",n.shadowX or 6,n.shadowY or -6)
-                o.shadow:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",n.shadowX or 6,n.shadowY or -6)
+                local minimal=M.DisplayModes.IsValueText(n)
+                local dx,dy=minimal and 3 or (n.shadowX or 6),minimal and -3 or (n.shadowY or -6)
+                o.shadow:SetPoint("TOPLEFT",f,"TOPLEFT",dx,dy)
+                o.shadow:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",dx,dy)
                 local size=math.max(.1,n.fontSize or 20)
                 if n.autoHeight then f:SetHeight(math.max(n.height or 2,math.ceil(size*1.5+16))) end
                 ApplyTextFont(view,o)
@@ -753,6 +759,7 @@ function R.Apply(view,design,unchanged)
                     local color=barSpec.barBackgroundColor or M.DisplayModes.defaultBackgroundColor
                     o.minimalBackground:SetVertexColor(unpack(color))
                     o.minimalBackgroundCap:SetVertexColor(unpack(color))
+
                 end
                 if M.PartyFrames then M.PartyFrames.ConfigureTexture(o) end
                 if n.attackKind then o.texture:SetVertexColor(unpack(n.color or {1,1,1,1})) end
@@ -808,6 +815,16 @@ function R.Apply(view,design,unchanged)
                             o.nativeCap=o.nativeArtFrame:CreateTexture(nil,"ARTWORK")
                             o.nativeCapMask=o.bar:CreateMaskTexture()
                         end
+                        if not o.minimalMaxEdge then
+                            o.minimalMaxLayer=CreateFrame("Frame",nil,f)
+                            o.minimalMaxLayer:SetAllPoints(f)
+                            o.minimalMaxLayer:EnableMouse(false)
+                            o.minimalMaxEdge=o.minimalMaxLayer:CreateTexture(nil,"OVERLAY")
+                            o.minimalMaxEdge:SetPoint("RIGHT",f,"RIGHT",0,0)
+                        end
+                        o.minimalMaxLayer:SetFrameLevel(o.clip:GetFrameLevel()+3)
+                        o.minimalMaxEdge:SetTexture((n.file:gsub("%.tga$","MaxEdge.tga")))
+                        o.minimalMaxEdge:SetSize(n.height*(n.id=="minimalHealth" and .32 or .26),n.height)
                         o.fill:Hide()
                         o.material:Show()
                         MinimalSlices(o,f,o.material,o.minimalFillCap,n,n.file,nativeMaterial,o.materialMask,o.minimalFillMask)
@@ -930,7 +947,10 @@ function R.Apply(view,design,unchanged)
         for _,o in ipairs(view.ordered) do if paintSet[o.spec.id] then repaint[#repaint+1]=o end end
     else repaint=nil end
     view.applying=false
-    if not view.preview then view.mainAnchorPending=true;R.SyncMainPortraitAnchor(view) end
+    if not view.preview then
+        R.SyncMinimalTargetReveal(view,false)
+        view.mainAnchorPending=true;R.SyncMainPortraitAnchor(view)
+    end
     R.UpdateUnitMenuBounds(view)
     if M.ThirdResource and M.ThirdResource.Native then M.ThirdResource.Native.Configure(view)end
     R.Update(view,nil,nil,nil,repaint)
