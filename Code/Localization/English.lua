@@ -1,5 +1,14 @@
 local _,M=...
 local english=M.localeTables.enUS
+english["模式"]="Mode"
+english["标准模式"]="Standard"
+english["极简模式"]="Minimal"
+english["生命条"]="Health Bar"
+english["能量条"]="Power Bar"
+english["生命条数值"]="Health Value"
+english["能量条数值"]="Power Value"
+english["生命条百分比"]="Health Percentage"
+english["能量条百分比"]="Power Percentage"
 english["插件入口"]="AddOn Launcher"
 english["界面与布局"]="UI & Layout"
 english["单位框体"]="Unit Frames"

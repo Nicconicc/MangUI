@@ -229,7 +229,7 @@ function R.TargetVisibilityParent(view,moduleID,parent)
         end)
         gates[parent]=gate
     end
-    local enabled=M.db.hideWithoutTarget==true
+    local enabled=M.db.hideWithoutTarget==true and not (moduleID=="mainComposite" and M.DisplayModes.Minimal())
     if gate.targetVisibilityEnabled~=enabled then
         if enabled then RegisterStateDriver(gate,"visibility","[@target,exists] show; hide")
         else UnregisterStateDriver(gate,"visibility");gate:Show() end

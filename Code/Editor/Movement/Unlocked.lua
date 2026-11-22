@@ -106,7 +106,10 @@ function M:ResetUnlockedModulePositions()
                         if copy then copy.x=number.x;copy.y=number.y end
                     end
                 end
-                if node.id=="mainComposite"then node.moveX=ref.moveX or 0;node.moveY=ref.moveY or 0 end
+                if node.id=="mainComposite"then
+                    if M.DisplayModes.Minimal() then node.moveX,node.moveY=0,0
+                    else node.moveX,node.moveY=ref.moveX or 0,ref.moveY or 0 end
+                end
             end
         end
     end
