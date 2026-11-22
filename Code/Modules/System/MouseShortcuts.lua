@@ -756,8 +756,16 @@ local function OnMouse(listener,event,button,keyDown)
     elseif button=="LeftButton" then
         local modifier=LeftModifier()
         if modifier then lastLeft=nil end
-        if modifier=="alt" then key="mouseAltInvite"
-        elseif not modifier and not combat then key="mouseUnitMarks" end
+        if modifier=="alt" then
+            if event=="GLOBAL_MOUSE_DOWN" and Setting("mouseAltInvite") and WorldHasMouse()
+                and C.Bool(UnitIsPlayer("mouseover")) and not C.Bool(UnitIsUnit("mouseover","player")) then
+                local name=Name("mouseover")
+                local invite=C_PartyInfo and C_PartyInfo.InviteUnit or InviteUnit
+                if invite and name then pcall(invite,name) end
+            end
+            return
+        end
+        if not modifier and not combat then key="mouseUnitMarks" end
     end
     if not key then return end
     local guid,targetFallback
@@ -795,14 +803,6 @@ local function OnMouse(listener,event,button,keyDown)
     if not previous or key~=previous.key or (guid~=previous.guid and not (targetFallback and previous.targetFallback)) or now-previous.time>.5
         or math.abs(x-previous.x)>8 or math.abs(y-previous.y)>8 then
         if button=="LeftButton" then lastLeft=nil end
-        return
-    end
-    if key=="mouseAltInvite" then
-        if C.Bool(UnitIsPlayer("mouseover")) and not C.Bool(UnitIsUnit("mouseover","player")) then
-            local name=Name("mouseover")
-            local invite=C_PartyInfo and C_PartyInfo.InviteUnit or InviteUnit
-            if invite and name then pcall(invite,name) end
-        end
         return
     end
     if key=="mouseUnitMarks" then
