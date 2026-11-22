@@ -151,7 +151,7 @@ local raceVoices={
     {"Dracthyr","龙希尔"},
     {"Scourge","亡灵"},
 }
-local voiceOptions={{path="default"}}
+local voiceOptions={{path="default"},{path="random"}}
 local voicesByID={}
 for _,race in ipairs(raceVoices) do
     for sex=2,3 do
@@ -162,15 +162,16 @@ for _,race in ipairs(raceVoices) do
 end
 
 function V.ValidVoiceID(value)
-    return value=="default" or voicesByID[value]~=nil
+    return value=="default" or value=="random" or voicesByID[value]~=nil
 end
 
 function V.SelectedVoice(mode)
     local saved=type(MangUICharacterDB)=="table" and M.DisplayModes.CharacterProfile(MangUICharacterDB,mode).attackVoiceID
-    return voicesByID[saved] and saved or "default"
+    return V.ValidVoiceID(saved) and saved or "default"
 end
 
 local function VoiceLabel(option)
+    if option.path=="random" then return M:T("随机") end
     if not option.race then return M:T("默认") end
     return M:T(option.sex==2 and "%s男" or "%s女"):format(M:T(option.label))
 end
@@ -184,7 +185,7 @@ function V.VoiceChoices()
 end
 
 function V.SelectedVoiceLabel()
-    return VoiceLabel(voicesByID[V.SelectedVoice()] or voiceOptions[1])
+    return VoiceLabel(V.SelectedVoice()=="random" and voiceOptions[2] or voicesByID[V.SelectedVoice()] or voiceOptions[1])
 end
 
 local function PlayerVoice()
@@ -222,7 +223,7 @@ end
 
 function V.StoreVoice(value,mode)
     if type(MangUICharacterDB)~="table" then MangUICharacterDB={} end
-    M.DisplayModes.CharacterProfile(MangUICharacterDB,mode).attackVoiceID=voicesByID[value] and value or nil
+    M.DisplayModes.CharacterProfile(MangUICharacterDB,mode).attackVoiceID=(value=="random" or voicesByID[value]) and value or nil
 end
 
 function V.SetVoice(value)
@@ -269,6 +270,22 @@ local function DialoguePool(locale,race,sex)
     return bodies and bodies[sex]
 end
 
+local function SelectedDialoguePool(locale,race,sex,stage,preview)
+    if V.SelectedVoice()~="random" then return DialoguePool(locale,race,sex) end
+    local candidates={}
+    for _,option in ipairs(voiceOptions) do
+        if option.race then
+            local pool=DialoguePool(locale,option.race,option.sex)
+            if pool and ((pool[stage] and #pool[stage]>0) or (preview and stage=="After"
+                and ((pool.AfterLow and #pool.AfterLow>0) or (pool.AfterNormal and #pool.AfterNormal>0)
+                    or (pool.AfterHigh and #pool.AfterHigh>0)))) then
+                candidates[#candidates+1]=pool
+            end
+        end
+    end
+    if #candidates>0 then return candidates[math.random(#candidates)] end
+end
+
 local function RandomAttackPath(race,sex,locale,sounds)
     if sounds and #sounds>0 then return AttackPath(sounds[math.random(#sounds)]) end
     -- Races without bundled strike effects can still use their own voice.
@@ -288,7 +305,7 @@ function V.Preview(node,stage)
         path=RandomAttackPath(playerRace,playerSex,locale,VoiceSounds(playerRace,playerSex))
     else
         local race,sex=DialogueVoice(playerRace,playerSex)
-        local pool=DialoguePool(locale,race,sex)
+        local pool=SelectedDialoguePool(locale,race,sex,stage,true)
         if not pool then return end
         local groups=stage=="After" and {"After","AfterLow","AfterNormal","AfterHigh"} or {stage}
         local candidates={}
@@ -307,12 +324,12 @@ end
 
 local function PlayDialogue(stage)
     local chance=V.dialogueChance[stage]
-    if not V.dialogueRace or not chance or chance<=0 then return end
+    if not chance or chance<=0 then return end
     local playing=DialoguePlaying()
     local priority=stage=="After" or stage=="Death"
     if playing and (not priority or not V.dialogueHandle or not StopSound) then return end
     local locale=V.locale
-    local pools=DialoguePool(locale,V.dialogueRace,V.dialogueSex)
+    local pools=SelectedDialoguePool(locale,V.dialogueRace,V.dialogueSex,stage)
     local clips=pools and pools[stage]
     if not clips or #clips==0 then return end
     local now=GetTime()
