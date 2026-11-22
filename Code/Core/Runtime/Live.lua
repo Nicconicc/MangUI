@@ -321,7 +321,7 @@ function M:StartLive()
         local healthEvent=event=="UNIT_HEALTH" or event=="UNIT_MAXHEALTH"
         local powerEvent=event=="UNIT_POWER_UPDATE" or event=="UNIT_POWER_FREQUENT" or event=="UNIT_MAXPOWER"
         if healthEvent or powerEvent then
-            if healthEvent and (unit=="player" or unit=="vehicle" or (unit=="target" and not encounterActive)) then
+            if healthEvent and (unit=="player" or unit=="vehicle" or (unit=="target" and (not encounterActive or M.DisplayModes.Minimal()))) then
                 local barUnit=unit=="vehicle" and "player" or unit
                 local updates=view.healthChangeUpdates
                 updates[barUnit]=updates[barUnit]+1
@@ -334,6 +334,7 @@ function M:StartLive()
             local started=profile and profile.active and debugprofilestop()
             if healthEvent and unit=="target" and bossTarget then
                 bossHealthPending=true
+                if M.DisplayModes.Minimal() then Unit(unit,"health") end
             elseif trackedUnits[unit] then
                 Unit(unit,healthEvent and "health" or "power")
             end

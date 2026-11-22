@@ -62,7 +62,7 @@ local function StopMainHealthShake(view)
     local state=view.mainHealthShake
     if not state then return end
     state.started,state.amplitude=nil,nil
-    state.ratio,state.maximum,state.nextAt,state.epoch,state.maxEpoch=nil,nil,nil,nil,nil
+    state.samples={}
     R.ResetMainHealthShakeOffset(view)
 end
 
@@ -81,8 +81,9 @@ end
 
 function R.MainHealthShakeOffset(view,now)
     local state=view.mainHealthShake
-    if view.preview or view.encounterActive or not state or not state.started then return 0,0,0,0 end
-    if not MainShakeEnabled(view) or state.unit~=(M.DisplayModes.Minimal() and "player" or "target") then
+    local minimal=M.DisplayModes.Minimal()
+    if view.preview or (view.encounterActive and not minimal) or not state or not state.started then return 0,0,0,0 end
+    if not MainShakeEnabled(view) or state.minimal~=minimal then
         StopMainHealthShake(view)
         return 0,0,0,0
     end
@@ -100,22 +101,25 @@ function R.MainHealthShakeOffset(view,now)
 end
 
 local function SampleMainHealthShake(view,s,unit)
-    if view.preview or view.encounterActive then return end
+    local minimal=M.DisplayModes.Minimal()
+    if view.preview or (view.encounterActive and not minimal) then return end
     if not MainShakeEnabled(view) then
         if view.mainHealthShake then StopMainHealthShake(view);view.mainHealthShake=nil end
         return
     end
     local state=view.mainHealthShake
-    if not state or state.unit~=unit then
+    if not state or state.minimal~=minimal then
         if state then StopMainHealthShake(view) end
-        state={unit=unit};view.mainHealthShake=state
+        state={minimal=minimal,samples={}};view.mainHealthShake=state
     end
+    local sample=state.samples[unit]
+    if not sample then sample={};state.samples[unit]=sample end
     local epoch=view.healthChangeUpdates and view.healthChangeUpdates[unit]
     local maxEpoch=view.healthChangeMaxUpdates and view.healthChangeMaxUpdates[unit]
-    if state.epoch==epoch and state.maxEpoch==maxEpoch then return end
-    local firstSample=state.epoch==nil
-    local maxChanged=state.maxEpoch~=maxEpoch
-    state.epoch,state.maxEpoch=epoch,maxEpoch
+    if sample.epoch==epoch and sample.maxEpoch==maxEpoch then return end
+    local firstSample=sample.epoch==nil
+    local maxChanged=sample.maxEpoch~=maxEpoch
+    sample.epoch,sample.maxEpoch=epoch,maxEpoch
     if not s.exists then return end
 
     local health=s.healthRatio
@@ -128,32 +132,84 @@ local function SampleMainHealthShake(view,s,unit)
         end
     end
 
-    local previous,previousMaximum=state.ratio,state.maximum
+    local previous,previousMaximum=sample.ratio,sample.maximum
     if firstSample or maxChanged or maximum~=previousMaximum or (health~=nil and previous==nil) then
-        state.ratio,state.maximum=health,maximum
+        sample.ratio,sample.maximum=health,maximum
         return
     end
     local amplitude,interval
     if health~=nil then
         local delta=math.abs(health-previous)
-        if delta<SHAKE_THRESHOLD then return end
+        if delta==0 or (not minimal and delta<SHAKE_THRESHOLD) then return end
         amplitude=M.Clamp(delta*44,1.25,6)
         interval=SHAKE_INTERVAL
     else
         -- Restricted health still delivers UNIT_HEALTH. Use a short visual
         -- pulse without trying to calculate a delta from protected values.
-        state.ratio=nil
+        sample.ratio=nil
         amplitude,interval=RESTRICTED_SHAKE_AMPLITUDE,RESTRICTED_SHAKE_INTERVAL
     end
     local now=GetTime()
-    if state.nextAt and now<state.nextAt then return end
-    state.ratio=health
-    state.started,state.amplitude,state.nextAt=now,amplitude,now+interval
+    if sample.nextAt and now<sample.nextAt then return end
+    sample.ratio,sample.nextAt=health,now+interval
+    state.started,state.amplitude=now,amplitude
 end
 private.SampleMainHealthShake=SampleMainHealthShake
 
+local function SampleMinimalTargetHealth(view)
+    if view.preview or not M.DisplayModes.Minimal() or not MainShakeEnabled(view) then return end
+    local bar=view.nodes.minimalHealth
+    if not bar or bar.removed or bar.spec.enabled==false or (bar.module and bar.module.enabled==false) then return end
+    local epoch=view.healthChangeUpdates and view.healthChangeUpdates.target
+    local sample=view.mainHealthShake and view.mainHealthShake.samples.target
+    if epoch~=nil and (not sample or sample.epoch~=epoch) then
+        local target
+        if view.raidBossHealth then
+            -- Shake follows the current health event, not the display's throttled boss snapshot.
+            view.minimalShakeTargetState=C.State("target",false,nil,view.minimalShakeTargetState,{health=true})
+            target=view.minimalShakeTargetState
+        else target=State(view,"target") end
+        SampleMainHealthShake(view,target,"target")
+    end
+end
+private.SampleMinimalTargetHealth=SampleMinimalTargetHealth
+
+local MINIMAL_LOW_HEALTH=.30
+local MINIMAL_FLASH_DIM=.38
+local lowHealthCurve
+local function PaintMinimalLowHealth(view,o,s,animateOnly)
+    if not animateOnly or view.preview then
+        local ratio=Readable(s.healthRatio) and s.healthRatio or nil
+        o.minimalLowFlash=s.exists and not s.dead and ratio~=nil and ratio<MINIMAL_LOW_HEALTH
+        o.minimalLowFlashRestricted=s.exists and not s.dead and ratio==nil and UnitHealthPercent
+            and C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor
+            and Enum and Enum.LuaCurveType and Enum.LuaCurveType.Step
+    end
+    local now=(animateOnly and view.animationNow) or GetTime()
+    local dim=(now%.9)>=.45
+    if animateOnly and o.minimalFlashDim==dim then return end
+    o.minimalFlashDim=dim
+    local alpha=o.minimalLowFlash and dim and MINIMAL_FLASH_DIM or 1
+    if o.minimalLowFlashRestricted and dim then
+        if not lowHealthCurve then
+            lowHealthCurve=C_CurveUtil.CreateColorCurve()
+            lowHealthCurve:SetType(Enum.LuaCurveType.Step)
+            lowHealthCurve:AddPoint(0,CreateColor(1,1,1,MINIMAL_FLASH_DIM))
+            lowHealthCurve:AddPoint(MINIMAL_LOW_HEALTH,CreateColor(1,1,1,1))
+            lowHealthCurve:AddPoint(1,CreateColor(1,1,1,1))
+        end
+        local color=C.HealthPercent(s,lowHealthCurve)
+        if color and color.GetRGBA then local _,_,_,value=color:GetRGBA();alpha=value end
+    end
+    -- The background, trim, numbers and health-change trail remain steady.
+    CachedValue(o,"minimalFlashAlpha",o.clip,"SetAlpha",alpha)
+    if o.nativeArtFrame then CachedValue(o,"minimalNativeFlashAlpha",o.nativeArtFrame,"SetAlpha",alpha) end
+end
+private.PaintMinimalLowHealth=PaintMinimalLowHealth
+
 function R.ClearTargetHealthChange(view)
-    if not M.DisplayModes.Minimal() or view.encounterActive then StopMainHealthShake(view) end
+    if not M.DisplayModes.Minimal() then StopMainHealthShake(view)
+    elseif view.mainHealthShake then view.mainHealthShake.samples.target=nil end
     local o=view.nodes.wa385c615b2a
     if o then ClearHealthChange(o) end
 end

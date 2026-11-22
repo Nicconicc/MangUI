@@ -364,6 +364,7 @@ local function Paint(view,o,animateOnly,visibleHint)
             if o.clip:IsShown() then o.clip:Hide() end
             if not o.bar:IsShown() then o.bar:Show() end
         end
+        if n.id=="minimalHealth" then private.PaintMinimalLowHealth(view,o,s,animateOnly) end
         if o.healthChangeEnabled then
             if not animateOnly then
                 if n.id=="wa385c615b2a" then SampleMainHealthShake(view,s,"target")

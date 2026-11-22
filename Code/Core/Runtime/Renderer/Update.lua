@@ -193,6 +193,7 @@ local function Update(view,units,modules,fields,objects)
         if buckets>1 then table.sort(list,UpdateOrder) end
     else for unit in pairs(view.cache) do view.cache[unit]=nil end end
     view.lastUpdateCount=#list
+    private.SampleMinimalTargetHealth(view)
     local paint=view.preview and Paint or RuntimePaint
     for _,o in ipairs(list) do
         paint(view,o,false)
@@ -225,7 +226,7 @@ local function NeedsAnimation(view,o)
         return o.numberEstimated and o.numberValue~=o.numberGoal and now>=(o.numberNextStep or 0)
     end
     if n.centerLogo then return o.logoAnimating~=false end
-    if o.bar and (n.binding=="health" or n.binding=="power") then return o.healthChangeActive or o.smoothStart~=nil or o.animatedEdge or o.fillEdgeMoving or B.Moving(view,n) end
+    if o.bar and (n.binding=="health" or n.binding=="power") then return o.minimalLowFlash or o.minimalLowFlashRestricted or o.healthChangeActive or o.smoothStart~=nil or o.animatedEdge or o.fillEdgeMoving or B.Moving(view,n) end
     if n.kind=="spark" and n.followDisplay then
         local owner=view.nodes[n.owner]
         if owner then
