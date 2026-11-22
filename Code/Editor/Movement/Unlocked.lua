@@ -63,7 +63,7 @@ local function PlaceUnlockedMover(mode,mover,x,y,width,height,ax,ay)
 end
 local function PositionUnlockedMover(mode,mover,geometry)
     local x,y,width,height=UnlockedBounds(mover.node,geometry)
-    local anchor=mover.node.id=="mainComposite"and geometry.wabc757f81ee
+    local anchor=mover.node.id=="mainComposite" and geometry[M.DisplayModes.Minimal() and "minimalHealth" or "wabc757f81ee"]
     if mode.centralGroup and mover.node.id=="mainComposite" then
         x,y=anchor.x,anchor.y
         width,height=0,0
@@ -296,7 +296,7 @@ function M:StartUnlockedMoveMode()
                     drag.frameX,drag.frameY,drag.width,drag.height=UnlockedBounds(node,geo)
                     drag.centerX,drag.centerY=drag.frameX,drag.frameY
                     drag.appliedDX,drag.appliedDY=0,0
-                    local anchor=node.id=="mainComposite"and geo.wabc757f81ee
+                    local anchor=node.id=="mainComposite" and geo[M.DisplayModes.Minimal() and "minimalHealth" or "wabc757f81ee"]
                     if anchor then drag.centerX,drag.centerY=anchor.x,anchor.y end
                     if node.id=="mainComposite"then drag.main=true;drag.x=node.moveX or 0;drag.y=node.moveY or 0 end
                     for _,part in ipairs(node.id=="mainComposite"and MainCompositeRoots()or {node})do

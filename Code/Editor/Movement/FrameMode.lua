@@ -55,7 +55,7 @@ local function MainCompositeMoveBounds(geometry)
     local left,right,bottom,top
     for _,n in ipairs(M.db.design.nodes) do
         if n.enabled~=false and n.kind~="group" and n.kind~="hitbox" and n.kind~="spark"
-            and InMainPreview(n) then
+            and InMainPreview(n) and M.DisplayModes.Visible(n,M.byID) then
             local g=geometry[n.id]
             if g then
                 local l,r=g.x-g.w*g.s/2,g.x+g.w*g.s/2
@@ -105,7 +105,7 @@ function M:SetMainCompositeScaleFromCenter(group,newScale)
     local oldScale=group.scale or 1
     if math.abs(oldScale-newScale)<.0001 then return end
     local geometry=self:Geometry()
-    local portrait=geometry.wabc757f81ee
+    local portrait=geometry[M.DisplayModes.Minimal() and "minimalHealth" or "wabc757f81ee"]
     if not portrait then return end
     local pivotX,pivotY=portrait.x,portrait.y
     local ratio=newScale/oldScale

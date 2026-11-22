@@ -529,11 +529,12 @@ end
 
 function R.Apply(view,design,unchanged)
     view.runtimeFailures=nil
+    design=M.DisplayModes.RenderDesign(design)
     local prepared=R.PrepareDesign(design,unchanged)
     local selectionChanged=view.renderSelection~=view.selected or view.renderScene~=view.scene
         or view.renderScope~=view.previewScope
     view.renderSelection=view.selected;view.renderScene=view.scene;view.renderScope=view.previewScope
-    local settings=table.concat({tostring(M.db and M.db.portrait3D),tostring(M.db and M.db.healthClassColor),
+    local settings=table.concat({tostring(M.DisplayModes.Minimal()),tostring(M.db and M.db.portrait3D),tostring(M.db and M.db.healthClassColor),
         tostring(M.db and M.db.hideWithoutTarget),tostring(M.db and M.db.useGlobalFont),
         tostring(M.db and M.db.globalFontPath),tostring(M.db and M.db.language),
         tostring(UIParent:GetWidth()),tostring(UIParent:GetHeight()),tostring(UIParent:GetEffectiveScale())},"|")

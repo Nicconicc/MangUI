@@ -216,7 +216,7 @@ function M:FitPreview()
     local e=self.editor;local geo=self:Geometry();e.geometry=geo
     local minx,miny,maxx,maxy
     for _,n in ipairs(self.db.design.nodes) do
-        if n.kind~="group" and n.kind~="hitbox" and
+        if M.DisplayModes.Visible(n,M.byID) and n.kind~="group" and n.kind~="hitbox" and
             ((e.mainPreview and InMainPreview(n)) or
             (not e.mainPreview and InPreviewScope(n,e.scope) and
             (not e.previewFocusID or self:IsChild(n.id,e.previewFocusID)))) then
@@ -254,7 +254,7 @@ function M:FitPreview()
         local reference=moduleID=="bossFrames" and .4/math.max(.001,self.byID.bossFrames.scale or 1) or 1
         e.fit=e.fit*math.min(1,availableWidth/math.max(1,(maxx-minx)*reference),availableHeight/math.max(1,(maxy-miny)*reference))
     end
-    local portrait=e.mainPreview and geo.wabc757f81ee
+    local portrait=e.mainPreview and not M.DisplayModes.Minimal() and geo.wabc757f81ee
     local cast=HasDedicatedPreview(selected) and geo[e.previewFocusID or selected.id]
     if PreviewModuleID(selected)=="partyFrames" or PreviewModuleID(selected)=="bossFrames"or PreviewModuleID(selected)=="playerSkillMonitor" or PreviewModuleID(selected)=="playerOtherMonitor"or PreviewModuleID(selected)=="raidBuffs"or PreviewModuleID(selected)=="receivedBuffs"or PreviewModuleID(selected)=="raidVulnerability"or PreviewModuleID(selected)=="commonItems" or PreviewModuleID(selected)=="targetDistance" then cast=nil end
     e.centerX,e.centerY=portrait and portrait.x or (cast and cast.x or (minx+maxx)/2),
@@ -427,7 +427,7 @@ local function HitCandidates(e)
     local x,y=GetCursorPosition();local result={}
     for _,n in ipairs(M.db.design.nodes) do
         local o=e.view.nodes[n.id];local f=o and o.frame
-        if n.kind~="group" and n.kind~="hitbox" and not fixedPortraitLevels[n.id] and not n.locked and f and f:IsVisible() then
+        if M.DisplayModes.Visible(n,M.byID) and n.kind~="group" and n.kind~="hitbox" and not fixedPortraitLevels[n.id] and not n.locked and f and f:IsVisible() then
             local frames=mainAuraIcons[n.id] and o.icons or {f}
             for _,part in ipairs(frames or {}) do
                 if part:IsVisible() then

@@ -266,6 +266,7 @@ function M:OpenGeneral()
     end
     if editor.overlap then editor.overlap:Hide() end
     for _,key in ipairs({"mediaWindow","materialWindow","fontWindow"}) do if self[key] then self[key]:Hide() end end
+    editor.modePanel:Hide();editor.modeTab:SetActive(false)
     editor.designTab:SetActive(false);editor.generalTab:SetActive(true)
     editor.canvas:Hide();editor.left:Hide();editor.right:Hide();editor.status:Show()
     self.general:Show();self:RefreshOtherSettings()

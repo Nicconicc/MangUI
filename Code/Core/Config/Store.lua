@@ -302,6 +302,8 @@ end
 function M:Index(editing)
     -- A numeric/color edit keeps the existing node objects. Loading, importing,
     -- undoing or replacing nodes must still run the complete migration path.
+    self.DisplayModes.Ensure(self.db.design)
+    self.DisplayModes.Ensure(self.db.moduleDefaults)
     local nodes=self.db.design.nodes
     if editing and self.indexedNodes==nodes and self.indexedNodeCount==#nodes then
         local same=true

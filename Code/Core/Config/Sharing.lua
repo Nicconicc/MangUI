@@ -158,6 +158,31 @@ local function CleanNodes(nodes)
     M:NormalizeNodeTextures({nodes=result})
     return result
 end
+local function CleanModeLayouts(layouts,nodes)
+    if type(layouts)~="table" then return {} end
+    local result,known={},{}
+    for _,node in ipairs(nodes) do known[node.id]=true end
+    for _,mode in ipairs({"standard","minimal"}) do
+        if type(layouts[mode])=="table" then
+            local clean={}
+            for id,position in pairs(layouts[mode]) do
+                if known[id] and type(position)=="table" then
+                    local row={}
+                    for _,key in ipairs({"x","y","moveX","moveY","mainScaleFactor","scale"}) do
+                        local value=position[key]
+                        if type(value)=="number" and math.abs(value)<=1000000
+                            and (key~="scale" and key~="mainScaleFactor" or value>0 and value<=100) then
+                            row[key]=value
+                        end
+                    end
+                    clean[id]=row
+                end
+            end
+            result[mode]=clean
+        end
+    end
+    return result
+end
 local function CleanConfig(config)
     if type(config)~="table" or not ValidTree(config,{},0,{count=0}) then return end
     if config.format~=1 or config.schema~=82 then return end
@@ -235,6 +260,8 @@ local function CleanConfig(config)
         raidVulnerabilityByClass=config.raidVulnerabilityByClass and M.Copy(config.raidVulnerabilityByClass),raidVulnerabilityClass=config.raidVulnerabilityClass,
         otherMonitorEquipmentOverrides=config.otherMonitorEquipmentOverrides and M.Copy(config.otherMonitorEquipmentOverrides),
         otherMonitorEquipmentEntries=config.otherMonitorEquipmentEntries and M.Copy(config.otherMonitorEquipmentEntries),
+        displayMode=config.displayMode=="minimal" and "minimal" or "standard",
+        modeLayouts=CleanModeLayouts(config.modeLayouts,nodes),
         design={nodes=nodes},moduleDefaults={nodes=defaults}}
 end
 local function CleanSkillConfig(config)
@@ -307,6 +334,7 @@ function M:ExportConfigString()
             raidBuffsShared=self.db.raidBuffsShared,raidBuffsByClass=self.db.raidBuffsByClass,raidBuffsClass=self.db.raidBuffsClass,
             raidVulnerabilityShared=self.db.raidVulnerabilityShared,raidVulnerabilityByClass=self.db.raidVulnerabilityByClass,raidVulnerabilityClass=self.db.raidVulnerabilityClass,
             otherMonitorEquipmentOverrides=self.db.otherMonitorEquipmentOverrides,
+            displayMode=self.db.displayMode,modeLayouts=self.db.modeLayouts,
             design=self.db.design,moduleDefaults=self.db.moduleDefaults})
         if not config then return end
         local payload=serializer:Serialize(config)
@@ -363,6 +391,8 @@ function M:ApplyConfigString(input)
     self:SaveRaidBuffMonitorClass()
     self:SaveRaidVulnerabilityClass()
     self.db.design=config.design;self.db.moduleDefaults=config.moduleDefaults
+    self.db.displayMode=config.displayMode;self.db.modeLayouts=config.modeLayouts
+    if self.EditorUndo then self.EditorUndo.Clear() end
     self:ImportPlayerSkillMonitorClasses(config)
     self:ImportPlayerOtherMonitorClasses(config)
     self:ImportCommonItems(config)
