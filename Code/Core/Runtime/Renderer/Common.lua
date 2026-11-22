@@ -161,7 +161,20 @@ end
 -- the fading text/resource roots together, leaving their local anchors intact.
 local function MoveMinimalShakeLayers(view,x,y)
     for parent,layer in pairs(view.minimalShakeLayers or {}) do
-        if (layer.shakeX~=x or layer.shakeY~=y) and not (InCombatLockdown() and layer.IsProtected and layer:IsProtected()) then
+        local locked=InCombatLockdown() and layer.IsProtected and layer:IsProtected()
+        local fallback=layer.minimalShakeAnimation
+        local state=(x~=0 or y~=0) and view.mainHealthShake
+        if locked and fallback and state and state.started then
+            if layer.minimalAnimationStart~=state.started then
+                layer.minimalAnimationStart=state.started
+                fallback:Stop();fallback:Play()
+            end
+        elseif not locked then
+            if layer.minimalAnimationStart and fallback then fallback:Stop();layer.minimalAnimationStart=nil end
+        elseif not (view.mainHealthShake and view.mainHealthShake.started) and layer.minimalAnimationStart and fallback then
+            fallback:Stop();layer.minimalAnimationStart=nil
+        end
+        if (layer.shakeX~=x or layer.shakeY~=y) and not locked then
             local scale=view.root:GetEffectiveScale()/math.max(.001,parent:GetEffectiveScale())
             layer:ClearAllPoints()
             layer:SetPoint("TOPLEFT",parent,"TOPLEFT",x*scale,y*scale)
@@ -178,6 +191,23 @@ function R.MinimalShakeParent(view,parent)
         layer=CreateFrame("Frame",nil,parent)
         layer:EnableMouse(false);layer:SetAllPoints(parent)
         layer.shakeX,layer.shakeY=0,0
+        -- A visual translation can play during combat without changing the
+        -- anchors or hit rectangles of any protected descendants.
+        if layer.CreateAnimationGroup then
+            local animation=layer:CreateAnimationGroup()
+            local lastX,lastY=0,0
+            for i=1,8 do
+                local progress=i/8
+                local strength=5*(1-progress)^2
+                local swing=progress*math.pi*4
+                local x,y=math.sin(swing)*strength,math.sin(swing*1.25)*strength*.24
+                local step=animation:CreateAnimation("Translation")
+                step:SetOrder(i);step:SetDuration(.21/8)
+                step:SetOffset(x-lastX,y-lastY)
+                lastX,lastY=x,y
+            end
+            layer.minimalShakeAnimation=animation
+        end
         view.minimalShakeLayers[parent]=layer
     end
     return layer

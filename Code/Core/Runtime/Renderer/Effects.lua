@@ -175,7 +175,7 @@ end
 private.SampleMinimalTargetHealth=SampleMinimalTargetHealth
 
 local MINIMAL_LOW_HEALTH=.30
-local MINIMAL_FLASH_DIM=.38
+local MINIMAL_FLASH_RED=.96
 local lowHealthCurve
 local function PaintMinimalLowHealth(view,o,s,animateOnly)
     if not animateOnly or view.preview then
@@ -189,21 +189,20 @@ local function PaintMinimalLowHealth(view,o,s,animateOnly)
     local dim=(now%.9)>=.45
     if animateOnly and o.minimalFlashDim==dim then return end
     o.minimalFlashDim=dim
-    local alpha=o.minimalLowFlash and dim and MINIMAL_FLASH_DIM or 1
+    local alpha=o.minimalLowFlash and dim and MINIMAL_FLASH_RED or 0
     if o.minimalLowFlashRestricted and dim then
         if not lowHealthCurve then
             lowHealthCurve=C_CurveUtil.CreateColorCurve()
             lowHealthCurve:SetType(Enum.LuaCurveType.Step)
-            lowHealthCurve:AddPoint(0,CreateColor(1,1,1,MINIMAL_FLASH_DIM))
-            lowHealthCurve:AddPoint(MINIMAL_LOW_HEALTH,CreateColor(1,1,1,1))
-            lowHealthCurve:AddPoint(1,CreateColor(1,1,1,1))
+            lowHealthCurve:AddPoint(0,CreateColor(1,1,1,MINIMAL_FLASH_RED))
+            lowHealthCurve:AddPoint(MINIMAL_LOW_HEALTH,CreateColor(1,1,1,0))
+            lowHealthCurve:AddPoint(1,CreateColor(1,1,1,0))
         end
         local color=C.HealthPercent(s,lowHealthCurve)
         if color and color.GetRGBA then local _,_,_,value=color:GetRGBA();alpha=value end
     end
-    -- The background, trim, numbers and health-change trail remain steady.
-    CachedValue(o,"minimalFlashAlpha",o.clip,"SetAlpha",alpha)
-    if o.nativeArtFrame then CachedValue(o,"minimalNativeFlashAlpha",o.nativeArtFrame,"SetAlpha",alpha) end
+    -- Pulse only the warning layer beneath the filled health.
+    if o.minimalRedFlash then CachedValue(o,"minimalFlashAlpha",o.minimalRedFlash,"SetAlpha",alpha) end
 end
 private.PaintMinimalLowHealth=PaintMinimalLowHealth
 

@@ -761,6 +761,23 @@ function R.Apply(view,design,unchanged)
                     local color=barSpec.barBackgroundColor or M.DisplayModes.defaultBackgroundColor
                     o.minimalBackground:SetVertexColor(unpack(color))
                     o.minimalBackgroundCap:SetVertexColor(unpack(color))
+                    if barSpec.id=="minimalHealth" then
+                        local bar=view.nodes[barSpec.id]
+                        local flash=bar.minimalRedFlash
+                        if not flash then
+                            flash=CreateFrame("Frame",nil,f)
+                            flash:SetAllPoints(f);flash:EnableMouse(false);flash:SetAlpha(0)
+                            flash.body=flash:CreateTexture(nil,"ARTWORK")
+                            flash.cap=flash:CreateTexture(nil,"ARTWORK")
+                            bar.minimalRedFlash=flash
+                        end
+                        -- This frame sits above the empty track but below the
+                        -- actual fill, and spans the entire maximum-health width.
+                        flash:SetFrameLevel(f:GetFrameLevel())
+                        MinimalSlices(o,f,flash.body,flash.cap,barSpec,barSpec.file)
+                        flash.body:SetVertexColor(1,.045,.035)
+                        flash.cap:SetVertexColor(1,.045,.035)
+                    end
 
                 end
                 if M.PartyFrames then M.PartyFrames.ConfigureTexture(o) end
@@ -837,6 +854,7 @@ function R.Apply(view,design,unchanged)
                         o.material:Show()
                         MinimalSlices(o,f,o.material,o.minimalFillCap,n,n.file,nativeMaterial,o.materialMask,o.minimalFillMask)
                         MinimalSlices(o,o.nativeArtFrame,o.nativeArt,o.nativeCap,n,n.file,nativeMaterial,o.nativeMask,o.nativeCapMask)
+
                     end
                     if t and n.id=="playerThirdResourceFill" then
                         if nativeMaterial and not o.nativeFillMasked then
