@@ -209,8 +209,16 @@ local function BundleRoute(addon)
 end
 
 local function State(addon,routes)
-    local open,arg,label=BundleRoute(addon)
-    if open then return "打开设置",open,arg,label end
+    if addon.key=="dungeonsforever" then
+        -- The client can register /df for its own slash command.
+        local open=DF_NS and DF_NS.Open
+        if type(open)=="function" then return "打开设置",open,nil,"/df" end
+        local handler=SlashCmdList and SlashCmdList.DUNGEONSFOREVER
+        if type(handler)=="function" then return "打开设置",handler,"","/df" end
+    else
+        local open,arg,label=BundleRoute(addon)
+        if open then return "打开设置",open,arg,label end
+    end
     local entry=addon.known
     if entry and entry.command then
         local handler=SlashCmdList and SlashCmdList[entry.handler]
