@@ -360,6 +360,12 @@ function M:StartLive()
         end
         M.live.nativeThirdSelectionGeneration=(M.live.nativeThirdSelectionGeneration or 0)+1
         if event=="UI_SCALE_CHANGED" then M:QueueUIScale();return end
+        if event=="PLAYER_REGEN_ENABLED" and M.live.minimalRevealPending then
+            M:Safe("极简框体脱战刷新",R.SyncMinimalTargetReveal,M.live,false)
+        end
+        if (event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_REGEN_ENABLED") and M.DisplayModes.Minimal() then
+            Module("mainComposite")
+        end
         if event=="PLAYER_ENTERING_WORLD" then M:QueueUIScale()
         elseif event=="PLAYER_REGEN_ENABLED" and M.pendingUIScale then M:ApplyUIScale() end
         if (event=="PLAYER_ENTERING_WORLD"or event=="PLAYER_REGEN_ENABLED"or event=="ACTIVE_TALENT_GROUP_CHANGED"or event=="PLAYER_TALENT_UPDATE"

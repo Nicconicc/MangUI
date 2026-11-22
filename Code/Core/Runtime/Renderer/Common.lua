@@ -267,22 +267,39 @@ function R.MinimalBarRevealParent(view,o,parent)
     return clip
 end
 
+local function SetRevealShown(view,frame,shown,locked)
+    if frame:IsShown()==shown then return end
+    if locked then
+        view.minimalRevealPending=true
+        return
+    end
+    frame:SetShown(shown)
+end
+
 local function ApplyMinimalReveal(view,value)
     view.minimalRevealValue=value
+    local combat=InCombatLockdown()
+    if not combat then view.minimalRevealPending=nil end
     for o,clip in pairs(view.minimalBarClips or {}) do
         if not o.removed then
-            local partial=value>0 and value<1
-            -- The clip has scale 1; convert the child's logical width.
+            local protected=clip.IsProtected and clip:IsProtected()
+            local locked=combat and protected
+            local partial=not protected and value>0 and value<1
+            -- Protected frames stay shown at zero alpha. Their visibility and
+            -- geometry may not be changed from this animation during combat.
+            clip:SetAlpha(protected and value or 1)
             if partial then clip:SetWidth(math.max(.001,o.frame:GetWidth()*o.frame:GetScale()*value)) end
-            if clip.manguiClipping~=partial then
-                clip:SetClipsChildren(partial);clip.manguiClipping=partial
+            if (clip.manguiClipping==true)~=partial then
+                if locked then view.minimalRevealPending=true
+                else clip:SetClipsChildren(partial);clip.manguiClipping=partial end
             end
-            clip:SetShown(value>0)
+            SetRevealShown(view,clip,protected or value>0,locked)
         end
     end
     for _,gate in pairs(view.minimalTargetFades or {}) do
+        local protected=gate.IsProtected and gate:IsProtected()
         gate:SetAlpha(value)
-        gate:SetShown(value>0)
+        SetRevealShown(view,gate,true,combat and protected)
     end
 end
 
