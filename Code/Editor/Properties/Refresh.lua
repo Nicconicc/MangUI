@@ -568,6 +568,7 @@ local function RefreshProperties(self)
         if M.DisplayModes.IsBar(n) then
             visible=row.key=="hpMaterial" or row.key=="width" or row.key=="height" or row.key=="barBackgroundColor"
                 or (n.id=="minimalHealth" and row.key=="healthColors")
+                or (n.id=="minimalThirdResourceFill" and (row.key=="x" or row.key=="y"))
         end
         rows[#rows+1]={row=row,visible=visible}
     end

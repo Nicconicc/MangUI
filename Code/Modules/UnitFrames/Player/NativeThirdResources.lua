@@ -29,7 +29,7 @@ local function Frame(parent,level,anchor)
     f:EnableMouse(false);f:SetFrameLevel(level);f:SetAllPoints(anchor);return f
 end
 local function LayoutFill(q,item)
-    local fill=q.view.nodes.playerThirdResourceFill;local n=fill.spec
+    local fill=q.view.nodes[q.prefix.."Fill"];local n=fill.spec
     local start=M.RendererInternals.FillStart(q.view,n,fill.frame)
     local inset,extent=n.fillInset or 0,n.fillExtent or 1
     local width=math.max(.001,n.width*extent-start)
@@ -47,9 +47,52 @@ local function LayoutFill(q,item)
         item.fillTexture:SetTexCoord(left,right,top,bottom)
     end
 end
+local function ConfigureMinimalArt(q,item,fill)
+    local button,n=item.button,fill.spec
+    local I=M.RendererInternals
+    local level=fill.frame:GetFrameLevel()
+    if not item.minimalArt then
+        local art={};item.minimalArt=art
+        local function Slices(parent,layer)
+            return parent:CreateTexture(nil,layer),parent:CreateTexture(nil,layer)
+        end
+        art.background=Frame(button,level,fill.frame)
+        art.backBody,art.backCap=Slices(art.background,"BACKGROUND")
+        art.clip=Frame(button,level+1,item.fillTexture);art.clip:SetClipsChildren(true)
+        art.fill=Frame(art.clip,level+2,fill.frame)
+        art.body,art.cap=Slices(art.fill,"ARTWORK")
+        art.mask=art.fill:CreateMaskTexture();art.capMask=art.fill:CreateMaskTexture()
+        art.trim=Frame(button,level+3,fill.frame)
+        art.trimBody,art.trimCap=Slices(art.trim,"ARTWORK")
+        art.arrow=art.trim:CreateTexture(nil,"OVERLAY")
+        art.arrow:SetPoint("RIGHT",art.trim,"RIGHT")
+    end
+    local art=item.minimalArt
+    item.bar:SetAllPoints(fill.frame)
+    item.bar:SetReverseFill(false)
+    item.fillTexture:SetTexture([[Interface\Buttons\WHITE8X8]])
+    item.fillTexture:SetAlpha(0)
+    item.bar:SetStatusBarColor(1,1,1,0)
+    art.background:SetFrameLevel(level)
+    art.clip:SetFrameLevel(level+1)
+    art.fill:SetFrameLevel(level+2)
+    art.trim:SetFrameLevel(level+3)
+    for _,frame in ipairs({art.background,art.fill,art.trim}) do frame:SetAllPoints(fill.frame) end
+    art.clip:SetAllPoints(item.fillTexture)
+    local material=n.materialPath
+    if material==[[Interface\Buttons\WHITE8X8]] then material=nil end
+    local stem=n.file:sub(1,-5)
+    I.MinimalSlices(art,art.fill,art.body,art.cap,n,n.file,material,art.mask,art.capMask)
+    art.body:SetVertexColor(unpack(q.color));art.cap:SetVertexColor(unpack(q.color))
+    I.MinimalSlices(art,art.background,art.backBody,art.backCap,n,stem.."Background.tga")
+    local color=n.barBackgroundColor or M.DisplayModes.defaultBackgroundColor
+    art.backBody:SetVertexColor(unpack(color));art.backCap:SetVertexColor(unpack(color))
+    I.MinimalSlices(art,art.trim,art.trimBody,art.trimCap,n,stem.."Frame.tga")
+    art.arrow:SetTexture(stem.."MaxEdge.tga");art.arrow:SetSize(n.height*.49,n.height)
+end
 local function ConfigureArt(q,item)
     local view,button=q.view,item.button
-    local fill=view.nodes.playerThirdResourceFill;local n=fill.spec
+    local fill=view.nodes[q.prefix.."Fill"];local n=fill.spec
     local I=M.RendererInternals
     if not item.bar then
         button:EnableMouse(false);button:EnableMouseMotion(false);button:SetSize(2,2)
@@ -63,7 +106,7 @@ local function ConfigureArt(q,item)
         item.layers={}
         for _,o in ipairs(view.ordered)do
             local spec=o.spec
-            if spec.thirdResource and spec.kind=="texture"then
+            if not q.minimal and spec.thirdResource and spec.kind=="texture"then
                 local order=layerOrder[spec.id]or{"OVERLAY",0}
                 local texture=bar:CreateTexture(nil,order[1],nil,order[2]);texture:SetAllPoints(o.frame)
                 item.layers[spec.id]={texture=texture}
@@ -73,47 +116,53 @@ local function ConfigureArt(q,item)
         -- button. Do not query bound objects or draw through a transparent driver.
         item.fillTexture=bar:GetStatusBarTexture()
         item.fillTexture:SetDrawLayer("ARTWORK",0)
-        local value=view.nodes.playerThirdResourceValue
+        local value=view.nodes[q.prefix.."Value"]
         item.textFrame=Frame(button,value.frame:GetFrameLevel(),value.frame)
         item.text=item.textFrame:CreateFontString(nil,"OVERLAY");item.text:SetAllPoints()
-        local spark=view.nodes.playerThirdResourceSpark
-        item.sparkFrame=CreateFrame("Frame",nil,button,"DisableUntrustedLayoutScriptsTemplate")
-        item.sparkFrame:EnableMouse(false);item.sparkFrame:SetFrameLevel(spark.frame:GetFrameLevel())
-        item.spark=item.sparkFrame:CreateTexture(nil,"OVERLAY");item.spark:SetAllPoints()
-    end
-    for id,layer in pairs(item.layers)do
-        local o=view.nodes[id];local s=o.spec
-        layer.texture:SetAllPoints(o.frame);layer.texture:SetAlpha(s.alpha or 1)
-        layer.texture:SetTexture(s.file);layer.texture:SetBlendMode(s.blend or "BLEND")
-        layer.texture:SetVertexColor(unpack(s.color or {1,1,1,1}));I.TextureCoords(layer.texture,s)
-    end
-    -- The engine owns the value; the public geometry still uses the same
-    -- TokenFrame contact point and full-canvas crop as every main strip.
-    local material=n.materialPath and n.materialPath~=n.file and n.materialPath~="Interface\\Buttons\\WHITE8X8"and n.materialPath
-    item.fillTexture:SetTexture(material or n.file);item.fillTexture:SetBlendMode(n.blend or "BLEND")
-    item.fillTexture:SetAlpha(1);item.bar:SetStatusBarColor(unpack(q.color))
-    -- The default artwork already carries its own irregular alpha. Do not mask
-    -- it a second time. Only rectangular custom materials need a shape mask.
-    if material then
-        if not item.mask then
-            item.mask=item.bar:CreateMaskTexture();item.mask:SetAllPoints(fill.frame)
-            item.fillTexture:AddMaskTexture(item.mask)
+        if not q.minimal then
+            local spark=view.nodes.playerThirdResourceSpark
+            item.sparkFrame=CreateFrame("Frame",nil,button,"DisableUntrustedLayoutScriptsTemplate")
+            item.sparkFrame:EnableMouse(false);item.sparkFrame:SetFrameLevel(spark.frame:GetFrameLevel())
+            item.spark=item.sparkFrame:CreateTexture(nil,"OVERLAY");item.spark:SetAllPoints()
         end
-        item.mask:SetAllPoints(fill.frame);item.mask:SetTexture(n.file,"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
-        I.TextureCoords(item.mask,n);item.mask:Show()
-    elseif item.mask then
-        item.fillTexture:RemoveMaskTexture(item.mask);item.mask=nil
     end
-    item.start=nil;LayoutFill(q,item);item.bar:SetReverseFill(n.reverse==true)
-    local v=view.nodes.playerThirdResourceValue.spec
+    if q.minimal then ConfigureMinimalArt(q,item,fill) else
+        for id,layer in pairs(item.layers)do
+            local o=view.nodes[id];local s=o.spec
+            layer.texture:SetAllPoints(o.frame);layer.texture:SetAlpha(s.alpha or 1)
+            layer.texture:SetTexture(s.file);layer.texture:SetBlendMode(s.blend or "BLEND")
+            layer.texture:SetVertexColor(unpack(s.color or {1,1,1,1}));I.TextureCoords(layer.texture,s)
+        end
+        -- The engine owns the value; the public geometry still uses the same
+        -- TokenFrame contact point and full-canvas crop as every main strip.
+        local material=n.materialPath and n.materialPath~=n.file and n.materialPath~="Interface\\Buttons\\WHITE8X8"and n.materialPath
+        item.fillTexture:SetTexture(material or n.file);item.fillTexture:SetBlendMode(n.blend or "BLEND")
+        item.fillTexture:SetAlpha(1);item.bar:SetStatusBarColor(unpack(q.color))
+        -- The default artwork already carries its own irregular alpha. Do not mask
+        -- it a second time. Only rectangular custom materials need a shape mask.
+        if material then
+            if not item.mask then
+                item.mask=item.bar:CreateMaskTexture();item.mask:SetAllPoints(fill.frame)
+                item.fillTexture:AddMaskTexture(item.mask)
+            end
+            item.mask:SetAllPoints(fill.frame);item.mask:SetTexture(n.file,"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+            I.TextureCoords(item.mask,n);item.mask:Show()
+        elseif item.mask then
+            item.fillTexture:RemoveMaskTexture(item.mask);item.mask=nil
+        end
+        item.start=nil;LayoutFill(q,item);item.bar:SetReverseFill(n.reverse==true)
+    end
+    local v=view.nodes[q.prefix.."Value"].spec
     item.text:SetFont(I.Font(v),v.fontSize or 40,v.outline=="None"and""or(v.outline or "OUTLINE"))
     item.text:SetTextColor(unpack(v.color or {1,1,1,1}));item.text:SetJustifyH(v.justify or "RIGHT")
     item.text:SetShadowColor(0,0,0,1);item.text:SetShadowOffset(v.shadowX or 3,v.shadowY or -3)
-    local s=view.nodes.playerThirdResourceSpark.spec
-    item.sparkFrame:SetSize(s.width,s.height);item.sparkFrame:ClearAllPoints()
-    item.sparkFrame:SetPoint("CENTER",item.fillTexture,n.reverse and "LEFT"or"RIGHT",s.x or 0,s.y or 0)
-    item.sparkFrame:SetAlpha(s.alpha or 1)
-    item.spark:SetTexture(s.file);item.spark:SetBlendMode(s.blend or "ADD");item.spark:SetVertexColor(unpack(s.color))
+    if item.sparkFrame then
+        local s=view.nodes.playerThirdResourceSpark.spec
+        item.sparkFrame:SetSize(s.width,s.height);item.sparkFrame:ClearAllPoints()
+        item.sparkFrame:SetPoint("CENTER",item.fillTexture,n.reverse and "LEFT"or"RIGHT",s.x or 0,s.y or 0)
+        item.sparkFrame:SetAlpha(s.alpha or 1)
+        item.spark:SetTexture(s.file);item.spark:SetBlendMode(s.blend or "ADD");item.spark:SetVertexColor(unpack(s.color))
+    end
     button:ClearApplicationBar();button:ClearApplicationCount();button:ClearDurationBar();button:ClearDurationText()
     if q.kind=="flurry"then
         if not N.countFormatter and C_StringUtil and C_StringUtil.CreateNumericRuleFormatter then
@@ -140,10 +189,19 @@ function N.Configure(view)
         if q then q.enabled=false;q.kind=kind;q.container:SetEnabled(false)end
         return
     end
-    local group=view.nodes.playerThirdResource
-    if not group then return end
+    local minimal=view.nodes.minimalThirdResource
+    minimal=minimal and not minimal.removed
+    local prefix=minimal and "minimalThirdResource" or "playerThirdResource"
+    local group,fill=view.nodes[prefix],view.nodes[prefix.."Fill"]
+    if q and (q.prefix~=prefix or not group or group.removed) then
+        q.enabled=false;q.container:SetEnabled(false)
+        view.nativeThird=nil
+    end
+    if not group or group.removed or not fill or fill.removed then return end
+    view.nativeThirdLayouts=view.nativeThirdLayouts or {}
+    q=view.nativeThirdLayouts[prefix]
     if not q then
-        q={view=view,items={}};view.nativeThird=q
+        q={view=view,items={},prefix=prefix,minimal=minimal};view.nativeThirdLayouts[prefix]=q
         q.container=CreateFrame("AuraContainer",nil,group.frame,"CustomAuraContainerTemplate")
         q.container:SetUnit("player");q.container:SetEnabled(false)
         q.container:SetPoint("CENTER",group.frame,"CENTER",0,0)
@@ -156,12 +214,13 @@ function N.Configure(view)
         end})
         q.container:SetAuraGroupLayout("resource",{elementSpacing=0,lineSpacing=0,elementWidth=2,elementHeight=2})
     end
+    view.nativeThird=q
     q.container:SetEnabled(false)
     q.kind,q.spellID,q.maximum,q.color=kind,id,maximum,color
     q.container:SetAuraGroupCandidateFilters("resource",{includeSpellIDs={[id]=true},isFromPlayerOrPlayerPet=true})
     q.container:SetAuraGroupMaxFrameCount("resource",1)
     for _,item in ipairs(q.items)do ConfigureArt(q,item)end
-    q.enabled=group.spec.enabled~=false and(not group.module or group.module.enabled~=false)
+    q.enabled=group.spec.enabled~=false and fill.spec.enabled~=false and(not group.module or group.module.enabled~=false)
     q.container:SetEnabled(q.enabled);q.sparkAt=nil
 end
 function N.Paint(view,o)
@@ -172,7 +231,7 @@ function N.Paint(view,o)
     end
     local kind=selection.kind;local q=view.nativeThird
     if not InCombatLockdown()and((q and q.kind~=kind)or(not q and kind and Support(false)))then N.Configure(view);q=view.nativeThird end
-    if not(q and q.enabled and q.kind==kind)then return false end
+    if not(q and q.enabled and q.kind==kind and o.spec.id:find(q.prefix,1,true)==1)then return false end
     -- Do not query an aura, inspect native visibility, read duration/count text,
     -- or infer a restricted value. The native group owns presence and bindings.
     if o.frame:IsShown()then o.frame:Hide()end
@@ -180,7 +239,7 @@ function N.Paint(view,o)
 end
 function N.Animate(view)
     local q=view.nativeThird
-    if view.preview or not(q and q.enabled)then return end
+    if view.preview or not(q and q.enabled) or q.minimal then return end
     -- Entry animations move the public TokenFrame after ordinary node paints.
     -- Recompute its contact band afterwards, without inspecting aura geometry.
     for _,item in ipairs(q.items)do

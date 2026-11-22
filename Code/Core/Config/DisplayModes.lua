@@ -19,7 +19,7 @@ function D.CanHideHealthText(n)
 end
 
 function D.IsBar(node)
-    return node and (node.id=="minimalHealth" or node.id=="minimalPower")
+    return node and (node.id=="minimalHealth" or node.id=="minimalPower" or node.id=="minimalThirdResourceFill")
 end
 
 function D.Minimal()
@@ -54,6 +54,17 @@ function D.Ensure(design)
     end
     Bar("minimalHealth","health","生命条",300,-185)
     Bar("minimalPower","power","能量条",200,-205)
+    local third="minimalThirdResource"
+    local thirdLabel="玩家第三资源条"
+    Add(generated,third,"group","static",thirdLabel,-50,-229,2,2,18,{internal=true})
+    Add(generated,third.."Fill","bar","power",thirdLabel,0,0,200,24,20,
+        {parent=third,file=art.."minimalPower.tga",alphaFill=true,powerColor=true,
+            smooth=true,smoothDuration=.2,thirdResource=true})
+    Add(generated,third.."FillFrame","texture","static",thirdLabel,0,0,200,24,19,
+        {parent=third.."Fill",file=art.."minimalPowerFrame.tga",internal=true,thirdResource=true})
+    Add(generated,third.."Value","text","thirdResourceValue",thirdLabel,8,0,80,22,22,
+        {parent=third.."Fill",point="LEFT",anchor="RIGHT",font="Myriad",fontSize=13,
+            outline="OUTLINE",justify="LEFT",thirdResource=true,thirdResourceValue=true})
     for _,node in ipairs(generated) do
         if not present[node.id] then
             if node.parent=="root" then node.mainScaleFactor=(main.scale or .6)/.6 end

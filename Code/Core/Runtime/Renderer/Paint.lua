@@ -307,6 +307,7 @@ local function Paint(view,o,animateOnly,visibleHint)
             o.barSmoothing=smooth;o.nativeReady=nil
         end
         local nativeManaFill=s.provider=="druidFormMana" and s.powerRatio==nil
+            and not M.DisplayModes.IsBar(n)
         local barColorChanged=CachedColor(o,"barColor",o.bar,"SetStatusBarColor",
             o.nativeArt and not nativeManaFill and nativeDriverColor or col)
         local inset=n.alphaFill and (n.fillInset or 0) or 0

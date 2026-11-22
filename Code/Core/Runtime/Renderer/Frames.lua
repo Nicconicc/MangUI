@@ -724,7 +724,7 @@ function R.Apply(view,design,unchanged)
             local p=n.parent and view.nodes[n.parent] and view.nodes[n.parent].frame or view.root
             local parentModule=n.parent and byID[n.parent] and M:ModuleID(byID[n.parent],byID)
             local growthParent
-            if not view.preview and M.DisplayModes.Minimal() and M.DisplayModes.IsBar(n) then
+            if not view.preview and M.DisplayModes.Minimal() and M.DisplayModes.IsBar(n) and not n.thirdResource then
                 p=R.MinimalShakeParent(view,p)
                 growthParent=R.MinimalBarRevealParent(view,o,p)
             elseif moduleID~=parentModule then p=R.TargetVisibilityParent(view,moduleID,p) end
