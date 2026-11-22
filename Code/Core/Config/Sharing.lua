@@ -183,8 +183,8 @@ local function CleanModeLayouts(layouts,nodes)
     end
     return result
 end
-local function CleanConfig(config)
-    if type(config)~="table" or not ValidTree(config,{},0,{count=0}) then return end
+local function CleanConfig(config,nested)
+    if type(config)~="table" or (not nested and not ValidTree(config,{},0,{count=0})) then return end
     if config.format~=1 or config.schema~=82 then return end
     if not M:IsLanguageSupported(config.language) then
         local legacy={auto=true,enGB=true,zhTW=true,deDE=true,frFR=true,esES=true,esMX=true,itIT=true,ptBR=true,ruRU=true,koKR=true}
@@ -231,6 +231,21 @@ local function CleanConfig(config)
     if type(config.design)~="table" or type(config.moduleDefaults)~="table" then return end
     local nodes=CleanNodes(config.design.nodes);local defaults=CleanNodes(config.moduleDefaults.nodes)
     if not nodes or not defaults then return end
+    local inactiveDesign
+    if not nested and config.inactiveDesign~=nil then
+        if type(config.inactiveDesign)~="table" then return end
+        local profile=M.DisplayModes.Profile(config.inactiveDesign)
+        profile.characterMonitors=config.inactiveDesign.characterMonitors
+        profile.attackVoiceID=config.inactiveDesign.attackVoiceID
+        profile.format,profile.schema,profile.language=1,82,config.language
+        profile.minimap,profile.hideBlizzard=config.minimap,config.hideBlizzard
+        local clean=CleanConfig(profile,true)
+        if not clean then return end
+        inactiveDesign=M.DisplayModes.Profile(clean)
+        inactiveDesign.characterMonitors=clean.characterMonitors
+        inactiveDesign.attackVoiceID=clean.attackVoiceID
+    end
+    if config.attackVoiceID~=nil and not M.AttackVoice.ValidVoiceID(config.attackVoiceID) then return end
     return {format=1,schema=82,language=config.language,hideBlizzard=config.hideBlizzard,hideWithoutTarget=config.hideWithoutTarget==true,
         portrait3D=config.portrait3D==true,
         healthClassColor=config.healthClassColor==true,
@@ -261,7 +276,8 @@ local function CleanConfig(config)
         otherMonitorEquipmentOverrides=config.otherMonitorEquipmentOverrides and M.Copy(config.otherMonitorEquipmentOverrides),
         otherMonitorEquipmentEntries=config.otherMonitorEquipmentEntries and M.Copy(config.otherMonitorEquipmentEntries),
         displayMode=config.displayMode=="minimal" and "minimal" or "standard",
-        modeLayouts=CleanModeLayouts(config.modeLayouts,nodes),
+        modeLayouts=not inactiveDesign and CleanModeLayouts(config.modeLayouts,nodes) or nil,
+        inactiveDesign=inactiveDesign,attackVoiceID=config.attackVoiceID,
         design={nodes=nodes},moduleDefaults={nodes=defaults}}
 end
 local function CleanSkillConfig(config)
@@ -319,6 +335,21 @@ function M:ExportConfigString()
     self:SaveRaidVulnerabilityClass()
     local ok,result=pcall(function()
         local serializer,deflate=Libraries()
+        self:SaveDesignMonitors()
+        self.DisplayModes.InitProfiles(self.db)
+        local other=self.DisplayModes.Other(self.db.displayMode)
+        local inactive=self.DisplayModes.Profile(self.db.inactiveDesign)
+        inactive.design=self.Copy(inactive.design)
+        self.PlayerSkillMonitor.FillInactiveCharacterLists(inactive.design,other)
+        inactive.characterMonitors=self.PlayerSkillMonitor.ExportCharacterSettings(other)
+        inactive.attackVoiceID=self.AttackVoice.SelectedVoice(other)
+        inactive.otherMonitorEquipmentTimers=nil
+        for _,prefix in ipairs({"playerSkillMonitor","playerOtherMonitor"}) do
+            inactive[prefix.."sByCharacter"]=nil
+            inactive[prefix.."Character"]=nil
+            inactive[prefix.."sByClass"]=nil
+            inactive[prefix.."Class"]=nil
+        end
         local config=CleanConfig({format=1,schema=self.db.schema,language=self.db.language,
             hideBlizzard=self.db.hideBlizzard,hideWithoutTarget=self.db.hideWithoutTarget,portrait3D=self.db.portrait3D,
             healthClassColor=self.db.healthClassColor,minimap=self.db.minimap,
@@ -334,7 +365,7 @@ function M:ExportConfigString()
             raidBuffsShared=self.db.raidBuffsShared,raidBuffsByClass=self.db.raidBuffsByClass,raidBuffsClass=self.db.raidBuffsClass,
             raidVulnerabilityShared=self.db.raidVulnerabilityShared,raidVulnerabilityByClass=self.db.raidVulnerabilityByClass,raidVulnerabilityClass=self.db.raidVulnerabilityClass,
             otherMonitorEquipmentOverrides=self.db.otherMonitorEquipmentOverrides,
-            displayMode=self.db.displayMode,modeLayouts=self.db.modeLayouts,
+            displayMode=self.db.displayMode,inactiveDesign=inactive,attackVoiceID=self.AttackVoice.SelectedVoice(),
             design=self.db.design,moduleDefaults=self.db.moduleDefaults})
         if not config then return end
         local payload=serializer:Serialize(config)
@@ -378,21 +409,21 @@ function M:ApplyConfigString(input)
     end
     local config=self:ImportConfigString(input)
     if not config then return false,INVALID end
-    if self.PlayerOtherMonitor.FlushEditor then self.PlayerOtherMonitor.FlushEditor()end
-    if self.CommonItems.FlushEditor then self.CommonItems.FlushEditor()end
-    if self.ReceivedBuffs.FlushEditor then self.ReceivedBuffs.FlushEditor()end
-    if self.RaidBuffMonitor.FlushEditor then self.RaidBuffMonitor.FlushEditor()end
-    if self.RaidVulnerability.FlushEditor then self.RaidVulnerability.FlushEditor()end
+    self.DisplayModes.FlushEditors()
     if self.moveMode and self.StopFrameMoveMode then self:StopFrameMoveMode(false) end
-    self:SavePlayerSkillMonitorClass()
-    self:SavePlayerOtherMonitorClass()
-    self:SaveCommonItemsClass()
-    self:SaveReceivedBuffs()
-    self:SaveRaidBuffMonitorClass()
-    self:SaveRaidVulnerabilityClass()
+    self:SaveDesignMonitors()
     self.db.design=config.design;self.db.moduleDefaults=config.moduleDefaults
     self.db.displayMode=config.displayMode;self.db.modeLayouts=config.modeLayouts
+    self.db.inactiveDesign=nil
+    if config.inactiveDesign then
+        self.db.inactiveDesign=self.DisplayModes.Profile(config.inactiveDesign)
+        local other=self.DisplayModes.Other(config.displayMode)
+        self.PlayerSkillMonitor.ImportInactiveCharacterSettings(config.inactiveDesign,other)
+        if config.inactiveDesign.attackVoiceID then self.AttackVoice.StoreVoice(config.inactiveDesign.attackVoiceID,other) end
+    end
+    self.PlayerSkillMonitor.profileBindings={}
     if self.EditorUndo then self.EditorUndo.Clear() end
+    if config.attackVoiceID then self.AttackVoice.StoreVoice(config.attackVoiceID) end
     self:ImportPlayerSkillMonitorClasses(config)
     self:ImportPlayerOtherMonitorClasses(config)
     self:ImportCommonItems(config)
@@ -410,6 +441,7 @@ function M:ApplyConfigString(input)
     self.db.useGlobalFont=config.useGlobalFont
     self.db.globalFontPath=config.globalFontPath;self.db.globalFontName=config.globalFontName
     self:Index()
+    self.DisplayModes.InitProfiles(self.db)
     if not self.byID[self.selection] then self.selection="mainComposite";self.multi={mainComposite=true} end
     self:Commit();self:CreateMinimap();self:RefreshLanguage()
     return true

@@ -121,7 +121,7 @@ function M:EnsureAttackVoiceModule(design)
     local node={
         id=MODULE,label="人声增强",kind="group",compound=MODULE,scope="player",unit="player",
         x=0,y=0,width=2,height=2,scale=1,point="CENTER",anchor="CENTER",alpha=0,
-        enabled=false,attackVoiceChannelAttack="SFX",attackVoiceLanguage=defaultDialogueLanguage,
+        enabled=true,attackVoiceChannelAttack="SFX",attackVoiceLanguage=defaultDialogueLanguage,
         layer=500,rules={},conditions={},
     }
     V.RestoreDefaultChances(node)
@@ -161,8 +161,12 @@ for _,race in ipairs(raceVoices) do
     end
 end
 
-function V.SelectedVoice()
-    local saved=type(MangUICharacterDB)=="table" and MangUICharacterDB.attackVoiceID
+function V.ValidVoiceID(value)
+    return value=="default" or voicesByID[value]~=nil
+end
+
+function V.SelectedVoice(mode)
+    local saved=type(MangUICharacterDB)=="table" and M.DisplayModes.CharacterProfile(MangUICharacterDB,mode).attackVoiceID
     return voicesByID[saved] and saved or "default"
 end
 
@@ -209,16 +213,21 @@ local function VoiceSounds(race,sex)
 end
 
 local function UpdatePlayer()
+    V.voiceID=V.SelectedVoice()
     V.attackRace,V.attackSex=PlayerVoice()
     V.sounds=VoiceSounds(V.attackRace,V.attackSex)
     V.dialogueRace,V.dialogueSex=DialogueVoice(V.attackRace,V.attackSex)
     V.guid=UnitGUID("player")
 end
 
-function V.SetVoice(value)
-    if value~="default" and not voicesByID[value] then return end
+function V.StoreVoice(value,mode)
     if type(MangUICharacterDB)~="table" then MangUICharacterDB={} end
-    MangUICharacterDB.attackVoiceID=voicesByID[value] and value or nil
+    M.DisplayModes.CharacterProfile(MangUICharacterDB,mode).attackVoiceID=voicesByID[value] and value or nil
+end
+
+function V.SetVoice(value)
+    if not V.ValidVoiceID(value) then return end
+    V.StoreVoice(value)
     if V.previewHandle and StopSound then StopSound(V.previewHandle);V.previewHandle=nil end
     if V.enabled then UpdatePlayer() end
     M:RefreshProperties()
@@ -406,7 +415,10 @@ function V.Configure(view)
     end
     local enabled=module and module.enabled~=false
         and hasChance and type(PlaySoundFile)=="function" or false
-    if enabled==V.enabled then return end
+    if enabled==V.enabled then
+        if enabled and V.voiceID~=V.SelectedVoice() then UpdatePlayer() end
+        return
+    end
     V.enabled=enabled
     if not enabled then
         if V.frame then V.frame:UnregisterAllEvents() end

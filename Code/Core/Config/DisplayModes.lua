@@ -66,32 +66,91 @@ function D.RenderDesign(design)
     return projection
 end
 
-function D.Switch(mode)
-    if not M:CanEdit() or M.moveMode or (mode~="standard" and mode~="minimal") then return end
-    local db=M.db
-    local current=D.Minimal() and "minimal" or "standard"
-    if current==mode then return end
-    if M.EditorUndo then M.EditorUndo.Clear() end
-    db.modeLayouts=type(db.modeLayouts)=="table" and db.modeLayouts or {}
-    local leaving={}
-    local arriving=db.modeLayouts[mode]
-    for _,node in ipairs(db.design.nodes) do
-        local main=node.id=="mainComposite"
-        leaving[node.id]={x=node.x,y=node.y,moveX=node.moveX,moveY=node.moveY,
-            mainScaleFactor=node.mainScaleFactor,scale=main and node.scale or nil}
-        local saved=arriving and arriving[node.id]
+local profileFields={
+    "design","moduleDefaults","otherMonitorEquipmentOverrides","otherMonitorEquipmentEntries","otherMonitorEquipmentTimers",
+    "playerSkillMonitorsByCharacter","playerSkillMonitorCharacter","playerSkillMonitorsByClass","playerSkillMonitorClass",
+    "playerOtherMonitorsByCharacter","playerOtherMonitorCharacter","playerOtherMonitorsByClass","playerOtherMonitorClass",
+    "commonItemsShared","commonItemsByClass","commonItemsClass","commonItemsUnified",
+    "receivedBuffsShared","receivedBuffsByClass","receivedBuffsClass",
+    "raidBuffsShared","raidBuffsByClass","raidBuffsClass","raidBuffsUnified",
+    "raidVulnerabilityShared","raidVulnerabilityByClass","raidVulnerabilityClass","raidVulnerabilityUnified",
+}
+function D.Other(mode)
+    return mode=="minimal" and "standard" or "minimal"
+end
+
+function D.Profile(source)
+    local result={}
+    for _,key in ipairs(profileFields) do result[key]=source[key] end
+    return result
+end
+
+function D.ApplyStartingLayout(node)
+    if node.id=="mainComposite" then node.moveX,node.moveY=0,0
+    elseif node.id=="playerResources" then node.x,node.y=0,-135 end
+end
+
+function D.InitProfiles(db)
+    local other=D.Other(db.displayMode)
+    local inactive=db.inactiveDesign
+    if type(inactive)=="table" and type(inactive.design)=="table" and type(inactive.design.nodes)=="table" then return end
+    inactive=M.Copy(D.Profile(db))
+    local layouts=db.modeLayouts
+    local layout=type(layouts)=="table" and layouts[other]
+    for _,node in ipairs(inactive.design.nodes) do
+        local saved=type(layout)=="table" and layout[node.id]
         if type(saved)=="table" then
             node.x,node.y,node.moveX,node.moveY=saved.x,saved.y,saved.moveX,saved.moveY
             node.mainScaleFactor=saved.mainScaleFactor or node.mainScaleFactor
-            if main then node.scale=saved.scale or node.scale end
-        elseif mode=="minimal" and node.id=="mainComposite" then
-            node.moveX,node.moveY=0,0
-        elseif mode=="minimal" and node.id=="playerResources" then
-            node.x,node.y=0,-135
+            if node.id=="mainComposite" then node.scale=saved.scale or node.scale end
+        elseif other=="minimal" then
+            D.ApplyStartingLayout(node)
         end
     end
-    db.modeLayouts[current]=leaving
+    db.inactiveDesign=inactive
+    db.modeLayouts=nil
+end
+
+function D.CharacterProfile(root,mode)
+    if not root.designModes then
+        local original={monitors=type(root.monitors)=="table" and root.monitors or {},attackVoiceID=root.attackVoiceID}
+        root.designModes={standard=original,minimal=M.Copy(original)}
+        root.monitors=nil;root.attackVoiceID=nil
+    end
+    return root.designModes[mode or (D.Minimal() and "minimal" or "standard")]
+end
+
+function D.SeedCharacterProfiles(root)
+    if root.designModesSeeded then return end
+    root.designModes[D.Other(M.db.displayMode)]=M.Copy(D.CharacterProfile(root))
+    root.designModesSeeded=true
+end
+
+function D.FlushEditors()
+    local panel=M.editor and M.editor.skillMonitorPanel
+    if panel then
+        panel:FinishDrag(false)
+        for _,row in ipairs(panel.rows) do row.edit:ClearFocus();row.shortcutEdit:ClearFocus() end
+    end
+    for _,monitor in ipairs({M.PlayerOtherMonitor,M.CommonItems,M.ReceivedBuffs,M.RaidBuffMonitor,M.RaidVulnerability}) do
+        if monitor.FlushEditor then monitor.FlushEditor() end
+    end
+end
+
+function D.Switch(mode)
+    if not M:CanEdit() or M.moveMode or (mode~="standard" and mode~="minimal") then return end
+    if (D.Minimal() and "minimal" or "standard")==mode then return end
+    D.FlushEditors()
+    M:SaveDesignMonitors()
+    if M.EditorUndo then M.EditorUndo.Clear() end
+    local db=M.db
+    D.InitProfiles(db)
+    local incoming=db.inactiveDesign
+    db.inactiveDesign=D.Profile(db)
+    for _,key in ipairs(profileFields) do db[key]=incoming[key] end
     db.displayMode=mode
+    M.PlayerSkillMonitor.profileBindings={}
+    M:BindDesignMonitors()
     M.selection="mainComposite";M.multi={mainComposite=true}
     M:Commit()
 end

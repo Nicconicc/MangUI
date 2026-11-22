@@ -195,8 +195,9 @@ local function GuardCharacterStore(root)
         -- Preserve the foreign lists in the character file, but never bind or
         -- save the visible account layout over them on this character.
         if type(root.quarantinedMonitors)~="table"then root.quarantinedMonitors={}end
-        root.quarantinedMonitors[#root.quarantinedMonitors+1]={owner=M.Copy(owner),monitors=M.Copy(root.monitors)}
+        root.quarantinedMonitors[#root.quarantinedMonitors+1]={owner=M.Copy(owner),monitors=M.Copy(root.monitors),designModes=M.Copy(root.designModes)}
         root.monitors={}
+        root.attackVoiceID=nil;root.designModes=nil;root.designModesSeeded=nil
         for _,id in ipairs(characterModules)do
             root.monitors[id]={migrated=true,profiles={},template={}}
         end
@@ -216,9 +217,10 @@ function S.InitCharacterStore()
     if type(MangUICharacterDB)~="table"then MangUICharacterDB={}end
     local root=MangUICharacterDB
     if type(root.schema)=="number"and root.schema>3 then error("角色配置由更新版本创建，请更新 MangUI；现有配置未修改。")end
-    root.schema=3;if type(root.monitors)~="table"then root.monitors={}end
+    root.schema=3
     if M.characterDB~=root then M.characterDB=root;S.profileBindings={};S.characterStorageLoaded=loaded end
     GuardCharacterStore(root)
+    M.DisplayModes.CharacterProfile(root)
     if not M.characterSaveEvents then
         local frame=CreateFrame("Frame");M.characterSaveEvents=frame;frame:RegisterEvent("PLAYER_LOGOUT")
         frame:SetScript("OnEvent",function()
@@ -229,8 +231,9 @@ function S.InitCharacterStore()
     end
     return root
 end
-local function CharacterStore(id)
-    local root=S.InitCharacterStore();local d=CharacterDefinition(id);local store=root.monitors[id]
+local function CharacterStore(id,mode)
+    local root=M.DisplayModes.CharacterProfile(S.InitCharacterStore(),mode)
+    local d=CharacterDefinition(id);local store=root.monitors[id]
     if type(store)~="table"then store={};root.monitors[id]=store end
     if type(store.profiles)~="table"then store.profiles={}end
     for key,entries in pairs(store.profiles)do if not S.ValidTalentKey(key)or not d.api.ValidEntries(entries)then store.profiles[key]=nil end end
@@ -315,7 +318,7 @@ function S.BindCharacter(id)
     S.profileBindings[id]={root=MangUICharacterDB,character=character,profile=profile}
 end
 function S.BlizzardSyncEnabled()
-    local store=M.characterDB and M.characterDB.monitors and M.characterDB.monitors.playerSkillMonitor
+    local store=M.characterDB and M.DisplayModes.CharacterProfile(M.characterDB).monitors.playerSkillMonitor
     return not store or store.useBlizzardCooldownManager~=false
 end
 local observedProfile,observedCooldowns
@@ -342,6 +345,7 @@ local BLIZZARD_STARTER_RETRIES=12
 local function ObserveBlizzardCooldowns()
     if not M.db or not S.IsProfileBound("playerSkillMonitor") then return false,not observedProfile end
     local profile=S.CurrentProfile()
+    if profile then profile=(M.DisplayModes.Minimal() and "minimal:" or "standard:")..profile end
     local group=CharacterGroup("playerSkillMonitor",M.db.design)
     if not group or not profile then return false,not observedProfile end
     local store=CharacterStore("playerSkillMonitor")
@@ -424,21 +428,39 @@ function S.CleanCharacterSettings(settings)
             store.profiles[profile]=M.Copy(entries)
         end
         if raw.template~=nil then if not d.api.ValidEntries(raw.template)then return end;store.template=M.Copy(raw.template)end
-        for key in pairs(raw)do if key~="profiles"and key~="template"then return end end
+        if raw.useBlizzardCooldownManager~=nil then
+            if id~="playerSkillMonitor" or type(raw.useBlizzardCooldownManager)~="boolean" then return end
+            store.useBlizzardCooldownManager=raw.useBlizzardCooldownManager
+        end
+        for key in pairs(raw)do if key~="profiles"and key~="template"and key~="useBlizzardCooldownManager"then return end end
         result[id]=store
     end
     return result
 end
-function S.ExportCharacterSettings()
+function S.ExportCharacterSettings(mode)
     local result={}
     for _,id in ipairs(characterModules)do
-        S.SaveCharacter(id);local store=CharacterStore(id)
-        result[id]={profiles=M.Copy(store.profiles),template=store.template and M.Copy(store.template)}
+        if not mode then S.SaveCharacter(id) end
+        local store=CharacterStore(id,mode)
+        result[id]={profiles=M.Copy(store.profiles),template=store.template and M.Copy(store.template),
+            useBlizzardCooldownManager=store.useBlizzardCooldownManager}
     end
     return S.CleanCharacterSettings(result)
 end
-function S.ImportCharacter(id,config)
-    local root=S.InitCharacterStore();local d=CharacterDefinition(id);local group=CharacterGroup(id,M.db.design);if not group then return end
+function S.FillInactiveCharacterLists(design,mode)
+    for _,id in ipairs(characterModules) do
+        local store,d=CharacterStore(id,mode)
+        local group=CharacterGroup(id,design)
+        if group then
+            local profile=S.TalentContext()
+            local spec=profile:match("^(spec:%d+):loadout:%d+$")
+            group[d.list]=M.Copy(store.profiles[profile] or (spec and store.profiles[spec]) or store.template or group[d.list])
+        end
+    end
+end
+function S.ImportCharacter(id,config,mode)
+    local root=M.DisplayModes.CharacterProfile(S.InitCharacterStore(),mode)
+    local d=CharacterDefinition(id);local group=CharacterGroup(id,mode and config.design or M.db.design);if not group then return end
     local store
     if config.characterMonitors and config.characterMonitors[id]then
         store=M.Copy(config.characterMonitors[id])
@@ -449,18 +471,27 @@ function S.ImportCharacter(id,config)
             store.profiles[profile]=M.Copy(group[d.list])
         end
     else
-        local existing=CharacterStore(id);store={profiles=M.Copy(existing.profiles)}
+        local existing=CharacterStore(id,mode);store={profiles=M.Copy(existing.profiles)}
         LegacyCharacterProfiles(id,config,store,true)
         -- Old exports carry one visible list; bind that list to the receiving talent.
         store.profiles[S.TalentContext()]=M.Copy(group[d.list])
     end
-    store.migrated=true;root.monitors[id]=store;S.profileBindings[id]=nil;S.BindCharacter(id)
+    store.migrated=true;root.monitors[id]=store
+    if not mode then S.profileBindings[id]=nil;S.BindCharacter(id) end
+end
+function S.ImportInactiveCharacterSettings(config,mode)
+    for _,id in ipairs(characterModules) do S.ImportCharacter(id,config,mode) end
 end
 function S.AccountSnapshot(db)
     local result=M.Copy(db)
     for _,id in ipairs(characterModules)do
         local d=CharacterDefinition(id);local group=CharacterGroup(id,result.design)
         if group then group[d.list]={}end
+        if result.inactiveDesign then
+            local inactive=CharacterGroup(id,result.inactiveDesign.design)
+            if inactive then inactive[d.list]={} end
+            result.inactiveDesign[d.owner]=nil;result.inactiveDesign[d.revision]=nil
+        end
         result[d.owner]=nil;result[d.revision]=nil
     end
     return result

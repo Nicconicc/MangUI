@@ -290,14 +290,19 @@ function M:InitStore()
     self.db=db
     self:ApplyClientFontScale()
     self.PlayerSkillMonitor.InitCharacterStore()
+    self:BindDesignMonitors()
+    self.DisplayModes.SeedCharacterProfiles(self.characterDB)
+    if self.UpgradePlayerOtherMonitorDefaults then self:UpgradePlayerOtherMonitorDefaults(db)end
+    self:Index()
+    self.DisplayModes.InitProfiles(db)
+end
+function M:BindDesignMonitors()
     if self.BindPlayerSkillMonitorClass then self:BindPlayerSkillMonitorClass()end
     if self.BindPlayerOtherMonitorClass then self:BindPlayerOtherMonitorClass()end
     if self.BindCommonItemsClass then self:BindCommonItemsClass()end
     if self.BindRaidVulnerabilityClass then self:BindRaidVulnerabilityClass()end
     if self.BindReceivedBuffs then self:BindReceivedBuffs()end
     if self.BindRaidBuffMonitorClass then self:BindRaidBuffMonitorClass()end
-    if self.UpgradePlayerOtherMonitorDefaults then self:UpgradePlayerOtherMonitorDefaults(db)end
-    self:Index()
 end
 function M:Index(editing)
     -- A numeric/color edit keeps the existing node objects. Loading, importing,
@@ -448,13 +453,16 @@ function M:FlushCommit()
     self.renderBatch=nil
     if not ok then error(err) end
 end
-function M:Commit()
+function M:SaveDesignMonitors()
     if self.SavePlayerSkillMonitorClass then self:SavePlayerSkillMonitorClass()end
     if self.SavePlayerOtherMonitorClass then self:SavePlayerOtherMonitorClass()end
     if self.SaveCommonItemsClass then self:SaveCommonItemsClass()end
     if self.SaveRaidVulnerabilityClass then self:SaveRaidVulnerabilityClass()end
     if self.SaveReceivedBuffs then self:SaveReceivedBuffs()end
     if self.SaveRaidBuffMonitorClass then self:SaveRaidBuffMonitorClass()end
+end
+function M:Commit()
+    self:SaveDesignMonitors()
     local session=self.EditorUndo and self.EditorUndo.session
     if C_Timer and C_Timer.After and session and session.transaction then
         if not self.commitRefreshToken then
@@ -479,7 +487,11 @@ function M:IsChild(id,parent)
 end
 function M:ResetDesign()
     if not self:CanEdit() then return end
-    self.db.design=self.Copy(self.recordedDefaults or self.defaults); self.selection="mainComposite"; self:Commit()
+    self.db.design=self.Copy(self.recordedDefaults or self.defaults)
+    if self.DisplayModes.Minimal() then
+        for _,node in ipairs(self.db.design.nodes) do self.DisplayModes.ApplyStartingLayout(node) end
+    end
+    self.selection="mainComposite"; self:Commit()
 end
 function M:ResetPreviewModule(moduleID)
     if not self.moduleIDs[moduleID] or not self:CanEdit() then return end
@@ -511,7 +523,16 @@ function M:ResetPreviewModule(moduleID)
         -- Imported and older reset baselines can contain custom probabilities.
         local voiceDefaults=self.Copy(defaultsByID[moduleID])
         self.AttackVoice.RestoreDefaultChances(voiceDefaults)
+        voiceDefaults.enabled=true
         defaultsByID[moduleID]=voiceDefaults
+    end
+    if moduleID=="mainComposite" and self.DisplayModes.Minimal() then
+        for _,id in ipairs({"mainComposite","playerResources"}) do
+            if resetIDs[id] then
+                defaultsByID[id]=self.Copy(defaultsByID[id])
+                self.DisplayModes.ApplyStartingLayout(defaultsByID[id])
+            end
+        end
     end
     local nodes,seen={},{}
     for _,n in ipairs(self.db.design.nodes) do
