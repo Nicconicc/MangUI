@@ -209,7 +209,7 @@ function M:OpenDesigner()
         if IsShiftKeyDown() then M.multi=M.multi or {};M.multi[n.id]=not M.multi[n.id];M.selection=n.id
         else M.multi={[n.id]=true};M.selection=n.id end
         M:RefreshEditor()
-        if e.mainPreview and InMainPreview(n) and n.id~="wabc757f81ee" and M:CanEdit() then
+        if e.mainPreview and InMainPreview(n) and n.id~="wabc757f81ee" and n.id~="minimalHealth" and M:CanEdit() then
             local parent=e.view.nodes[n.parent] and e.view.nodes[n.parent].frame
             local object=e.view.nodes[n.id]
             local scale=(n.id=="centerFire" or n.id=="waf24f8d43e3" or n.id=="centerClassification" or n.valueTextOriginRevision==1 or n.resourceOriginRevision==1 or n.auraOriginRevision==1 or n.castOriginRevision==1) and parent and parent:GetEffectiveScale()

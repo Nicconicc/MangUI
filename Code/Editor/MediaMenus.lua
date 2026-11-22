@@ -66,7 +66,9 @@ function M:OpenBarMaterialPicker()
     if not selected or not self:CanEdit() then return end
     if self.fontWindow then self.fontWindow:Hide() end
     local bars={}
-    if selected.compound=="partyFrames"then
+    if M.DisplayModes.IsBar(selected) then
+        bars[1]=selected
+    elseif selected.compound=="partyFrames"then
         for i=0,4 do
             bars[#bars+1]=self.byID["party"..i.."Health"];bars[#bars+1]=self.byID["party"..i.."Power"]
         end
@@ -108,6 +110,7 @@ function M:OpenBarMaterialPicker()
     end
     local selectedPath=bars[1].materialPath
     for _,bar in ipairs(bars) do if not M:SameTexture(bar.materialPath,selectedPath) then selectedPath=false;break end end
+    if M.DisplayModes.IsBar(selected) and not selectedPath then selectedPath=items[1].path end
     local anchor=selected.compound=="bossFrames" and self.editor.bossMaterialButton or self.editor.materialButton
     if selected.compound=="partyFrames"then selectedPath=selected.partyMaterialPath;anchor=self.editor.partyMaterialButton end
     local p=W.MediaMenu(anchor,items,"statusbar",selectedPath,function(item)

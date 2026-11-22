@@ -389,6 +389,8 @@ local function RefreshProperties(self)
         if n.id=="playerThirdResource"then
             bar=self.byID.playerThirdResourceFill
             e.materialButton:SetMedia(bar and bar.materialName or "默认",bar and bar.materialPath)
+        elseif M.DisplayModes.IsBar(n) then
+            e.materialButton:SetMedia(n.materialName or "Solid",n.materialPath or "Interface\\Buttons\\WHITE8X8")
         elseif mainBar then
             e.materialButton:SetMedia(bar and bar.materialName or "Solid",bar and (bar.materialPath or "Interface\\Buttons\\WHITE8X8"))
         elseif IsUnitComposite(n) then
@@ -562,6 +564,7 @@ local function RefreshProperties(self)
         end
         if e.mainPreview and row.key=="overallScale" and n.compound~="targetCast" then visible=false end
         if row.key=="moduleGuideSettings"then visible=M.ModuleGuides.Supports(n)and n.id~="raidBuffs"end
+        if M.DisplayModes.IsBar(n) then visible=row.key=="hpMaterial" or row.key=="healthColors" end
         rows[#rows+1]={row=row,visible=visible}
     end
     OrganizePropertyRows(n,rows)

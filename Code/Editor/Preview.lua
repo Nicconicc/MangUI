@@ -254,7 +254,7 @@ function M:FitPreview()
         local reference=moduleID=="bossFrames" and .4/math.max(.001,self.byID.bossFrames.scale or 1) or 1
         e.fit=e.fit*math.min(1,availableWidth/math.max(1,(maxx-minx)*reference),availableHeight/math.max(1,(maxy-miny)*reference))
     end
-    local portrait=e.mainPreview and not M.DisplayModes.Minimal() and geo.wabc757f81ee
+    local portrait=e.mainPreview and geo[M.DisplayModes.Minimal() and "minimalHealth" or "wabc757f81ee"]
     local cast=HasDedicatedPreview(selected) and geo[e.previewFocusID or selected.id]
     if PreviewModuleID(selected)=="partyFrames" or PreviewModuleID(selected)=="bossFrames"or PreviewModuleID(selected)=="playerSkillMonitor" or PreviewModuleID(selected)=="playerOtherMonitor"or PreviewModuleID(selected)=="raidBuffs"or PreviewModuleID(selected)=="receivedBuffs"or PreviewModuleID(selected)=="raidVulnerability"or PreviewModuleID(selected)=="commonItems" or PreviewModuleID(selected)=="targetDistance" then cast=nil end
     e.centerX,e.centerY=portrait and portrait.x or (cast and cast.x or (minx+maxx)/2),
@@ -267,7 +267,7 @@ function M:UpdateSelectionOutline()
     local e=self.editor
     if not e.mainPreview then e.outline:Hide();return end
     local n=Selected();local o=n and e.view.nodes[n.id]
-    if n and n.id=="mainComposite" then e.outline:Hide();return end
+    if n and (n.id=="mainComposite" or (n.modeMinimal and n.kind=="text")) then e.outline:Hide();return end
     if not o then e.outline:Hide();return end
     local left,right,top,bottom=o.frame:GetLeft(),o.frame:GetRight(),o.frame:GetTop(),o.frame:GetBottom()
     if n.kind=="group" then
@@ -432,6 +432,12 @@ local function HitCandidates(e)
             for _,part in ipairs(frames or {}) do
                 if part:IsVisible() then
                     local s=part:GetEffectiveScale();local l,r,t,b=part:GetLeft(),part:GetRight(),part:GetTop(),part:GetBottom()
+                    if l and n.modeMinimal and n.kind=="text" and o.text then
+                        local width=math.min(r-l,math.max(12,o.text:GetStringWidth()+6))
+                        if n.justify=="RIGHT" then l=r-width
+                        elseif n.justify=="LEFT" then r=l+width
+                        else local center=(l+r)/2;l,r=center-width/2,center+width/2 end
+                    end
                     if l and x>=l*s and x<=r*s and y>=b*s and y<=t*s then result[#result+1]=n;break end
                 end
             end

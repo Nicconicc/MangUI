@@ -743,6 +743,7 @@ function R.Apply(view,design,unchanged)
                     o.material:SetTexture(material or "Interface\\Buttons\\WHITE8X8")
                     o.material:SetBlendMode("BLEND");TextureCoords(o.material,n)
                     o.material:SetShown(material~=nil)
+                    if M.DisplayModes.IsBar(n) then o.fill:SetShown(material==nil) end
                     o.materialMask:SetTexture(n.file);o.materialMask:SetAllPoints(o.material);TextureCoords(o.materialMask,n)
                     o.nativeMask:SetTexture(nativeMaterial and n.file or "Interface\\Buttons\\WHITE8X8","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
                     o.nativeMask:SetAllPoints(n.id=="playerThirdResourceFill" and o.frame or o.nativeArt)

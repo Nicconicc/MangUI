@@ -265,8 +265,8 @@ local function ResetParticle(o)
 end
 local function PrepareVisual(o)
     local n=o.spec
-    o.classHealthColor=M.db and M.db.healthClassColor==true and n.kind=="bar" and n.binding=="health"
-    o.customHealthStyle=n.kind=="bar" and n.binding=="health" and (n.healthColor~=nil or n.healthGradient==true)
+    o.classHealthColor=not M.DisplayModes.IsBar(n) and M.db and M.db.healthClassColor==true and n.kind=="bar" and n.binding=="health"
+    o.customHealthStyle=n.kind=="bar" and (n.binding=="health" or M.DisplayModes.IsBar(n)) and (n.healthColor~=nil or n.healthGradient==true)
     o.healthChangeEnabled=n.kind=="bar" and n.binding=="health" and not n.vertical
         and (n.id=="wa4f9903a71c" or n.id=="wa385c615b2a")
     o.targetHealthThreshold=n.id=="wa385c615b2a"

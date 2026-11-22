@@ -19,7 +19,10 @@ local moduleNames={
     targetDistance="距离监控",
     targetThreat="仇恨监控",
 }
-local function ModuleName(node)return moduleNames[node.id]or node.label end
+local function ModuleName(node)
+    if node.id=="mainComposite" and M.DisplayModes.Minimal() then return "玩家框体" end
+    return moduleNames[node.id]or node.label
+end
 private.ModuleName=ModuleName
 local moduleTips={
     mainComposite="配置玩家与目标的头像、生命、资源、姓名和光环等主要界面元素。",
@@ -113,7 +116,7 @@ function M:RefreshTree()
     local treeKey={tostring(self.selection),tostring(e.treeContent:GetWidth()),M:EffectiveLanguage()}
     local selected={};for id,on in pairs(self.multi or {}) do if on then selected[#selected+1]=id end end
     table.sort(selected);treeKey[#treeKey+1]=table.concat(selected,",")
-    for _,n in ipairs(entries) do treeKey[#treeKey+1]=n.id..":"..(n.label or "")..":"..tostring(n.enabled) end
+    for _,n in ipairs(entries) do treeKey[#treeKey+1]=n.id..":"..(ModuleName(n) or "")..":"..tostring(n.enabled) end
     local signature=table.concat(treeKey,"|")
     if e.treeSignature==signature then
         for i,n in ipairs(entries) do if e.rows[i] then e.rows[i].node=n end end

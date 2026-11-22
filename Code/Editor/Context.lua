@@ -227,6 +227,7 @@ local function CompositeBar(group,compound,binding)
     end
 end
 local function HealthStyleBar(group)
+    if M.DisplayModes.IsBar(group) then return group end
     local main=MainBarPart(group)
     local bar=main and M.byID[main.bar]
     if bar and bar.binding=="health" then return bar end

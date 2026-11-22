@@ -3,6 +3,14 @@ local D={}
 M.DisplayModes=D
 local art="Interface\\AddOns\\MangUI\\Assets\\Player\\Minimal\\"
 
+local barColors={
+    minimalHealth={{43/255,94/255,81/255,1},{139/255,174/255,115/255,1}},
+    minimalPower={{151/255,107/255,43/255,1},{222/255,199/255,112/255,1}},
+}
+function D.IsBar(node)
+    return node and barColors[node.id]~=nil
+end
+
 function D.Minimal()
     return M.db and M.db.displayMode=="minimal"
 end
@@ -19,7 +27,7 @@ end
 function D.Ensure(design)
     local main
     local present={}
-    for _,node in ipairs(design.nodes) do present[node.id]=true;if node.id=="mainComposite" then main=node end end
+    for _,node in ipairs(design.nodes) do present[node.id]=node;if node.id=="mainComposite" then main=node end end
     if not main then return end
     local generated={}
     local function Bar(id,binding,label,width,y)
@@ -39,7 +47,14 @@ function D.Ensure(design)
         if not present[node.id] then
             if node.parent=="root" then node.mainScaleFactor=(main.scale or .6)/.6 end
             design.nodes[#design.nodes+1]=node
+            present[node.id]=node
         end
+    end
+    for id,colors in pairs(barColors) do
+        local node=present[id]
+        if node.healthGradient==nil then node.healthGradient=true end
+        node.healthColor=node.healthColor or M.Copy(colors[1])
+        node.healthGradientEnd=node.healthGradientEnd or M.Copy(colors[2])
     end
 end
 
