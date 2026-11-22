@@ -216,37 +216,39 @@ function R.SetMovementModelsHidden(view,hidden)
     end
     if not hidden then R.Update(view) end
 end
--- Keep the diamond in a separate slice so its width follows only the bar
--- height. The two slices share an edge and stay inside the same fill clip.
+-- Use full-UV textures for both pieces. Cropped UVs on WoW masks can
+-- sample the wrong part of the atlas and produce a square cap or a gap.
 local function MinimalSliceSize(n)
-    local u=n.id=="minimalHealth" and 28/512 or 40/512
+    local u=n.id=="minimalHealth" and 32/512 or 40/512
     local base=n.id=="minimalHealth" and 300 or 200
-    return math.min(n.width-1,base*u*n.height/24),u
+    return math.min(n.width-1,base*u*n.height/24)
 end
-local function MinimalSlicePoints(t,anchor,x,width,height,u0,u1)
+local function MinimalSlicePoints(t,anchor,x,width,height)
     t:ClearAllPoints()
     t:SetPoint("LEFT",anchor,"LEFT",x,0)
     t:SetSize(width,height)
-    t:SetTexCoord(u0,u1,0,1)
+    t:SetTexCoord(0,1,0,1)
 end
 local function MinimalSlices(o,anchor,body,cap,n,file,material,mask,capMask)
-    local x,u=MinimalSliceSize(n)
-    local split=x/n.width
-    local tex=material or file
-    body:SetTexture(tex)
-    cap:SetTexture(tex)
+    local x=MinimalSliceSize(n)
+    local stem=file:sub(1,-5)
+    local bodyFile,capFile=stem.."Body.tga",stem.."Cap.tga"
+    body:SetTexture(material or bodyFile)
+    cap:SetTexture(material or capFile)
     cap:SetBlendMode("BLEND")
-    MinimalSlicePoints(body,anchor,x,n.width-x,n.height,material and split or u,1)
-    MinimalSlicePoints(cap,anchor,0,x,n.height,0,material and split or u)
+    MinimalSlicePoints(body,anchor,x,n.width-x,n.height)
+    MinimalSlicePoints(cap,anchor,0,x,n.height)
     if mask then
-        mask:SetTexture(material and file or "Interface\\Buttons\\WHITE8X8","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
-        capMask:SetTexture(material and file or "Interface\\Buttons\\WHITE8X8","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
-        mask:ClearAllPoints();mask:SetAllPoints(body)
-        capMask:ClearAllPoints();capMask:SetAllPoints(cap)
-        mask:SetTexCoord(material and u or 0,1,0,1)
-        capMask:SetTexCoord(0,material and u or 1,0,1)
+        if material then
+            mask:SetTexture(bodyFile);capMask:SetTexture(capFile)
+            MinimalSlicePoints(mask,anchor,x,n.width-x,n.height)
+            MinimalSlicePoints(capMask,anchor,0,x,n.height)
+            if not o[mask] then body:AddMaskTexture(mask);cap:AddMaskTexture(capMask);o[mask]=true end
+        else
+            if o[mask] then body:RemoveMaskTexture(mask);cap:RemoveMaskTexture(capMask);o[mask]=nil end
+        end
     end
-    o.minimalSplit=split
+    o.minimalSplit=x/n.width
 end
 
 function R.Position(view,f,n,parent)
@@ -756,7 +758,7 @@ function R.Apply(view,design,unchanged)
                     if not o.material then
                         o.material=o.clip:CreateTexture(nil,"ARTWORK",nil,1)
                         o.materialMask=o.clip:CreateMaskTexture()
-                        o.material:AddMaskTexture(o.materialMask)
+                        if not M.DisplayModes.IsBar(n) then o.material:AddMaskTexture(o.materialMask) end
                         o.nativeMask=o.bar:CreateMaskTexture()
                     end
                     -- Let the engine's filled region size a clipping frame. Place
@@ -767,7 +769,7 @@ function R.Apply(view,design,unchanged)
                         o.nativeArtFrame=CreateFrame("Frame",nil,o.nativeClip)
                         o.nativeArtFrame:EnableMouse(false)
                         o.nativeArt=o.nativeArtFrame:CreateTexture(nil,"ARTWORK")
-                        o.nativeArt:AddMaskTexture(o.nativeMask)
+                        if not M.DisplayModes.IsBar(n) then o.nativeArt:AddMaskTexture(o.nativeMask) end
                     end
                     local nativeMaterial=material~="Interface\\Buttons\\WHITE8X8" and material or nil
                     o.nativeArt:SetTexture(nativeMaterial or n.file)
@@ -791,14 +793,12 @@ function R.Apply(view,design,unchanged)
                         if not o.minimalFillCap then
                             o.minimalFillCap=o.clip:CreateTexture(nil,"ARTWORK",nil,1)
                             o.minimalFillMask=o.clip:CreateMaskTexture()
-                            o.minimalFillCap:AddMaskTexture(o.minimalFillMask)
                             o.nativeCap=o.nativeArtFrame:CreateTexture(nil,"ARTWORK")
                             o.nativeCapMask=o.bar:CreateMaskTexture()
-                            o.nativeCap:AddMaskTexture(o.nativeCapMask)
                         end
                         o.fill:Hide()
                         o.material:Show()
-                        MinimalSlices(o,o.clip,o.material,o.minimalFillCap,n,n.file,nativeMaterial,o.materialMask,o.minimalFillMask)
+                        MinimalSlices(o,f,o.material,o.minimalFillCap,n,n.file,nativeMaterial,o.materialMask,o.minimalFillMask)
                         MinimalSlices(o,o.nativeArtFrame,o.nativeArt,o.nativeCap,n,n.file,nativeMaterial,o.nativeMask,o.nativeCapMask)
                     end
                     if t and n.id=="playerThirdResourceFill" then
