@@ -151,7 +151,7 @@ local propertyCategories={
     targetThreat={{"nameFont","fontSize"},{"threatInstanceOnly"}},
     experienceBar={{"scale","experienceHeight"},{"nameFont","experienceHoverTop"}},
     systemMenu={{"scale","menuIconSpacing","menuAlwaysVisible","menuCornerSocial"}},combatNotices={{"scale"},{"combatNoticeHold","combatSound"}},
-    attackVoice={{"attackVoiceChance","attackVoiceDialogueTarget","attackVoiceDialogueCombat","attackVoiceDialogueCast","attackVoiceDialogueAfter","attackVoiceDialogueDeath",
+    attackVoice={{"attackVoiceChance","attackVoiceSelect","attackVoiceDialogueTarget","attackVoiceDialogueCombat","attackVoiceDialogueCast","attackVoiceDialogueAfter","attackVoiceDialogueDeath",
         "attackVoiceChannelAttack","attackVoiceChannelTarget","attackVoiceChannelCombat","attackVoiceChannelCast","attackVoiceChannelAfter","attackVoiceChannelDeath"}},
     mouseCircle={{"showMouseCircle","scale"},{"mouseColors"},
         {"mouseShortcutsTitle","mouseUnitMenu","mouseUnitMarks","mouseCombatMarkerKey","mouseAltInvite","mouseChatAltInvite","mouseShiftFocus"}},
@@ -300,7 +300,7 @@ end
 local function MainCompositeRoots()
     local roots={}
     for _,n in ipairs(M.db.design.nodes) do
-        if n.treeParent=="mainComposite" then
+        if n.treeParent=="mainComposite" and M.DisplayModes.Visible(n,M.byID) then
             local parent=M.byID[n.parent]
             local nested=false
             while parent do

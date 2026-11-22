@@ -90,9 +90,11 @@ function M:EnsureAttackVoiceModule(design)
                 node.attackVoiceEnabled=nil
             end
             if node.attackVoiceChance==nil then node.attackVoiceChance=.5 end
+            node.attackVoiceChannelAttack=V.Channel(node,"Attack")
             for _,stage in ipairs(dialogueStages) do
                 local key="attackVoiceDialogue"..stage
                 if node[key]==nil then node[key]=dialogueDefaults[stage] end
+                node["attackVoiceChannel"..stage]=V.Channel(node,stage)
             end
             return
         end
@@ -100,11 +102,12 @@ function M:EnsureAttackVoiceModule(design)
     local node={
         id=MODULE,label="人声增强",kind="group",compound=MODULE,scope="player",unit="player",
         x=0,y=0,width=2,height=2,scale=1,point="CENTER",anchor="CENTER",alpha=0,
-        enabled=false,attackVoiceChance=.5,
+        enabled=false,attackVoiceChance=.5,attackVoiceChannelAttack="SFX",
         layer=500,rules={},conditions={},
     }
     for _,stage in ipairs(dialogueStages) do
         node["attackVoiceDialogue"..stage]=dialogueDefaults[stage]
+        node["attackVoiceChannel"..stage]=V.Channel(node,stage)
     end
     design.nodes[#design.nodes+1]=node
 end
@@ -161,9 +164,7 @@ function V.SelectedVoiceLabel()
     return VoiceLabel(voicesByID[V.SelectedVoice()] or voiceOptions[1])
 end
 
-local function ResolveVoice()
-    local option=voicesByID[V.SelectedVoice()]
-    if option then return option.race,option.sex,option.race end
+local function PlayerVoice()
     local name,race=UnitRace("player")
     local sex=C.Number(UnitSex("player"))
     if not C.Readable(race) or not C.Readable(name) or type(race)~="string" then return end
@@ -174,7 +175,13 @@ local function ResolveVoice()
             race="Nightborne"
         end
     end
-    return dialogueRaceAliases[race] or race,sex,race
+    return race,sex
+end
+
+local function DialogueVoice(race,sex)
+    local option=voicesByID[V.SelectedVoice()]
+    if option then return option.race,option.sex end
+    return dialogueRaceAliases[race] or race,sex
 end
 
 local function VoiceSounds(race,sex)
@@ -183,9 +190,9 @@ local function VoiceSounds(race,sex)
 end
 
 local function UpdatePlayer()
-    local attackRace
-    V.dialogueRace,V.dialogueSex,attackRace=ResolveVoice()
-    V.sounds=VoiceSounds(attackRace,V.dialogueSex)
+    V.attackRace,V.attackSex=PlayerVoice()
+    V.sounds=VoiceSounds(V.attackRace,V.attackSex)
+    V.dialogueRace,V.dialogueSex=DialogueVoice(V.attackRace,V.attackSex)
     V.guid=UnitGUID("player")
 end
 
@@ -251,12 +258,13 @@ end
 
 function V.Preview(node,stage)
     if type(PlaySoundFile)~="function" then return end
-    local race,sex,attackRace=ResolveVoice()
+    local playerRace,playerSex=PlayerVoice()
     local locale=DialogueLocale()
     local path
     if stage=="Attack" then
-        path=RandomAttackPath(race,sex,locale,VoiceSounds(attackRace,sex))
+        path=RandomAttackPath(playerRace,playerSex,locale,VoiceSounds(playerRace,playerSex))
     else
+        local race,sex=DialogueVoice(playerRace,playerSex)
         local pool=DialoguePool(locale,race,sex)
         if not pool then return end
         local groups=stage=="After" and {"After","AfterLow","AfterNormal","AfterHigh"} or {stage}
@@ -310,7 +318,7 @@ local function PlayAttack()
     if V.inCombat then PlayDialogue("Combat") end
     if DialoguePlaying() then return end
     if V.chance<=0 or V.chance<1 and math.random()>=V.chance then return end
-    local path=RandomAttackPath(V.dialogueRace,V.dialogueSex,DialogueLocale(),V.sounds)
+    local path=RandomAttackPath(V.attackRace,V.attackSex,DialogueLocale(),V.sounds)
     if path then PlaySoundFile(path,V.channels.Attack) end
 end
 

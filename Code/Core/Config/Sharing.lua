@@ -72,7 +72,9 @@ local function CleanNodes(nodes)
     if M.ModuleGuides then M.ModuleGuides.Ensure({nodes=nodes})end
     if M.EnsureAttackProgress then M:EnsureAttackProgress({nodes=nodes}) end
     local known,fields,index,result={},{},{},{}
-    for _,node in ipairs(M.defaults.nodes) do
+    local templates=M.Copy(M.defaults)
+    M.DisplayModes.Ensure(templates)
+    for _,node in ipairs(templates.nodes) do
         known[node.id]=node.kind
         for key,value in pairs(node) do
             fields[key]=fields[key] or {};fields[key][type(value)]=true
