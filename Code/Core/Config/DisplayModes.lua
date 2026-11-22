@@ -5,6 +5,11 @@ local art="Interface\\AddOns\\MangUI\\Assets\\Player\\Minimal\\"
 
 local healthStart={43/255,94/255,81/255,1}
 local healthEnd={139/255,174/255,115/255,1}
+D.defaultBackgroundColor={.10,.12,.16,.9}
+function D.UsesPowerColor(n)
+    return n.id=="minimalPower" or n.id=="minimalPowerValue" or n.id=="minimalPowerPercent"
+end
+
 function D.IsBar(node)
     return node and (node.id=="minimalHealth" or node.id=="minimalPower")
 end

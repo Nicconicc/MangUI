@@ -170,6 +170,20 @@ local function DrawHealthSegment(o,texture,first,last,opacity,inset,start,full)
     local inner,outer=inset+start+span*first,inset+start+span*last
     local left,right=inner,outer
     if n.reverse then left,right=n.width-outer,n.width-inner end
+    if texture.manguiHealthArt then
+        local art=texture.manguiHealthArt
+        if art.spec~=n or art.width~=n.width or art.height~=n.height then
+            private.MinimalSlices(art,o.frame,art.body,art.cap,n,n.file)
+            if art.add then art.body:SetBlendMode("ADD");art.cap:SetBlendMode("ADD") end
+            art.spec,art.width,art.height=n,n.width,n.height
+        end
+        texture:ClearAllPoints()
+        texture:SetPoint("LEFT",o.frame,"LEFT",left,0)
+        texture:SetSize(right-left,n.height)
+        texture:SetAlpha(opacity)
+        texture:Show()
+        return
+    end
     local cropX,cropY=1+(n.cropX or 0),1+(n.cropY or 0)
     local l,r=.5+(left/n.width-.5)/cropX,.5+(right/n.width-.5)/cropX
     local top,bottom=.5-.5/cropY,.5+.5/cropY
@@ -187,11 +201,23 @@ local function HealthChangeLayers(o)
     if o.healthChange then return o.healthChange end
     local layer=CreateFrame("Frame",nil,o.frame)
     layer:SetFrameLevel(o.clip:GetFrameLevel()+2)
-    local damage=layer:CreateTexture(nil,"OVERLAY")
-    damage:SetVertexColor(1,.30,.13)
-    local heal=layer:CreateTexture(nil,"OVERLAY",nil,1)
-    heal:SetVertexColor(1,.90,.60)
-    heal:SetBlendMode("ADD")
+    local function Art(level,r,g,b,add)
+        local parent=layer
+        if M.DisplayModes.IsBar(o.spec) then
+            parent=CreateFrame("Frame",nil,layer)
+            parent:SetClipsChildren(true)
+        end
+        local body=parent:CreateTexture(nil,"OVERLAY",nil,level)
+        body:SetVertexColor(r,g,b)
+        if add then body:SetBlendMode("ADD") end
+        if parent==layer then return body end
+        local cap=parent:CreateTexture(nil,"OVERLAY",nil,level)
+        cap:SetVertexColor(r,g,b)
+        parent.manguiHealthArt={body=body,cap=cap,add=add}
+        return parent
+    end
+    local damage=Art(0,1,.30,.13)
+    local heal=Art(1,1,.90,.60,true)
     damage:Hide();heal:Hide()
     o.healthChange={damage=damage,heal=heal}
     return o.healthChange
@@ -219,7 +245,9 @@ local function PaintHealthChange(view,o,s,animateOnly,inset,start,full)
             fx=HealthChangeLayers(o)
             if fx.file~=o.spec.file then
                 fx.file=o.spec.file
-                fx.damage:SetTexture(fx.file);fx.heal:SetTexture(fx.file)
+                if not fx.damage.manguiHealthArt then
+                    fx.damage:SetTexture(fx.file);fx.heal:SetTexture(fx.file)
+                end
             end
             if current<previous then
                 if not fx.damageAt then
@@ -329,8 +357,18 @@ local function PaintNativeHealthChange(view,o,s,enabled,interpolation)
         fx.trailing:SetReverseFill(spec.reverse==true)
         fx.trailing:SetMinMaxValues(0,maximum)
         fx.trailing:SetValue(health)
-        fx.damage:SetTexture(spec.file);private.TextureCoords(fx.damage,spec)
-        fx.heal:SetTexture(spec.file);private.TextureCoords(fx.heal,spec)
+        if M.DisplayModes.IsBar(spec) then
+            fx.damageCap=fx.damageCap or fx.damage:GetParent():CreateTexture(nil,"OVERLAY")
+            fx.healCap=fx.healCap or fx.heal:GetParent():CreateTexture(nil,"OVERLAY")
+            fx.damageCap:SetVertexColor(1,.28,.10,.80)
+            fx.healCap:SetVertexColor(1,.92,.68,.9)
+            private.MinimalSlices(fx,fx.layer,fx.damage,fx.damageCap,spec,spec.file)
+            private.MinimalSlices(fx,fx.layer,fx.heal,fx.healCap,spec,spec.file)
+            fx.healCap:SetBlendMode("ADD")
+        else
+            fx.damage:SetTexture(spec.file);private.TextureCoords(fx.damage,spec)
+            fx.heal:SetTexture(spec.file);private.TextureCoords(fx.heal,spec)
+        end
         fx.layer:SetFrameLevel(o.clip:GetFrameLevel()+2)
         fx.ready=true;fx.layer:Show()
     elseif C_Timer and C_Timer.After then

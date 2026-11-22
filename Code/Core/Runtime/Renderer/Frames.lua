@@ -251,6 +251,8 @@ local function MinimalSlices(o,anchor,body,cap,n,file,material,mask,capMask)
     o.minimalSplit=x/n.width
 end
 
+private.MinimalSlices=MinimalSlices
+
 function R.Position(view,f,n,parent)
     local point=points[n.point] and n.point or "CENTER"
     local x,y=M:NodePosition(n,view.byID)
@@ -513,7 +515,7 @@ local visualFields={x=true,y=true,width=true,height=true,scale=true,scaleReferen
     shadowX=true,shadowY=true,autoWidth=true,autoHeight=true,
     file=true,materialPath=true,materialName=true,blend=true,desaturate=true,
     rotation=true,mirror=true,mirrorY=true,cropX=true,cropY=true,
-    healthColor=true,healthGradient=true,healthGradientEnd=true,
+    healthColor=true,healthGradient=true,healthGradientEnd=true,barBackgroundColor=true,
     healthThresholdEnabled=true,healthThreshold=true,healthThresholdColor=true}
 local function SameDependencies(a,b)
     if not a then return false end
@@ -668,6 +670,7 @@ function R.Apply(view,design,unchanged)
             if moduleID=="mainComposite" and n.kind~="text" and n.kind~="hitbox" then sweepChanged=true end
             o.healthCurve=nil;o.healthThresholdCurves=nil
             PrepareVisual(o)
+            if n.id=="minimalHealth" and (o.healthChange or o.nativeHealthChange) then private.ClearHealthChange(o) end
             o.rangeDecoration=false
             if o.texture and n.id=="wa080cd4c4fb" then
                 o.rangeDecoration=true
@@ -741,6 +744,15 @@ function R.Apply(view,design,unchanged)
                     f:SetSize(barSpec.width,barSpec.height)
                     if not o.minimalFrameCap then o.minimalFrameCap=f:CreateTexture(nil,"ARTWORK") end
                     MinimalSlices(o,f,o.texture,o.minimalFrameCap,barSpec,n.file)
+                    if not o.minimalBackground then
+                        o.minimalBackground=f:CreateTexture(nil,"BACKGROUND")
+                        o.minimalBackgroundCap=f:CreateTexture(nil,"BACKGROUND")
+                    end
+                    local background=n.file:gsub("Frame%.tga$","Background.tga")
+                    MinimalSlices(o,f,o.minimalBackground,o.minimalBackgroundCap,barSpec,background)
+                    local color=barSpec.barBackgroundColor or M.DisplayModes.defaultBackgroundColor
+                    o.minimalBackground:SetVertexColor(unpack(color))
+                    o.minimalBackgroundCap:SetVertexColor(unpack(color))
                 end
                 if M.PartyFrames then M.PartyFrames.ConfigureTexture(o) end
                 if n.attackKind then o.texture:SetVertexColor(unpack(n.color or {1,1,1,1})) end

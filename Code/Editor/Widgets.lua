@@ -750,7 +750,7 @@ function W.BlacklistEditor(parent,width,changed)
     f:SetScript("OnHide",function()input:SetText("");input:ClearFocus()end)
     return f
 end
-function W.ColorSwatch(parent,fn)
+function W.ColorSwatch(parent,fn,allowOpacity)
     local b=CreateFrame("Button",nil,parent);b:SetSize(16.8,16.8);b.colorSwatchInset=5.6
     local border=b:CreateTexture(nil,"BACKGROUND");border:SetAllPoints();border:SetColorTexture(.75,.75,.75,1)
     b.swatch=b:CreateTexture(nil,"ARTWORK");b.swatch:SetPoint("TOPLEFT",1.2,-1.2);b.swatch:SetPoint("BOTTOMRIGHT",-1.2,1.2)
@@ -764,7 +764,18 @@ function W.ColorSwatch(parent,fn)
             if editSession and M.EditorUndo.session~=editSession then return end
             b:SetColor(color);fn(color)
         end
-        local function Pick()local r,g,blue=ColorPickerFrame:GetColorRGB();Apply({r,g,blue,previous[4] or 1})end
+        local picker=ColorPickerFrame
+        local alpha=previous[4] or 1
+        local legacySlider=_G.OpacitySliderFrame
+        local function Pick()
+            local r,g,blue=picker:GetColorRGB()
+            local opacity=alpha
+            if allowOpacity then
+                if picker.GetColorAlpha then opacity=picker:GetColorAlpha()
+                elseif legacySlider then opacity=1-legacySlider:GetValue() end
+            end
+            Apply({r,g,blue,opacity or alpha})
+        end
         ColorPickerFrame:Hide()
         M.EditorUndo.Begin(b)
         editSession=M.EditorUndo.session
@@ -778,10 +789,11 @@ function W.ColorSwatch(parent,fn)
         end
         local function Cancel()Apply(previous);M.EditorUndo.Finish(b)end
         if ColorPickerFrame.SetupColorPickerAndShow then
-            ColorPickerFrame:SetupColorPickerAndShow({r=previous[1],g=previous[2],b=previous[3],hasOpacity=false,
-                swatchFunc=Pick,cancelFunc=Cancel})
+            ColorPickerFrame:SetupColorPickerAndShow({r=previous[1],g=previous[2],b=previous[3],hasOpacity=allowOpacity==true,opacity=alpha,
+                swatchFunc=Pick,opacityFunc=allowOpacity and Pick or nil,cancelFunc=Cancel})
         else
-            ColorPickerFrame.hasOpacity=false;ColorPickerFrame.func=Pick;ColorPickerFrame.opacityFunc=nil
+            ColorPickerFrame.hasOpacity=allowOpacity==true;ColorPickerFrame.func=Pick
+            ColorPickerFrame.opacity=1-alpha;ColorPickerFrame.opacityFunc=allowOpacity and Pick or nil
             ColorPickerFrame.cancelFunc=Cancel
             ColorPickerFrame:SetColorRGB(previous[1],previous[2],previous[3]);ColorPickerFrame:Show()
         end

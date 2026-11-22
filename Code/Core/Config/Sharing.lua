@@ -81,6 +81,7 @@ local function CleanNodes(nodes)
         end
     end
     for _,key in ipairs({"fontPath","fontName","materialPath","materialName"}) do fields[key]={string=true} end
+    fields.barBackgroundColor={table=true}
     fields.healthGradient={boolean=true};fields.healthColor={table=true};fields.healthGradientEnd={table=true}
     fields.healthThresholdEnabled={boolean=true};fields.healthThreshold={number=true};fields.healthThresholdColor={table=true}
     fields.targetDistanceHint={boolean=true}
@@ -120,7 +121,7 @@ local function CleanNodes(nodes)
                 if type(value)~="number" or value<range[2]or value>range[3]then return end
             end
         end
-        for _,key in ipairs({"healthColor","healthGradientEnd","healthThresholdColor","rangedProgressColor","meleeProgressColor","partyHealthColor","partyHealthEndColor","distanceNumberColor"}) do
+        for _,key in ipairs({"barBackgroundColor","healthColor","healthGradientEnd","healthThresholdColor","rangedProgressColor","meleeProgressColor","partyHealthColor","partyHealthEndColor","distanceNumberColor"}) do
             local color=node[key]
             if color then
                 for i=1,4 do if type(color[i])~="number" or color[i]<0 or color[i]>1 then return end end

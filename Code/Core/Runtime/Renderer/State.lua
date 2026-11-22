@@ -42,7 +42,7 @@ local function Appearance(view,n,s,o)
     local col=n.color or white;local alpha=n.alpha or 1
     local tint=o.appearanceColor or {};o.appearanceColor=tint
     tint[1],tint[2],tint[3],tint[4]=col[1],col[2],col[3],col[4] or 1
-    if (n.powerColor or n.id=="minimalPower") and s.powerColor then tint[1],tint[2],tint[3]=s.powerColor[1],s.powerColor[2],s.powerColor[3] end
+    if (n.powerColor or M.DisplayModes.UsesPowerColor(n)) and s.powerColor then tint[1],tint[2],tint[3]=s.powerColor[1],s.powerColor[2],s.powerColor[3] end
     if n.nameColor and s.nameColor then tint[1],tint[2],tint[3]=s.nameColor[1],s.nameColor[2],s.nameColor[3] end
     if n.targetNameColor then
         if s.isPlayer and s.nameColor then tint[1],tint[2],tint[3]=s.nameColor[1],s.nameColor[2],s.nameColor[3]

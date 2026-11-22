@@ -235,7 +235,7 @@ local function HealthStyleBar(group)
 end
 local function ChangeHealthStyle(bar,key,value)
     if not bar or M.byID[bar.id]~=bar or not M:CanEdit() then return false end
-    bar.healthColor=bar.healthColor or M.Copy(bar.color or {0,1,.42745101451874,1})
+    if key~="barBackgroundColor" then bar.healthColor=bar.healthColor or M.Copy(bar.color or {0,1,.42745101451874,1}) end
     bar[key]=type(value)=="table" and M.Copy(value) or value
     M:Commit();return true
 end

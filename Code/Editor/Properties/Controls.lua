@@ -729,9 +729,9 @@ local function BuildProperties(e)
     end)
     e.healthGradient.whitePropertyLabel=true
     e.healthGradient:SetPoint("TOPLEFT",-4,y)
-    local function HealthColorSwatch(key)
+    local function HealthColorSwatch(key,allowOpacity)
         local target
-        local swatch=W.ColorSwatch(content,function(color)ChangeHealthStyle(target,key,color)end)
+        local swatch=W.ColorSwatch(content,function(color)ChangeHealthStyle(target,key,color)end,allowOpacity)
         local click=swatch:GetScript("OnClick")
         swatch:SetScript("OnClick",function(self)
             target=HealthStyleBar(Selected())
@@ -753,6 +753,10 @@ local function BuildProperties(e)
     M:FitLocaleText(startLabel,166,8)
     M:FitLocaleText(endLabel,118,8)
     Row(32,{{e.healthGradient,-4,0},{e.healthStartColor,112,2},{startLabel,0,0,e.healthStartColor},{e.healthEndColor,312,2},{endLabel,0,0,e.healthEndColor}},{},"healthColors");y=y-32
+    e.barBackgroundColor=HealthColorSwatch("barBackgroundColor",true)
+    local backgroundLabel=W.Label(content,"进度条背景颜色",11)
+    backgroundLabel.whitePropertyLabel=true
+    Row(32,{{e.barBackgroundColor,0,2},{backgroundLabel,0,0,e.barBackgroundColor}},{},"barBackgroundColor");y=y-32
     e.healthThresholdEnabled=W.Check(content,"低生命值变色",function(enabled)
         if not ChangeHealthThreshold(HealthStyleBar(Selected()),"healthThresholdEnabled",enabled) then M:RefreshProperties() end
     end)

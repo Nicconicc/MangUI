@@ -237,7 +237,7 @@ function R.TargetVisibilityParent(view,moduleID,parent)
         end)
         gates[parent]=gate
     end
-    local enabled=M.db.hideWithoutTarget==true and not (moduleID=="mainComposite" and M.DisplayModes.Minimal())
+    local enabled=M.db.hideWithoutTarget==true
     if gate.targetVisibilityEnabled~=enabled then
         if enabled then RegisterStateDriver(gate,"visibility","[@target,exists] show; hide")
         else UnregisterStateDriver(gate,"visibility");gate:Show() end
@@ -273,14 +273,14 @@ local function ResetParticle(o)
 end
 local function PrepareVisual(o)
     local n=o.spec
-    o.classHealthColor=not M.DisplayModes.IsBar(n) and M.db and M.db.healthClassColor==true and n.kind=="bar" and n.binding=="health"
+    o.classHealthColor=M.db and M.db.healthClassColor==true and n.kind=="bar" and n.binding=="health"
     o.customHealthStyle=n.kind=="bar" and n.binding=="health" and (n.healthColor~=nil or n.healthGradient==true)
     o.healthChangeEnabled=n.kind=="bar" and n.binding=="health" and not n.vertical
-        and (n.id=="wa4f9903a71c" or n.id=="wa385c615b2a")
+        and (n.id=="wa4f9903a71c" or n.id=="wa385c615b2a" or n.id=="minimalHealth")
     o.targetHealthThreshold=n.id=="wa385c615b2a"
     o.targetLevelColor=n.id=="wa38ad2639d2"
     o.healthThresholdActive=false
-    o.fixedAppearance=not (o.targetLevelColor or o.classHealthColor or o.customHealthStyle or o.targetHealthThreshold or n.powerColor or n.id=="minimalPower" or n.nameColor or n.targetNameColor or n.tapColor) and #(n.conditions or {})==0
+    o.fixedAppearance=not (o.targetLevelColor or o.classHealthColor or o.customHealthStyle or o.targetHealthThreshold or n.powerColor or M.DisplayModes.UsesPowerColor(n) or n.nameColor or n.targetNameColor or n.tapColor) and #(n.conditions or {})==0
     local simple=n.kind=="texture" or n.kind=="sprite" or n.kind=="glow" or n.kind=="border"
         or (n.kind=="text" and (not n.binding or n.binding=="static" or n.binding=="auraStacks" or n.binding=="auraTime"))
     o.needsState=not (simple and not (n.powerColor or n.nameColor or n.targetNameColor or n.tapColor or n.castFill or n.binding=="castIcon" or n.binding=="raid" or n.binding=="partyClass" or n.binding=="partyRole"))
