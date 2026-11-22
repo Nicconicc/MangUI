@@ -70,6 +70,7 @@ local function RefreshProperties(self)
         if mainRoot then
             e.mainScaleLabel:SetText("缩放")
             e.mainScaleSlider.updating=true;e.mainScaleSlider:SetValue(M.Clamp(M:ScaleDisplayValue(mainRoot),.1,1.5));e.mainScaleSlider.updating=false
+            e.mainShakeEnabled:SetShown(not M.DisplayModes.Minimal())
             e.mainShakeEnabled:SetChecked(mainRoot.shakeEnabled~=false)
         end
     end
@@ -198,6 +199,8 @@ local function RefreshProperties(self)
     if n.compound=="experienceBar" then e.experienceHoverTop:SetChecked(n.experienceHoverTop==true) end
     if n.compound=="attackVoice" then
         e.attackVoiceSelect:SetMedia(M.AttackVoice.SelectedVoiceLabel(),nil)
+        local voiceLanguage=M.AttackVoice.DialogueLanguage(n)
+        e.attackVoiceLanguage:SetMedia(M:T(voiceLanguage=="zhCN" and "中文" or "英文"),nil)
         for stage,dropdown in pairs(e.attackVoiceChannels) do
             dropdown:SetValue(M.AttackVoice.Channel(n,stage))
         end

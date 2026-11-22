@@ -14,6 +14,15 @@ function V.Channel(node,stage)
     return validChannels[channel] and channel or (stage=="Attack" and "SFX" or "Dialog")
 end
 
+local clientLocale=GetLocale()
+local defaultDialogueLanguage=(clientLocale=="zhCN" or clientLocale=="zhTW") and "zhCN" or "enUS"
+
+function V.DialogueLanguage(node)
+    local locale=node and node.attackVoiceLanguage
+    if locale=="zhCN" or locale=="enUS" then return locale end
+    return defaultDialogueLanguage
+end
+
 local dialogueStages={"Target","Combat","Cast","After","Death"}
 local dialogueDefaults={Target=.2,Combat=.3,Cast=.3,After=.2,Death=1}
 local dialogueRaceAliases={
@@ -90,6 +99,7 @@ function M:EnsureAttackVoiceModule(design)
                 node.attackVoiceEnabled=nil
             end
             if node.attackVoiceChance==nil then node.attackVoiceChance=.5 end
+            node.attackVoiceLanguage=V.DialogueLanguage(node)
             node.attackVoiceChannelAttack=V.Channel(node,"Attack")
             for _,stage in ipairs(dialogueStages) do
                 local key="attackVoiceDialogue"..stage
@@ -102,7 +112,7 @@ function M:EnsureAttackVoiceModule(design)
     local node={
         id=MODULE,label="人声增强",kind="group",compound=MODULE,scope="player",unit="player",
         x=0,y=0,width=2,height=2,scale=1,point="CENTER",anchor="CENTER",alpha=0,
-        enabled=false,attackVoiceChance=.5,attackVoiceChannelAttack="SFX",
+        enabled=false,attackVoiceChance=.5,attackVoiceChannelAttack="SFX",attackVoiceLanguage=defaultDialogueLanguage,
         layer=500,rules={},conditions={},
     }
     for _,stage in ipairs(dialogueStages) do
@@ -227,11 +237,6 @@ local function DialogueGroup(stage)
     return percent>=80 and "AfterHigh" or "AfterNormal"
 end
 
-local function DialogueLocale()
-    local language=M:EffectiveLanguage()
-    return (language=="zhCN" or language=="zhTW") and "zhCN" or "enUS"
-end
-
 local function DialoguePath(locale,pool,clip)
     return M.ART..("Sounds\\AttackDialogue\\%s\\%s\\%s.ogg"):format(locale,pool.folder,clip[1])
 end
@@ -259,7 +264,7 @@ end
 function V.Preview(node,stage)
     if type(PlaySoundFile)~="function" then return end
     local playerRace,playerSex=PlayerVoice()
-    local locale=DialogueLocale()
+    local locale=V.DialogueLanguage(node)
     local path
     if stage=="Attack" then
         path=RandomAttackPath(playerRace,playerSex,locale,VoiceSounds(playerRace,playerSex))
@@ -288,7 +293,7 @@ local function PlayDialogue(stage)
     local playing=DialoguePlaying()
     local priority=stage=="After" or stage=="Death"
     if playing and (not priority or not V.dialogueHandle or not StopSound) then return end
-    local locale=DialogueLocale()
+    local locale=V.locale
     local pools=DialoguePool(locale,V.dialogueRace,V.dialogueSex)
     local clips=pools and pools[stage]
     if not clips or #clips==0 then return end
@@ -318,7 +323,7 @@ local function PlayAttack()
     if V.inCombat then PlayDialogue("Combat") end
     if DialoguePlaying() then return end
     if V.chance<=0 or V.chance<1 and math.random()>=V.chance then return end
-    local path=RandomAttackPath(V.attackRace,V.attackSex,DialogueLocale(),V.sounds)
+    local path=RandomAttackPath(V.attackRace,V.attackSex,V.locale,V.sounds)
     if path then PlaySoundFile(path,V.channels.Attack) end
 end
 
@@ -378,6 +383,7 @@ end
 function V.Configure(view)
     if view.preview then return end
     local module=view.byID[MODULE]
+    V.locale=V.DialogueLanguage(module)
     V.chance=module and M.Clamp(tonumber(module.attackVoiceChance) or .5,0,1) or 0
     V.dialogueChance=V.dialogueChance or {}
     V.channels=V.channels or {}

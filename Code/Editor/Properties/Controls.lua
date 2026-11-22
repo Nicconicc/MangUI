@@ -370,7 +370,18 @@ local function BuildProperties(e)
         end)
     end)
     e.attackVoiceSelect=voiceSelect
-    Row(53,{{voiceSelect,0,-3}},{},"attackVoiceSelect");y=y-53
+    local languageSelect
+    languageSelect=W.MediaSelect(content,"语言选择",188,"choice",function()
+        if languageSelect.menu and languageSelect.menu:IsShown() then languageSelect.menu:Hide();return end
+        local node=Selected()
+        if not node or node.compound~="attackVoice" or not M:CanEdit() then return end
+        local items={{path="zhCN",name=M:T("中文")},{path="enUS",name=M:T("英文")}}
+        W.MediaMenu(languageSelect,items,"choice",M.AttackVoice.DialogueLanguage(node),function(item)
+            if Selected()==node and M:CanEdit() then Change("attackVoiceLanguage",item.path) end
+        end)
+    end)
+    e.attackVoiceLanguage=languageSelect
+    Row(53,{{voiceSelect,0,-3},{languageSelect,256,-3}},{},"attackVoiceSelect");y=y-53
     e.attackVoiceChannels={}
     local channelItems,channelLabels={},{}
     for _,choice in ipairs(M.AttackVoice.channelChoices) do

@@ -10356,6 +10356,7 @@ M.localeTables.zhTW["人声对白增强（近战攻击）"]="人聲對白增強�
 M.localeTables.zhTW["人声对白增强（施放法术）"]="人聲對白增強（施放法術）"
 M.localeTables.zhTW["人声增强"]="人聲增強"
 M.localeTables.zhTW["音色选择"]="音色選擇"
+M.localeTables.zhTW["语言选择"]="語言選擇"
 M.localeTables.zhTW["%s男"]="%s男"
 M.localeTables.zhTW["%s女"]="%s女"
 M.localeTables.zhTW["人类"]="人類"
