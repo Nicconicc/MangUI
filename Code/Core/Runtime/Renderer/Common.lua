@@ -236,9 +236,8 @@ function R.MinimalBarRevealParent(view,o,parent)
     return clip
 end
 
-local function ApplyMinimalReveal(view,value,alpha)
+local function ApplyMinimalReveal(view,value)
     view.minimalRevealValue=value
-    view.minimalFadeValue=alpha
     for o,clip in pairs(view.minimalBarClips or {}) do
         if not o.removed then
             local partial=value>0 and value<1
@@ -251,8 +250,8 @@ local function ApplyMinimalReveal(view,value,alpha)
         end
     end
     for _,gate in pairs(view.minimalTargetFades or {}) do
-        gate:SetAlpha(alpha)
-        gate:SetShown(alpha>0)
+        gate:SetAlpha(value)
+        gate:SetShown(value>0)
     end
 end
 
@@ -262,30 +261,30 @@ function R.SyncMinimalTargetReveal(view,animate)
     local wanted=(not enabled or C.Bool(UnitExists("target"))) and 1 or 0
     local old=view.minimalRevealGoal
     if old==wanted and view.minimalRevealEnabled==enabled then
-        if not animate then ApplyMinimalReveal(view,view.minimalRevealValue or wanted,view.minimalFadeValue or wanted) end
+        if not animate then ApplyMinimalReveal(view,view.minimalRevealValue or wanted) end
         return false
     end
     view.minimalRevealEnabled,view.minimalRevealGoal=enabled,wanted
     local driver=view.minimalRevealDriver
-    if animate and enabled and old~=nil and (view.minimalRevealValue~=wanted or view.minimalFadeValue~=wanted) then
+    if animate and enabled and old~=nil and view.minimalRevealValue~=wanted then
         if not driver then
             driver=CreateFrame("Frame",nil,view.root)
             view.minimalRevealDriver=driver
         end
         if wanted==1 then
-            ApplyMinimalReveal(view,math.max(.001,view.minimalRevealValue),math.max(.001,view.minimalFadeValue))
+            ApplyMinimalReveal(view,math.max(.001,view.minimalRevealValue))
         end
         driver:SetScript("OnUpdate",function(self,elapsed)
             local goal=view.minimalRevealGoal
-            local bar,fade=view.minimalRevealValue,view.minimalFadeValue
-            local nextBar=goal>bar and math.min(goal,bar+elapsed/.2) or math.max(goal,bar-elapsed/.2)
-            local nextFade=goal>fade and math.min(goal,fade+elapsed/.12) or math.max(goal,fade-elapsed/.12)
-            ApplyMinimalReveal(view,nextBar,nextFade)
-            if nextBar==goal and nextFade==goal then self:SetScript("OnUpdate",nil) end
+            local current=view.minimalRevealValue
+            local step=elapsed/.12
+            local nextValue=goal>current and math.min(goal,current+step) or math.max(goal,current-step)
+            ApplyMinimalReveal(view,nextValue)
+            if nextValue==goal then self:SetScript("OnUpdate",nil) end
         end)
     else
         if driver then driver:SetScript("OnUpdate",nil) end
-        ApplyMinimalReveal(view,wanted,wanted)
+        ApplyMinimalReveal(view,wanted)
     end
     return true
 end
