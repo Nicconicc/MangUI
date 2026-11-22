@@ -507,6 +507,12 @@ function M:ResetPreviewModule(moduleID)
     for _,id in ipairs(sourceNodes) do
         if Belongs(id,defaultsByID) then resetIDs[id]=true end
     end
+    if moduleID=="attackVoice" and resetIDs[moduleID] then
+        -- Imported and older reset baselines can contain custom probabilities.
+        local voiceDefaults=self.Copy(defaultsByID[moduleID])
+        self.AttackVoice.RestoreDefaultChances(voiceDefaults)
+        defaultsByID[moduleID]=voiceDefaults
+    end
     local nodes,seen={},{}
     for _,n in ipairs(self.db.design.nodes) do
         if resetIDs[n.id] then

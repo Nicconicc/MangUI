@@ -25,6 +25,15 @@ end
 
 local dialogueStages={"Target","Combat","Cast","After","Death"}
 local dialogueDefaults={Target=.2,Combat=.3,Cast=.3,After=.2,Death=1}
+local attackDefault=.5
+
+function V.RestoreDefaultChances(node)
+    node.attackVoiceChance=attackDefault
+    for _,stage in ipairs(dialogueStages) do
+        node["attackVoiceDialogue"..stage]=dialogueDefaults[stage]
+    end
+end
+
 local dialogueRaceAliases={
     KulTiran="Human", DarkIronDwarf="Dwarf", EarthenDwarf="Dwarf", Earthen="Dwarf",
     Nightborne="NightElf", Haranir="NightElf", VoidElf="BloodElf", Mechagnome="Gnome",
@@ -98,7 +107,7 @@ function M:EnsureAttackVoiceModule(design)
                 node.enabled=node.enabled~=false and node.attackVoiceEnabled==true
                 node.attackVoiceEnabled=nil
             end
-            if node.attackVoiceChance==nil then node.attackVoiceChance=.5 end
+            if node.attackVoiceChance==nil then node.attackVoiceChance=attackDefault end
             node.attackVoiceLanguage=V.DialogueLanguage(node)
             node.attackVoiceChannelAttack=V.Channel(node,"Attack")
             for _,stage in ipairs(dialogueStages) do
@@ -112,11 +121,11 @@ function M:EnsureAttackVoiceModule(design)
     local node={
         id=MODULE,label="人声增强",kind="group",compound=MODULE,scope="player",unit="player",
         x=0,y=0,width=2,height=2,scale=1,point="CENTER",anchor="CENTER",alpha=0,
-        enabled=false,attackVoiceChance=.5,attackVoiceChannelAttack="SFX",attackVoiceLanguage=defaultDialogueLanguage,
+        enabled=false,attackVoiceChannelAttack="SFX",attackVoiceLanguage=defaultDialogueLanguage,
         layer=500,rules={},conditions={},
     }
+    V.RestoreDefaultChances(node)
     for _,stage in ipairs(dialogueStages) do
-        node["attackVoiceDialogue"..stage]=dialogueDefaults[stage]
         node["attackVoiceChannel"..stage]=V.Channel(node,stage)
     end
     design.nodes[#design.nodes+1]=node
@@ -384,7 +393,7 @@ function V.Configure(view)
     if view.preview then return end
     local module=view.byID[MODULE]
     V.locale=V.DialogueLanguage(module)
-    V.chance=module and M.Clamp(tonumber(module.attackVoiceChance) or .5,0,1) or 0
+    V.chance=module and M.Clamp(tonumber(module.attackVoiceChance) or attackDefault,0,1) or 0
     V.dialogueChance=V.dialogueChance or {}
     V.channels=V.channels or {}
     V.channels.Attack=V.Channel(module,"Attack")
