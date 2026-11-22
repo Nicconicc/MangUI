@@ -3,12 +3,10 @@ local D={}
 M.DisplayModes=D
 local art="Interface\\AddOns\\MangUI\\Assets\\Player\\Minimal\\"
 
-local barColors={
-    minimalHealth={{43/255,94/255,81/255,1},{139/255,174/255,115/255,1}},
-    minimalPower={{151/255,107/255,43/255,1},{222/255,199/255,112/255,1}},
-}
+local healthStart={43/255,94/255,81/255,1}
+local healthEnd={139/255,174/255,115/255,1}
 function D.IsBar(node)
-    return node and barColors[node.id]~=nil
+    return node and (node.id=="minimalHealth" or node.id=="minimalPower")
 end
 
 function D.Minimal()
@@ -50,12 +48,11 @@ function D.Ensure(design)
             present[node.id]=node
         end
     end
-    for id,colors in pairs(barColors) do
-        local node=present[id]
-        if node.healthGradient==nil then node.healthGradient=true end
-        node.healthColor=node.healthColor or M.Copy(colors[1])
-        node.healthGradientEnd=node.healthGradientEnd or M.Copy(colors[2])
-    end
+    local health,power=present.minimalHealth,present.minimalPower
+    if health.healthGradient==nil then health.healthGradient=true end
+    health.healthColor=health.healthColor or M.Copy(healthStart)
+    health.healthGradientEnd=health.healthGradientEnd or M.Copy(healthEnd)
+    power.healthGradient,power.healthColor,power.healthGradientEnd=nil,nil,nil
 end
 
 function D.Visible(node,index)

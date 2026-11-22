@@ -43,6 +43,10 @@ function R.FocusCast(index)
         y={math.floor(minY+1e-7),math.ceil(maxY-1e-7)}}
 end
 function R.Range(n,field,index)
+    if n and M.DisplayModes.IsBar(n) then
+        if field=="width" then return 64,1200 end
+        if field=="height" then return 8,64 end
+    end
     if not n then return end
     index=index or M.byID
     if n.compound=="partyFrames" then
@@ -84,7 +88,8 @@ end
 -- constrain gestures, never loading/rendering. Keep this list with Range.
 local compoundLimits={partyFrames={"partyPlayerX","partySpacing"},chatButtons={"buttonSpacing","fontYOffset"},
     targetDistance={"distanceX","distanceY"},focusCast={"x","y"}}
-local nodeLimits={playerResources={"resourceSpacing"},bossHPPercent={"x","y"},bossCast={"y"}}
+local nodeLimits={playerResources={"resourceSpacing"},bossHPPercent={"x","y"},bossCast={"y"},
+    minimalHealth={"width","height"},minimalPower={"width","height"}}
 function R.ClampAll(index)
     -- Rim position/size changes must preserve contact for all four strips.
     M.MainBarLayout.ClampAll(index)

@@ -42,7 +42,7 @@ local function Appearance(view,n,s,o)
     local col=n.color or white;local alpha=n.alpha or 1
     local tint=o.appearanceColor or {};o.appearanceColor=tint
     tint[1],tint[2],tint[3],tint[4]=col[1],col[2],col[3],col[4] or 1
-    if n.powerColor and s.powerColor then tint[1],tint[2],tint[3]=s.powerColor[1],s.powerColor[2],s.powerColor[3] end
+    if (n.powerColor or n.id=="minimalPower") and s.powerColor then tint[1],tint[2],tint[3]=s.powerColor[1],s.powerColor[2],s.powerColor[3] end
     if n.nameColor and s.nameColor then tint[1],tint[2],tint[3]=s.nameColor[1],s.nameColor[2],s.nameColor[3] end
     if n.targetNameColor then
         if s.isPlayer and s.nameColor then tint[1],tint[2],tint[3]=s.nameColor[1],s.nameColor[2],s.nameColor[3]
@@ -247,7 +247,7 @@ local function Text(n,s)
     if b=="powerText" then return V.Format(n,s.power or "") end
     if b=="healthPercent" then return s.healthRatio and string.format("%.0f%%",s.healthRatio*100) or "" end
     if b=="powerPercent" then
-        if n.manaPercentOtherwiseValue and s.powerType~=0 then return s.power or "" end
+        if (n.manaPercentOtherwiseValue or n.id=="minimalPowerPercent") and s.powerType~=0 then return s.power or "" end
         return s.powerRatio and string.format("%.0f%%",s.powerRatio*100) or ""
     end
     if b=="level" then return C.Number(s.level,0)<0 and "??" or s.level or "" end

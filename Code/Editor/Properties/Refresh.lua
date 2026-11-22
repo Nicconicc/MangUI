@@ -564,7 +564,9 @@ local function RefreshProperties(self)
         end
         if e.mainPreview and row.key=="overallScale" and n.compound~="targetCast" then visible=false end
         if row.key=="moduleGuideSettings"then visible=M.ModuleGuides.Supports(n)and n.id~="raidBuffs"end
-        if M.DisplayModes.IsBar(n) then visible=row.key=="hpMaterial" or row.key=="healthColors" end
+        if M.DisplayModes.IsBar(n) then
+            visible=row.key=="hpMaterial" or row.key=="width" or row.key=="height" or (n.id=="minimalHealth" and row.key=="healthColors")
+        end
         rows[#rows+1]={row=row,visible=visible}
     end
     OrganizePropertyRows(n,rows)

@@ -211,6 +211,7 @@ local function Paint(view,o,animateOnly,visibleHint)
     -- Keep the optional player percentage selectable in the design preview
     -- after hiding it in the live UI, including after reopening the editor.
     if view.preview and (view.selected==n.id or n.id=="playerHealthPercent") then shown=true end
+    if n.id=="minimalPowerValue" and s.powerType~=0 then shown=false end
     if view.hidden and view.hidden[n.id] then shown=false end
     if n.kind=="hitbox" then shown=false end
     local nativeSparkOwner
@@ -261,7 +262,7 @@ local function Paint(view,o,animateOnly,visibleHint)
             nativePercent=C.HealthPercent(s,CurveConstants.ScaleTo100)
             useNativePercent=true
         elseif n.binding=="powerPercent" and s.powerRatio==nil
-            and (not n.manaPercentOtherwiseValue or s.powerType==0)
+            and (not (n.manaPercentOtherwiseValue or n.id=="minimalPowerPercent") or s.powerType==0)
             and UnitPowerPercent and CurveConstants and CurveConstants.ScaleTo100 then
             nativePercent=UnitPowerPercent(s.unit,s.powerType,false,CurveConstants.ScaleTo100)
             useNativePercent=true
@@ -352,8 +353,9 @@ local function Paint(view,o,animateOnly,visibleHint)
                 if o.material then CachedPoint(o,"materialPoint",o.material,anchor,o.clip,anchor,-shift,0) end
             else CachedPoint(o,"clipPoint",o.clip,n.reverse and "RIGHT" or "LEFT",f,n.reverse and "RIGHT" or "LEFT",n.reverse and -inset or inset,0) end
             CachedPair(o,"clipSize",o.clip,"SetSize",math.max(.001,(n.width*extent-start)*ratio),n.height)
-            HealthTint(o,"fillColor",o.fill,col)
-            if o.material then HealthTint(o,"materialColor",o.material,col) end
+            HealthTint(o,"fillColor",o.fill,col,nil,"body")
+            if o.material then HealthTint(o,"materialColor",o.material,col,nil,"body") end
+            if o.minimalFillCap then HealthTint(o,"minimalFillColor",o.minimalFillCap,col,nil,"cap") end
         else
             if o.clip:IsShown() then o.clip:Hide() end
             if not o.bar:IsShown() then o.bar:Show() end
@@ -404,9 +406,10 @@ local function Paint(view,o,animateOnly,visibleHint)
             else CachedPair(o,"barRange",o.bar,"SetMinMaxValues",0,1);CachedValue(o,"barValue",o.bar,"SetValue",CastRatio(s) or 0) end
         else CachedPair(o,"barRange",o.bar,"SetMinMaxValues",0,1);CachedValue(o,"barValue",o.bar,"SetValue",.75) end
         if o.bar:IsShown() and (o.customHealthStyle or o.classHealthColor or o.targetHealthThreshold) then
-            HealthTint(o,"nativeHealthColor",o.nativeArt or o.bar:GetStatusBarTexture(),col,barColorChanged)
+            HealthTint(o,"nativeHealthColor",o.nativeArt or o.bar:GetStatusBarTexture(),col,barColorChanged,"body")
             if s.healthRatio==nil and not view.preview then RestrictedHealthThreshold(o,s,col) end
         end
+        if o.nativeCap then HealthTint(o,"minimalNativeColor",o.nativeCap,col,barColorChanged,"cap") end
         if o.nativeArt and not (o.customHealthStyle or o.classHealthColor or o.targetHealthThreshold) then
             CachedColor(o,"nativeArtColor",o.nativeArt,"SetVertexColor",col)
         end

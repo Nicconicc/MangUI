@@ -38,7 +38,7 @@ local function CachedColor(o,key,target,method,col)
     last=last or {};last[1],last[2],last[3],last[4]=a,b,c,d;cache[key]=last
     return true
 end
-local function HealthTint(o,key,target,col,force)
+local function HealthTint(o,key,target,col,force,section)
     if not target then return end
     if not (o.customHealthStyle or o.classHealthColor or o.targetHealthThreshold) then
         CachedColor(o,key,target,"SetVertexColor",col);return
@@ -46,6 +46,14 @@ local function HealthTint(o,key,target,col,force)
     local n=o.spec
     local finish=not o.classHealthColor and not o.healthThresholdActive and not o.tapColorActive
         and n.healthGradient==true and (n.healthGradientEnd or col) or nil
+    if finish and section and o.minimalSplit and Readable(col[1]) and Readable(col[2]) and Readable(col[3]) then
+        local seam=o.minimalSeam or {};o.minimalSeam=seam
+        for i=1,4 do
+            local start=col[i] or 1
+            seam[i]=start+((finish[i] or start)-start)*o.minimalSplit
+        end
+        if section=="cap" then finish=seam else col=seam end
+    end
     local a=col[4] or 1;local ea=finish and (finish[4] or a)
     local cache=o.healthTintCache or {};o.healthTintCache=cache
     if not Readable(col[1]) or not Readable(col[2]) or not Readable(col[3]) then
@@ -266,13 +274,13 @@ end
 local function PrepareVisual(o)
     local n=o.spec
     o.classHealthColor=not M.DisplayModes.IsBar(n) and M.db and M.db.healthClassColor==true and n.kind=="bar" and n.binding=="health"
-    o.customHealthStyle=n.kind=="bar" and (n.binding=="health" or M.DisplayModes.IsBar(n)) and (n.healthColor~=nil or n.healthGradient==true)
+    o.customHealthStyle=n.kind=="bar" and n.binding=="health" and (n.healthColor~=nil or n.healthGradient==true)
     o.healthChangeEnabled=n.kind=="bar" and n.binding=="health" and not n.vertical
         and (n.id=="wa4f9903a71c" or n.id=="wa385c615b2a")
     o.targetHealthThreshold=n.id=="wa385c615b2a"
     o.targetLevelColor=n.id=="wa38ad2639d2"
     o.healthThresholdActive=false
-    o.fixedAppearance=not (o.targetLevelColor or o.classHealthColor or o.customHealthStyle or o.targetHealthThreshold or n.powerColor or n.nameColor or n.targetNameColor or n.tapColor) and #(n.conditions or {})==0
+    o.fixedAppearance=not (o.targetLevelColor or o.classHealthColor or o.customHealthStyle or o.targetHealthThreshold or n.powerColor or n.id=="minimalPower" or n.nameColor or n.targetNameColor or n.tapColor) and #(n.conditions or {})==0
     local simple=n.kind=="texture" or n.kind=="sprite" or n.kind=="glow" or n.kind=="border"
         or (n.kind=="text" and (not n.binding or n.binding=="static" or n.binding=="auraStacks" or n.binding=="auraTime"))
     o.needsState=not (simple and not (n.powerColor or n.nameColor or n.targetNameColor or n.tapColor or n.castFill or n.binding=="castIcon" or n.binding=="raid" or n.binding=="partyClass" or n.binding=="partyRole"))

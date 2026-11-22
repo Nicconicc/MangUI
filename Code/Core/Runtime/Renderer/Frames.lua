@@ -216,6 +216,39 @@ function R.SetMovementModelsHidden(view,hidden)
     end
     if not hidden then R.Update(view) end
 end
+-- Keep the diamond in a separate slice so its width follows only the bar
+-- height. The two slices share an edge and stay inside the same fill clip.
+local function MinimalSliceSize(n)
+    local u=n.id=="minimalHealth" and 28/512 or 40/512
+    local base=n.id=="minimalHealth" and 300 or 200
+    return math.min(n.width-1,base*u*n.height/24),u
+end
+local function MinimalSlicePoints(t,anchor,x,width,height,u0,u1)
+    t:ClearAllPoints()
+    t:SetPoint("LEFT",anchor,"LEFT",x,0)
+    t:SetSize(width,height)
+    t:SetTexCoord(u0,u1,0,1)
+end
+local function MinimalSlices(o,anchor,body,cap,n,file,material,mask,capMask)
+    local x,u=MinimalSliceSize(n)
+    local split=x/n.width
+    local tex=material or file
+    body:SetTexture(tex)
+    cap:SetTexture(tex)
+    cap:SetBlendMode("BLEND")
+    MinimalSlicePoints(body,anchor,x,n.width-x,n.height,material and split or u,1)
+    MinimalSlicePoints(cap,anchor,0,x,n.height,0,material and split or u)
+    if mask then
+        mask:SetTexture(material and file or "Interface\\Buttons\\WHITE8X8","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+        capMask:SetTexture(material and file or "Interface\\Buttons\\WHITE8X8","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+        mask:ClearAllPoints();mask:SetAllPoints(body)
+        capMask:ClearAllPoints();capMask:SetAllPoints(cap)
+        mask:SetTexCoord(material and u or 0,1,0,1)
+        capMask:SetTexCoord(0,material and u or 1,0,1)
+    end
+    o.minimalSplit=split
+end
+
 function R.Position(view,f,n,parent)
     local point=points[n.point] and n.point or "CENTER"
     local x,y=M:NodePosition(n,view.byID)
@@ -701,6 +734,12 @@ function R.Apply(view,design,unchanged)
                 o.texture:SetTexture(n.file or "Interface\\Buttons\\WHITE8X8");o.texture:SetBlendMode(n.blend or "BLEND")
                 o.texture:SetDesaturated(n.desaturate or false);TextureCoords(o.texture,n)
                 if o.texture.SetRotation then o.texture:SetRotation(math.rad(n.rotation or 0)) end
+                local barSpec=view.byID[n.parent]
+                if M.DisplayModes.IsBar(barSpec) and n.id==barSpec.id.."Frame" then
+                    f:SetSize(barSpec.width,barSpec.height)
+                    if not o.minimalFrameCap then o.minimalFrameCap=f:CreateTexture(nil,"ARTWORK") end
+                    MinimalSlices(o,f,o.texture,o.minimalFrameCap,barSpec,n.file)
+                end
                 if M.PartyFrames then M.PartyFrames.ConfigureTexture(o) end
                 if n.attackKind then o.texture:SetVertexColor(unpack(n.color or {1,1,1,1})) end
             elseif o.bar then
@@ -748,6 +787,20 @@ function R.Apply(view,design,unchanged)
                     o.nativeMask:SetTexture(nativeMaterial and n.file or "Interface\\Buttons\\WHITE8X8","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
                     o.nativeMask:SetAllPoints(n.id=="playerThirdResourceFill" and o.frame or o.nativeArt)
                     TextureCoords(o.nativeMask,n)
+                    if M.DisplayModes.IsBar(n) then
+                        if not o.minimalFillCap then
+                            o.minimalFillCap=o.clip:CreateTexture(nil,"ARTWORK",nil,1)
+                            o.minimalFillMask=o.clip:CreateMaskTexture()
+                            o.minimalFillCap:AddMaskTexture(o.minimalFillMask)
+                            o.nativeCap=o.nativeArtFrame:CreateTexture(nil,"ARTWORK")
+                            o.nativeCapMask=o.bar:CreateMaskTexture()
+                            o.nativeCap:AddMaskTexture(o.nativeCapMask)
+                        end
+                        o.fill:Hide()
+                        o.material:Show()
+                        MinimalSlices(o,o.clip,o.material,o.minimalFillCap,n,n.file,nativeMaterial,o.materialMask,o.minimalFillMask)
+                        MinimalSlices(o,o.nativeArtFrame,o.nativeArt,o.nativeCap,n,n.file,nativeMaterial,o.nativeMask,o.nativeCapMask)
+                    end
                     if t and n.id=="playerThirdResourceFill" then
                         if nativeMaterial and not o.nativeFillMasked then
                             t:AddMaskTexture(o.nativeMask);o.nativeFillMasked=true

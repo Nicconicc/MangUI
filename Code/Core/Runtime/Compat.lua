@@ -270,8 +270,11 @@ function C.State(unit,preview,scene,out,fields,bossHealth)
         out.exists,out.health,out.maxHealth,out.power,out.maxPower=exists,hp*1000,100000,68,100
         out.healthRatio,out.powerRatio,out.powerType=hp/100,.68,0
         if unit=="player"then
-            local powerType=UnitPowerType("player")
-            out.powerType=C.Number(powerType)or 0
+            local powerType,token,r,g,b=UnitPowerType("player")
+            out.powerType=C.Number(powerType) or 0
+            local col=C.Readable(token) and PowerBarColor and PowerBarColor[token]
+            if col then pc[1],pc[2],pc[3]=col.r,col.g,col.b
+            else pc[1],pc[2],pc[3]=C.Number(r,0),C.Number(g,.51),C.Number(b,1) end
         end
         out.name,out.level=previewNames[unit] or M:T("预览"),80
         out.dead,out.friendly,out.isPlayer=scene=="dead",unit~="target",unit=="player"
