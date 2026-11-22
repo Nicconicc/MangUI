@@ -197,6 +197,7 @@ local function RefreshProperties(self)
     end
     if n.compound=="experienceBar" then e.experienceHoverTop:SetChecked(n.experienceHoverTop==true) end
     if n.compound=="attackVoice" then
+        e.attackVoiceSelect:SetMedia(M.AttackVoice.SelectedVoiceLabel(),nil)
         for stage,dropdown in pairs(e.attackVoiceChannels) do
             dropdown:SetValue(M.AttackVoice.Channel(n,stage))
         end
@@ -495,7 +496,7 @@ local function RefreshProperties(self)
             elseif n.compound=="partyFrames" then
                 visible=row.key=="scale" or (row.key and row.key:find("^party")~=nil)
             elseif n.compound=="attackVoice" then
-                visible=row.key=="attackVoiceChance"
+                visible=row.key=="attackVoiceSelect" or row.key=="attackVoiceChance"
                     or row.key=="attackVoiceDialogueTarget" or row.key=="attackVoiceDialogueCombat"
                     or row.key=="attackVoiceDialogueCast" or row.key=="attackVoiceDialogueAfter" or row.key=="attackVoiceDialogueDeath"
             elseif n.compound=="combatNotices" then

@@ -360,6 +360,17 @@ local function BuildProperties(e)
     Row(32,{{e.menuAlwaysVisible,-4,0}},{},"menuAlwaysVisible");y=y-32
     e.menuCornerSocial=W.Check(content,"鼠标悬浮屏幕左上角显示好友及公会成员",function(enabled)Change("menuCornerSocial",enabled)end)
     Row(32,{{e.menuCornerSocial,-4,0}},{},"menuCornerSocial");y=y-32
+    local voiceSelect
+    voiceSelect=W.MediaSelect(content,"音色选择",(propertyWidth-4)/2,"choice",function()
+        if voiceSelect.menu and voiceSelect.menu:IsShown() then voiceSelect.menu:Hide();return end
+        local node=Selected()
+        if not node or node.compound~="attackVoice" or not M:CanEdit() then return end
+        W.MediaMenu(voiceSelect,M.AttackVoice.VoiceChoices(),"choice",M.AttackVoice.SelectedVoice(),function(item)
+            if Selected()==node and M:CanEdit() then M.AttackVoice.SetVoice(item.path) end
+        end)
+    end)
+    e.attackVoiceSelect=voiceSelect
+    Row(53,{{voiceSelect,0,-3}},{},"attackVoiceSelect");y=y-53
     e.attackVoiceChannels={}
     local channelItems,channelLabels={},{}
     for _,choice in ipairs(M.AttackVoice.channelChoices) do

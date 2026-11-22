@@ -112,22 +112,90 @@ M.moduleIDs[MODULE]=true
 M:EnsureAttackVoiceModule(M.defaults)
 if M.recordedDefaults then M:EnsureAttackVoiceModule(M.recordedDefaults) end
 
-local function UpdatePlayer()
-    V.dialogueRace,V.dialogueSex=nil,nil
+local raceVoices={
+    {"Human","人类"},
+    {"Dwarf","矮人"},
+    {"NightElf","暗夜精灵"},
+    {"BloodElf","血精灵"},
+    {"Gnome","侏儒"},
+    {"Draenei","德莱尼"},
+    {"Orc","兽人"},
+    {"Tauren","牛头人"},
+    {"Troll","巨魔"},
+    {"Goblin","地精"},
+    {"Vulpera","狐人"},
+    {"Pandaren","熊猫人"},
+    {"Worgen","狼人"},
+    {"Dracthyr","龙希尔"},
+    {"Scourge","亡灵"},
+}
+local voiceOptions={{path="default"}}
+local voicesByID={}
+for _,race in ipairs(raceVoices) do
+    for sex=2,3 do
+        local option={path=race[1]..":"..sex,race=race[1],label=race[2],sex=sex}
+        voiceOptions[#voiceOptions+1]=option
+        voicesByID[option.path]=option
+    end
+end
+
+function V.SelectedVoice()
+    local saved=type(MangUICharacterDB)=="table" and MangUICharacterDB.attackVoiceID
+    return voicesByID[saved] and saved or "default"
+end
+
+local function VoiceLabel(option)
+    if not option.race then return M:T("默认") end
+    return M:T(option.sex==2 and "%s男" or "%s女"):format(M:T(option.label))
+end
+
+function V.VoiceChoices()
+    local items={}
+    for _,option in ipairs(voiceOptions) do
+        items[#items+1]={path=option.path,name=VoiceLabel(option)}
+    end
+    return items
+end
+
+function V.SelectedVoiceLabel()
+    return VoiceLabel(voicesByID[V.SelectedVoice()] or voiceOptions[1])
+end
+
+local function ResolveVoice()
+    local option=voicesByID[V.SelectedVoice()]
+    if option then return option.race,option.sex,option.race end
     local name,race=UnitRace("player")
     local sex=C.Number(UnitSex("player"))
-    V.guid=UnitGUID("player")
-    if not C.Readable(race) or not C.Readable(name) then V.sounds=nil;return end
+    if not C.Readable(race) or not C.Readable(name) or type(race)~="string" then return end
     if C.interface==16001 then
-        local token=type(race)=="string" and race:lower():gsub("[^a-z]","") or ""
+        local token=race:lower():gsub("[^a-z]","")
         if token:find("skyborne",1,true) or token:find("sendorei",1,true) or token=="tianyi"
             or type(name)=="string" and (name:find("天裔",1,true) or name:find("天弈",1,true)) then
             race="Nightborne"
         end
     end
+    return dialogueRaceAliases[race] or race,sex,race
+end
+
+local function VoiceSounds(race,sex)
     local pool=race and M.AttackVoiceSounds[race]
-    V.sounds=pool and (sex==2 and pool[1] or sex==3 and pool[2] or nil)
-    V.dialogueRace,V.dialogueSex=dialogueRaceAliases[race] or race,sex
+    return pool and (sex==2 and pool[1] or sex==3 and pool[2] or nil)
+end
+
+local function UpdatePlayer()
+    local attackRace
+    V.dialogueRace,V.dialogueSex,attackRace=ResolveVoice()
+    V.sounds=VoiceSounds(attackRace,V.dialogueSex)
+    V.guid=UnitGUID("player")
+end
+
+function V.SetVoice(value)
+    if value~="default" and not voicesByID[value] then return end
+    if type(MangUICharacterDB)~="table" then MangUICharacterDB={} end
+    MangUICharacterDB.attackVoiceID=voicesByID[value] and value or nil
+    if V.previewHandle and StopSound then StopSound(V.previewHandle);V.previewHandle=nil end
+    if V.enabled then UpdatePlayer() end
+    M:RefreshProperties()
 end
 
 local function DialoguePlaying()
@@ -165,38 +233,44 @@ local function AttackPath(id)
     return M.ART.."Sounds\\AttackVoice\\"..id..".ogg"
 end
 
+local function DialoguePool(locale,race,sex)
+    local language=M.AttackVoiceDialogue[locale]
+    local bodies=language and race and language[race]
+    return bodies and bodies[sex]
+end
+
+local function RandomAttackPath(race,sex,locale,sounds)
+    if sounds and #sounds>0 then return AttackPath(sounds[math.random(#sounds)]) end
+    -- Races without bundled strike effects can still use their own voice.
+    local pool=DialoguePool(locale,race,sex)
+    local combat=pool and pool.Combat
+    if combat and #combat>0 then
+        return DialoguePath(locale,pool,combat[math.random(#combat)])
+    end
+end
+
 function V.Preview(node,stage)
     if type(PlaySoundFile)~="function" then return end
-    local candidates={}
+    local race,sex,attackRace=ResolveVoice()
+    local locale=DialogueLocale()
+    local path
     if stage=="Attack" then
-        local seen={}
-        for _,race in pairs(M.AttackVoiceSounds) do
-            for _,body in ipairs(race) do
-                for _,id in ipairs(body) do
-                    if not seen[id] then
-                        seen[id]=true
-                        candidates[#candidates+1]=AttackPath(id)
-                    end
-                end
-            end
-        end
+        path=RandomAttackPath(race,sex,locale,VoiceSounds(attackRace,sex))
     else
-        local locale=DialogueLocale()
-        if not M.AttackVoiceDialogue[locale] then locale="zhCN" end
+        local pool=DialoguePool(locale,race,sex)
+        if not pool then return end
         local groups=stage=="After" and {"After","AfterLow","AfterNormal","AfterHigh"} or {stage}
-        for _,race in pairs(M.AttackVoiceDialogue[locale] or {}) do
-            for _,body in pairs(race) do
-                for _,group in ipairs(groups) do
-                    for _,clip in ipairs(body[group] or {}) do
-                        candidates[#candidates+1]=DialoguePath(locale,body,clip)
-                    end
-                end
+        local candidates={}
+        for _,group in ipairs(groups) do
+            for _,clip in ipairs(pool[group] or {}) do
+                candidates[#candidates+1]=clip
             end
         end
+        if #candidates>0 then path=DialoguePath(locale,pool,candidates[math.random(#candidates)]) end
     end
-    if #candidates==0 then return end
+    if not path then return end
     if V.previewHandle and StopSound then StopSound(V.previewHandle) end
-    local played,handle=PlaySoundFile(candidates[math.random(#candidates)],V.Channel(node,stage))
+    local played,handle=PlaySoundFile(path,V.Channel(node,stage))
     V.previewHandle=played and handle or nil
 end
 
@@ -207,9 +281,7 @@ local function PlayDialogue(stage)
     local priority=stage=="After" or stage=="Death"
     if playing and (not priority or not V.dialogueHandle or not StopSound) then return end
     local locale=DialogueLocale()
-    local languagePools=M.AttackVoiceDialogue[locale]
-    local racePools=languagePools and languagePools[V.dialogueRace]
-    local pools=racePools and racePools[V.dialogueSex]
+    local pools=DialoguePool(locale,V.dialogueRace,V.dialogueSex)
     local clips=pools and pools[stage]
     if not clips or #clips==0 then return end
     local now=GetTime()
@@ -237,9 +309,9 @@ end
 local function PlayAttack()
     if V.inCombat then PlayDialogue("Combat") end
     if DialoguePlaying() then return end
-    local pool=V.sounds
-    if not pool or V.chance<=0 or V.chance<1 and math.random()>=V.chance then return end
-    PlaySoundFile(AttackPath(pool[math.random(#pool)]),V.channels.Attack)
+    if V.chance<=0 or V.chance<1 and math.random()>=V.chance then return end
+    local path=RandomAttackPath(V.dialogueRace,V.dialogueSex,DialogueLocale(),V.sounds)
+    if path then PlaySoundFile(path,V.channels.Attack) end
 end
 
 local function CombatLog(_,event,_,source,_,_,_,_,_,_,_,spellID,spellName)
