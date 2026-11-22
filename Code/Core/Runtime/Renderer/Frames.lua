@@ -223,11 +223,13 @@ local function MinimalSliceSize(n)
     local base=n.id=="minimalHealth" and 300 or 200
     return math.min(n.width-1,base*u*n.height/24)
 end
-local function MinimalSlicePoints(t,anchor,x,width,height)
+local function MinimalSlicePoints(t,anchor,width,height,relativePoint)
     t:ClearAllPoints()
-    t:SetPoint("LEFT",anchor,"LEFT",x,0)
+    t:SetPoint("LEFT",anchor,relativePoint or "LEFT",0,0)
     t:SetSize(width,height)
     t:SetTexCoord(0,1,0,1)
+    if t.SetSnapToPixelGrid then t:SetSnapToPixelGrid(false) end
+    if t.SetTexelSnappingBias then t:SetTexelSnappingBias(0) end
 end
 local function MinimalSlices(o,anchor,body,cap,n,file,material,mask,capMask)
     local x=MinimalSliceSize(n)
@@ -236,13 +238,13 @@ local function MinimalSlices(o,anchor,body,cap,n,file,material,mask,capMask)
     body:SetTexture(material or bodyFile)
     cap:SetTexture(material or capFile)
     cap:SetBlendMode("BLEND")
-    MinimalSlicePoints(body,anchor,x,n.width-x,n.height)
-    MinimalSlicePoints(cap,anchor,0,x,n.height)
+    MinimalSlicePoints(cap,anchor,x,n.height)
+    MinimalSlicePoints(body,cap,n.width-x,n.height,"RIGHT")
     if mask then
         if material then
             mask:SetTexture(bodyFile);capMask:SetTexture(capFile)
-            MinimalSlicePoints(mask,anchor,x,n.width-x,n.height)
-            MinimalSlicePoints(capMask,anchor,0,x,n.height)
+            mask:ClearAllPoints(); mask:SetAllPoints(body); mask:SetTexCoord(0,1,0,1)
+            capMask:ClearAllPoints(); capMask:SetAllPoints(cap); capMask:SetTexCoord(0,1,0,1)
             if not o[mask] then body:AddMaskTexture(mask);cap:AddMaskTexture(capMask);o[mask]=true end
         else
             if o[mask] then body:RemoveMaskTexture(mask);cap:RemoveMaskTexture(capMask);o[mask]=nil end
@@ -748,8 +750,7 @@ function R.Apply(view,design,unchanged)
                 local barSpec=view.byID[n.parent]
                 if M.DisplayModes.IsBar(barSpec) and n.id==barSpec.id.."Frame" then
                     f:SetSize(barSpec.width,barSpec.height)
-                    if not o.minimalFrameCap then o.minimalFrameCap=f:CreateTexture(nil,"ARTWORK") end
-                    MinimalSlices(o,f,o.texture,o.minimalFrameCap,barSpec,n.file)
+                    o.texture:Hide()
                     if not o.minimalBackground then
                         o.minimalBackground=f:CreateTexture(nil,"BACKGROUND")
                         o.minimalBackgroundCap=f:CreateTexture(nil,"BACKGROUND")
@@ -819,12 +820,18 @@ function R.Apply(view,design,unchanged)
                             o.minimalMaxLayer=CreateFrame("Frame",nil,f)
                             o.minimalMaxLayer:SetAllPoints(f)
                             o.minimalMaxLayer:EnableMouse(false)
+                            o.minimalMetalBody=o.minimalMaxLayer:CreateTexture(nil,"ARTWORK")
+                            o.minimalMetalCap=o.minimalMaxLayer:CreateTexture(nil,"ARTWORK")
                             o.minimalMaxEdge=o.minimalMaxLayer:CreateTexture(nil,"OVERLAY")
                             o.minimalMaxEdge:SetPoint("RIGHT",f,"RIGHT",0,0)
                         end
                         o.minimalMaxLayer:SetFrameLevel(o.clip:GetFrameLevel()+3)
+                        local frameSpec=byID[n.id.."Frame"]
+                        if frameSpec then
+                            MinimalSlices(o,f,o.minimalMetalBody,o.minimalMetalCap,n,frameSpec.file)
+                        end
                         o.minimalMaxEdge:SetTexture((n.file:gsub("%.tga$","MaxEdge.tga")))
-                        o.minimalMaxEdge:SetSize(n.height*(n.id=="minimalHealth" and .32 or .26),n.height)
+                        o.minimalMaxEdge:SetSize(n.height*(n.id=="minimalHealth" and .495 or .402),n.height)
                         o.fill:Hide()
                         o.material:Show()
                         MinimalSlices(o,f,o.material,o.minimalFillCap,n,n.file,nativeMaterial,o.materialMask,o.minimalFillMask)
