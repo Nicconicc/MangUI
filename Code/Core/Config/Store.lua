@@ -44,7 +44,7 @@ function M:InitStore()
         -- The recorded preset already uses the current schema and needs no migrations.
         if self.recordedDefaults then db.schema=82 end
     end
-    if firstLogin then db.displayMode="minimal" end
+    if firstLogin then db.displayMode="standard" end
     if not db.schema or db.schema<3 then self:UpgradeFocusAvatar(db.design) end
     if not db.schema or db.schema<4 then self:UpgradeFocusPortraitSize(db.design) end
     if not db.schema or db.schema<5 then self:UpgradeFocusBackgroundSize(db.design) end
@@ -299,9 +299,9 @@ function M:InitStore()
     self:Index()
     self.DisplayModes.InitProfiles(db)
     if firstLogin then
-        self.DisplayModes.ApplyDefaults(db.design)
-        self.DisplayModes.ApplyDefaults(db.moduleDefaults)
-        self:Index()
+        local minimal=db.inactiveDesign
+        self.DisplayModes.ApplyDefaults(minimal.design)
+        self.DisplayModes.ApplyDefaults(minimal.moduleDefaults)
     end
 end
 function M:BindDesignMonitors()
