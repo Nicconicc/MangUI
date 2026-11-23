@@ -796,7 +796,8 @@ local function Icon(o,i)
     slot.texture=slot.baseIconFrame:CreateTexture(nil,"ARTWORK");slot.texture:SetAllPoints()
     slot.timerGate=CreateFrame("Frame",nil,slot);slot.timerGate:SetAllPoints()
     slot.text=slot.timerGate:CreateFontString(nil,"OVERLAY");Font(slot.text);slot.text:SetPoint("BOTTOM",slot,"TOP",0,7)
-    slot.count=slot:CreateFontString(nil,"OVERLAY");CountFont(slot.count);slot.count:SetPoint("BOTTOM",slot,"TOP",0,29)
+    slot.countGate=CreateFrame("Frame",nil,slot);slot.countGate:SetAllPoints()
+    slot.count=slot.countGate:CreateFontString(nil,"OVERLAY");CountFont(slot.count);slot.count:SetPoint("BOTTOM",slot,"TOP",0,29)
     slot.cooldown=CreateFrame("Cooldown",nil,slot.timerGate,"CooldownFrameTemplate");slot.cooldown:SetAllPoints();slot.cooldown:EnableMouse(false)
     slot.cooldown:SetDrawEdge(false);slot.cooldown:SetDrawBling(false);slot.cooldown:SetDrawSwipe(false)
     M.CustomMonitor.SetVisual(slot.cooldown,"SetHideCountdownNumbers",true);slot.cooldown.noCooldownCount=true
@@ -929,6 +930,8 @@ local function BindEffect(slot)
             local timer=frame:CreateFontString(nil,"OVERLAY");Font(timer)
             timer:SetPoint("BOTTOM",frame,"TOP",0,7)
             frame:SetDurationText(timer,S.DurationTextOptions())
+            local count=frame:CreateFontString(nil,"OVERLAY");CountFont(count)
+            count:SetPoint("BOTTOM",frame,"TOP",0,29);frame:SetApplicationCount(count,{})
             local presence=CreateFrame("Frame",nil,frame);presence:SetAllPoints();presence:EnableMouse(false)
             slot.effectPresence=presence
         end})
@@ -1040,6 +1043,7 @@ function S.Configure(view,o)
         end
         slot.timerGate:SetAlpha(1);slot.cooldown:SetAlpha(1)
         if slot.effectNative then slot.effectNative:SetAlpha(0)end
+        slot.spellCount=nil;slot.countGate:SetAlpha(1)
         CountFont(slot.count);M.CustomMonitor.SetText(slot.count,"")
         M.CustomMonitor.SetText(slot.text,"");ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
         Font(slot.text)
@@ -1064,6 +1068,30 @@ local function SpellCharges(key)
         if info then return info.currentCharges,info.maxCharges,info.cooldownStartTime,info.cooldownDuration,info.chargeModRate end
     else return Safe(GetSpellCharges,key)end
 end
+local function SpellCount(slot,key,charges,maximum)
+    local summons=S.SummonCount(slot)
+    if not Readable(summons) or (Number(summons) and summons>0) then return summons end
+    if summons~=nil then return end
+    if Number(maximum) and maximum>1 then return charges end
+
+    -- Prefer the client's display-ready value when charge data is restricted.
+    if not Number(maximum) then
+        local display=Safe(C_Spell and C_Spell.GetSpellDisplayCount,key)
+        if not Readable(display) then return display end
+        if type(display)=="string" and display~="" and display~="0" then return display end
+        if not Readable(charges) or Number(charges) then return charges end
+    end
+    local castCount=C_Spell and C_Spell.GetSpellCastCount
+    local count
+    if castCount then count=Safe(castCount,key)
+    else count=Safe(GetSpellCount,slot.spellName or key) end
+    if Number(count) and count>0 then return count end
+end
+local function SetCount(slot,value)
+    if type(value)=="number" then CountText(slot.count,value,true)
+    elseif type(value)=="string" then M.CustomMonitor.SetText(slot.count,value)
+    else M.CustomMonitor.SetText(slot.count,"") end
+end
 local function SpellCooldown(key)
     if C_Spell and C_Spell.GetSpellCooldown then
         local info=Safe(C_Spell.GetSpellCooldown,key)
@@ -1081,10 +1109,12 @@ local function GlobalCooldown(start,duration,cache)
 end
 local function Cooldown(entry,slot,cache)
     local key=slot.effectSpell or slot.spellID or entry.value
+    if not slot.effectSpell and slot.spellID then
+        local override=Number(Safe(C_Spell and C_Spell.GetOverrideSpell or FindSpellOverrideByID,slot.spellID))
+        if override and override>0 then key=override end
+    end
     local charges,maximum,chargeStart,chargeDuration,chargeRate=SpellCharges(key)
-    local summons=S.SummonCount(slot)
-    if summons~=nil then CountText(slot.count,summons,true,true)
-    elseif Number(maximum)and maximum<=1 then M.CustomMonitor.SetText(slot.count,"")else CountText(slot.count,charges,true)end
+    slot.spellCount=SpellCount(slot,key,charges,maximum)
     if C_Spell and C_Spell.GetSpellCooldownDuration then
         local duration=Safe(C_Spell.GetSpellChargeDuration,key) or Safe(C_Spell.GetSpellCooldownDuration,key,true)
         if duration and slot.cooldown.SetCooldownFromDurationObject then
@@ -1144,11 +1174,13 @@ local function IsSpellActionUsable(id)
     return false
 end
 local function Usable(slot,now,cache)
-    slot.usableReady=false;slot.usableCooldown=nil
+    slot.usableReady=false;slot.usableCooldown=nil;slot.spellCount=nil
     local id=slot.spellID
     if not id then return end
     local override=Number(Safe(C_Spell and C_Spell.GetOverrideSpell or FindSpellOverrideByID,id))
     local key=override and override>0 and override or id
+    local charges,maximum=SpellCharges(key)
+    slot.spellCount=SpellCount(slot,key,charges,maximum)
     if M.Compat.interface==16001 then
         local base=Number(Safe(C_Spell and C_Spell.GetBaseSpell,id)) or id
         if base<=0 then base=id end
@@ -1158,7 +1190,6 @@ local function Usable(slot,now,cache)
         local usable=Safe(C_Spell and C_Spell.IsSpellUsable or IsUsableSpell,key)
         if not Readable(usable) or usable~=true then return end
     end
-    local charges,maximum=SpellCharges(key)
     if Number(maximum) and maximum>0 and Number(charges) then
         slot.usableReady=charges>0
         return
@@ -1236,7 +1267,7 @@ local function FindEffectAura(effect,now)
             local aura=Safe(C_UnitAuras.GetPlayerAuraBySpellID,id)
             if Readable(aura) and type(aura)=="table" and (not canaccesstable or canaccesstable(aura))then
                 local expires=Number(aura.expirationTime)
-                if expires and expires>now then return aura end
+                if expires and (expires==0 or expires>now) then return aura end
             end
         end
     end
@@ -1251,7 +1282,7 @@ local function FindEffectAura(effect,now)
             local own=effect.unit~="target" or (Readable(source) and (source=="player"
                 or (source and M.Compat.Bool(Safe(UnitIsUnit,source,"player")))))
             local expires=Number(aura.expirationTime)
-            if own and expires and expires>now and expires>latest then
+            if own and expires and ((expires==0 and not best) or (expires>now and expires>latest)) then
                 best,latest=aura,expires
             end
         end
@@ -1321,18 +1352,29 @@ local function PaintEffect(slot,now)
     local effect,aura=slot.effect,slot.effectAura
     local expires=aura and Number(aura.expirationTime)
     local timed=expires and expires>now
-    local native=slot.effectNative
-    if slot.blizzardTimer then
-        if native then native:SetAlpha(0)end
-        slot.timerGate:SetAlpha(1);slot.cooldown:SetAlpha(0)
-        M.CustomMonitor.SetText(slot.text,slot.blizzardTimer)
-        return false,true
+    local active=expires and (expires==0 or timed)
+    local stacks=active and aura.applications
+    local amount=Number(stacks)
+    local display=amount and amount>1 and amount or nil
+    if active and not Readable(stacks) then
+        local id=Number(aura.auraInstanceID)
+        if id then display=Safe(C_UnitAuras and C_UnitAuras.GetAuraApplicationDisplayCount,effect.unit,id,2) end
     end
-    local useNative=effect and native and not timed and not slot.effectNeedsBind
+    if Readable(display) and (display==nil or display=="") then display=slot.spellCount end
+    SetCount(slot,display)
+
+    local native=slot.effectNative
+    local useNative=effect and native and not active and not slot.effectNeedsBind
     if native then native:SetAlpha(useNative and 1 or 0)end
+    slot.countGate:SetAlpha(1)
     slot.timerGate:SetAlpha(1)
-    slot.cooldown:SetAlpha(timed and 0 or 1)
-    if timed then
+    if slot.blizzardTimer then
+        slot.cooldown:SetAlpha(0)
+        M.CustomMonitor.SetText(slot.text,slot.blizzardTimer)
+    else
+        slot.cooldown:SetAlpha(timed and 0 or 1)
+    end
+    if timed and not slot.blizzardTimer then
         Remaining(slot,expires-now)
         M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
         return true,true
@@ -1340,10 +1382,16 @@ local function PaintEffect(slot,now)
     if useNative and slot.effectPresence then
         local present=Safe(slot.effectPresence.IsVisible,slot.effectPresence)
         if type(present)=="boolean" then
-            if slot.timerGate.SetAlphaFromBoolean then slot.timerGate:SetAlphaFromBoolean(present,0,1)
-            elseif Readable(present) then slot.timerGate:SetAlpha(present and 0 or 1)end
+            if slot.timerGate.SetAlphaFromBoolean then
+                slot.timerGate:SetAlphaFromBoolean(present,0,1)
+                slot.countGate:SetAlphaFromBoolean(present,0,1)
+            elseif Readable(present) then
+                local alpha=present and 0 or 1
+                slot.timerGate:SetAlpha(alpha);slot.countGate:SetAlpha(alpha)
+            end
         end
     end
+    if slot.blizzardTimer then return false,true end
 end
 
 function S.Paint(view,o,animateOnly)
@@ -1497,7 +1545,8 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetText(slot.count,result.count and tostring(result.count)or "")
             M.CustomMonitor.Glow(slot,result.show and result.glow)
         elseif slot.entry.type=="usable" then
-            M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
+            M.CustomMonitor.SetText(slot.text,"")
+            if view.preview then SetCount(slot,nil) else SetCount(slot,slot.spellCount) end
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
         elseif view.preview then
             local faded=(i%2==1)~=reversed
@@ -1505,6 +1554,7 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetText(slot.text,S.FormatCountdown(30-i))
             M.CustomMonitor.SetText(slot.count,isAura and "3"or "2")
         elseif slot.duration then
+            SetCount(slot,slot.spellCount)
             useCooldownNumbers=true
             M.CustomMonitor.SetText(slot.text,"")
             local desat=DisplayCurve(desaturationCurves,reversed,0,1)
@@ -1533,6 +1583,7 @@ function S.Paint(view,o,animateOnly)
             textureAlpha=faded and .5 or 1
             shortcutAlpha=active and 0 or 1
             if isAura then CountText(slot.count,active and slot.stacks or nil,false)end
+            if not isAura then SetCount(slot,slot.spellCount)end
         end
         if not view.preview and IsCombined(slot.entry) then
             local effectVisible,hasTextTimer=PaintEffect(slot,now)
@@ -1551,7 +1602,7 @@ function S.Paint(view,o,animateOnly)
         M.CustomMonitor.SetVisual(slot.shortcutFrame,"SetAlpha",shortcutAlpha)
     end
 end
-local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,
+local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,SPELL_UPDATE_USES=true,
     SPELL_UPDATE_USABLE=true,ACTIONBAR_UPDATE_USABLE=true,ACTIONBAR_SLOT_CHANGED=true,
     SPELL_ACTIVATION_OVERLAY_GLOW_SHOW=true,SPELL_ACTIVATION_OVERLAY_GLOW_HIDE=true,
     SPELLS_CHANGED=true,LEARNED_SPELL_IN_TAB=true,PLAYER_ENTERING_WORLD=true,PLAYER_REGEN_ENABLED=true,UNIT_SPELLCAST_SUCCEEDED=true,
@@ -1571,6 +1622,7 @@ function S.Event(view,event,unit)
     if event=="UNIT_AURA" then
         S.InvalidateMonitor(o,unit=="player" and "buff" or "debuff")
         S.InvalidateMonitor(o,"cooldown")
+        if unit=="player" and o.skillKinds.usable then S.InvalidateMonitor(o,"usable")end
     elseif event=="PLAYER_TARGET_CHANGED" then
         o.nativeTargetGeneration=nil
         S.InvalidateMonitor(o,"debuff",true)
@@ -1584,7 +1636,7 @@ function S.Event(view,event,unit)
     elseif activation or event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" or event=="ACTIONBAR_SLOT_CHANGED" then
         S.InvalidateMonitor(o,"usable")
         if o.skillKinds.blizzard then S.InvalidateMonitor(o,"cooldown",activation)end
-    elseif event=="SPELL_UPDATE_COOLDOWN" or event=="SPELL_UPDATE_CHARGES" or event=="UNIT_SPELLCAST_SUCCEEDED" then
+    elseif event=="SPELL_UPDATE_COOLDOWN" or event=="SPELL_UPDATE_CHARGES" or event=="SPELL_UPDATE_USES" or event=="UNIT_SPELLCAST_SUCCEEDED" then
         S.InvalidateMonitor(o,"cooldown")
         S.InvalidateMonitor(o,"usable")
     else
