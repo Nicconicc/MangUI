@@ -145,6 +145,56 @@ function D.Profile(source)
     return result
 end
 
+-- Preset from the Forever minimal layout. Other modules only supply layout values.
+local monitorScale=0.66000004053116
+local fontPath="Interface\\AddOns\\MangUI\\Assets\\Fonts\\Myriad.ttf"
+local minimalDefaults={
+    mainComposite={moveX=-38.280000829697,moveY=-133.51999673843,shakeEnabled=true},
+    playerResources={x=73,y=55,mainScaleFactor=1,hideWithoutTarget=false},
+    minimalHealth={x=29,y=-114,width=240,height=18,scale=2.2000000476837,mainScaleFactor=1,
+        materialName="Solid",materialPath="Interface\\Buttons\\WHITE8X8",cropX=0,cropY=0,locked=false,reverse=false,
+        healthGradient=false,healthColor={0.8901960849762,0.92549020051956,1,1},
+        healthGradientEnd={0.30196079611778,0.68235296010971,0.33333334326744,1},
+        barBackgroundColor={0.098039217293262,0.10588235408068,0.16078431904316,0.81249928474426}},
+    minimalPower={x=-5,y=-146,width=180,height=18,scale=1.8999999761581,mainScaleFactor=1,
+        materialName="Wglass",materialPath="Interface\\AddOns\\MangUI\\Assets\\Library\\PartyFrames\\Wglass.tga",
+        barBackgroundColor={0.10196078568697,0.12156862765551,0.16078431904316,0.8072909116745}},
+    minimalHealthValue={x=-45,y=-220,fontName="Myriad",fontPath=fontPath,fontSize=20,mainScaleFactor=1},
+    minimalHealthPercent={x=-386,y=-222,fontName="Myriad",fontPath=fontPath,fontSize=20,mainScaleFactor=1,enabled=false},
+    minimalPowerValue={x=-236,y=-285,fontName="Myriad",fontPath=fontPath,fontSize=23.333333333333,mainScaleFactor=1},
+    minimalPowerPercent={x=-290,y=-280,fontName="Myriad",fontPath=fontPath,fontSize=20,mainScaleFactor=1},
+    wa8d650f8d3a={x=0,y=-820.83333333333},
+    petComposite={x=-1098.3428571429,y=-1547.6071428571},
+    totComposite={x=1015.2952380952,y=-1538.0571428571},
+    focusComposite={x=-1717.3904761905,y=-1540.8571428571},
+    partyFrames={x=359.99999441206,y=-382.4999916181},
+    playerSkillMonitor={x=-34.242428894761,y=-671.51511150506,scale=monitorScale},
+    playerOtherMonitor={x=-114.36362798943,y=-671.51511150506,scale=monitorScale},
+    cooldownMonitor={x=0,y=-833.33328215763,scale=monitorScale},
+    receivedBuffs={x=134.30299773667,y=-504.84845507353,scale=monitorScale},
+    raidVulnerability={x=-271.69694085248,y=-504.84845507353,scale=monitorScale},
+    raidBuffs={x=484.84845507353,y=-929.54539592601,scale=monitorScale},
+    commonItems={x=0,y=-929.09085326287,scale=monitorScale},
+    targetDistance={x=-230,y=-165},
+    targetDistanceNumber={x=0,y=-55},
+    targetThreat={x=-500,y=-366.66666666667},
+    chatButtons={x=400,y=35},
+    combatNotices={x=-383.33333333333,y=-233.33333333333},
+}
+
+function D.ApplyDefault(node)
+    local preset=minimalDefaults[node.id]
+    if preset then
+        for key,value in pairs(preset) do node[key]=M.Copy(value) end
+    end
+    return node
+end
+
+function D.ApplyDefaults(design)
+    D.Ensure(design)
+    for _,node in ipairs(design.nodes) do D.ApplyDefault(node) end
+end
+
 function D.ApplyStartingLayout(node)
     if node.id=="mainComposite" then node.moveX,node.moveY=0,0
     elseif node.id=="playerResources" then node.x,node.y=0,-135 end

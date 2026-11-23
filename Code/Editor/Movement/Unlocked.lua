@@ -83,6 +83,9 @@ function M:ResetUnlockedModulePositions()
     local defaults={}
     for _,n in ipairs(self.defaults.nodes)do defaults[n.id]=n end
     for _,n in ipairs(self.db.moduleDefaults and self.db.moduleDefaults.nodes or {})do defaults[n.id]=n end
+    if M.DisplayModes.Minimal() then
+        for id,ref in pairs(defaults) do defaults[id]=M.DisplayModes.ApplyDefault(M.Copy(ref)) end
+    end
     mode.dragMover=nil;mode.changed=false
     if mode.pickMenu then mode.pickMenu:Hide()end
     for _,mover in ipairs(mode.movers)do
@@ -107,8 +110,7 @@ function M:ResetUnlockedModulePositions()
                     end
                 end
                 if node.id=="mainComposite"then
-                    if M.DisplayModes.Minimal() then node.moveX,node.moveY=0,0
-                    else node.moveX,node.moveY=ref.moveX or 0,ref.moveY or 0 end
+                    node.moveX,node.moveY=ref.moveX or 0,ref.moveY or 0
                 end
             end
         end

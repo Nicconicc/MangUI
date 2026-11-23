@@ -34,7 +34,9 @@ function M:InitStore()
     local db=MangUIUFDB
     if db.schema and db.schema>82 then error("配置由更新版本创建，请更新 MangUI；现有配置未修改。") end
     RestoreLegacyCameraSpeeds(db)
-    if type(db.design)~="table" or type(db.design.nodes)~="table" then
+    local newDesign=type(db.design)~="table" or type(db.design.nodes)~="table"
+    local firstLogin=newDesign and db.displayMode==nil and db.inactiveDesign==nil and db.modeLayouts==nil
+    if newDesign then
         db.design=self.Copy(self.recordedDefaults or self.defaults)
         for key,value in pairs(self.recordedSettings or {}) do
             if db[key]==nil then db[key]=self.Copy(value) end
@@ -42,6 +44,7 @@ function M:InitStore()
         -- The recorded preset already uses the current schema and needs no migrations.
         if self.recordedDefaults then db.schema=82 end
     end
+    if firstLogin then db.displayMode="minimal" end
     if not db.schema or db.schema<3 then self:UpgradeFocusAvatar(db.design) end
     if not db.schema or db.schema<4 then self:UpgradeFocusPortraitSize(db.design) end
     if not db.schema or db.schema<5 then self:UpgradeFocusBackgroundSize(db.design) end
@@ -295,6 +298,11 @@ function M:InitStore()
     if self.UpgradePlayerOtherMonitorDefaults then self:UpgradePlayerOtherMonitorDefaults(db)end
     self:Index()
     self.DisplayModes.InitProfiles(db)
+    if firstLogin then
+        self.DisplayModes.ApplyDefaults(db.design)
+        self.DisplayModes.ApplyDefaults(db.moduleDefaults)
+        self:Index()
+    end
 end
 function M:BindDesignMonitors()
     if self.BindPlayerSkillMonitorClass then self:BindPlayerSkillMonitorClass()end
@@ -489,7 +497,7 @@ function M:ResetDesign()
     if not self:CanEdit() then return end
     self.db.design=self.Copy(self.recordedDefaults or self.defaults)
     if self.DisplayModes.Minimal() then
-        for _,node in ipairs(self.db.design.nodes) do self.DisplayModes.ApplyStartingLayout(node) end
+        self.DisplayModes.ApplyDefaults(self.db.design)
     end
     self.selection="mainComposite"; self:Commit()
 end
@@ -527,11 +535,8 @@ function M:ResetPreviewModule(moduleID)
         defaultsByID[moduleID]=voiceDefaults
     end
     if moduleID=="mainComposite" and self.DisplayModes.Minimal() then
-        for _,id in ipairs({"mainComposite","playerResources"}) do
-            if resetIDs[id] then
-                defaultsByID[id]=self.Copy(defaultsByID[id])
-                self.DisplayModes.ApplyStartingLayout(defaultsByID[id])
-            end
+        for id in pairs(resetIDs) do
+            defaultsByID[id]=self.DisplayModes.ApplyDefault(self.Copy(defaultsByID[id]))
         end
     end
     local nodes,seen={},{}
