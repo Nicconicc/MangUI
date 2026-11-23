@@ -393,6 +393,7 @@ function M:StartLive()
                 if M.editor.window:IsShown() then M:Safe("头像预览刷新",R.Update,preview) end
             end
         elseif event=="GROUP_ROSTER_UPDATE" then
+            view.partyRosterRefresh=true
             for member in pairs(partyUnits) do
                 M.Portraits.Invalidate(M.live,member,event)
             end
@@ -502,6 +503,10 @@ function M:StartLive()
     local function Refresh()
         local view=M.live
         UpdateBossHealth(view)
+        if view.partyRosterRefresh then
+            view.partyRosterRefresh=nil
+            Module("partyFrames")
+        end
         if view.shownTargetModules then
             for id in pairs(view.shownTargetModules) do Module(id) end
             view.shownTargetModules=nil

@@ -490,7 +490,7 @@ function P.ConfigureGroupVisibility(view)
     local root=view.byID.partyFrames
     local _,instanceType=IsInInstance()
     local driver=(root and root.hidePartyInRaid and "[group:raid] hide; " or "")
-        .."[group] show; "..(instanceType=="pvp" and "show" or "hide")
+        .."[@party1,exists][@party2,exists][@party3,exists][@party4,exists][group] show; "..(instanceType=="pvp" and "show" or "hide")
     if gate.partyDriver~=driver then
         RegisterStateDriver(gate,"visibility",driver);gate.partyDriver=driver
     end
@@ -506,7 +506,9 @@ function P.VisibilityParent(view,n,parent)
                 "UPDATE_BATTLEFIELD_STATUS","PLAYER_REGEN_ENABLED"})do gate:RegisterEvent(event)end
             gate:SetScript("OnEvent",function()P.ConfigureGroupVisibility(view)end)
             gate:SetScript("OnShow",function()
-                if not view.applying then M:Safe("队伍刷新",M.Renderer.Update,view)end
+                -- Secure gates can be shown before the roster event. Queue a
+                -- fresh paint for after the native unit-watch pass completes.
+                if not view.applying then view.partyRosterRefresh=true end
             end)
         end
         P.ConfigureGroupVisibility(view)
@@ -518,9 +520,12 @@ function P.VisibilityParent(view,n,parent)
     if not gate then
         gate=CreateFrame("Frame",nil,parent,"SecureHandlerStateTemplate")
         gate:SetAllPoints(parent);gate:EnableMouse(false);view.partyGates[n.id]=gate
-        RegisterStateDriver(gate,"visibility","[@"..n.unit..",exists] show; hide")
+        -- Explicitly watch the unit from startup so a newly assigned party
+        -- token wakes the row even while protected layout edits are locked.
+        gate:SetAttribute("unit",n.unit)
+        RegisterUnitWatch(gate)
         gate:SetScript("OnShow",function()
-            if not view.applying then M:Safe("小队刷新",M.Renderer.Update,view,{[n.unit]=true}) end
+            if not view.applying then view.partyRosterRefresh=true end
         end)
     end
     return gate
