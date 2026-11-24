@@ -70,6 +70,7 @@ end
 
 local function Paint(view,o,animateOnly,visibleHint)
     local n=o.spec;local f=o.frame
+    if n.kind=="portrait" and not view.preview and not animateOnly then M.Portraits.SyncMode(view,o) end
     -- An isolated preview has no work for the other modules, including their
     -- unit queries and custom painters. Tab selection refreshes newly shown nodes.
     if view.preview and view.hidden and view.hidden[n.id] then

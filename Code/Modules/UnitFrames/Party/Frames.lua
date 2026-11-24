@@ -22,7 +22,7 @@ function P.ConfigurePortraits(view)
     for i=0,4 do
         local portrait=view.nodes["party"..i.."Portrait"]
         local metal=view.nodes["party"..i.."Metal"]
-        if portrait and portrait.portrait3D and metal then
+        if portrait and portrait.portraitModel and metal then
             -- Native models have square viewports. Draw the whole portrait
             -- surface underneath the metal rim rather than over its corners.
             local level=math.max(1,metal.frame:GetFrameLevel()-1)

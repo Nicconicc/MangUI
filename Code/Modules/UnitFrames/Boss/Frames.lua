@@ -103,7 +103,7 @@ function B.ConfigurePortrait(o)
         o.texture:AddMaskTexture(mask);o.bossPortraitMask=mask
     end
     if o.portraitBackground then
-        local diameter=o.spec.width*(o.portrait3D and math.sqrt(2) or 1)
+        local diameter=o.spec.width*(M.db.portrait3D and math.sqrt(2) or 1)
         o.portraitBackground:ClearAllPoints();o.portraitBackground:SetPoint("CENTER",o.frame,"CENTER",0,0)
         o.portraitBackground:SetSize(diameter,diameter)
     end

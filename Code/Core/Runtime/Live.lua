@@ -358,6 +358,9 @@ function M:StartLive()
         end
         if event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_REGEN_ENABLED" then
             Module("partyFrames")
+            if M.db.portrait3D then
+                for name in pairs(trackedUnits) do Unit(name,"portrait") end
+            end
             if M.DisplayModes.Minimal() then Module("mainComposite") end
         end
         if event=="PLAYER_ENTERING_WORLD" then M:QueueUIScale()

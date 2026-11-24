@@ -151,6 +151,25 @@ local function ShowSource(o,fallback)
         model.portraitSwitching=nil
     end
 end
+function P.SyncMode(view,o)
+    local model=o.portraitModel
+    local enabled=model~=nil and not view.preview and M.db.portrait3D==true and not InCombatLockdown()
+    if o.portrait3D==enabled then return end
+    o.portrait3D=enabled
+    o.portraitRefresh=true
+    if model then
+        model.portraitActive=enabled and not o.portraitDead
+        model.portraitDirty=true
+        if not enabled then
+            ShowSource(o,false)
+            model:SetScript("OnUpdate",nil)
+            model:ClearModel()
+            model.portraitUnit=nil;model.portraitGUID=nil
+            model.portraitFallback=nil;model.portraitCheckLoad=nil
+            model.portraitLoadingUntil=nil;model.portraitLoadedEvent=nil
+        end
+    end
+end
 local function ShowStaticModelPortrait(o,unit)
     o.texture:SetTexture(UNKNOWN_PORTRAIT)
     DrawStatic(o,unit,"3D-stand-in")
@@ -226,7 +245,7 @@ function P.SwitchCenterSource(view)
     end
 end
 local function Load(view,o,force)
-    if view.preview or view.movementModelsHidden then return end
+    if view.preview or view.movementModelsHidden or InCombatLockdown() then return end
     local model=o.portraitModel
     local unit=Unit(view,o)
     local guid=UnitGUID and UnitGUID(unit)
@@ -296,9 +315,7 @@ function P.Configure(view,o)
         o.portraitDead=false
         if o.portraitDeathTexture then o.portraitDeathTexture:Hide() end
     end
-    local was3D=o.portrait3D
-    o.portrait3D=not view.preview and M.db.portrait3D==true
-    if o.portrait3D and not o.portraitModel then
+    if not view.preview and M.db.portrait3D==true and not o.portraitModel then
         local background=o.frame:CreateTexture(nil,"BACKGROUND")
         background:SetAllPoints(o.frame);background:SetTexture(M:TexturePath(o.spec,CIRCLE,"portraitBackground"))
         background:SetVertexColor(0,0,0,1);background:SetBlendMode("BLEND")
@@ -344,6 +361,8 @@ function P.Configure(view,o)
         o.texture:SetPoint("CENTER",o.frame,"CENTER",0,0)
         o.texture:SetSize(o.spec.width*math.sqrt(2),o.spec.height*math.sqrt(2))
     else o.texture:SetAllPoints(o.frame) end
+    local was3D=o.portrait3D
+    P.SyncMode(view,o)
     local model=o.portraitModel
     if model then
         -- Leave a further 2% margin beneath the existing rim, including small
@@ -354,17 +373,9 @@ function P.Configure(view,o)
         -- Match the old portrait's level, below its black, glass and rim layers.
         if model.SetFrameStrata and o.frame.GetFrameStrata then model:SetFrameStrata(o.frame:GetFrameStrata()) end
         model:SetFrameLevel(o.frame:GetFrameLevel())
-        model.portraitActive=o.portrait3D and not o.portraitDead
-        -- Unrelated editor changes must retain the already loaded unit model.
-        if was3D~=o.portrait3D then model.portraitDirty=true end
         if model.portraitActive and model.portraitDirty then QueuePose(model) end
-        if not o.portrait3D and was3D then
-            model:ClearModel();model.portraitUnit=nil;model.portraitGUID=nil
-            model.portraitFallback=nil;model.portraitCheckLoad=nil;model:SetScript("OnUpdate",nil)
-            model.portraitLoadingUntil=nil;model.portraitLoadedEvent=nil
-        end
     end
-    ShowSource(o,model and model.portraitFallback)
+    ShowSource(o,model and (model.portraitFallback or (was3D~=o.portrait3D and model.portraitDirty)))
     if view.preview then
         local texture=o.texture
         texture:SetTexture(M:TexturePath(o.spec,LOGO,"portraitPreview"));texture:SetTexCoord(0,1,0,1)
