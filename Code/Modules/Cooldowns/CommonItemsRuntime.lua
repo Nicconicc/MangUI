@@ -23,6 +23,9 @@ local function DropGroup(view,o)
     local group=view.byID[o.spec.parent]
     if group and group==M.byID[group.id] and group.enabled~=false then return group end
 end
+local function EntryIndex(entries,entry)
+    for index,current in ipairs(entries) do if current==entry then return index end end
+end
 local function AppendIndex(group,rowCount)
     local entries=group.commonItems
     if rowCount==0 then
@@ -45,7 +48,7 @@ local function ReceiveItem(view,o,button)
     if button.slot then
         source=o.itemIcons[button.slot]
         if not source or not source.entry or not source:IsVisible() then return end
-        for i,entry in ipairs(entries) do if entry==source.entry then index=i;break end end
+        index=EntryIndex(entries,source.entry)
     else
         index=AppendIndex(group,#I.Entries(group))
     end
@@ -59,6 +62,73 @@ local function ReceiveItem(view,o,button)
     entries[index]=entry
     ClearCursor()
     M:Commit()
+end
+local function StopOutgoing(o)
+    if not o.outgoing then return end
+    o.outgoing=nil;o.dragGhost:Hide()
+end
+local function CursorPosition()
+    local x,y=Safe(GetCursorPosition)
+    return Number(x),Number(y)
+end
+local function IsBlankDrop(o,drag,x,y)
+    local first,last=o.itemIcons[1],o.itemIcons[o.rowCount]
+    if not first or not last then return false end
+    local firstX,centerY=first:GetCenter()
+    local lastX=last:GetCenter()
+    local scale=first:GetEffectiveScale()
+    firstX,lastX,centerY,scale=Number(firstX),Number(lastX),Number(centerY),Number(scale)
+    if not firstX or not lastX or not centerY or not scale then return false end
+    -- Keep the entire row, including the space between two icons, a cancel area.
+    if x>=(math.min(firstX,lastX)-20)*scale and x<=(math.max(firstX,lastX)+20)*scale
+        and math.abs(y-centerY*scale)<=20*scale then return false end
+    local function IsBackground(frame)
+        -- Some clients retain the source in the mouse focus until drag cleanup.
+        return Readable(frame) and (frame==nil or frame==UIParent or frame==WorldFrame or frame==drag.button)
+    end
+    if GetMouseFoci then
+        local frames=Safe(GetMouseFoci)
+        if not Readable(frames) or type(frames)~="table" or (canaccesstable and not canaccesstable(frames)) then return false end
+        for _,frame in ipairs(frames) do if not IsBackground(frame) then return false end end
+        return true
+    end
+    return IsBackground(Safe(GetMouseFocus))
+end
+local function TrackOutgoing(view,o,ghost)
+    local drag=o.outgoing
+    local group=DropGroup(view,o)
+    local cursor=Safe(GetCursorInfo)
+    if not drag or group~=drag.group or not drag.button:IsVisible() or not Readable(cursor) or cursor~=nil then
+        StopOutgoing(o);return
+    end
+    local x,y=CursorPosition()
+    if not IsMouseButtonDown("LeftButton") then
+        x,y=drag.releaseX or x,drag.releaseY or y
+        StopOutgoing(o)
+        if not x or not y or not IsBlankDrop(o,drag,x,y) then return end
+        local index=EntryIndex(group.commonItems,drag.entry)
+        if index then table.remove(group.commonItems,index);M:Commit() end
+    elseif x and y then
+        local scale=UIParent:GetEffectiveScale()
+        ghost:ClearAllPoints()
+        ghost:SetPoint("CENTER",UIParent,"BOTTOMLEFT",x/scale+15,y/scale-15)
+    end
+end
+local function StartOutgoing(view,o,button)
+    local group=DropGroup(view,o)
+    local cursor=Safe(GetCursorInfo)
+    if not group or not button.entry or not button:IsVisible() or not Readable(cursor) or cursor~=nil then return end
+    local ghost=o.dragGhost
+    if not ghost then
+        ghost=CreateFrame("Frame",nil,UIParent);o.dragGhost=ghost
+        ghost:SetFrameStrata("TOOLTIP");ghost:EnableMouse(false);ghost:SetSize(34,34)
+        ghost.icon=ghost:CreateTexture(nil,"ARTWORK");ghost.icon:SetAllPoints()
+        ghost:SetScript("OnUpdate",function(self)TrackOutgoing(view,o,self)end)
+    end
+    o.outgoing={group=group,entry=button.entry,button=button}
+    ghost.icon:SetTexture(button.item and button.item.icon or 134400)
+    if GameTooltip then GameTooltip:Hide() end
+    ghost:Show();TrackOutgoing(view,o,ghost)
 end
 local function Icon(parent,secure)
     local button=CreateFrame("Button",nil,parent,secure and "SecureActionButtonTemplate"or nil)
@@ -170,7 +240,7 @@ local function Root(view,o)
         o.clickRoot:EnableMouse(false);o.clickRoot:SetFrameStrata("LOW");o.clickRoot:SetFrameLevel(357)
         o.clickRoot:SetSize(1,1)
         view.root:HookScript("OnShow",function()Visibility(view,o);UpdateDropTargets(view,o,true)end)
-        view.root:HookScript("OnHide",function()Visibility(view,o);UpdateDropTargets(view,o)end)
+        view.root:HookScript("OnHide",function()StopOutgoing(o);Visibility(view,o);UpdateDropTargets(view,o)end)
     end
     Position(view,o,o.clickRoot,0)
     return o.clickRoot
@@ -185,6 +255,16 @@ function I.Configure(view,o)
         local button=o.itemIcons[index]
         if not button then
             button=Icon(parent,not view.preview);o.itemIcons[index]=button
+            if not view.preview then
+                button:RegisterForDrag("LeftButton")
+                button:SetScript("OnDragStart",function(self)StartOutgoing(view,o,self)end)
+                button:SetScript("OnDragStop",function(self)
+                    local drag=o.outgoing
+                    if drag and drag.button==self and not IsMouseButtonDown("LeftButton") then
+                        drag.releaseX,drag.releaseY=CursorPosition()
+                    end
+                end)
+            end
         end
         button.entry=entry;button.item=I.Resolve(entry);button.texture:SetTexture(button.item.icon or 134400)
         button.grayTexture:SetTexture(button.item.icon or 134400);Font(button.time);Font(button.count)
@@ -291,7 +371,10 @@ local events={PLAYER_ENTERING_WORLD=true,PLAYER_EQUIPMENT_CHANGED=true,UNIT_INVE
 function I.Event(view,event,unit)
     if event=="CURSOR_UPDATE" or event=="PLAYER_REGEN_DISABLED" then
         local o=view.nodes.commonItemsIcons
-        if o then UpdateDropTargets(view,o) end
+        if o then
+            if event=="PLAYER_REGEN_DISABLED" then StopOutgoing(o) end
+            UpdateDropTargets(view,o)
+        end
         return
     end
     if not events[event]or (event=="UNIT_INVENTORY_CHANGED"and unit~="player")then return end
@@ -313,6 +396,7 @@ function I.Event(view,event,unit)
     if (event=="GET_ITEM_INFO_RECEIVED"or event=="ITEM_DATA_LOAD_RESULT"or event=="BAG_UPDATE_DELAYED"or event=="PLAYER_EQUIPMENT_CHANGED")and M.editor and M.editor.window:IsShown()and M.selection=="commonItems"then M:RefreshProperties()end
 end
 function I.Remove(view,o)
+    StopOutgoing(o)
     if o.dropRoot then o.dropRoot:Hide() end
     if not view.preview and o.clickRoot and not InCombatLockdown()then RegisterStateDriver(o.clickRoot,"visibility","hide");o.visibility="hide"end
 end
