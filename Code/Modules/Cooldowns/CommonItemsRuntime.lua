@@ -5,6 +5,50 @@ local function Font(text)
     text:SetFont(M:EffectiveFontPath(M.MYRIAD),16,"OUTLINE");text:SetTextColor(1,1,1,1)
     text:SetJustifyH("CENTER");text:SetShadowColor(0,0,0,1);text:SetShadowOffset(1,-1)
 end
+local function CursorItem()
+    local kind,id,link=Safe(GetCursorInfo)
+    if not Readable(kind) or kind~="item" then return end
+    id=Number(id) or (Readable(link) and type(link)=="string" and tonumber(link:match("item:(%d+)")))
+    if id and id>0 and id%1==0 and id<=1000000000 then return tostring(id) end
+end
+local function DropGroup(view,o)
+    if view~=M.live or not M.db or M.moveMode or InCombatLockdown() or o.removed or not o.spec
+        or o.spec.enabled==false or not view.root:IsShown() then return end
+    local group=view.byID[o.spec.parent]
+    if group and group==M.byID[group.id] and group.enabled~=false then return group end
+end
+local function ReceiveItem(view,o,button,isEmpty)
+    local group=DropGroup(view,o)
+    local value=group and CursorItem()
+    if not value or not ClearCursor or not button:IsVisible() then return end
+    local entries=group.commonItems
+    local index
+    if isEmpty then
+        if #I.Entries(group)>0 then return end
+        local _,class=Safe(UnitClass,"player")
+        if not Readable(class) or type(class)~="string" then return end
+        for i,entry in ipairs(entries) do
+            if I.Kind(entry)=="item" and entry.value=="" and entry.createSpell==""
+                and M.RaidBuffMonitor.ForClass(entry,class) then
+                index=i;break
+            end
+        end
+        if not index and #entries>=4096 then return end
+        index=index or #entries+1
+    else
+        for i,entry in ipairs(entries) do if entry==button.entry then index=i;break end end
+        if not index then return end
+    end
+    local previous=entries[index]
+    if previous and I.Kind(previous)=="item" and (previous.value==value
+        or not isEmpty and button.item and button.item.id==tonumber(value)) then ClearCursor();return end
+    local entry=I.NewEntry()
+    entry.value=value
+    if previous then entry.classes=previous.classes end
+    entries[index]=entry
+    ClearCursor()
+    M:Commit()
+end
 local function Icon(parent,secure)
     local button=CreateFrame("Button",nil,parent,secure and "SecureActionButtonTemplate"or nil)
     button:SetSize(40,40);button:EnableMouse(secure)
@@ -45,6 +89,35 @@ local function Visibility(view,o)
         (group.hideWithoutTarget and "[@target,exists] show; hide"or "show")
     if condition~=o.visibility then RegisterStateDriver(o.clickRoot,"visibility",condition);o.visibility=condition end
 end
+local function Position(view,o,frame,offset)
+    local geometry=M:Geometry(view.byID,{o.spec.id})[o.spec.id]
+    local x,y=view.root:GetCenter()
+    if not geometry or not x or not y then return end
+    local scale=geometry.s*view.root:GetEffectiveScale()/UIParent:GetEffectiveScale()
+    frame:SetScale(scale);frame:ClearAllPoints()
+    frame:SetPoint("CENTER",UIParent,"BOTTOMLEFT",(x+geometry.x)/geometry.s,(y+geometry.y)/geometry.s+offset)
+    return true
+end
+local function UpdateDropTarget(view,o,reposition)
+    local button=o.emptyDrop
+    local show=o.rowCount==0 and DropGroup(view,o) and CursorItem()
+    if not show then if button then button:Hide() end;return end
+    if not button then
+        -- Keep this transient target outside the protected click tree so it can
+        -- disappear immediately when combat starts.
+        button=CreateFrame("Button",nil,UIParent)
+        o.emptyDrop=button
+        button:Hide();button:SetSize(40,40);button:EnableMouse(true)
+        button:SetFrameStrata("LOW");button:SetFrameLevel(358)
+        button:SetNormalTexture("Interface\\Buttons\\UI-Quickslot2")
+        button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square","ADD")
+        local label=button:CreateFontString(nil,"OVERLAY");Font(label);label:SetPoint("CENTER");label:SetText("+")
+        local function Receive(self)ReceiveItem(view,o,self,true)end
+        button:SetScript("OnReceiveDrag",Receive)
+        button:SetScript("OnClick",Receive)
+    end
+    if not button:IsShown() or reposition then button:SetShown(Position(view,o,button,-7)==true) end
+end
 local function Root(view,o)
     if view.preview then return o.frame end
     if not o.clickRoot then
@@ -52,16 +125,11 @@ local function Root(view,o)
         -- on UIParent, with numeric geometry and no link to renderer frames.
         o.clickRoot=CreateFrame("Frame",nil,UIParent,"SecureHandlerStateTemplate")
         o.clickRoot:EnableMouse(false);o.clickRoot:SetFrameStrata("LOW");o.clickRoot:SetFrameLevel(357)
-        view.root:HookScript("OnShow",function()Visibility(view,o)end)
-        view.root:HookScript("OnHide",function()Visibility(view,o)end)
+        o.clickRoot:SetSize(1,1)
+        view.root:HookScript("OnShow",function()Visibility(view,o);UpdateDropTarget(view,o,true)end)
+        view.root:HookScript("OnHide",function()Visibility(view,o);UpdateDropTarget(view,o)end)
     end
-    local geometry=M:Geometry(view.byID,{o.spec.id})[o.spec.id]
-    local x,y=view.root:GetCenter()
-    if geometry and x and y then
-        local scale=geometry.s*view.root:GetEffectiveScale()/UIParent:GetEffectiveScale()
-        local root=o.clickRoot;root:SetScale(scale);root:SetSize(1,1);root:ClearAllPoints()
-        root:SetPoint("CENTER",UIParent,"BOTTOMLEFT",(x+geometry.x)/geometry.s,(y+geometry.y)/geometry.s)
-    end
+    Position(view,o,o.clickRoot,0)
     return o.clickRoot
 end
 function I.Configure(view,o)
@@ -72,7 +140,10 @@ function I.Configure(view,o)
     local parent=Root(view,o)
     for index,entry in ipairs(entries)do
         local button=o.itemIcons[index]
-        if not button then button=Icon(parent,not view.preview);o.itemIcons[index]=button end
+        if not button then
+            button=Icon(parent,not view.preview);o.itemIcons[index]=button
+            if not view.preview then button:SetScript("OnReceiveDrag",function(self)ReceiveItem(view,o,self,false)end) end
+        end
         button.entry=entry;button.item=I.Resolve(entry);button.texture:SetTexture(button.item.icon or 134400)
         button.grayTexture:SetTexture(button.item.icon or 134400);Font(button.time);Font(button.count)
         button:ClearAllPoints();button:SetPoint("CENTER",parent,"CENTER",S.IconOffset(group,index,#entries),-7)
@@ -92,7 +163,7 @@ function I.Configure(view,o)
         if not view.preview then button:SetAttribute("type1",nil);button:SetAttribute("item1",nil);button:SetAttribute("type2",nil);button:SetAttribute("spell2",nil)end
         button:Hide();button.entry=nil
     end
-    Visibility(view,o);o.nextScan=0
+    Visibility(view,o);UpdateDropTarget(view,o,true);o.nextScan=0
 end
 local function ItemCooldown(item,now)
     local finish,secretStart,secretDuration
@@ -144,6 +215,7 @@ function I.Paint(view,o,animateOnly)
     if o.pending and not InCombatLockdown()then I.Configure(view,o)end
     if not InCombatLockdown()then Visibility(view,o)end
     local now=GetTime();if animateOnly and now<(o.nextScan or 0)then return end;o.nextScan=now+.1
+    if o.emptyDrop and o.emptyDrop:IsShown() then UpdateDropTarget(view,o) end
     for _,button in ipairs(o.itemIcons or {})do
         if button.entry then
             local missing=MissingItem(button)
@@ -175,6 +247,11 @@ local events={PLAYER_ENTERING_WORLD=true,PLAYER_EQUIPMENT_CHANGED=true,UNIT_INVE
     BAG_UPDATE_DELAYED=true,GET_ITEM_INFO_RECEIVED=true,SPELLS_CHANGED=true,PLAYER_REGEN_ENABLED=true,
     BAG_UPDATE_COOLDOWN=true,SPELL_UPDATE_COOLDOWN=true,ITEM_DATA_LOAD_RESULT=true}
 function I.Event(view,event,unit)
+    if event=="CURSOR_UPDATE" or event=="PLAYER_REGEN_DISABLED" then
+        local o=view.nodes.commonItemsIcons
+        if o then UpdateDropTarget(view,o) end
+        return
+    end
     if not events[event]or (event=="UNIT_INVENTORY_CHANGED"and unit~="player")then return end
     local o=view.nodes.commonItemsIcons;if not o then return end
     if event=="PLAYER_EQUIPMENT_CHANGED"or event=="UNIT_INVENTORY_CHANGED"or event=="GET_ITEM_INFO_RECEIVED"then
@@ -194,5 +271,6 @@ function I.Event(view,event,unit)
     if (event=="GET_ITEM_INFO_RECEIVED"or event=="ITEM_DATA_LOAD_RESULT"or event=="BAG_UPDATE_DELAYED"or event=="PLAYER_EQUIPMENT_CHANGED")and M.editor and M.editor.window:IsShown()and M.selection=="commonItems"then M:RefreshProperties()end
 end
 function I.Remove(view,o)
+    if o.emptyDrop then o.emptyDrop:Hide() end
     if not view.preview and o.clickRoot and not InCombatLockdown()then RegisterStateDriver(o.clickRoot,"visibility","hide");o.visibility="hide"end
 end
