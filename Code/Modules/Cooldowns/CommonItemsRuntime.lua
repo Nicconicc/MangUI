@@ -149,6 +149,7 @@ local function Icon(parent,secure)
         if button.nativeTime then Font(button.nativeTime);button.nativeTime:ClearAllPoints();button.nativeTime:SetPoint("BOTTOM",button,"TOP",0,7)end
     end
     if secure then
+        M.MasqueIcons.Attach(button.texture,"commonItems",40,40,nil,button.grayTexture)
         button:SetScript("OnEnter",function(self)
             local item=self.item;if not item then return end
             GameTooltip:SetOwner(self,"ANCHOR_RIGHT")

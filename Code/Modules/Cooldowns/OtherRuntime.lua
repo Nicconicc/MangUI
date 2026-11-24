@@ -138,11 +138,12 @@ local function NativeFrame(slot,frame)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
     frame.icon=frame:CreateTexture(nil,"ARTWORK");frame.icon:SetAllPoints()
+    M.MasqueIcons.Attach(frame.icon,"playerOtherMonitor",40,40)
     frame.time=frame:CreateFontString(nil,"OVERLAY");Font(frame.time);frame.time:SetPoint("BOTTOM",frame,"TOP",0,7)
     frame.count=frame:CreateFontString(nil,"OVERLAY");Font(frame.count,true);frame.count:SetPoint("BOTTOM",frame,"TOP",0,29)
     frame.glow=Glow(frame)
     frame.baseGate=CreateFrame("Frame",nil,slot.lastGate or slot.base);frame.baseGate:SetAllPoints();frame.baseGate:EnableMouse(false)
-    slot.lastGate=frame.baseGate;slot.texture:SetParent(frame.baseGate);slot.glow:SetParent(frame.baseGate)
+    slot.lastGate=frame.baseGate;M.MasqueIcons.Reparent(slot.texture,frame.baseGate);slot.glow:SetParent(frame.baseGate)
     frame.timeGate=CreateFrame("Frame",nil,slot.lastTimeGate or slot.annotations);frame.timeGate:SetAllPoints();frame.timeGate:EnableMouse(false)
     slot.lastTimeGate=frame.timeGate;slot.time:SetParent(frame.timeGate);slot.count:SetParent(frame.timeGate)
     slot.nativeGates[#slot.nativeGates+1]={base=frame.baseGate,time=frame.timeGate}
@@ -183,7 +184,7 @@ local function BindNative(slot)
             slot.missingHost:Hide()
             slot.missingHost,slot.missingBackdrop,slot.missingIcon,slot.missingGlow=nil,nil,nil,nil
         end
-        slot.texture:SetParent(slot.base);slot.glow:SetParent(slot.base);slot.time:SetParent(slot.annotations);slot.count:SetParent(slot.annotations)
+        M.MasqueIcons.Reparent(slot.texture,slot.base);slot.glow:SetParent(slot.base);slot.time:SetParent(slot.annotations);slot.count:SetParent(slot.annotations)
         slot.lastGate,slot.lastTimeGate=nil,nil
     end
     if not slot.container then
@@ -195,6 +196,7 @@ local function BindNative(slot)
             if backdrop then
                 slot.missingHost=host;slot.missingBackdrop=backdrop
                 slot.missingIcon=backdrop:CreateTexture(nil,"ARTWORK");slot.missingIcon:SetAllPoints();slot.missingIcon:SetTexture(slot.customFallbackIcon)
+                M.MasqueIcons.Attach(slot.missingIcon,"playerOtherMonitor",40,40)
                 slot.missingGlow=Glow(backdrop)
                 backdrop:EnableMouse(true)
                 backdrop:SetScript("OnEnter",slot:GetScript("OnEnter"));backdrop:SetScript("OnLeave",slot:GetScript("OnLeave"))
@@ -242,7 +244,7 @@ local layoutTemplate="DisableUntrustedLayoutScriptsTemplate"
 local function CompactSupported(o)
     return o.native and M.Compat.interface==16001 and C_XMLUtil.GetTemplateInfo(layoutTemplate)~=nil
 end
-local function Icon(o,index)
+local function Icon(view,o,index)
     local slot=o.otherIcons[index];if slot then return slot end
     slot=CreateFrame("Frame",nil,o.frame,o.nativeCompact and layoutTemplate or nil);slot:SetSize(40,40);slot:EnableMouse(true)
     slot.base=CreateFrame("Frame",nil,slot);slot.base:SetAllPoints();slot.base:EnableMouse(false)
@@ -262,6 +264,7 @@ local function Icon(o,index)
         GameTooltip:Show()
     end)
     slot:SetScript("OnLeave",function()GameTooltip:Hide()end)
+    if not view.preview then M.MasqueIcons.Attach(slot.texture,"playerOtherMonitor",40,40) end
     o.otherIcons[index]=slot;return slot
 end
 local function LayoutKind(entry)
@@ -427,7 +430,7 @@ function O.Configure(view,o)
     end
     if o.otherKinds.equipment and not view.preview then TrackEquipment(false) end
     for i,entry in ipairs(o.entries)do
-        local slot=Icon(o,i)
+        local slot=Icon(view,o,i)
         if slot.entry~=entry then slot.wasCondition=nil end
         ResetNative(slot);Resolve(slot,entry);M.CustomMonitor.SetText(slot.time,"");M.CustomMonitor.SetText(slot.count,"");Font(slot.time);Font(slot.count,true)
         if slot.item then slot.fingerprint=ItemFingerprint(slot.item)end
@@ -738,7 +741,7 @@ function O.Paint(view,o,animateOnly)
     for index=#displayed,1,-1 do displayed[index]=nil end
     local row=not view.preview and CompactRow(o,entries,direction)
     for i,entry in ipairs(entries)do
-        local slot=Icon(o,i);if slot.entry~=entry then Resolve(slot,entry)end
+        local slot=Icon(view,o,i);if slot.entry~=entry then Resolve(slot,entry)end
         local allowed=LoadAllowed(entry,combat,o.loadBossActive)
         local custom=entry.type=="custom"and M.CustomMonitor.Apply(o,slot,view.preview,allowed)
         local raw=slot.rawKnown

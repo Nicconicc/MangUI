@@ -124,6 +124,7 @@ local function Auras(view,o,s)
         local column=(i-1)%perRow
         local row=math.floor((i-1)/perRow)
         CachedPair(icon,"auraSize",icon,"SetSize",n.width,n.height)
+        if not view.preview then M.MasqueIcons.Attach(icon.tex,M.MasqueIcons.AuraKey(n),n.width,n.height,icon.cd) end
         if parent and parent.auraOriginRevision==1 then
             local columns=math.min(count,perRow);local rows=math.ceil(count/perRow)
             CachedPoint(icon,"auraPoint",icon,"CENTER",o.frame,"CENTER",

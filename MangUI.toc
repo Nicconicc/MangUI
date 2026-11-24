@@ -18,9 +18,9 @@
 ## Category-zhCN: 单位框体
 ## Category-zhTW: 單位框架
 ## Author: Nc
-## Version: 1011
+## Version: 1012
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\MIcon.png
-## OptionalDeps: SharedMedia
+## OptionalDeps: SharedMedia, Masque
 ## SavedVariables: MangUIUFDB
 ## SavedVariablesPerCharacter: MangUICharacterDB
 
@@ -61,6 +61,7 @@ Code\Modules\UnitFrames\Main\ContactContours.lua
 Code\Modules\UnitFrames\Main\BarLayout.lua
 Code\Core\Config\SettingRanges.lua
 Code\Modules\Cooldowns\Monitor.lua
+Code\Core\Runtime\Masque.lua
 Code\Modules\Cooldowns\CustomCode.lua
 Code\Modules\Cooldowns\CustomCodeEditor.lua
 Code\Modules\Cooldowns\PlayerSkills.lua

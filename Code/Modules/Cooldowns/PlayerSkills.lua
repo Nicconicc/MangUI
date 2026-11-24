@@ -718,6 +718,7 @@ local function StyleNativeAura(slot,frame,reversed)
     end
     frame.monitorTime=frame:CreateFontString(nil,"OVERLAY");Font(frame.monitorTime)
     frame.monitorTime:SetPoint("BOTTOM",frame,"TOP",0,7)
+    M.MasqueIcons.Attach(frame.monitorIcon,"playerSkillMonitor",40,40)
     frame:SetIcon(frame.monitorIcon);frame:SetDurationText(frame.monitorTime,S.DurationTextOptions())
     frame.monitorCount=frame:CreateFontString(nil,"OVERLAY");CountFont(frame.monitorCount)
     frame.monitorCount:SetPoint("BOTTOM",frame,"TOP",0,29);frame:SetApplicationCount(frame.monitorCount,{})
@@ -735,7 +736,7 @@ local function StyleNativeAura(slot,frame,reversed)
     -- half opacity is not composited over another fully opaque icon.
     frame.baseIconGate=CreateFrame("Frame",nil,slot.baseIconGate or slot.baseIconFrame)
     frame.baseIconGate:SetAllPoints();frame.baseIconGate:EnableMouse(false)
-    slot.baseIconGate=frame.baseIconGate;slot.texture:SetParent(frame.baseIconGate)
+    slot.baseIconGate=frame.baseIconGate;M.MasqueIcons.Reparent(slot.texture,frame.baseIconGate)
     slot.nativeFrames[#slot.nativeFrames+1]=frame
 end
 local function NativeAura(slot,aura,reversed)
@@ -754,6 +755,7 @@ local function NativeAura(slot,aura,reversed)
             slot.nativeBackdrop=backdrop:CreateTexture(nil,"ARTWORK");slot.nativeBackdrop:SetAllPoints()
             slot.nativeBackdrop:SetTexture(slot.customFallbackIcon)
             slot.nativeBackdrop:SetDesaturated(reversed);slot.nativeBackdrop:SetAlpha(reversed and .5 or 1)
+            M.MasqueIcons.Attach(slot.nativeBackdrop,"playerSkillMonitor",40,40)
         end
     end
     local width=slot.nativeBackdrop and S.auraBackdropLayoutWidth or 40
@@ -780,7 +782,7 @@ local function SelectNativeAura(slot,aura)
     local saved=slot.nativeVariants[reversed]
     for _,key in ipairs(nativeVariantFields)do slot[key]=saved and saved[key] or nil end
     slot.nativeReversed=reversed
-    slot.texture:SetParent(slot.baseIconGate or slot.baseIconFrame)
+    M.MasqueIcons.Reparent(slot.texture,slot.baseIconGate or slot.baseIconFrame)
     slot.shortcut:SetParent(slot.shortcutGate or slot.shortcutFrame)
     if not slot.nativeAuras then
         NativeAura(slot,aura,reversed)
@@ -789,7 +791,7 @@ local function SelectNativeAura(slot,aura)
     if slot.nativeHost then slot.nativeHost:Show() end
     if slot.nativeBackdrop then slot.nativeBackdrop:SetTexture(slot.customFallbackIcon)end
 end
-local function Icon(o,i)
+local function Icon(view,o,i)
     local slot=o.skillIcons[i];if slot then return slot end
     slot=CreateFrame("Frame",nil,o.frame);slot:SetSize(40,40);slot:EnableMouse(true)
     slot.baseIconFrame=CreateFrame("Frame",nil,slot);slot.baseIconFrame:SetAllPoints();slot.baseIconFrame:EnableMouse(false)
@@ -820,6 +822,7 @@ local function Icon(o,i)
         GameTooltip:Show()
     end)
     slot:SetScript("OnLeave",function()GameTooltip:Hide()end)
+    if not view.preview then M.MasqueIcons.Attach(slot.texture,"playerSkillMonitor",40,40) end
     o.skillIcons[i]=slot;return slot
 end
 local function Shortcut(slot,entry)
@@ -926,6 +929,7 @@ local function BindEffect(slot)
             frame:SetSize(40,40);frame:EnableMouse(false)
             frame:SetFrameLevel(slot.baseIconFrame:GetFrameLevel()+2)
             local icon=frame:CreateTexture(nil,"ARTWORK");icon:SetAllPoints()
+            M.MasqueIcons.Attach(icon,"playerSkillMonitor",40,40)
             frame:SetIcon(icon)
             local timer=frame:CreateFontString(nil,"OVERLAY");Font(timer)
             timer:SetPoint("BOTTOM",frame,"TOP",0,7)
@@ -1035,7 +1039,7 @@ function S.Configure(view,o)
     o.entries=S.Entries(view.byID[o.spec.parent]);o.usesNativeAuras=not view.preview and NativeAurasAvailable()
     for i,entry in ipairs(o.entries)do
         o.skillKinds[entry.type]=true
-        local slot=Icon(o,i);Resolve(slot,entry);slot.duration=nil;slot.expires=nil;slot.active=false;slot.stacks=nil
+        local slot=Icon(view,o,i);Resolve(slot,entry);slot.duration=nil;slot.expires=nil;slot.active=false;slot.stacks=nil
         slot.texture:SetVertexColor(1,1,1)
         ResolveEffect(slot,view.preview)
         if not view.preview and (slot.effect or slot.effectNative) and not InCombatLockdown()then
@@ -1466,7 +1470,7 @@ function S.Paint(view,o,animateOnly)
         end
     elseif #o.entries==0 then
         for i,entry in ipairs(entries)do
-            local slot=Icon(o,i)
+            local slot=Icon(view,o,i)
             if slot.entry~=entry then Resolve(slot,entry);Shortcut(slot,entry)end
         end
     end

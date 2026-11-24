@@ -40,7 +40,7 @@ local function Bind(slot)
         container:AddAuraGroup("received","HELPFUL|!PLAYER",{maxFrameCount=0,initializeFrame=function(frame)
             frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
             frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
-            frame.icon=frame:CreateTexture(nil,"ARTWORK");frame.icon:SetAllPoints();frame:SetIcon(frame.icon)
+            frame.icon=frame:CreateTexture(nil,"ARTWORK");frame.icon:SetAllPoints();M.MasqueIcons.Attach(frame.icon,"receivedBuffs",40,40);frame:SetIcon(frame.icon)
             frame.time=frame:CreateFontString(nil,"OVERLAY");Font(frame.time);frame.time:SetPoint("BOTTOM",frame,"TOP",0,7)
             frame.count=frame:CreateFontString(nil,"OVERLAY");Font(frame.count);frame.count:SetPoint("BOTTOM",frame,"TOP",0,29)
             frame:SetDurationText(frame.time,S.DurationTextOptions());frame:SetApplicationCount(frame.count,{})
@@ -53,7 +53,7 @@ local function Bind(slot)
     slot.container:SetAuraGroupCandidateFilters("received",{includeSpellIDs=slot.spell.ids or {[slot.spell.id]=true},isFromPlayerOrPlayerPet=false})
     slot.container:SetAuraGroupMaxFrameCount("received",1);slot.container:SetEnabled(true);slot.container:UpdateAllAuras();slot.bound=true
 end
-local function Icon(o,index)
+local function Icon(view,o,index)
     local slot=o.buffIcons[index];if slot then return slot end
     slot=CreateFrame("Frame",nil,o.frame);slot:SetSize(40,40);slot:EnableMouse(false);slot:EnableMouseMotion(true)
     slot.base=CreateFrame("Frame",nil,slot);slot.base:SetAllPoints();slot.base:EnableMouse(false)
@@ -68,13 +68,14 @@ local function Icon(o,index)
         GameTooltip:Show()
     end)
     slot:SetScript("OnLeave",function()GameTooltip:Hide()end)
+    if not view.preview then M.MasqueIcons.Attach(slot.texture,"receivedBuffs",40,40) end
     o.buffIcons[index]=slot;return slot
 end
 function I.Configure(view,o)
     o.buffIcons=o.buffIcons or {};o.entries=I.Entries(view.byID[o.spec.parent]);o.native=not view.preview and NativeAvailable()
     if view.preview and #o.entries==0 then o.entries={{value="10060"},{value="29166"},{value="33206"}}end
     for index,entry in ipairs(o.entries)do
-        local slot=Icon(o,index)
+        local slot=Icon(view,o,index)
         if slot.value~=entry.value then slot.seen=nil;slot.initialized=false;slot.value=entry.value end
         slot.entry=entry;Resolve(slot,entry);Font(slot.time);Font(slot.count)
         if not view.preview then

@@ -314,7 +314,7 @@ function D.InCooldownRange(group,duration)
     local maximum=group and group.maxCooldown or 86400
     return duration>=minimum and duration<=maximum
 end
-local function Icon(o,index)
+local function Icon(view,o,index)
     local slot=o.cooldownIcons[index]
     if slot then return slot end
     slot=CreateFrame("Frame",nil,o.frame);slot:SetSize(40,40);slot:EnableMouse(true)
@@ -332,6 +332,7 @@ local function Icon(o,index)
         GameTooltip:Show()
     end)
     slot:SetScript("OnLeave",function()GameTooltip:Hide()end)
+    if not view.preview then M.MasqueIcons.Attach(slot.texture,"cooldownMonitor",40,40) end
     o.cooldownIcons[index]=slot;return slot
 end
 local previewIcons={136048,135953,136085,134414,134795}
@@ -380,7 +381,7 @@ function D.Paint(view,o)
         local slot=o.cooldownByKey[state.key]
         if not slot then
             for _,candidate in ipairs(o.cooldownIcons) do if not candidate.key then slot=candidate;break end end
-            slot=slot or Icon(o,#o.cooldownIcons+1);slot.added=now
+            slot=slot or Icon(view,o,#o.cooldownIcons+1);slot.added=now
             slot.position=nil;slot.desired=nil;slot.from=nil;slot.moved=nil
         elseif slot.exiting then slot.added=now end
         slot.exiting=nil;o.cooldownByKey[state.key]=slot;seen[state.key]=true

@@ -49,6 +49,7 @@ local function StyleAura(view,o,frame)
         frame:SetIcon(frame.manguiIcon)
         frame:SetDurationCooldown(frame.manguiCooldown)
     end
+    M.MasqueIcons.Attach(frame.manguiIcon,M.MasqueIcons.AuraKey(n),n.width,n.height,frame.manguiCooldown)
     frame.manguiCooldown:SetReverse(n.cooldownReverse~=false)
     frame.manguiCooldown:SetHideCountdownNumbers(n.hideCooldownNumbers==true)
     frame.manguiCooldown.noCooldownCount=n.hideCooldownNumbers==true

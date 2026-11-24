@@ -51,7 +51,7 @@ local function Bind(slot)
             -- reminder without comparing protected presence or duration values.
             local gate=CreateFrame("Frame",nil,slot.lastGate or slot.base);gate:SetAllPoints();gate:EnableMouse(false)
             local native={frame=frame,gate=gate}
-            slot.lastGate=gate;slot.texture:SetParent(gate)
+            slot.lastGate=gate;M.MasqueIcons.Reparent(slot.texture,gate)
             slot.timerGate:SetParent(gate)
             if #slot.nativeFrames==0 and frame.SetDurationText then
                 native.time=frame:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
@@ -71,10 +71,10 @@ local function Bind(slot)
         slot.container:SetAuraGroupSortMethod("missing",AuraContainerSortMethod.ExpirationOnly,AuraContainerSortDirection.Reverse)
     end
     slot.container:SetEnabled(true);slot.container:UpdateAllAuras();slot.bound=true
-    slot.texture:SetParent(slot.lastGate or slot.base)
+    M.MasqueIcons.Reparent(slot.texture,slot.lastGate or slot.base)
     slot.timerGate:SetParent(slot.lastGate or slot.base)
 end
-local function Icon(o,index)
+local function Icon(view,o,index)
     local slot=o.buffIcons[index];if slot then return slot end
     slot=CreateFrame("Frame",nil,o.frame);slot:SetSize(40,40);slot:EnableMouse(false);slot:EnableMouseMotion(true)
     slot.base=CreateFrame("Frame",nil,slot);slot.base:SetAllPoints();slot.base:EnableMouse(false)
@@ -91,6 +91,7 @@ local function Icon(o,index)
         GameTooltip:Show()
     end)
     slot:SetScript("OnLeave",function()GameTooltip:Hide()end)
+    if not view.preview then M.MasqueIcons.Attach(slot.texture,"raidBuffs",40,40) end
     o.buffIcons[index]=slot;return slot
 end
 local function Decoration(o)
@@ -280,7 +281,7 @@ function I.Configure(view,o)
     decoration.title:SetFont(M:EffectiveFontPath(M:DefaultFontPath()),12,"");decoration.layoutFontSize=nil
     decoration.layoutWidth=nil
     for index,entry in ipairs(o.entries)do
-        local slot=Icon(o,index);slot.entry=entry;ResolveSlot(slot,entry)
+        local slot=Icon(view,o,index);slot.entry=entry;ResolveSlot(slot,entry)
         slot.time:SetFont(M:EffectiveFontPath(M.MYRIAD),16,"OUTLINE")
         M.CustomMonitor.SetText(slot.time,"");slot.timerGate:SetAlpha(1)
         if not view.preview then
@@ -289,7 +290,7 @@ function I.Configure(view,o)
             elseif slot.container then slot.container:SetEnabled(false);slot.bound=false end
         end
         if slot.weapon then
-            slot.texture:SetParent(slot.base)
+            M.MasqueIcons.Reparent(slot.texture,slot.base)
             slot.timerGate:SetParent(slot.base)
             for _,native in ipairs(slot.nativeFrames or {})do native.gate:SetAlpha(1)end
         end

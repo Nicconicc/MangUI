@@ -780,6 +780,9 @@ function R.Apply(view,design,unchanged)
                 o.texture:SetTexture(n.file or "Interface\\Buttons\\WHITE8X8");o.texture:SetBlendMode(n.blend or "BLEND")
                 o.texture:SetDesaturated(n.desaturate or false);TextureCoords(o.texture,n)
                 if o.texture.SetRotation then o.texture:SetRotation(math.rad(n.rotation or 0)) end
+                if n.binding=="castIcon" and not view.preview then
+                    M.MasqueIcons.Attach(o.texture,"castIcons",n.width,n.height,nil,nil,true)
+                end
                 local barSpec=view.byID[n.parent]
                 if M.DisplayModes.IsBar(barSpec) and n.id==barSpec.id.."Frame" then
                     f:SetSize(barSpec.width,barSpec.height)
