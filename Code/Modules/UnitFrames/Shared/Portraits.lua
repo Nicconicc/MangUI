@@ -4,6 +4,8 @@ local P={};M.Portraits=P
 local CIRCLE="Interface\\AddOns\\MangUI\\Assets\\Library\\MainSweepPortraitMask.tga"
 local LOGO="Interface\\AddOns\\MangUI\\Assets\\UI\\Logo.png"
 local DEAD="Interface\\AddOns\\MangUI\\Assets\\Library\\Dead.blp"
+local UNKNOWN_PORTRAIT="Interface\\Icons\\INV_Misc_QuestionMark"
+local CENTER_PLAYER,CENTER_TARGET="wa88b1376baa","wa0b0b0540c7"
 local happinessColors={[1]={1,0,0},[2]={1,1,0},[3]={0,1,0}}
 local function Inspect(object,method,...)
     if not object or not object[method] then return "unavailable" end
@@ -67,7 +69,7 @@ local function DrawStatic(o,unit,phase)
         -- The source must be shown before the client prepares its portrait.
         texture:SetShown(true);texture:SetAlpha(1)
         SetPortraitTexture(texture,unit)
-        local color=o.staticPortraitColor
+        local color=not o.portrait3D and o.staticPortraitColor
         if color then texture:SetVertexColor(color[1],color[2],color[3],color[4] or 1) end
     end
     local ok,err=pcall(Draw)
@@ -81,10 +83,14 @@ local function DeferredStatic(view,o)
     o.staticPortraitQueued=true
     C_Timer.After(0,function()
         o.staticPortraitQueued=nil
-        if view.preview or o.removed or o.portrait3D or not o.frame:IsVisible()
+        if view.preview or o.removed or not o.frame:IsVisible()
             or (o.module and o.module.enabled==false) then return end
         local unit=C.Unit(o.spec.unit)
         if not C.Bool(UnitExists(unit)) then return end
+        if o.portrait3D then
+            local model=o.portraitModel
+            if not model or model.portraitUnit~=unit or not (model.portraitFallback or model.portraitLoadingUntil) then return end
+        end
         DrawStatic(o,unit,"next-frame")
     end)
 end
@@ -146,8 +152,9 @@ local function ShowSource(o,fallback)
     end
 end
 local function ShowStaticModelPortrait(o,unit)
-    o.texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-    pcall(SetPortraitTexture,o.texture,unit)
+    o.texture:SetTexture(UNKNOWN_PORTRAIT)
+    DrawStatic(o,unit,"3D-stand-in")
+    o.portraitModel.portraitStaticAt=GetTime()+1
 end
 local function Fallback(o)
     local model=o.portraitModel
@@ -196,6 +203,28 @@ end
 local function Unit(view,o)
     return C.Unit(o.spec.unit)
 end
+local function IdentityHidden(unit)
+    local check=C_Secrets and C_Secrets.ShouldUnitIdentityBeSecret
+    if not check then return false end
+    local ok,hidden=pcall(check,unit)
+    return ok and (not C.Readable(hidden) or hidden==true)
+end
+function P.SwitchCenterSource(view)
+    if view.preview then return end
+    local hasTarget=C.Bool(UnitExists("target"))
+    local outgoing=view.nodes[hasTarget and CENTER_PLAYER or CENTER_TARGET]
+    local model=outgoing and outgoing.portrait3D and outgoing.portraitModel
+    if not model then return end
+    -- Explicitly stop the old native draw source before the other portrait
+    -- paints. PlayerModel does not reliably follow the containing frame.
+    outgoing.texture:Hide()
+    if outgoing.portraitBackground then outgoing.portraitBackground:Hide() end
+    if model.portraitUnit or model:IsShown() then
+        model:SetAlpha(0);model:Hide();model:ClearModel()
+        model.portraitLoadingUntil=nil;model.portraitLoadedEvent=nil
+        model.portraitUnit=nil;model.portraitGUID=nil;model.portraitDirty=true
+    end
+end
 local function Load(view,o,force)
     if view.preview or view.movementModelsHidden then return end
     local model=o.portraitModel
@@ -203,7 +232,7 @@ local function Load(view,o,force)
     local guid=UnitGUID and UnitGUID(unit)
     if not C.Readable(guid) then guid=nil end
     local available=C.Bool(UnitExists(unit)) and C.Bool(UnitIsConnected(unit))
-        and (not UnitIsVisible or C.Bool(UnitIsVisible(unit)))
+        and (not UnitIsVisible or C.Bool(UnitIsVisible(unit))) and not IdentityHidden(unit)
     if available and model.CanSetUnit then
         local ok,allowed=pcall(model.CanSetUnit,model,unit)
         if ok and C.Readable(allowed) and allowed==false then available=false end
@@ -221,13 +250,18 @@ local function Load(view,o,force)
         local ok,loaded=pcall(model.SetUnit,model,unit)
         if not ok or (C.Readable(loaded) and loaded==false) then model.portraitFallback=true end
     end
-    if model.portraitFallback then Fallback(o);return end
+    if model.portraitFallback then
+        Fallback(o)
+        if o.spec.id==CENTER_TARGET then DeferredStatic(view,o) end
+        return
+    end
     model.portraitRetry=nil;model.portraitCheckLoad=true
     if not ModelReady(model) then
         -- The unit may bind successfully before its creature model is ready.
         -- Keep the model alive while displaying a native portrait underneath.
         model.portraitLoadingUntil=GetTime()+.75
         ShowStaticModelPortrait(o,unit)
+        if o.spec.id==CENTER_TARGET then DeferredStatic(view,o) end
     end
     ShowSource(o,false)
     Pose(model)
@@ -249,7 +283,7 @@ function P.Configure(view,o)
         icon:SetPoint("RIGHT",o.frame,"LEFT",-baseSize*.5,0)
     end
     if not view.preview and not o.staticPortraitShowHook
-        and (o.spec.id=="wa88b1376baa" or o.spec.id=="wa0b0b0540c7") then
+        and (o.spec.id==CENTER_PLAYER or o.spec.id==CENTER_TARGET) then
         o.staticPortraitShowHook=true
         o.frame:HookScript("OnShow",function()o.portraitRefresh=true;o.staticPortraitReason="shown" end)
     end
@@ -393,9 +427,16 @@ function P.Paint(view,o,state,color,animateOnly)
         local alpha=color[4] or 1
         if model.portraitAlpha~=alpha then model:SetAlpha(model.portraitLoadingUntil and 0 or alpha);model.portraitAlpha=alpha end
         o.texture:SetVertexColor(1,1,1,alpha)
-        if not animateOnly then Load(view,o) end
+        if not animateOnly then
+            Load(view,o)
+            if o.spec.id==CENTER_TARGET and model.portraitFallback and model.portraitUnit==state.unit
+                and GetTime()>=(model.portraitStaticAt or 0) then
+                DrawStatic(o,state.unit,"3D-stand-in-retry")
+                model.portraitStaticAt=GetTime()+1
+            end
+        end
     elseif not animateOnly then
-        if o.spec.id=="wa88b1376baa" or o.spec.id=="wa0b0b0540c7" then
+        if o.spec.id==CENTER_PLAYER or o.spec.id==CENTER_TARGET then
             local tint=o.staticPortraitColor or {};o.staticPortraitColor=tint
             tint[1],tint[2],tint[3],tint[4]=color[1],color[2],color[3],color[4]
             if o.portraitRefresh or o.staticPortraitUnit~=state.unit then DeferredStatic(view,o) end

@@ -94,6 +94,7 @@ function R.RefreshTarget(view,moduleID)
     if threat then threat.nextThreatUpdate=nil end
     view.targetRefreshing=true
     view.targetRefreshGeneration=(view.targetRefreshGeneration or 0)+1
+    M.Portraits.SwitchCenterSource(view)
     R.InvalidateAuras(view,"target");R.InvalidateAuras(view,"targettarget")
     for _,o in ipairs(view.targetRefreshNodes or view.ordered or {}) do
         local n=o.spec
