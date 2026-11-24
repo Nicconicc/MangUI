@@ -77,13 +77,9 @@ local function Paint(view,o,animateOnly,visibleHint)
         o.wasShown=false;o.started=nil
         return
     end
-    if view.raidEncounter and not view.preview and (n.kind=="sprite" or n.partyBuffs) then
+    if view.raidEncounter and not view.preview and n.kind=="sprite" then
         if f:IsShown() then f:Hide() end
         if n.particleFlow then ResetParticle(o) end
-        if n.partyBuffs then
-            o.nextAuraScan=nil
-            M.NativeDisplays.SetPartyBuffActive(o,false)
-        end
         o.fastReady=nil;o.wasShown=false;o.started=nil;o.effectStarted=nil;o.effectCondition=nil
         return
     end
@@ -143,7 +139,7 @@ local function Paint(view,o,animateOnly,visibleHint)
     -- Secure visibility layers refresh synchronously on show. Their hidden
     -- descendants need neither unit queries nor invisible particle playback.
     if not view.preview and not visibleHint and not f:GetParent():IsVisible() then
-        if n.partyBuffs then M.NativeDisplays.SetPartyBuffActive(o,false) end
+        if o.partyAura then M.NativeDisplays.SetPartyAuraActive(o,false) end
         if n.particleFlow then
             ResetParticle(o)
         end

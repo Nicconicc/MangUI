@@ -531,7 +531,7 @@ local function IndexUpdates(view)
         end
         if (Animated(n) or o.auraClock or o.healthChangeEnabled) and (view.preview or (n.enabled~=false and (not o.module or o.module.enabled~=false))) then
             view.animated[#view.animated+1]=o
-            if n.kind~="sprite" and not n.partyBuffs and not n.spinPeriod then
+            if n.kind~="sprite" and not n.spinPeriod then
                 view.raidAnimated[#view.raidAnimated+1]=o
             end
         end

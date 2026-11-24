@@ -282,16 +282,6 @@ function M:StartLive()
                 and type(update.removedAuraInstanceIDs)=="nil" then
                 local added=update.addedAuras
                 if type(added)=="nil" then return end
-                if view.raidEncounter and partyUnits[unit] and C.Readable(added) and type(added)=="table" then
-                    local helpfulOnly=true
-                    for _,aura in ipairs(added) do
-                        if not C.Readable(aura) or type(aura)~="table"
-                            or not C.Readable(aura.isHelpful) or aura.isHelpful~=true then
-                            helpfulOnly=false;break
-                        end
-                    end
-                    if helpfulOnly then return end
-                end
             end
             if unit~="player" and unit~="target" then
                 R.InvalidateAuras(view,unit=="vehicle" and "player" or unit)
@@ -366,8 +356,9 @@ function M:StartLive()
         if event=="PLAYER_REGEN_ENABLED" and M.live.minimalRevealPending then
             M:Safe("极简框体脱战刷新",R.SyncMinimalTargetReveal,M.live,false)
         end
-        if (event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_REGEN_ENABLED") and M.DisplayModes.Minimal() then
-            Module("mainComposite")
+        if event=="PLAYER_REGEN_DISABLED" or event=="PLAYER_REGEN_ENABLED" then
+            Module("partyFrames")
+            if M.DisplayModes.Minimal() then Module("mainComposite") end
         end
         if event=="PLAYER_ENTERING_WORLD" then M:QueueUIScale()
         elseif event=="PLAYER_REGEN_ENABLED" and M.pendingUIScale then M:ApplyUIScale() end

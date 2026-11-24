@@ -31,6 +31,10 @@ function N.RefreshAuraFonts(view,o,force)
 end
 local function StyleAura(view,o,frame)
     local n=o.spec
+    if n.partyIndex~=nil then
+        local hitbox=view.nodes["party"..n.partyIndex.."Hitbox"]
+        frame:SetFrameLevel(math.max(o.frame:GetFrameLevel()+1,hitbox and hitbox.frame:GetFrameLevel()+1 or 1))
+    end
     frame:SetSize(n.width,n.height)
     frame:EnableMouse(false)
     frame:EnableMouseMotion(true)
@@ -70,15 +74,12 @@ end
 function N.ConfigureAuras(view,o)
     local n=o.spec
     local pet=M.PetBuffs and n.id==M.PetBuffs.nodeID
-    local party=n.partyBuffs and view.byID.partyFrames
+    local party=n.partyIndex~=nil and view.byID.partyFrames
     if view.preview or (n.unit~="target" and not pet and not party) then return end
-    -- The native PLAYER filter also matches pets and vehicles. For the
-    -- character-only filter, use the readable caster token instead.
-    o.partyBuffsUseLua=party and party.partyBuffsOnlyPlayer==true
-    if o.partyBuffsUseLua then
-        if o.nativeAuras then o.nativeAuras:SetEnabled(false);o.nativeAuras:Hide() end
-        return
-    end
+    o.partyAura=n.partyIndex~=nil and party~=nil
+    -- The native PLAYER filter includes the player's pet and vehicle. Keep
+    -- exact character-only filtering when caster tokens can be read in Lua.
+    o.partyAuraPlayerOnly=party and n.partyBuffs and party.partyBuffsOnlyPlayer==true
     if not AuraSupport() then return end
     local parent=view.nodes[n.parent] and view.nodes[n.parent].spec
     local debuff=parent and parent.id=="wa026b04c50e"
@@ -109,8 +110,9 @@ function N.ConfigureAuras(view,o)
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
     container:SetFlowLayoutMaximumLineSize(perRow*n.width+(perRow-1)*gap+.001)
     container:SetAuraGroupLayout("main",{elementSpacing=gap,lineSpacing=gap,elementWidth=n.width,elementHeight=n.height})
-    container:SetAuraGroupFilterString("main",(n.filter or "HARMFUL")..(debuff and parent.onlyPlayerDebuffs==true and "|PLAYER" or ""))
-    local timedOnly=(buff and parent.hideUntimedBuffs==true) or (party and party.partyBuffsTimedOnly==true)
+    local playerOnly=o.partyAuraPlayerOnly or (debuff and parent.onlyPlayerDebuffs==true)
+    container:SetAuraGroupFilterString("main",(n.filter or "HARMFUL")..(playerOnly and "|PLAYER" or ""))
+    local timedOnly=(buff and parent.hideUntimedBuffs==true) or (party and n.partyBuffs and party.partyBuffsTimedOnly==true)
     local candidates=timedOnly and {maxDuration=math.huge} or {}
     if pet then
         candidates,o.nativePetFilterKey=M.PetBuffs.NativeFilters(parent,CanStyleAuras())
@@ -123,26 +125,41 @@ function N.ConfigureAuras(view,o)
         for _,frame in ipairs(o.nativeAuraFrames) do StyleAura(view,o,frame) end
         o.nativeAuraStylePending=nil
     end
-    for _,icon in ipairs(o.icons or {}) do icon:Hide() end
+    for _,icon in ipairs(o.icons or {}) do P.CachedValue(icon,"auraShown",icon,"SetShown",false) end
     if party then container:Show() end
     local enabled=n.enabled~=false and parent.enabled~=false and (not o.module or o.module.enabled~=false)
     if party then
-        enabled=enabled and not view.raidEncounter and o.frame:IsVisible()
-        o.nativePartyBuffActive=enabled
+        enabled=enabled and not o.partyAuraPlayerOnly and o.frame:IsVisible()
+        o.nativePartyAuraActive=enabled
     end
     container:SetEnabled(enabled)
     o.nativeAuraVersion=nil
 end
-function N.SetPartyBuffActive(o,active)
-    if not o.nativeAuras or o.partyBuffsUseLua or o.nativePartyBuffActive==active then return end
+function N.SetPartyAuraActive(o,active)
+    if not o.partyAura or not o.nativeAuras or o.nativePartyAuraActive==active then return end
+    if active then
+        for _,icon in ipairs(o.icons or {}) do P.CachedValue(icon,"auraShown",icon,"SetShown",false) end
+    else o.nextAuraScan=0 end
     o.nativeAuras:SetEnabled(active)
-    o.nativePartyBuffActive=active
+    o.nativePartyAuraActive=active
     o.nativeAuraVersion=nil
+end
+local function PartyAuraRestricted(unit)
+    local check=C_Secrets and C_Secrets.ShouldAurasBeSecret
+    if check then
+        local ok,restricted=pcall(check,unit)
+        if ok and M.Compat.Readable(restricted) and type(restricted)=="boolean" then return restricted end
+    end
+    return InCombatLockdown()
 end
 function N.Auras(view,o,s)
     local container=o.nativeAuras
-    if view.preview or not container or o.partyBuffsUseLua then return false end
-    if o.spec.partyBuffs then N.SetPartyBuffActive(o,true) end
+    if view.preview or not container then return false end
+    if o.partyAura then
+        local useNative=not o.partyAuraPlayerOnly or PartyAuraRestricted(o.spec.unit)
+        N.SetPartyAuraActive(o,useNative)
+        if not useNative then return false end
+    end
     if o.nativeAuraStylePending and CanStyleAuras() then
         for _,frame in ipairs(o.nativeAuraFrames) do StyleAura(view,o,frame) end
         o.nativeAuraStylePending=nil
@@ -162,7 +179,7 @@ function N.Auras(view,o,s)
     local pet=M.PetBuffs and o.spec.id==M.PetBuffs.nodeID
     local version
     if pet then version=view.auraVersions and view.auraVersions.pet or 0
-    elseif o.spec.partyBuffs then version=view.auraRosterVersion or 0
+    elseif o.partyAura then version=view.auraRosterVersion or 0
     else version=view.targetRefreshGeneration or 0 end
     if o.nativeAuraVersion~=version then
         local profiler=M.ModuleProfiler

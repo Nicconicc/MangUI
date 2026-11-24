@@ -223,7 +223,7 @@ local pollDeadlines={
 local function NeedsAnimation(view,o)
     if view.preview then return true end
     local n=o.spec
-    if view.raidEncounter and (n.kind=="sprite" or n.partyBuffs or n.spinPeriod) then return false end
+    if view.raidEncounter and (n.kind=="sprite" or n.spinPeriod) then return false end
     local now=view.animationNow or GetTime()
     local deadline=pollDeadlines[n.kind]
     if deadline and o[deadline] and now<o[deadline] then return false end
