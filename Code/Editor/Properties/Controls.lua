@@ -20,6 +20,14 @@ local AvatarXRange=private.AvatarXRange
 local Change=private.Change
 local PreviewModuleID=private.PreviewModuleID
 
+local mouseoverCastCVar="enableMouseoverCast"
+local function MouseoverCastState()
+    local get=C_CVar and C_CVar.GetCVar or GetCVar
+    if not get then return end
+    local ok,value=pcall(get,mouseoverCastCVar)
+    if ok and (value=="0" or value=="1") then return value=="1" end
+end
+
 local function BuildProperties(e)
     e.right.controlPanelTextSize=12
     local propertyWidth=470
@@ -182,6 +190,21 @@ local function BuildProperties(e)
         if Selected() and Selected().compound=="partyFrames"then Change("partyBuffsOnlyPlayer",enabled)end
     end)
     Row(32,{{e.partyBuffsOnlyPlayer,-4,0}},{},"partyBuffsOnlyPlayer");y=y-32
+    -- This is a Blizzard game setting shared by both layouts, outside MangUI profiles.
+    e.partyMouseoverCast=W.Check(content,"鼠标指向施法（游戏全局）",function(enabled)
+        local set=C_CVar and C_CVar.SetCVar or SetCVar
+        if set and MouseoverCastState()~=nil and not InCombatLockdown() then
+            pcall(set,mouseoverCastCVar,enabled and "1" or "0","ENABLE_MOUSEOVER_CAST")
+        end
+        e.partyMouseoverCast:UpdateState()
+    end)
+    function e.partyMouseoverCast:UpdateState()
+        local enabled=MouseoverCastState()
+        local set=C_CVar and C_CVar.SetCVar or SetCVar
+        self:SetChecked(enabled==true)
+        self:SetEnabled(enabled~=nil and set~=nil)
+    end
+    Row(32,{{e.partyMouseoverCast,-4,0}},{},"partyMouseoverCast");y=y-32
     PartyField("玩家框体X偏移","partyPlayerX",-150,150,1)
     e.partyMaterialButton=W.MediaSelect(content,"生命与能量条材质",propertyWidth,"statusbar",function()M:OpenBarMaterialPicker()end)
     Row(53,{{e.partyMaterialButton,0,0}},{},"partyMaterial");y=y-53

@@ -138,7 +138,7 @@ local propertyCategories={
     bossFrames={{"scale"},{"bossHPMaterial","bossHPColor"},
         {"bossPercentX","bossPercentY","bossFont","bossPercentSize"},{"bossCastY","bossCastColor"},{"bossHideAvatar","combatSound"}},
     partyFrames={{"scale","partySpacing","partyPlayerX"},{"partyMaterial","partyHealthColor","partyHealthEndColor"},
-        {"partyFont","partyNameSize"},{"partyHideInRaid","partyHideNumbers","partyHidePlayer","partyBuffsTimedOnly","partyBuffsOnlyPlayer"}},
+        {"partyFont","partyNameSize"},{"partyHideInRaid","partyHideNumbers","partyHidePlayer","partyBuffsTimedOnly","partyBuffsOnlyPlayer"},{"partyMouseoverCast"}},
     cast={{"overallScale","castHorizontalScale","castIconSize","castColor","castStageSound"},{"hidePlayerCastText","nameFont","castFontSize"},{"showRangedProgress","showMeleeProgress"}},
     playerSkillMonitor={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"skillMonitorItems"},{"skillMonitorSharing"}},
     playerOtherMonitor={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"otherMonitorItems"},{"otherMonitorEquipment"},{"otherMonitorSharing"}},
