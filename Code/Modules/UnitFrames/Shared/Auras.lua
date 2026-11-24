@@ -84,7 +84,9 @@ local function Auras(view,o,s)
                 data[i]={icon=icon,applications=i==1 and 3 or 0}
             end
         end
-    else data=C.Auras(s.unit,filter,count,o.auraData,hideUntimed,onlyPlayer,party and hideUntimed) end
+    else
+        data=C.Auras(s.unit,filter,count,o.auraData,hideUntimed,onlyPlayer,party and hideUntimed,o.partyAuraSortMethod~=nil)
+    end
     if scan then
         o.auraData=data;o.auraUnit=s.unit;o.auraFilter=filter;o.auraLimit=count;o.auraHideUntimed=hideUntimed;o.auraOnlyPlayer=onlyPlayer;o.auraVersion=version;o.nextAuraScan=now+.2;o.petBuffKey=petKey
     end

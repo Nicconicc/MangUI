@@ -91,11 +91,12 @@ function N.ConfigureAuras(view,o)
     local gap=n.spacing or 4
     local container=o.nativeAuras
     if not container then
+        o.partyAuraSortMethod=party and AuraContainerSortMethod and AuraContainerSortMethod.AuraInstanceIDOnly or nil
         container=CreateFrame("AuraContainer",nil,o.frame,"CustomAuraContainerTemplate")
         o.nativeAuras=container;o.nativeAuraFrames={}
         container:SetEnabled(false)
         container:SetUnit(n.unit)
-        container:AddAuraGroup("main",n.filter or "HARMFUL",{maxFrameCount=0,initializeFrame=function(frame)
+        container:AddAuraGroup("main",n.filter or "HARMFUL",{maxFrameCount=0,sortMethod=o.partyAuraSortMethod,initializeFrame=function(frame)
             if not party then o.nativeAuraFrames[#o.nativeAuraFrames+1]=frame end
             StyleAura(view,o,frame)
         end})

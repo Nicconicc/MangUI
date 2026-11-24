@@ -389,11 +389,16 @@ function C.AuraSnapshot(unit,filter)
     if auraSnapshotDepth>0 then units[key]=result end
     return result
 end
-function C.Auras(unit,filter,count,out,hideUntimed,onlyPlayer,strictTiming)
+local function AuraInstanceOrder(a,b)
+    if a.auraInstanceID==b.auraInstanceID then return a.auraIndex<b.auraIndex end
+    return a.auraInstanceID<b.auraInstanceID
+end
+function C.Auras(unit,filter,count,out,hideUntimed,onlyPlayer,strictTiming,sortByInstance)
     local result=out or {};local used=0
     local now=strictTiming and GetTime()
+    local sortable=sortByInstance
     -- Apply the display limit after filtering so permanent auras do not consume slots.
-    for i=1,(hideUntimed or onlyPlayer) and 255 or count do
+    for i=1,(hideUntimed or onlyPlayer or sortByInstance) and 255 or count do
         local a=C.Aura(unit,i,filter,result[used+1])
         if not a then break end
         local untimed=false
@@ -414,10 +419,13 @@ function C.Auras(unit,filter,count,out,hideUntimed,onlyPlayer,strictTiming)
             -- slots can differ after permanent/other-caster auras are skipped.
             a.auraIndex=i
             used=used+1;result[used]=a
-            if used>=count then break end
+            if sortable and not C.Number(a.auraInstanceID) then sortable=false end
+            if not sortByInstance and used>=count then break end
         end
     end
     for i=#result,used+1,-1 do result[i]=nil end
+    if sortable and used>1 then table.sort(result,AuraInstanceOrder) end
+    for i=used,count+1,-1 do result[i]=nil end
     return result
 end
 function C.Menu(button,unit)
