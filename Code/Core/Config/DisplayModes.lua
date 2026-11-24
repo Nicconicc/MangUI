@@ -8,6 +8,20 @@ local healthEnd={139/255,174/255,115/255,1}
 D.defaultBackgroundColor={.10,.12,.16,.9}
 function D.UsesPowerColor(n)
     return n.id=="minimalPower" or n.id=="minimalPowerValue" or n.id=="minimalPowerPercent"
+        or n.id=="minimalThirdResourceFill"
+end
+
+function D.StandardPowerBars()
+    local profile=M.db
+    if D.Minimal() then profile=profile.inactiveDesign end
+    local design=profile and profile.design or M.recordedDefaults or M.defaults
+    local primary,third
+    for _,node in ipairs(design.nodes) do
+        if node.id=="wa58141a60dd" then primary=node
+        elseif node.id=="playerThirdResourceFill" then third=node end
+        if primary and third then break end
+    end
+    return primary,third
 end
 
 function D.IsValueText(n)

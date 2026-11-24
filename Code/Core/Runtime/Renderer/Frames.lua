@@ -611,6 +611,9 @@ function R.Apply(view,design,unchanged)
     local fullPaint=settingsChanged or selectionChanged or view.design~=design
     local reindex=settingsChanged or view.design~=design or view.indexRevision~=prepared.indexRevision
     local byID=prepared.byID
+    if byID.minimalPower or byID.minimalThirdResourceFill then
+        view.standardPowerBar,view.standardThirdPowerBar=M.DisplayModes.StandardPowerBars()
+    end
     local active=byID
     -- Allocate first, then parent: duplicates may follow their original descendants.
     for _,n in ipairs(design.nodes) do

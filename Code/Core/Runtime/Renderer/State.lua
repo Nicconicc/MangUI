@@ -73,6 +73,16 @@ local function Appearance(view,n,s,o)
             else alpha=change.value end
         end end
     end
+    if M.DisplayModes.UsesPowerColor(n) then
+        local source=view.standardPowerBar
+        if n.id=="minimalThirdResourceFill" then source=view.standardThirdPowerBar end
+        if source then
+            local standardStyle=o.standardPowerStyle or {};o.standardPowerStyle=standardStyle
+            local standardColor=Appearance(view,source,s,standardStyle)
+            tint[1],tint[2],tint[3],tint[4]=standardColor[1],standardColor[2],standardColor[3],col[4] or 1
+            col=tint
+        end
+    end
     -- Keep a single resource value for rage, focus, energy, runic power and
     -- retail Astral Power/Maelstrom/Insanity/Fury. Apply to saved layouts and previews.
     if hidePlayerPower then alpha=0 end
