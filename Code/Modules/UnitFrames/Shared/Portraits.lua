@@ -135,8 +135,9 @@ local function PartyStaticPortrait(o,unit)
 end
 local function ShowSource(o,fallback)
     local model=o.portraitModel
-    o.texture:SetShown(not o.portraitDead and (not o.portrait3D or fallback))
-    if o.portraitBackground then o.portraitBackground:SetShown(not o.portraitDead and o.portrait3D and not fallback) end
+    local loading=model and model.portraitLoadingUntil~=nil
+    o.texture:SetShown(not o.portraitDead and (not o.portrait3D or fallback or loading))
+    if o.portraitBackground then o.portraitBackground:SetShown(not o.portraitDead and o.portrait3D and not fallback and not loading) end
     if model then
         -- Internal source changes must not trigger the external hide/show reload.
         model.portraitSwitching=true
@@ -144,13 +145,18 @@ local function ShowSource(o,fallback)
         model.portraitSwitching=nil
     end
 end
+local function ShowStaticModelPortrait(o,unit)
+    o.texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    pcall(SetPortraitTexture,o.texture,unit)
+end
 local function Fallback(o)
     local model=o.portraitModel
     model.portraitFallback=true;model.portraitCheckLoad=nil
+    model.portraitLoadingUntil=nil
     model.portraitRetry=GetTime()+1
     model:SetScript("OnUpdate",nil);model:ClearModel()
     -- Let the client supply its cached portrait or default race/sex portrait.
-    o.texture:SetTexture(nil);SetPortraitTexture(o.texture,model.portraitUnit)
+    ShowStaticModelPortrait(o,model.portraitUnit)
     ShowSource(o,true)
 end
 local function Pose(model)
@@ -162,16 +168,25 @@ local function Pose(model)
     model:SetPortraitZoom(1)
     model:SetPosition(0,0,0)
 end
+local function ModelReady(model)
+    if not model.GetModelFileID then return true end
+    local ok,file=pcall(model.GetModelFileID,model)
+    if ok and C.Readable(file) then return type(file)=="number" and file>0 end
+    return model.portraitLoadedEvent==true
+end
 local function SettledPose(model)
-    model:SetScript("OnUpdate",nil)
-    if model.movementSuppressed or not model.portraitActive or model.portraitFallback then return end
-    if model.portraitCheckLoad and model.GetModelFileID then
-        local file=model:GetModelFileID()
-        if C.Readable(file) and file==0 then Fallback(model.portraitObject);return end
+    if model.movementSuppressed or not model.portraitActive or model.portraitFallback then model:SetScript("OnUpdate",nil);return end
+    if model.portraitCheckLoad and not ModelReady(model) then
+        if model.portraitLoadingUntil and GetTime()<model.portraitLoadingUntil then return end
+        Fallback(model.portraitObject);return
     end
+    model:SetScript("OnUpdate",nil)
+    local wasLoading=model.portraitLoadingUntil~=nil
+    model.portraitLoadingUntil=nil
     model.portraitCheckLoad=nil
     Pose(model)
-    if model.portraitAlpha then model:SetAlpha(model.portraitAlpha) end
+    if wasLoading then ShowSource(model.portraitObject,false) end
+    model:SetAlpha(model.portraitAlpha or 1)
 end
 local function QueuePose(model)
     -- Loading/layout can reset the camera after their callback returns.
@@ -190,8 +205,8 @@ local function Load(view,o,force)
     local available=C.Bool(UnitExists(unit)) and C.Bool(UnitIsConnected(unit))
         and (not UnitIsVisible or C.Bool(UnitIsVisible(unit)))
     if available and model.CanSetUnit then
-        local allowed=model:CanSetUnit(unit)
-        if C.Readable(allowed) and allowed==false then available=false end
+        local ok,allowed=pcall(model.CanSetUnit,model,unit)
+        if ok and C.Readable(allowed) and allowed==false then available=false end
     end
     local retry=model.portraitFallback and available and GetTime()>=(model.portraitRetry or 0)
     if not force and not o.portraitRefresh and not model.portraitDirty and not retry
@@ -199,6 +214,7 @@ local function Load(view,o,force)
     model.portraitUnit,model.portraitGUID,model.portraitAvailable=unit,guid,available
     model.portraitDirty=false;o.portraitRefresh=nil
     model.portraitFallback=not available
+    model.portraitLoadingUntil=nil;model.portraitLoadedEvent=nil
     model:ClearModel()
     if available then
         Pose(model)
@@ -207,10 +223,16 @@ local function Load(view,o,force)
     end
     if model.portraitFallback then Fallback(o);return end
     model.portraitRetry=nil;model.portraitCheckLoad=true
+    if not ModelReady(model) then
+        -- The unit may bind successfully before its creature model is ready.
+        -- Keep the model alive while displaying a native portrait underneath.
+        model.portraitLoadingUntil=GetTime()+.75
+        ShowStaticModelPortrait(o,unit)
+    end
     ShowSource(o,false)
     Pose(model)
     QueuePose(model)
-    if model.portraitAlpha then model:SetAlpha(model.portraitAlpha) end
+    model:SetAlpha(model.portraitLoadingUntil and 0 or model.portraitAlpha or 1)
 end
 function P.Configure(view,o)
     if o.spec.unit=="pet" then
@@ -263,8 +285,9 @@ function P.Configure(view,o)
         model:SetScript("OnModelLoaded",function(self)
             if self.movementSuppressed then self:Hide();self:ClearModel();return end
             if not self.portraitActive or self.portraitFallback then return end
+            self.portraitLoadedEvent=true
             Pose(self)
-            if self.portraitAlpha then self:SetAlpha(self.portraitAlpha) end
+            if not self.portraitLoadingUntil and self.portraitAlpha then self:SetAlpha(self.portraitAlpha) end
             QueuePose(self)
         end)
         model:SetScript("OnSizeChanged",QueuePose)
@@ -304,6 +327,7 @@ function P.Configure(view,o)
         if not o.portrait3D and was3D then
             model:ClearModel();model.portraitUnit=nil;model.portraitGUID=nil
             model.portraitFallback=nil;model.portraitCheckLoad=nil;model:SetScript("OnUpdate",nil)
+            model.portraitLoadingUntil=nil;model.portraitLoadedEvent=nil
         end
     end
     ShowSource(o,model and model.portraitFallback)
@@ -320,10 +344,10 @@ function P.Configure(view,o)
     end
     if not o.portrait3D or was3D~=o.portrait3D then
         o.portraitRefresh=true
-    elseif model and model.portraitFallback and model.portraitUnit then
+    elseif model and (model.portraitFallback or model.portraitLoadingUntil) and model.portraitUnit then
         -- Renderer setup replaced the static texture; restore the cached
         -- fallback without restarting the native model on every slider tick.
-        SetPortraitTexture(o.texture,model.portraitUnit)
+        ShowStaticModelPortrait(o,model.portraitUnit)
     end
 end
 function P.Paint(view,o,state,color,animateOnly)
@@ -367,7 +391,7 @@ function P.Paint(view,o,state,color,animateOnly)
         local model=o.portraitModel
         if view.movementModelsHidden then model:Hide();return end
         local alpha=color[4] or 1
-        if model.portraitAlpha~=alpha then model:SetAlpha(alpha);model.portraitAlpha=alpha end
+        if model.portraitAlpha~=alpha then model:SetAlpha(model.portraitLoadingUntil and 0 or alpha);model.portraitAlpha=alpha end
         o.texture:SetVertexColor(1,1,1,alpha)
         if not animateOnly then Load(view,o) end
     elseif not animateOnly then

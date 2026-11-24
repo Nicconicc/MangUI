@@ -24,7 +24,8 @@ end
 
 local function Surface(o)
     local n=o.spec
-    if n.kind=="portrait" and o.portrait3D and o.portraitModel and not o.portraitModel.portraitFallback then
+    if n.kind=="portrait" and o.portrait3D and o.portraitModel
+        and not (o.portraitModel.portraitFallback or o.portraitModel.portraitLoadingUntil) then
         return o.frame,o.portraitModel,.105,2
     end
     if n.kind=="bar" and o.clip and o.fill and not n.vertical then
