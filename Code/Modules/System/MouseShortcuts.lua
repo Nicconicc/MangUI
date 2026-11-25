@@ -129,7 +129,7 @@ local function Name(unit)
     return name
 end
 
-local function LeftModifier()
+local function MouseModifier()
     if IsControlKeyDown and IsControlKeyDown() then return "other" end
     local alt=IsAltKeyDown and IsAltKeyDown()
     local shift=IsShiftKeyDown and IsShiftKeyDown()
@@ -188,7 +188,7 @@ local function CloseInviteWhisper(name,chatFrame)
 end
 
 local function InviteChatPlayer(link,_,button,chatFrame)
-    if button~="LeftButton" or LeftModifier()~="alt" or not Setting("mouseChatAltInvite") then return end
+    if button~="LeftButton" or MouseModifier()~="alt" or not Setting("mouseChatAltInvite") then return end
     if not C.Readable(link) or type(link)~="string" or not C.Readable(chatFrame) or not chatFrame then return end
     local frameName=chatFrame.GetName and chatFrame:GetName()
     if not frameName or not frameName:match("^ChatFrame%d+$") or _G[frameName]~=chatFrame then return end
@@ -218,7 +218,7 @@ end
 local clearFocusMacro="/clearfocus [@mouseover,noexists,nocombat,mod:shift,nomod:alt,nomod:ctrl]"
 
 local function WorldFocusAction()
-    if not FocusUnit or not Setting("mouseShiftFocus") or LeftModifier()~="shift" then return end
+    if not FocusUnit or not Setting("mouseShiftFocus") or MouseModifier()~="shift" then return end
     if C.Bool(UnitExists("mouseover")) then
         if WorldHasMouse(Nameplate("mouseover")) then return "focus" end
     elseif C.Bool(UnitExists("focus")) and WorldHasMouse() then
@@ -270,7 +270,7 @@ end
 
 local function PollFocusBinding(listener)
     RefreshFocusBinding()
-    if LeftModifier()~="shift" then listener:SetScript("OnUpdate",nil) end
+    if MouseModifier()~="shift" then listener:SetScript("OnUpdate",nil) end
 end
 
 local function ConfigureCombatFocus(enabled)
@@ -710,7 +710,7 @@ local function OnMouse(listener,event,button,keyDown)
     end
     if event=="MODIFIER_STATE_CHANGED" or event=="PLAYER_REGEN_ENABLED" then
         local shiftPressed=keyDown==1 and (button=="LSHIFT" or button=="RSHIFT")
-        listener:SetScript("OnUpdate",(shiftPressed or LeftModifier()=="shift") and PollFocusBinding or nil)
+        listener:SetScript("OnUpdate",(shiftPressed or MouseModifier()=="shift") and PollFocusBinding or nil)
         RefreshFocusBinding()
         return
     end
@@ -733,7 +733,7 @@ local function OnMouse(listener,event,button,keyDown)
     if event=="GLOBAL_MOUSE_DOWN" then
         chatClickSerial=chatClickSerial+1
         chatDraftBeforeClick=false
-        if button=="LeftButton" and LeftModifier()=="alt" and Setting("mouseChatAltInvite") then
+        if button=="LeftButton" and MouseModifier()=="alt" and Setting("mouseChatAltInvite") then
             local input=ActiveChatInput()
             if input and (not input.IsForbidden or not input:IsForbidden()) then
                 local text=input:GetText()
@@ -752,9 +752,9 @@ local function OnMouse(listener,event,button,keyDown)
     local previous=clicks[button];clicks[button]=nil
     local key
     if button=="RightButton" then
-        key="mouseUnitMenu"
+        if MouseModifier()=="alt" then key="mouseUnitMenu" end
     elseif button=="LeftButton" then
-        local modifier=LeftModifier()
+        local modifier=MouseModifier()
         if modifier then lastLeft=nil end
         if modifier=="alt" then
             if event=="GLOBAL_MOUSE_DOWN" and Setting("mouseAltInvite") and WorldHasMouse()

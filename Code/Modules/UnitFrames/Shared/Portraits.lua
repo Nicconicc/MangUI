@@ -195,10 +195,10 @@ local function Pose(model)
     model:SetPosition(0,0,0)
 end
 local function ModelReady(model)
+    if model.portraitLoadedEvent then return true end
     if not model.GetModelFileID then return true end
     local ok,file=pcall(model.GetModelFileID,model)
-    if ok and C.Readable(file) then return type(file)=="number" and file>0 end
-    return model.portraitLoadedEvent==true
+    return ok and C.Readable(file) and type(file)=="number" and file>0
 end
 local function SettledPose(model)
     if model.movementSuppressed or not model.portraitActive or model.portraitFallback then model:SetScript("OnUpdate",nil);return end
@@ -228,6 +228,11 @@ local function IdentityHidden(unit)
     local ok,hidden=pcall(check,unit)
     return ok and (not C.Readable(hidden) or hidden==true)
 end
+local function Available(query,unit)
+    if not query then return true end
+    local value=query(unit)
+    return not C.Readable(value) or value~=false
+end
 function P.SwitchCenterSource(view)
     if view.preview then return end
     local hasTarget=C.Bool(UnitExists("target"))
@@ -250,8 +255,8 @@ local function Load(view,o,force)
     local unit=Unit(view,o)
     local guid=UnitGUID and UnitGUID(unit)
     if not C.Readable(guid) then guid=nil end
-    local available=C.Bool(UnitExists(unit)) and C.Bool(UnitIsConnected(unit))
-        and (not UnitIsVisible or C.Bool(UnitIsVisible(unit))) and not IdentityHidden(unit)
+    local available=C.Bool(UnitExists(unit)) and Available(UnitIsConnected,unit)
+        and Available(UnitIsVisible,unit) and not IdentityHidden(unit)
     if available and model.CanSetUnit then
         local ok,allowed=pcall(model.CanSetUnit,model,unit)
         if ok and C.Readable(allowed) and allowed==false then available=false end
@@ -262,10 +267,15 @@ local function Load(view,o,force)
     model.portraitUnit,model.portraitGUID,model.portraitAvailable=unit,guid,available
     model.portraitDirty=false;o.portraitRefresh=nil
     model.portraitFallback=not available
-    model.portraitLoadingUntil=nil;model.portraitLoadedEvent=nil
+    model.portraitLoadingUntil=nil;model.portraitLoadedEvent=nil;model.portraitCheckLoad=nil
     model:ClearModel()
     if available then
-        Pose(model)
+        -- Show the model at zero alpha before binding. Hidden PlayerModels
+        -- can drop their unit as assets stream in, leaving the 2D stand-in.
+        model.portraitCheckLoad=true
+        model.portraitLoadingUntil=GetTime()+(C.interface==16001 and 4 or .75)
+        model:SetAlpha(0)
+        ShowSource(o,false)
         local ok,loaded=pcall(model.SetUnit,model,unit)
         if not ok or (C.Readable(loaded) and loaded==false) then model.portraitFallback=true end
     end
@@ -274,11 +284,10 @@ local function Load(view,o,force)
         if o.spec.id==CENTER_TARGET then DeferredStatic(view,o) end
         return
     end
-    model.portraitRetry=nil;model.portraitCheckLoad=true
-    if not ModelReady(model) then
-        -- The unit may bind successfully before its creature model is ready.
-        -- Keep the model alive while displaying a native portrait underneath.
-        model.portraitLoadingUntil=GetTime()+.75
+    model.portraitRetry=nil
+    if ModelReady(model) then
+        model.portraitLoadingUntil=nil
+    else
         ShowStaticModelPortrait(o,unit)
         if o.spec.id==CENTER_TARGET then DeferredStatic(view,o) end
     end
@@ -335,10 +344,8 @@ function P.Configure(view,o)
         if model.SetKeepModelOnHide then model:SetKeepModelOnHide(false) end
         model:SetScript("OnModelLoaded",function(self)
             if self.movementSuppressed then self:Hide();self:ClearModel();return end
-            if not self.portraitActive or self.portraitFallback then return end
+            if not self.portraitActive or self.portraitFallback or not self.portraitCheckLoad then return end
             self.portraitLoadedEvent=true
-            Pose(self)
-            if not self.portraitLoadingUntil and self.portraitAlpha then self:SetAlpha(self.portraitAlpha) end
             QueuePose(self)
         end)
         model:SetScript("OnSizeChanged",QueuePose)
@@ -469,7 +476,12 @@ function P.Invalidate(view,unit,reason)
     if not view or view.preview then return end
     for _,o in ipairs(view.ordered or {}) do
         local n=o.spec
-        if n.kind=="portrait" and (not unit or n.unit==unit or n.unit=="shared"
+        local model=o.portrait3D and o.portraitModel
+        -- This notification is for 2D art batches. Rebinding a live request
+        -- here would cancel it on clients that stream portraits repeatedly.
+        local artOnly=reason=="PORTRAITS_UPDATED" and model and not model.portraitFallback
+            and (model.portraitLoadingUntil or ModelReady(model))
+        if not artOnly and n.kind=="portrait" and (not unit or n.unit==unit or n.unit=="shared"
             or (unit=="vehicle" and n.unit=="player")) then
             o.portraitRefresh=true
             o.staticPortraitReason=reason
