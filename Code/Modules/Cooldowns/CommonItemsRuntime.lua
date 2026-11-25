@@ -71,7 +71,19 @@ local function CursorPosition()
     local x,y=Safe(GetCursorPosition)
     return Number(x),Number(y)
 end
-local function IsBlankDrop(o,drag,x,y)
+local function DropTarget(o,x,y)
+    for index=1,o.rowCount do
+        local button=o.itemIcons[index]
+        if button and button.entry and button:IsVisible() then
+            local centerX,centerY=button:GetCenter()
+            local scale=Number(button:GetEffectiveScale())
+            centerX,centerY=Number(centerX),Number(centerY)
+            if centerX and centerY and scale and math.abs(x-centerX*scale)<=20*scale
+                and math.abs(y-centerY*scale)<=20*scale then return button end
+        end
+    end
+end
+local function OutsideRow(o,x,y)
     local first,last=o.itemIcons[1],o.itemIcons[o.rowCount]
     if not first or not last then return false end
     local firstX,centerY=first:GetCenter()
@@ -79,35 +91,48 @@ local function IsBlankDrop(o,drag,x,y)
     local scale=first:GetEffectiveScale()
     firstX,lastX,centerY,scale=Number(firstX),Number(lastX),Number(centerY),Number(scale)
     if not firstX or not lastX or not centerY or not scale then return false end
-    -- Keep the entire row, including the space between two icons, a cancel area.
-    if x>=(math.min(firstX,lastX)-20)*scale and x<=(math.max(firstX,lastX)+20)*scale
-        and math.abs(y-centerY*scale)<=20*scale then return false end
-    local function IsBackground(frame)
+    -- Gaps between slots cancel the drag rather than removing the item.
+    return x<(math.min(firstX,lastX)-20)*scale or x>(math.max(firstX,lastX)+20)*scale
+        or math.abs(y-centerY*scale)>20*scale
+end
+local function CanDropOnFocus(source,target)
+    local function IsAllowed(frame)
         -- Some clients retain the source in the mouse focus until drag cleanup.
-        return Readable(frame) and (frame==nil or frame==UIParent or frame==WorldFrame or frame==drag.button)
+        return Readable(frame) and (frame==nil or frame==UIParent or frame==WorldFrame or frame==source or frame==target)
     end
     if GetMouseFoci then
         local frames=Safe(GetMouseFoci)
         if not Readable(frames) or type(frames)~="table" or (canaccesstable and not canaccesstable(frames)) then return false end
-        for _,frame in ipairs(frames) do if not IsBackground(frame) then return false end end
+        for _,frame in ipairs(frames) do if not IsAllowed(frame) then return false end end
         return true
     end
-    return IsBackground(Safe(GetMouseFocus))
+    return IsAllowed(Safe(GetMouseFocus))
 end
 local function TrackOutgoing(view,o,ghost)
     local drag=o.outgoing
     local group=DropGroup(view,o)
     local cursor=Safe(GetCursorInfo)
-    if not drag or group~=drag.group or not drag.button:IsVisible() or not Readable(cursor) or cursor~=nil then
+    if not drag or group~=drag.group or group.commonItems~=drag.entries or drag.button.entry~=drag.entry
+        or not drag.button:IsVisible() or not Readable(cursor) or cursor~=nil then
         StopOutgoing(o);return
     end
     local x,y=CursorPosition()
     if not IsMouseButtonDown("LeftButton") then
         x,y=drag.releaseX or x,drag.releaseY or y
         StopOutgoing(o)
-        if not x or not y or not IsBlankDrop(o,drag,x,y) then return end
-        local index=EntryIndex(group.commonItems,drag.entry)
-        if index then table.remove(group.commonItems,index);M:Commit() end
+        if not x or not y then return end
+        local target=DropTarget(o,x,y)
+        if not CanDropOnFocus(drag.button,target) then return end
+        local entries=drag.entries
+        local from=EntryIndex(entries,drag.entry)
+        if not from then return end
+        if target then
+            local to=EntryIndex(entries,target.entry)
+            if not to or to==from then return end
+            table.insert(entries,to,table.remove(entries,from))
+        elseif OutsideRow(o,x,y) then table.remove(entries,from)
+        else return end
+        M:Commit()
     elseif x and y then
         local scale=UIParent:GetEffectiveScale()
         ghost:ClearAllPoints()
@@ -125,7 +150,7 @@ local function StartOutgoing(view,o,button)
         ghost.icon=ghost:CreateTexture(nil,"ARTWORK");ghost.icon:SetAllPoints()
         ghost:SetScript("OnUpdate",function(self)TrackOutgoing(view,o,self)end)
     end
-    o.outgoing={group=group,entry=button.entry,button=button}
+    o.outgoing={group=group,entries=group.commonItems,entry=button.entry,button=button}
     ghost.icon:SetTexture(button.item and button.item.icon or 134400)
     if GameTooltip then GameTooltip:Hide() end
     ghost:Show();TrackOutgoing(view,o,ghost)
