@@ -6,7 +6,7 @@ local LOGO="Interface\\AddOns\\MangUI\\Assets\\UI\\Logo.png"
 local DEAD="Interface\\AddOns\\MangUI\\Assets\\Library\\Dead.blp"
 local UNKNOWN_PORTRAIT="Interface\\Icons\\INV_Misc_QuestionMark"
 local CENTER_PLAYER,CENTER_TARGET="wa88b1376baa","wa0b0b0540c7"
-local happinessColors={[1]={1,0,0},[2]={1,1,0},[3]={0,1,0}}
+local happinessColors={[1]={1,0,0},[2]={1,1,0}}
 local function Inspect(object,method,...)
     if not object or not object[method] then return "unavailable" end
     local ok,value=pcall(object[method],object,...)
