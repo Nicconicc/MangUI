@@ -142,8 +142,38 @@ function D.SpellInRange(value)
     end
     if type(name)=="string" and name~="" then return RangeBoolean(Call(IsSpellInRange,name,"target")) end
 end
+local function ForeverBattlegroundEnemy()
+    if M.Compat.interface~=16001 or RangeBoolean(Call(UnitIsPlayer,"target"))~=true
+        or RangeBoolean(Call(UnitCanAttack,"player","target"))~=true then return false end
+    local _,kind=Call(IsInInstance)
+    return kind=="pvp"
+end
+local function RangeBounds()
+    local lib=LibStub and LibStub("LibRangeCheck-3.0",true)
+    if not lib then return end
+    if not ForeverBattlegroundEnemy() then return Call(lib.GetRange,lib,"target",true,false,0) end
+    -- GetRange keys its cache by GUID, which Forever can withhold in PvP.
+    -- Reuse its learned hostile spell list but query the current target directly.
+    local minimum,maximum
+    for _,probe in ipairs(lib.harmNoItemsRC or {}) do
+        local spell=probe.info and probe.info:match("^spell:(%d+):")
+        local range=Number(probe.range)
+        if spell and range and range>0 and not probe.minRange then
+            local within=D.SpellInRange(spell)
+            if within==true then maximum=not maximum and range or math.min(maximum,range)
+            elseif within==false then minimum=not minimum and range or math.max(minimum,range) end
+        end
+    end
+    if maximum and minimum and maximum<=minimum then return end
+    if maximum or minimum then return minimum or 0,maximum end
+end
+local function ExactDistance()
+    local squared,valid=Call(UnitDistanceSquared,"target")
+    squared=Number(squared)
+    if squared and squared>=0 and RangeBoolean(valid)==true then return math.sqrt(squared) end
+end
 function D.OutOfRange(group)
-    if not Call(UnitExists,"target") or not Call(UnitCanAttack,"player","target") then return false end
+    if RangeBoolean(Call(UnitExists,"target"))~=true or RangeBoolean(Call(UnitCanAttack,"player","target"))~=true then return false end
     local reaction=Number(Call(UnitReaction,"target","player"))
     if reaction and reaction>=5 then return false end
     local _,token=Call(UnitClass,"player");if type(token)~="string" then return false end
@@ -153,11 +183,13 @@ function D.OutOfRange(group)
         return D.SpellInRange(group["rangeSpell"..token])==false
     end
     local threshold=D.Threshold(group,token);if not threshold then return false end
-    local lib=LibStub and LibStub("LibRangeCheck-3.0",true)
-    if not lib then return false end
+    if ForeverBattlegroundEnemy() then
+        local distance=ExactDistance()
+        if distance then return distance>threshold end
+    end
     -- The lower bound is exclusive: a failed 35-yard check means distance >35.
     -- Never guess from the upper bound or reuse a cached result after a target change.
-    local minimum=Number(Call(lib.GetRange,lib,"target",true,false,0))
+    local minimum=Number(RangeBounds())
     return minimum~=nil and minimum>=threshold
 end
 local function SharedOutOfRange(view,group)
@@ -173,7 +205,7 @@ local function SharedOutOfRange(view,group)
 end
 function D.State(group,view)
     if group.enabled==false or group.showOnNameplate==false then return end
-    if Call(UnitIsPlayer,"target") then return end
+    if RangeBoolean(Call(UnitIsPlayer,"target"))==true and not ForeverBattlegroundEnemy() then return end
     local plate=Call(C_NamePlate and C_NamePlate.GetNamePlateForUnit,"target")
     if plate and SharedOutOfRange(view,group) then return plate end
 end
@@ -327,12 +359,9 @@ function D.NumberState(group)
         local reaction=Number(Call(UnitReaction,"target","player"))
         if RangeBoolean(Call(UnitIsFriend,"player","target"))==true or (reaction and reaction>=5)then return end
     end
-    local squared,valid=Call(UnitDistanceSquared,"target")
-    squared=Number(squared)
-    if squared and squared>=0 and RangeBoolean(valid)==true then return FormatDistance(math.sqrt(squared)) end
-    local lib=LibStub and LibStub("LibRangeCheck-3.0",true)
-    if not lib then return end
-    local minimum,maximum=Call(lib.GetRange,lib,"target",true,false,0)
+    local exact=ExactDistance()
+    if exact then return FormatDistance(exact) end
+    local minimum,maximum=RangeBounds()
     minimum,maximum=Number(minimum),Number(maximum)
     if not minimum or minimum<0 then return end
     -- The lower bound is exclusive. Only a proven >40 result gets this label.
