@@ -81,28 +81,64 @@ end
 
 local function ClassColorForToken(unit)
     if not RAID_CLASS_COLORS then return end
-    local classID
+    local classID,restrictedClassID
     if UnitClass then
         local _,class,id=UnitClass(unit)
         local color=ClassColorForFile(class)
         if color then return color end
         classID=C.Number(id)
+        if not C.Readable(id) then restrictedClassID=id end
     end
     if UnitClassBase then
         local class,id=UnitClassBase(unit)
         local color=ClassColorForFile(class)
         if color then return color end
         classID=classID or C.Number(id)
+        if not C.Readable(id) then restrictedClassID=id end
     end
     if classID and C_CreatureInfo and C_CreatureInfo.GetClassInfo then
         local info=C_CreatureInfo.GetClassInfo(classID)
-        if info then return ClassColorForFile(info.classFile) end
+        local color=info and ClassColorForFile(info.classFile)
+        if color then return color end
     end
+    return nil,restrictedClassID
+end
+
+local targetTargetClassCurve,targetTargetFallbackColor
+local function TargetTargetNativeColor(classID,playerResult)
+    if C.Readable(classID) or not (C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor
+        and C_CreatureInfo and C_CreatureInfo.GetClassInfo and Enum and Enum.LuaCurveType
+        and Enum.LuaCurveType.Step) then return end
+    local playerReadable=C.Readable(playerResult)
+    if playerReadable and not playerResult then return end
+    local selectColor=C_CurveUtil.EvaluateColorFromBoolean
+    if not playerReadable and not selectColor then return end
+
+    -- Let the client translate a restricted class ID to display channels.
+    -- The class ID and colors never need to be compared or indexed in Lua.
+    if not targetTargetClassCurve then
+        local green=CreateColor(0,1,.42745101451874,1)
+        local curve=C_CurveUtil.CreateColorCurve()
+        curve:SetType(Enum.LuaCurveType.Step)
+        curve:AddPoint(0,green)
+        local classes=GetNumClasses and GetNumClasses() or 13
+        for id=1,classes do
+            local info=C_CreatureInfo.GetClassInfo(id)
+            local color=info and ClassColorForFile(info.classFile)
+            curve:AddPoint(id,color and CreateColor(color.r,color.g,color.b,1) or green)
+        end
+        curve:AddPoint(classes+1,green)
+        targetTargetClassCurve,targetTargetFallbackColor=curve,green
+    end
+    local ok,color=pcall(targetTargetClassCurve.Evaluate,targetTargetClassCurve,classID)
+    if not ok or not color then return end
+    if not playerReadable then color=selectColor(playerResult,color,targetTargetFallbackColor) end
+    return true,color:GetRGBA()
 end
 
 local function TargetTargetClass(playerResult, useHealthColor)
     local player = C.Bool(playerResult)
-    local color = ClassColorForToken("targettarget")
+    local color,classID = ClassColorForToken("targettarget")
     if player and color then return true,color end
 
     local guid = UnitGUID and UnitGUID("targettarget")
@@ -126,8 +162,9 @@ local function TargetTargetClass(playerResult, useHealthColor)
     end
 
     local selectColor=useHealthColor and C_CurveUtil and C_CurveUtil.EvaluateColorValueFromBoolean
-    local r,g,b=0,1,.42745101451874
-    local hasNativeColor
+    local hasNativeColor,r,g,b
+    if useHealthColor then hasNativeColor,r,g,b=TargetTargetNativeColor(classID,playerResult) end
+    if not hasNativeColor then r,g,b=0,1,.42745101451874 end
     local function SelectRGB(match, classColor)
         -- UnitIsUnit can return an opaque boolean in instances. The color
         -- selector can combine it with the previous RGB without exposing it to Lua.
@@ -149,7 +186,11 @@ local function TargetTargetClass(playerResult, useHealthColor)
                 local ok,match=pcall(UnitIsUnit,"targettarget",member)
                 if ok then
                     if C.Readable(match) then
-                        if match then return true,ClassColorForToken(member) or color end
+                        if match then
+                            local memberColor=ClassColorForToken(member) or color
+                            if memberColor then return true,memberColor end
+                            player=true
+                        end
                     elseif selectColor then
                         local memberColor=ClassColorForToken(member)
                         if memberColor then SelectRGB(match,memberColor) end
