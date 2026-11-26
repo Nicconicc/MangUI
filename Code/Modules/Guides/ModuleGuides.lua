@@ -12,7 +12,7 @@ G.definitions={
     partyFrames={label="队伍框体",mode="unit"},
     receivedBuffs={label="获取队友Buff监控",anchor="receivedBuffsIcons",mode="icons"},
     raidVulnerability={label="团队易伤监控",anchor="raidVulnerabilityIcons",mode="icons"},
-    raidBuffs={label="团队Buff缺失监控",mode="raid"},
+    raidBuffs={label="Buff缺失监控",mode="raid"},
     targetThreat={label="仇恨监控",anchor="targetThreatDisplay",mode="threat"},
     targetDistance={label="距离监控",anchor="targetDistanceNumber",mode="distance"},
     mouseCircle={label="鼠标光圈提示",anchor="mouseCircleRings",mode="mouse"},

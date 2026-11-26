@@ -10,7 +10,7 @@
 | 队伍框体 | Party frames |
 | 获取队友Buff监控 | Teammate buff |
 | 团队易伤监控 | Raid vulnerability |
-| 团队Buff缺失监控 | Missing raid buff |
+| Buff缺失监控 | Missing raid buff |
 | 仇恨监控 | Threat |
 | 鼠标光圈提示 | Mouse highlight |
 

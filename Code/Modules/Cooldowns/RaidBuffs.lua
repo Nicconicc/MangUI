@@ -5,7 +5,7 @@ I.Safe,I.Number,I.Readable=O.Safe,O.Number,O.Readable
 function I.DefaultGuideText(group)
     if M.ModuleGuides then return M.ModuleGuides.DefaultText(group)end
     local english=M.localeTables and M.localeTables.enUS
-    local text=english and english["团队Buff缺失监控"]or "Missing raid buff tracking"
+    local text=english and english["Buff缺失监控"]or "Missing raid buff tracking"
     return (text:gsub("[Tt][Rr][Aa][Cc][Kk][Ii][Nn][Gg]",""):gsub("%s+"," "):match("^%s*(.-)%s*$"))
 end
 function I.GuideText(group)
