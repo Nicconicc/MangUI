@@ -44,7 +44,7 @@ local function Number(value)
 end
 local function Call(fn,...)
     if type(fn)~="function" then return end
-    local ok,a,b=pcall(fn,...);if ok then return a,b end
+    local ok,a,b,c=pcall(fn,...);if ok then return a,b,c end
 end
 function D.SpellInput(value)
     if type(value)~="string" then return "" end
@@ -148,6 +148,94 @@ local function ForeverBattlegroundEnemy()
     local _,kind=Call(IsInInstance)
     return kind=="pvp"
 end
+local actionWatcher
+local actionRanges={}
+local actionInput,actionSlots
+local function ActionSpell(slot)
+    local kind,id,subtype=Call(GetActionInfo,slot)
+    if not M.Compat.Readable(kind) then return end
+    if kind=="spell" then return Number(id) end
+    if kind=="macro" and M.Compat.Readable(subtype) then
+        if subtype=="spell" then return Number(id) end
+        if subtype~="item" then return Number(Call(GetMacroSpell,Number(id))) end
+    end
+end
+local function FindActionSlots(text)
+    local id=tonumber(text)
+    local name
+    if not id then name,id=M.PetBuffs.SpellInfo(text);name=name or text end
+    local base=Number(Call(C_Spell and C_Spell.GetBaseSpell,id))
+    local override=Number(Call(C_Spell and C_Spell.GetOverrideSpell,id))
+    if base and base~=id and Number(Call(C_Spell and C_Spell.GetOverrideSpell,base))~=id then base=nil end
+    local slots,seen={},{}
+    local function Add(slot)
+        if not Number(slot) or seen[slot] then return end
+        seen[slot]=true
+        local spell=ActionSpell(slot)
+        if spell and (spell==id or spell==override or spell==base
+            or (name and M.PetBuffs.SpellInfo(spell)==name)) then
+            slots[#slots+1]=slot
+        end
+    end
+    local find=C_ActionBar and C_ActionBar.FindSpellActionButtons
+    local function Find(spell)
+        local found=Call(find,spell)
+        if M.Compat.Readable(found) and type(found)=="table" and (not canaccesstable or canaccesstable(found)) then
+            for _,slot in ipairs(found) do Add(slot) end
+        end
+    end
+    Find(base or id or text)
+    if id and base and id~=base then Find(id) end
+    if override and override~=id and override~=base then Find(override) end
+    if name or #slots==0 then
+        for slot=1,180 do Add(slot) end
+    end
+    return slots
+end
+local function ActionInRange(value)
+    local text=D.SpellInput(value)
+    if text=="" then return end
+    if actionInput~=text then actionInput=text;actionSlots=FindActionSlots(text) end
+    for _,slot in ipairs(actionSlots) do
+        local record=actionRanges[slot]
+        if record and record.spell==ActionSpell(slot) then return record.within end
+    end
+    for _,slot in ipairs(actionSlots) do
+        -- Omit the unit so the action API checks its current target just as the bar does.
+        local result=RangeBoolean(Call(IsActionInRange,slot))
+        if result~=nil then return result end
+    end
+end
+function D.WatchActionRange()
+    if actionWatcher or M.Compat.interface~=16001 then return end
+    actionWatcher=CreateFrame("Frame")
+    for _,event in ipairs({"ACTION_RANGE_CHECK_UPDATE","PLAYER_TARGET_CHANGED","PLAYER_ENTERING_WORLD",
+        "ACTIONBAR_SLOT_CHANGED","ACTIONBAR_PAGE_CHANGED","UPDATE_BONUS_ACTIONBAR","UPDATE_OVERRIDE_ACTIONBAR","SPELLS_CHANGED"}) do
+        pcall(actionWatcher.RegisterEvent,actionWatcher,event)
+    end
+    actionWatcher:SetScript("OnEvent",function(_,event,slot,isInRange,checksRange)
+        if event=="ACTION_RANGE_CHECK_UPDATE" then
+            slot=Number(slot)
+            if not slot then return end
+            local spell=ActionSpell(slot)
+            local within
+            if RangeBoolean(checksRange)==true then within=RangeBoolean(isInRange) end
+            actionRanges[slot]=spell and within~=nil and {spell=spell,within=within} or nil
+        elseif event=="PLAYER_TARGET_CHANGED" or event=="PLAYER_ENTERING_WORLD" then
+            actionRanges={}
+            if event=="PLAYER_ENTERING_WORLD" then actionInput=nil end
+        else
+            actionInput=nil
+            if event=="ACTIONBAR_SLOT_CHANGED" and Number(slot) and slot>0 then actionRanges[slot]=nil end
+        end
+        local view=M.live
+        if view then
+            view.nextDecorationRange=nil;view.distanceRangeDue=nil
+            local display=view.nodes.targetDistanceDisplay
+            if display then display.nextDistanceUpdate=nil end
+        end
+    end)
+end
 local function RangeBounds()
     local lib=LibStub and LibStub("LibRangeCheck-3.0",true)
     if not lib then return end
@@ -178,9 +266,14 @@ function D.OutOfRange(group)
     if reaction and reaction>=5 then return false end
     local _,token=Call(UnitClass,"player");if type(token)~="string" then return false end
     if group["rangeManual"..token]~=true then
+        local spell=group["rangeSpell"..token]
+        if ForeverBattlegroundEnemy() then
+            local within=ActionInRange(spell)
+            if within~=nil then return not within end
+        end
         -- Unknown spells/invalid targets are not evidence of being out of range.
         -- Cooldowns, resources and line of sight do not participate in this check.
-        return D.SpellInRange(group["rangeSpell"..token])==false
+        return D.SpellInRange(spell)==false
     end
     local threshold=D.Threshold(group,token);if not threshold then return false end
     if ForeverBattlegroundEnemy() then

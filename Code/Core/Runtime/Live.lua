@@ -153,6 +153,7 @@ function M:StartLive()
         self.live=R.New(UIParent,false);self.live.root:SetFrameStrata("LOW")
         self.live.root:ClearAllPoints();self.live.root:SetPoint("CENTER",UIParent,"CENTER")
     end
+    M.TargetDistance.WatchActionRange()
     self:ApplyLive()
     if self.liveEvents then return end
     if GameTooltip then
