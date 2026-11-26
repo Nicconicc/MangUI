@@ -146,9 +146,14 @@ local function Auras(view,o,s)
                 for _,shadow in pairs(icon.shadows) do CachedValue(shadow,"auraShown",shadow,"SetShown",false) end
             end
             for _,spec in ipairs(view.auraTemplates[n.id] or {}) do
-                local label=icon.labels[spec.id]
-                if not label then label=icon:CreateFontString(nil,"OVERLAY");icon.labels[spec.id]=label end
                 local stacks=spec.binding=="auraStacks"
+                local partyStack=n.partyIndex~=nil and stacks
+                local labelParent=partyStack and M.NativeDisplays.PartyAuraStackLayer(icon,icon.cd) or icon
+                local label=icon.labels[spec.id]
+                if not label then
+                    label=labelParent:CreateFontString(nil,"OVERLAY",nil,partyStack and 7 or 0)
+                    icon.labels[spec.id]=label
+                end
                 local shadow=icon.shadows[spec.id]
                 if stacks then
                     -- Stack counts have one glyph run only. Remove any older

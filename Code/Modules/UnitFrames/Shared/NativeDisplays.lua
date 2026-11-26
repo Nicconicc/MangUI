@@ -29,6 +29,18 @@ function N.RefreshAuraFonts(view,o,force)
     o.fontFailed=failed;o.fontNeedsSettle=not force
     if failed then view.fontsPending=true end
 end
+function N.PartyAuraStackLayer(icon,cooldown)
+    local layer=icon.manguiStackLayer
+    if not layer then
+        layer=CreateFrame("Frame",nil,icon)
+        layer:SetAllPoints(icon)
+        layer:EnableMouse(false)
+        icon.manguiStackLayer=layer
+    end
+    local level=math.max(icon:GetFrameLevel(),cooldown:GetFrameLevel())+8
+    P.CachedValue(icon,"stackLayerLevel",layer,"SetFrameLevel",level)
+    return layer
+end
 local function StyleAura(view,o,frame)
     local n=o.spec
     if n.partyIndex~=nil then
@@ -58,7 +70,12 @@ local function StyleAura(view,o,frame)
     for _,spec in ipairs(view.auraTemplates[n.id] or {}) do
         if spec.enabled~=false then
             local label=frame.manguiLabels[spec.id]
-            if not label then label=frame:CreateFontString(nil,"OVERLAY");frame.manguiLabels[spec.id]=label end
+            local partyStack=n.partyIndex~=nil and spec.binding=="auraStacks"
+            local labelParent=partyStack and N.PartyAuraStackLayer(frame,frame.manguiCooldown) or frame
+            if not label then
+                label=labelParent:CreateFontString(nil,"OVERLAY",nil,partyStack and 7 or 0)
+                frame.manguiLabels[spec.id]=label
+            end
             label:SetFontObject(o.nativeAuraFonts[spec.id])
             label:SetTextColor(unpack(spec.color or {1,1,1,1}))
             if spec.binding=="auraStacks" then
