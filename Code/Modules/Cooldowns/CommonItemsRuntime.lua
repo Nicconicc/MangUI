@@ -155,6 +155,20 @@ local function StartOutgoing(view,o,button)
     if GameTooltip then GameTooltip:Hide() end
     ghost:Show();TrackOutgoing(view,o,ghost)
 end
+local function BindItem(button,item,entry)
+    local use=item and item.use
+    local data=use and not item.equippable and M.WeaponEnhancements.byItem[item.id]
+    local weapon=data and data.weapon~="ranged"
+    button:SetAttribute("type1",use and "item" or nil)
+    button:SetAttribute("item1",use)
+    button:SetAttribute("target-slot1",weapon and 16 or nil)
+    button:SetAttribute("alt-type1",weapon and "item" or nil)
+    button:SetAttribute("alt-item1",weapon and use or nil)
+    button:SetAttribute("alt-target-slot1",weapon and 17 or nil)
+    local spell=entry and I.Kind(entry)=="item" and S.Input(entry.createSpell) or ""
+    button:SetAttribute("type2",spell~="" and "spell" or nil)
+    button:SetAttribute("spell2",spell~="" and (tonumber(spell) or spell) or nil)
+end
 local function Icon(parent,secure)
     local button=CreateFrame("Button",nil,parent,secure and "SecureActionButtonTemplate"or nil)
     button:SetSize(40,40);button:EnableMouse(secure)
@@ -296,19 +310,13 @@ function I.Configure(view,o)
         button.grayTexture:SetTexture(button.item.icon or 134400);Font(button.time);Font(button.count)
         button:ClearAllPoints();button:SetPoint("CENTER",parent,"CENTER",S.IconOffset(group,index,#entries),-7)
         if not view.preview then
-            button:SetAttribute("type1",button.item.use and "item"or nil)
-            button:SetAttribute("item1",button.item.use)
-            -- The user specifies the manufacturing spell; item-use spell IDs
-            -- never imply a recipe. A real right click executes the spell.
-            local spell=I.Kind(entry)=="item"and S.Input(entry.createSpell)or ""
-            button:SetAttribute("type2",spell~=""and "spell"or nil)
-            button:SetAttribute("spell2",spell~=""and (tonumber(spell)or spell)or nil)
+            BindItem(button,button.item,entry)
         end
         button:Show()
     end
     for index=#entries+1,#o.itemIcons do
         local button=o.itemIcons[index]
-        if not view.preview then button:SetAttribute("type1",nil);button:SetAttribute("item1",nil);button:SetAttribute("type2",nil);button:SetAttribute("spell2",nil)end
+        if not view.preview then BindItem(button)end
         button:Hide();button.entry=nil
     end
     Visibility(view,o);UpdateDropTargets(view,o,true);o.nextScan=0
