@@ -1,6 +1,9 @@
 local _,M=...
 local I,S=M.CommonItems,M.PlayerSkillMonitor
 local Safe,Number,Readable=I.Safe,I.Number,I.Readable
+-- Keep both item actions and the temporary bag-drop targets above the
+-- low-strata unit frames. The drop targets still sit above the item buttons.
+local itemStrata="MEDIUM"
 local function Font(text)
     text:SetFont(M:EffectiveFontPath(M.MYRIAD),16,"OUTLINE");text:SetTextColor(1,1,1,1)
     text:SetJustifyH("CENTER");text:SetShadowColor(0,0,0,1);text:SetShadowOffset(1,-1)
@@ -241,7 +244,7 @@ local function UpdateDropTargets(view,o,reposition)
         root=CreateFrame("Frame",nil,UIParent)
         o.dropRoot=root;root.slots={}
         root:Hide();root:SetSize(1,1);root:EnableMouse(false)
-        root:SetFrameStrata("LOW");root:SetFrameLevel(390)
+        root:SetFrameStrata(itemStrata);root:SetFrameLevel(390)
         local add=DropButton(view,o,root)
         root.add=add
         add:SetNormalTexture("Interface\\Buttons\\UI-Quickslot2")
@@ -276,7 +279,7 @@ local function Root(view,o)
         -- Secure children protect their parents/anchors. Keep this entire tree
         -- on UIParent, with numeric geometry and no link to renderer frames.
         o.clickRoot=CreateFrame("Frame",nil,UIParent,"SecureHandlerStateTemplate")
-        o.clickRoot:EnableMouse(false);o.clickRoot:SetFrameStrata("LOW");o.clickRoot:SetFrameLevel(357)
+        o.clickRoot:EnableMouse(false);o.clickRoot:SetFrameStrata(itemStrata);o.clickRoot:SetFrameLevel(357)
         o.clickRoot:SetSize(1,1)
         view.root:HookScript("OnShow",function()Visibility(view,o);UpdateDropTargets(view,o,true)end)
         view.root:HookScript("OnHide",function()StopOutgoing(o);Visibility(view,o);UpdateDropTargets(view,o)end)
