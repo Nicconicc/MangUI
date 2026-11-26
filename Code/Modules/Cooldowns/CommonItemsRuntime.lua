@@ -162,11 +162,10 @@ local function BindItem(button,item,entry)
     button:SetAttribute("type1",use and "item" or nil)
     button:SetAttribute("item1",use)
     button:SetAttribute("target-slot1",weapon and 16 or nil)
-    button:SetAttribute("alt-type1",weapon and "item" or nil)
-    button:SetAttribute("alt-item1",weapon and use or nil)
-    button:SetAttribute("alt-target-slot1",weapon and 17 or nil)
-    local spell=entry and I.Kind(entry)=="item" and S.Input(entry.createSpell) or ""
-    button:SetAttribute("type2",spell~="" and "spell" or nil)
+    button:SetAttribute("item2",weapon and use or nil)
+    button:SetAttribute("target-slot2",weapon and 17 or nil)
+    local spell=not weapon and entry and I.Kind(entry)=="item" and S.Input(entry.createSpell) or ""
+    button:SetAttribute("type2",weapon and "item" or (spell~="" and "spell" or nil))
     button:SetAttribute("spell2",spell~="" and (tonumber(spell) or spell) or nil)
 end
 local function Icon(parent,secure)
@@ -195,7 +194,7 @@ local function Icon(parent,secure)
             if item.slot and GameTooltip.SetInventoryItem then GameTooltip:SetInventoryItem("player",item.slot)
             elseif item.id and GameTooltip.SetHyperlink then GameTooltip:SetHyperlink("item:"..item.id)
             else GameTooltip:SetText(item.name or "",1,1,1)end
-            if self.entry and I.Kind(self.entry)=="item"and self.entry.createSpell~=""then GameTooltip:AddLine(M:T("右键制造：")..self.entry.createSpell,1,.82,0,true)end
+            if not self:GetAttribute("target-slot2") and self.entry and I.Kind(self.entry)=="item"and self.entry.createSpell~=""then GameTooltip:AddLine(M:T("右键制造：")..self.entry.createSpell,1,.82,0,true)end
             GameTooltip:Show()
         end)
         button:SetScript("OnLeave",function()GameTooltip:Hide()end)
