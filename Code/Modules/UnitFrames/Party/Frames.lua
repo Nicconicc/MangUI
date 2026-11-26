@@ -156,16 +156,18 @@ local function Templates()
         Part("Role","职责图标","texture",-120,0,32,32,19,{binding="partyRole",rules={{test="partyRole",unit=unit}}})
         local auras=Part("Debuffs","减益效果","auras",100,5,20,20,20,
             {filter="HARMFUL",count=40,perRow=10,spacing=2,point="LEFT",anchor="CENTER"})
-        Part("Buffs","增益效果","auras",-31,35,20,20,22,
+        local buffs=Part("Buffs","增益效果","auras",-31,35,20,20,22,
             {partyBuffs=true,hideCooldownNumbers=true,filter="HELPFUL",count=7,perRow=7,spacing=2,point="LEFT",anchor="CENTER"})
         Part("Hitbox","成员点击区域","hitbox",0,0,150,50,25)
         Node(id.."PowerBorder","资源描边","border",id.."Power",0,0,86,8,layer+5,unit,
             {internal=true,partyIndex=i,visibleUnit=unit,color={0,0,0,1}})
-        -- The WA disables both debuff duration and stack labels initially.
-        for j,binding in ipairs({"auraTime","auraStacks"}) do
-            Node(id.."DebuffLabel"..j,"减益文字","text",auras.id,2,j==1 and 2 or -2,64,20,layer+21,unit,
-                {internal=true,partyIndex=i,binding=binding,enabled=false,font="Myriad",fontSize=j==1 and 14 or 12,
-                    point=j==1 and "BOTTOMRIGHT" or "CENTER",anchor=j==1 and "BOTTOMRIGHT" or "CENTER"})
+        Node(id.."DebuffLabel1","减益文字","text",auras.id,2,2,64,20,layer+21,unit,
+            {internal=true,partyIndex=i,binding="auraTime",enabled=false,font="Myriad",fontSize=14,
+                point="BOTTOMRIGHT",anchor="BOTTOMRIGHT"})
+        for _,aura in ipairs({{auras,"DebuffLabel2","减益文字"},{buffs,"BuffStacks","光环层数"}}) do
+            Node(id..aura[2],aura[3],"text",aura[1].id,2,-2,64,20,aura[1].layer+1,unit,
+                {internal=true,partyIndex=i,binding="auraStacks",enabled=true,font="Myriad",fontSize=12,
+                    point="BOTTOMRIGHT",anchor="BOTTOMRIGHT"})
         end
     end
     return nodes
@@ -271,6 +273,11 @@ end
 function M:EnsurePartyFramesModule(design)
     local seen={};for _,n in ipairs(design.nodes or {}) do seen[n.id]=true end
     for _,n in ipairs(Templates()) do if not seen[n.id] then design.nodes[#design.nodes+1]=n end end
+    for _,n in ipairs(design.nodes) do
+        if n.id:match("^party[0-4]DebuffLabel2$") and n.point=="CENTER" and n.anchor=="CENTER" then
+            n.enabled=true;n.point="BOTTOMRIGHT";n.anchor="BOTTOMRIGHT";n.x=2;n.y=-2
+        end
+    end
     CorrectParty1(design)
     EnsureParty1Range(design)
     EnsureParty1Auras(design)
