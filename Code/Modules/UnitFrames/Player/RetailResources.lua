@@ -152,7 +152,7 @@ local function Build(o,key,parent,point,kind)
             end
             for file in pairs(variants)do
                 local t=v:CreateTexture(nil,"ARTWORK");t:SetSize(d.w,d.h);t:SetPoint("CENTER")
-                t:SetTexture(art..file);t:SetBlendMode(d.blend);t:SetVertexColor(unpack(d.color));t:SetDesaturated(d.desaturate)
+                t:SetTexture(M:TextureFile(art..file));t:SetBlendMode(d.blend);t:SetVertexColor(unpack(d.color));t:SetDesaturated(d.desaturate)
                 Rotate(t,d.rotation,d.rotate,d.mirror)
                 leaf.textures[file]={texture=t,curve=Curve(function(amount)
                     if not Pass(amount,d.op,d.threshold)then return 0 end

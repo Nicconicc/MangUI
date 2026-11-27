@@ -33,7 +33,7 @@ local function ResolveSlot(slot,entry)
         if not spell.id then I.RequestBuffName(spell.value)end
     end
     local key=table.concat(keys,"|")..I.Kind(entry)..":"..entry.value;local changed=key~=slot.lookupKey
-    slot.ids,slot.lookupKey=ids,key;slot.texture:SetTexture(slot.spell.icon or 134400)
+    slot.ids,slot.lookupKey=ids,key;slot.texture:SetTexture(M:TextureFile(slot.spell.icon or 134400))
     return changed
 end
 local function Bind(slot)
@@ -107,7 +107,7 @@ local function Decoration(o)
         for _,name in ipairs({"row","link"})do
             local line=canvas:CreateLine(nil,"OVERLAY")
             if name=="link"then
-                line:SetTexture(M.ART.."UI\\RaidBuffSoftLine.tga","CLAMP","CLAMP","LINEAR")
+                line:SetTexture(M:TextureFile(M.ART.."UI\\RaidBuffSoftLine.tga"),"CLAMP","CLAMP","LINEAR")
                 line:SetVertexColor(1,1,1,.6);line:SetBlendMode("BLEND")
                 if line.SetSnapToPixelGrid then line:SetSnapToPixelGrid(false)end
                 if line.SetTexelSnappingBias then line:SetTexelSnappingBias(0)end

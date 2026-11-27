@@ -14,7 +14,7 @@ function M:RegisterSettingsEntry()
         local content=CreateFrame("Frame",nil,panel)
         content:SetPoint("CENTER",panel,"CENTER",0,0);panel.content=content
         local logo=content:CreateTexture(nil,"ARTWORK")
-        logo:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\SettingsMedallion.png")
+        logo:SetTexture(M:TextureFile("Interface\\AddOns\\MangUI\\Assets\\UI\\SettingsMedallion.png"))
         -- Show the complete square artwork, matching the CardMaster settings entry.
         logo:SetTexCoord(0,1,0,1)
         logo:SetSize(140,140);panel.logo=logo

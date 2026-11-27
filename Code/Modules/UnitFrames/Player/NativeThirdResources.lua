@@ -88,7 +88,7 @@ local function ConfigureMinimalArt(q,item,fill)
     local color=n.barBackgroundColor or M.DisplayModes.defaultBackgroundColor
     art.backBody:SetVertexColor(unpack(color));art.backCap:SetVertexColor(unpack(color))
     I.MinimalSlices(art,art.trim,art.trimBody,art.trimCap,n,stem.."Frame.tga")
-    art.arrow:SetTexture(stem.."MaxEdge.tga");art.arrow:SetSize(n.height*.49,n.height)
+    art.arrow:SetTexture(M:TextureFile(stem.."MaxEdge.tga"));art.arrow:SetSize(n.height*.49,n.height)
 end
 local function ConfigureArt(q,item)
     local view,button=q.view,item.button
@@ -100,7 +100,7 @@ local function ConfigureArt(q,item)
         bar:SetFrameLevel(fill.frame:GetFrameLevel());bar:SetClipsChildren(false)
         if bar.SetRenderMode and Enum.StatusBarRenderMode then bar:SetRenderMode(Enum.StatusBarRenderMode.Linear)end
         if bar.SetFillStyle and Enum.StatusBarFillStyle then bar:SetFillStyle(Enum.StatusBarFillStyle.Standard)end
-        bar:SetStatusBarTexture(n.file)
+        bar:SetStatusBarTexture(M:TextureFile(n.file))
         -- All opaque backgrounds and the fill share one frame. Explicit draw
         -- layers prevent a separate background frame from covering the fill.
         item.layers={}
@@ -130,13 +130,13 @@ local function ConfigureArt(q,item)
         for id,layer in pairs(item.layers)do
             local o=view.nodes[id];local s=o.spec
             layer.texture:SetAllPoints(o.frame);layer.texture:SetAlpha(s.alpha or 1)
-            layer.texture:SetTexture(s.file);layer.texture:SetBlendMode(s.blend or "BLEND")
+            layer.texture:SetTexture(M:TextureFile(s.file));layer.texture:SetBlendMode(s.blend or "BLEND")
             layer.texture:SetVertexColor(unpack(s.color or {1,1,1,1}));I.TextureCoords(layer.texture,s)
         end
         -- The engine owns the value; the public geometry still uses the same
         -- TokenFrame contact point and full-canvas crop as every main strip.
         local material=n.materialPath and n.materialPath~=n.file and n.materialPath~="Interface\\Buttons\\WHITE8X8"and n.materialPath
-        item.fillTexture:SetTexture(material or n.file);item.fillTexture:SetBlendMode(n.blend or "BLEND")
+        item.fillTexture:SetTexture(M:TextureFile(material or n.file));item.fillTexture:SetBlendMode(n.blend or "BLEND")
         item.fillTexture:SetAlpha(1);item.bar:SetStatusBarColor(unpack(q.color))
         -- The default artwork already carries its own irregular alpha. Do not mask
         -- it a second time. Only rectangular custom materials need a shape mask.
@@ -145,7 +145,7 @@ local function ConfigureArt(q,item)
                 item.mask=item.bar:CreateMaskTexture();item.mask:SetAllPoints(fill.frame)
                 item.fillTexture:AddMaskTexture(item.mask)
             end
-            item.mask:SetAllPoints(fill.frame);item.mask:SetTexture(n.file,"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+            item.mask:SetAllPoints(fill.frame);item.mask:SetTexture(M:TextureFile(n.file),"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
             I.TextureCoords(item.mask,n);item.mask:Show()
         elseif item.mask then
             item.fillTexture:RemoveMaskTexture(item.mask);item.mask=nil
@@ -161,7 +161,7 @@ local function ConfigureArt(q,item)
         item.sparkFrame:SetSize(s.width,s.height);item.sparkFrame:ClearAllPoints()
         item.sparkFrame:SetPoint("CENTER",item.fillTexture,n.reverse and "LEFT"or"RIGHT",s.x or 0,s.y or 0)
         item.sparkFrame:SetAlpha(s.alpha or 1)
-        item.spark:SetTexture(s.file);item.spark:SetBlendMode(s.blend or "ADD");item.spark:SetVertexColor(unpack(s.color))
+        item.spark:SetTexture(M:TextureFile(s.file));item.spark:SetBlendMode(s.blend or "ADD");item.spark:SetVertexColor(unpack(s.color))
     end
     button:ClearApplicationBar();button:ClearApplicationCount();button:ClearDurationBar();button:ClearDurationText()
     if q.kind=="flurry"then

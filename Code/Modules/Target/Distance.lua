@@ -375,7 +375,7 @@ function D.Configure(view,o)
         else o.distanceIcon:SetPoint("CENTER",o.previewNameplate,"CENTER",o.distanceX,o.distanceY)end
         local ring=view.byID and view.byID.wa080cd4c4fb or {}
         local file=ring.file or "Interface\\AddOns\\MangUI\\Assets\\Library\\CenterLight"
-        o.previewRing:SetTexture(M:TexturePath(o.spec,file,"previewRing"));o.previewRingRed:SetTexture(M:TexturePath(o.spec,file,"previewRingRed"))
+        o.previewRing:SetTexture(M:TextureFile(M:TexturePath(o.spec,file,"previewRing")));o.previewRingRed:SetTexture(M:TextureFile(M:TexturePath(o.spec,file,"previewRingRed")))
         o.previewRing:SetBlendMode(ring.blend or "BLEND");o.previewRingRed:SetBlendMode(ring.blend or "BLEND")
         o.previewRing:SetDesaturated(ring.desaturate or false)
         o.previewRing:SetVertexColor(unpack(ring.color or {1,1,1,1}))

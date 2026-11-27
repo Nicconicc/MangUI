@@ -68,8 +68,8 @@ local function highlight(button, active)
         button.shine:SetShown(hovered)
         return
     end
-    button.icon:SetTexture(entry.fullColor and (ROOT .. "CardMaster.png") or
-        (ROOT .. (active and entry.activeTexture or (entry.id .. (active and "_white" or "") .. ".tga"))))
+    button.icon:SetTexture(M:TextureFile(entry.fullColor and (ROOT .. "CardMaster.png") or
+        (ROOT .. (active and entry.activeTexture or (entry.id .. (active and "_white" or "") .. ".tga")))))
     button.icon:SetDesaturated(not active)
     button.icon:SetVertexColor(1, 1, 1, 1)
     button.icon:SetAlpha(active and 1 or 0.65)
@@ -137,7 +137,7 @@ local function SetTrimColor(window,color)
 end
 
 local function PaintHeart(icon)
-    icon:SetTexture(heartTexture)
+    icon:SetTexture(M:TextureFile(heartTexture))
     icon:SetVertexColor(1,.17,.29,1)
 end
 
@@ -146,7 +146,7 @@ local function SetupSupportHeart(button,window,interval)
     PaintHeart(button.icon)
     button.shine=button:CreateTexture(nil,"OVERLAY")
     button.shine:SetAllPoints(button.icon)
-    button.shine:SetTexture(heartTexture)
+    button.shine:SetTexture(M:TextureFile(heartTexture))
     button.shine:SetVertexColor(1,.38,.49,1)
     button.shine:SetBlendMode("ADD")
     button.shine:SetAlpha(.48)
@@ -162,7 +162,7 @@ local function SetupSupportHeart(button,window,interval)
     local particleSize=baseSize*.8
     for i=1,30 do
         local heart=art:CreateTexture(nil,"OVERLAY")
-        heart:SetTexture(heartTexture)
+        heart:SetTexture(M:TextureFile(heartTexture))
         heart:SetSize(particleSize,particleSize)
         local flight=heart:CreateAnimationGroup()
         local rise=flight:CreateAnimation("Translation")
@@ -444,7 +444,7 @@ end
 
 function F.ChatCommunityArt(visual,ring,preview)
     local artPath="Interface\\AddOns\\MangUI\\Assets\\ChatButtons\\"
-    ring:SetTexture(artPath.."CommunityHeartRing.tga")
+    ring:SetTexture(M:TextureFile(artPath.."CommunityHeartRing.tga"))
     local heart=CreateFrame("Frame",nil,visual)
     heart:SetSize(heartSize,heartSize)
     heart:SetPoint("CENTER",visual,"CENTER")
@@ -452,15 +452,15 @@ function F.ChatCommunityArt(visual,ring,preview)
     heart.icon:SetPoint("CENTER",heart,"CENTER")
     heart.icon:SetSize(40.5,40.5)
     if not preview then SetupSupportHeart(heart,nil,60) end
-    heart.icon:SetTexture(artPath.."CommunityHeart.tga")
+    heart.icon:SetTexture(M:TextureFile(artPath.."CommunityHeart.tga"))
     heart.icon:SetVertexColor(1,1,1)
     local mask=heart:CreateMaskTexture()
-    mask:SetTexture(artPath.."CommunityHeartMask.tga","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+    mask:SetTexture(M:TextureFile(artPath.."CommunityHeartMask.tga"),"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
     mask:SetSize(82,82)
     mask:SetPoint("CENTER",heart,"CENTER")
     heart.icon:AddMaskTexture(mask)
     if heart.shine then
-        heart.shine:SetTexture(artPath.."CommunityHeart.tga")
+        heart.shine:SetTexture(M:TextureFile(artPath.."CommunityHeart.tga"))
         heart.shine:SetVertexColor(1,1,1)
         heart.shine:AddMaskTexture(mask)
     end
@@ -532,7 +532,7 @@ function F.Attach(editor)
         elseif entry.fullColor then
             button.shine = button:CreateTexture(nil, "OVERLAY")
             button.shine:SetAllPoints(button.icon)
-            button.shine:SetTexture(ROOT .. "CardMaster.png")
+            button.shine:SetTexture(M:TextureFile(ROOT .. "CardMaster.png"))
             button.shine:SetBlendMode("ADD")
             button.shine:SetAlpha(0.25)
         end

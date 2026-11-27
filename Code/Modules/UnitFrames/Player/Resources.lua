@@ -245,8 +245,8 @@ local function ResourcePaint(view,o)
             end
             local path=M:TexturePath(n,M.ART..file,"resourceArt"..i)
             if slot.artFile~=path then
-                slot.art:SetTexture(path)
-                if slot.comboFace then slot.comboFace:SetTexture(path) end
+                slot.art:SetTexture(M:TextureFile(path))
+                if slot.comboFace then slot.comboFace:SetTexture(M:TextureFile(path)) end
                 slot.artFile=path
             end
             local runeColor=deathRune and deathRuneColor or normalRuneColor

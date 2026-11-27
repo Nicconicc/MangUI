@@ -430,7 +430,7 @@ local function Paint(view,o,animateOnly,visibleHint)
     elseif o.texture then
         if n.parent=="centerFire" and n.id=="waa3b4cd2bd6" then
             local file=leaderDecoration and M.ART..[[Library\PortraitLeader.tga]] or n.file
-            CachedValue(o,"centerDecorationTexture",o.texture,"SetTexture",file)
+            CachedValue(o,"centerDecorationTexture",o.texture,"SetTexture",M:TextureFile(file))
         end
         if o.rangeDecoration then DecorationTint(view,o,col)
         else CachedColor(o,"textureColor",o.texture,"SetVertexColor",col) end
@@ -468,7 +468,7 @@ local function Paint(view,o,animateOnly,visibleHint)
                 x=reverse and -inset-x or inset+x
                 CachedPoint(o,"sparkPoint",f,"CENTER",owner.frame,reverse and "RIGHT" or "LEFT",x+(n.x or 0),n.y or 0)
             end
-        elseif n.binding=="castIcon" then CachedValue(o,"castIcon",o.texture,"SetTexture",s.cast.icon or 134400)
+        elseif n.binding=="castIcon" then CachedValue(o,"castIcon",o.texture,"SetTexture",M:TextureFile(s.cast.icon or 134400))
         elseif n.binding=="partyClass" or n.binding=="partyRole" then M.PartyFrames.Texture(o,s)
         elseif n.binding=="raid" then
             local mark=s.raid
@@ -477,7 +477,7 @@ local function Paint(view,o,animateOnly,visibleHint)
                 -- Use the existing artwork as a native 4x4 sheet. The opaque
                 -- index never enters a Lua table lookup, comparison or cache.
                 local sheet=n.id=="waf24f8d43e3" and raidMarkSheet or "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
-                CachedValue(o,"raidMarkSheet",o.texture,"SetTexture",sheet);o.raidMarkSheet=sheet
+                CachedValue(o,"raidMarkSheet",o.texture,"SetTexture",M:TextureFile(sheet));o.raidMarkSheet=sheet
                 local selectCell=o.texture.SetSpriteSheetCell
                 local ok=false
                 if selectCell then ok=pcall(selectCell,o.texture,mark,4,4)
@@ -489,7 +489,7 @@ local function Paint(view,o,animateOnly,visibleHint)
                 Cache(o).raidMarkSheet=nil
                 local file=n.id=="waf24f8d43e3" and raidMarkFiles[mark]
                 if file then
-                    o.texture:SetTexture(M:TexturePath(n,file))
+                    o.texture:SetTexture(M:TextureFile(M:TexturePath(n,file)))
                     o.texture:SetTexCoord(0,1,0,1)
                 elseif SetRaidTargetIconTexture then SetRaidTargetIconTexture(o.texture,mark) end
                 o.raidMark=mark

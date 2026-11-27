@@ -176,7 +176,7 @@ function E.Build(view,o)
     o.background=f:CreateTexture(nil,"BACKGROUND");o.background:SetAllPoints();o.background:SetColorTexture(.35,.35,.35,.8)
     o.startCap=f:CreateTexture(nil,"OVERLAY");o.startCap:SetColorTexture(.65,.65,.65,.9);o.startCap:SetPoint("LEFT",f,"LEFT",0,0)
     o.endCap=f:CreateTexture(nil,"OVERLAY");o.endCap:SetColorTexture(.65,.65,.65,.9);o.endCap:SetPoint("RIGHT",f,"RIGHT",0,0)
-    o.xpFill=f:CreateTexture(nil,"ARTWORK");o.xpFill:SetTexture(WHITE)
+    o.xpFill=f:CreateTexture(nil,"ARTWORK");o.xpFill:SetTexture(M:TextureFile(WHITE))
     if o.xpFill.SetGradient and CreateColor then o.xpFill:SetGradient("HORIZONTAL",CreateColor(.3,.35,.97,1),CreateColor(.71,.34,1,1))
     elseif o.xpFill.SetGradientAlpha then o.xpFill:SetGradientAlpha("HORIZONTAL",.3,.35,.97,1,.71,.34,1,1)
     else o.xpFill:SetVertexColor(.5059,.3451,.9843,1) end

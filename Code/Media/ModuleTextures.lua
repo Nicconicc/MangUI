@@ -1,5 +1,5 @@
 local _,M=...
--- Generated owner-specific texture routes; each target is a separate physical file.
+-- Owner-specific routes preserve logical texture paths. TextureFile resolves the physical file.
 local ROOT="Interface\\AddOns\\MangUI\\Assets\\"
 M.textureSourceMoves={
 ["bluefire"]="Library\\BlueFire",

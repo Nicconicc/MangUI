@@ -95,7 +95,7 @@ local function BeginMonitorDrag(e,target)
     target.alpha=slot:GetAlpha()
     e.monitorDrag=target
     ghost:SetSize(slot:GetWidth()*scale/ghost:GetEffectiveScale(),slot:GetHeight()*scale/ghost:GetEffectiveScale())
-    ghost.texture:SetTexture(icon and icon:GetTexture() or 134400)
+    ghost.texture:SetTexture(M:TextureFile(icon and icon:GetTexture() or 134400))
     if icon then ghost.texture:SetTexCoord(icon:GetTexCoord())else ghost.texture:SetTexCoord(0,1,0,1)end
     UpdateMonitorHighlight(e)
     ghost:Show()

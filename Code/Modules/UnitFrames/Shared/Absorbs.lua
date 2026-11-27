@@ -27,7 +27,7 @@ function A.Configure(o)
     if not o.absorbBar then
         local bar = CreateFrame("StatusBar", nil, o.frame)
         bar:EnableMouse(false)
-        bar:SetStatusBarTexture(WHITE)
+        bar:SetStatusBarTexture(M:TextureFile(WHITE))
         bar:SetStatusBarColor(1, 1, 1, 0)
         local clip = CreateFrame("Frame", nil, bar)
         clip:EnableMouse(false)
@@ -69,7 +69,7 @@ function A.Configure(o)
         o.absorbBar:SetFrameLevel(math.max(o.bar:GetFrameLevel(), o.clip:GetFrameLevel()) + 2)
     end
     o.absorbBar:SetReverseFill(not n.reverse)
-    o.absorbMask:SetTexture(n.file or WHITE, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    o.absorbMask:SetTexture(M:TextureFile(n.file or WHITE), "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     M.RendererInternals.TextureCoords(o.absorbMask, n)
     o.absorbBar:Hide()
 end

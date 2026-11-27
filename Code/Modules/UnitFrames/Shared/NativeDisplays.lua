@@ -224,7 +224,7 @@ function N.ConfigureCast(view,o)
         native.art=CreateFrame("Frame",nil,native.clip,"DisableUntrustedLayoutScriptsTemplate");native.art:SetAllPoints(o.frame);native.art:EnableMouse(false)
         native.texture=native.art:CreateTexture(nil,"ARTWORK");native.texture:SetAllPoints()
     end
-    native.texture:SetTexture(n.file);native.texture:SetBlendMode(n.blend or "BLEND");P.TextureCoords(native.texture,n)
+    native.texture:SetTexture(M:TextureFile(n.file));native.texture:SetBlendMode(n.blend or "BLEND");P.TextureCoords(native.texture,n)
     local left,span=M.PlayerCastArt.ProgressBounds(n)
     native.timer:ClearAllPoints();native.timer:SetPoint("LEFT",o.frame,"LEFT",left,0)
     native.timer:SetSize(span,n.height or 128)

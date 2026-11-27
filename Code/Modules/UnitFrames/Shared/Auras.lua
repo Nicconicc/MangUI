@@ -139,7 +139,7 @@ local function Auras(view,o,s)
                 icon.auraUnit,icon.auraFilter=s.unit,filter
                 icon.auraIndex,icon.auraInstanceID=C.Number(a.auraIndex),C.Number(a.auraInstanceID)
             end
-            CachedValue(icon,"auraIcon",icon.tex,"SetTexture",a.icon)
+            CachedValue(icon,"auraIcon",icon.tex,"SetTexture",M:TextureFile(a.icon))
             local configure=icon.auraGeneration~=view.applyGeneration
             if configure then
                 for _,label in pairs(icon.labels) do CachedValue(label,"auraShown",label,"SetShown",false) end

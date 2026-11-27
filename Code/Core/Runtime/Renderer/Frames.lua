@@ -235,14 +235,14 @@ local function MinimalSlices(o,anchor,body,cap,n,file,material,mask,capMask)
     local x=MinimalSliceSize(n)
     local stem=file:sub(1,-5)
     local bodyFile,capFile=stem.."Body.tga",stem.."Cap.tga"
-    body:SetTexture(material or bodyFile)
-    cap:SetTexture(material or capFile)
+    body:SetTexture(M:TextureFile(material or bodyFile))
+    cap:SetTexture(M:TextureFile(material or capFile))
     cap:SetBlendMode("BLEND")
     MinimalSlicePoints(cap,anchor,x,n.height)
     MinimalSlicePoints(body,cap,n.width-x,n.height,"RIGHT")
     if mask then
         if material then
-            mask:SetTexture(bodyFile);capMask:SetTexture(capFile)
+            mask:SetTexture(M:TextureFile(bodyFile));capMask:SetTexture(M:TextureFile(capFile))
             mask:ClearAllPoints(); mask:SetAllPoints(body); mask:SetTexCoord(0,1,0,1)
             capMask:ClearAllPoints(); capMask:SetAllPoints(cap); capMask:SetTexCoord(0,1,0,1)
             if not o[mask] then body:AddMaskTexture(mask);cap:AddMaskTexture(capMask);o[mask]=true end
@@ -328,7 +328,7 @@ local function Build(view,n)
             slot.visual:EnableMouse(false)
             slot.base=slot.visual:CreateTexture(nil,"ARTWORK");slot.base:SetSize(50,50)
             slot.base:SetPoint("CENTER",0,-5)
-            slot.base:SetTexture(M:TexturePath(n,M.ART.."Frame_Bar","resourceBase"..i),"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+            slot.base:SetTexture(M:TextureFile(M:TexturePath(n,M.ART.."Frame_Bar","resourceBase"..i)),"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
             -- Match WA's 45-degree texture rotation, which uses UV coordinates.
             slot.base:SetTexCoord(.5,-.5,-.5,.5,1.5,.5,.5,1.5)
             slot.base:SetAlpha(.8)
@@ -359,7 +359,7 @@ local function Build(view,n)
                 slot.comboGlow=slot.artFrame:CreateTexture(nil,"OVERLAY")
                 slot.comboGlow:SetPoint("CENTER",slot.art,"CENTER")
                 slot.comboGlow:SetSize(64,64)
-                slot.comboGlow:SetTexture(M.ART.."UI\\ComboSealSoftGlow.tga","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+                slot.comboGlow:SetTexture(M:TextureFile(M.ART.."UI\\ComboSealSoftGlow.tga"),"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
                 slot.comboGlow:SetBlendMode("ADD")
                 slot.comboGlow:SetVertexColor(1,.78,.36)
                 -- Keep both sides of the breathing outline moving at subpixel precision.
@@ -390,7 +390,7 @@ local function Build(view,n)
                 slot.visual:Hide()
                 slot.comboRing=slot.artFrame:CreateTexture(nil,"OVERLAY",nil,1)
                 slot.comboRing:SetPoint("CENTER",slot.art,"CENTER")
-                slot.comboRing:SetTexture(M.ART.."UI\\MonitorInnerGlow.tga","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+                slot.comboRing:SetTexture(M:TextureFile(M.ART.."UI\\MonitorInnerGlow.tga"),"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
                 slot.comboRing:SetTexCoord(.5,-.5,-.5,.5,1.5,.5,.5,1.5)
                 slot.comboRing:SetBlendMode("ADD")
                 slot.comboRing:SetVertexColor(1,.72,.24)
@@ -777,7 +777,7 @@ function R.Apply(view,design,unchanged)
                 o.shadow:SetTextColor(0,0,0,1)
                 if M.PartyFrames then M.PartyFrames.ConfigureText(o) end
             elseif o.texture then
-                o.texture:SetTexture(n.file or "Interface\\Buttons\\WHITE8X8");o.texture:SetBlendMode(n.blend or "BLEND")
+                o.texture:SetTexture(M:TextureFile(n.file or "Interface\\Buttons\\WHITE8X8"));o.texture:SetBlendMode(n.blend or "BLEND")
                 o.texture:SetDesaturated(n.desaturate or false);TextureCoords(o.texture,n)
                 if o.texture.SetRotation then o.texture:SetRotation(math.rad(n.rotation or 0)) end
                 if n.binding=="castIcon" and not view.preview then
@@ -819,11 +819,11 @@ function R.Apply(view,design,unchanged)
                 if n.attackKind then o.texture:SetVertexColor(unpack(n.color or {1,1,1,1})) end
             elseif o.bar then
                 local material=n.alphaFill and n.materialPath or nil
-                o.bar:SetStatusBarTexture(material or n.file or "Interface\\Buttons\\WHITE8X8")
+                o.bar:SetStatusBarTexture(M:TextureFile(material or n.file or "Interface\\Buttons\\WHITE8X8"))
                 o.bar:SetOrientation(n.vertical and "VERTICAL" or "HORIZONTAL");o.bar:SetReverseFill(n.reverse or false)
                 o.bar:SetMinMaxValues(0,1);o.bar:SetValue(.72)
                 local t=o.bar:GetStatusBarTexture();if t then TextureCoords(t,n);t:SetBlendMode(n.blend or "BLEND") end
-                o.fill:SetTexture(n.file or "Interface\\Buttons\\WHITE8X8");o.fill:SetBlendMode(n.blend or "BLEND");TextureCoords(o.fill,n)
+                o.fill:SetTexture(M:TextureFile(n.file or "Interface\\Buttons\\WHITE8X8"));o.fill:SetBlendMode(n.blend or "BLEND");TextureCoords(o.fill,n)
                 o.fill:SetAlpha(1)
                 local fillInset=n.alphaFill and (n.fillInset or 0) or 0
                 o.fill:SetSize(n.width,n.height);o.fill:ClearAllPoints();o.fill:SetPoint(n.reverse and "RIGHT" or "LEFT",o.clip,n.reverse and "RIGHT" or "LEFT",n.reverse and fillInset or -fillInset,0)
@@ -845,7 +845,7 @@ function R.Apply(view,design,unchanged)
                         if not M.DisplayModes.IsBar(n) then o.nativeArt:AddMaskTexture(o.nativeMask) end
                     end
                     local nativeMaterial=material~="Interface\\Buttons\\WHITE8X8" and material or nil
-                    o.nativeArt:SetTexture(nativeMaterial or n.file)
+                    o.nativeArt:SetTexture(M:TextureFile(nativeMaterial or n.file))
                     o.nativeClip:SetAllPoints(t)
                     o.nativeArtFrame:SetAllPoints(o.frame)
                     o.nativeArt:SetAllPoints(o.nativeArtFrame);TextureCoords(o.nativeArt,n)
@@ -854,12 +854,12 @@ function R.Apply(view,design,unchanged)
                     if t then t:SetAlpha(0) end
                     o.material:SetSize(n.width,n.height);o.material:ClearAllPoints()
                     o.material:SetPoint(n.reverse and "RIGHT" or "LEFT",o.clip,n.reverse and "RIGHT" or "LEFT",n.reverse and fillInset or -fillInset,0)
-                    o.material:SetTexture(material or "Interface\\Buttons\\WHITE8X8")
+                    o.material:SetTexture(M:TextureFile(material or "Interface\\Buttons\\WHITE8X8"))
                     o.material:SetBlendMode("BLEND");TextureCoords(o.material,n)
                     o.material:SetShown(material~=nil)
                     if M.DisplayModes.IsBar(n) then o.fill:SetShown(material==nil) end
-                    o.materialMask:SetTexture(n.file);o.materialMask:SetAllPoints(o.material);TextureCoords(o.materialMask,n)
-                    o.nativeMask:SetTexture(nativeMaterial and n.file or "Interface\\Buttons\\WHITE8X8","CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+                    o.materialMask:SetTexture(M:TextureFile(n.file));o.materialMask:SetAllPoints(o.material);TextureCoords(o.materialMask,n)
+                    o.nativeMask:SetTexture(M:TextureFile(nativeMaterial and n.file or "Interface\\Buttons\\WHITE8X8"),"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
                     o.nativeMask:SetAllPoints(n.id=="playerThirdResourceFill" and o.frame or o.nativeArt)
                     TextureCoords(o.nativeMask,n)
                     if M.DisplayModes.IsBar(n) then
@@ -883,7 +883,7 @@ function R.Apply(view,design,unchanged)
                         if frameSpec then
                             MinimalSlices(o,f,o.minimalMetalBody,o.minimalMetalCap,n,frameSpec.file)
                         end
-                        o.minimalMaxEdge:SetTexture((n.file:gsub("%.tga$","MaxEdge.tga")))
+                        o.minimalMaxEdge:SetTexture(M:TextureFile((n.file:gsub("%.tga$","MaxEdge.tga"))))
                         o.minimalMaxEdge:SetSize(n.height*(n.id=="minimalHealth" and .59 or .49),n.height)
                         o.fill:Hide()
                         o.material:Show()
@@ -903,7 +903,7 @@ function R.Apply(view,design,unchanged)
                     local target=o.nativeArt or t
                     if not o.healthWarning then o.healthWarning=(o.nativeArtFrame or o.bar):CreateTexture(nil,"OVERLAY") end
                     local warningMaterial=material~="Interface\\Buttons\\WHITE8X8" and material or nil
-                    o.healthWarning:SetTexture(warningMaterial or n.file)
+                    o.healthWarning:SetTexture(M:TextureFile(warningMaterial or n.file))
                     o.healthWarning:SetAllPoints(target);TextureCoords(o.healthWarning,n)
                     o.healthWarning:SetBlendMode(n.blend or "BLEND")
                     if o.nativeMask and not o.warningMasked then

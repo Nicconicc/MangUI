@@ -27,7 +27,7 @@ local function Resolve(slot,entry)
     if not spell.id then M.RaidBuffMonitor.RequestBuffName(entry.value)end
     local key=entry.value..":"..tostring(spell.id)..":"..tostring(spell.revision)
     local changed=slot.lookupKey~=key;slot.lookupKey=key;slot.spell=spell
-    slot.texture:SetTexture(spell.icon or 134400)
+    slot.texture:SetTexture(M:TextureFile(spell.icon or 134400))
     return changed
 end
 local function Bind(slot)
@@ -156,7 +156,7 @@ function I.Paint(view,o,animateOnly)
                 local aura=slot.aura;local expires=aura and Number(aura.expires)
                 M.CustomMonitor.SetText(slot.time,S.FormatCountdown(expires and expires>0 and expires-now or nil))
                 local count=aura and Number(aura.count);M.CustomMonitor.SetText(slot.count,count and count>=2 and tostring(count)or "")
-                if aura and Readable(aura.icon)and aura.icon then M.CustomMonitor.SetVisual(slot.texture,"SetTexture",aura.icon) end
+                if aura and Readable(aura.icon)and aura.icon then M.CustomMonitor.SetVisual(slot.texture,"SetTexture",M:TextureFile(aura.icon)) end
             end
         end
     end

@@ -303,7 +303,7 @@ local function BuildProperties(e)
         local token=class[1];local key="range"..token
         local spellKey="rangeSpell"..token;local manualKey="rangeManual"..token
         local caption=W.Label(content,class[2]);caption:SetWidth(80);caption:SetWordWrap(false)
-        local icon=content:CreateTexture(nil,"ARTWORK");icon:SetSize(22,22);icon:SetTexture(M.TargetDistance.ClassIcon(token))
+        local icon=content:CreateTexture(nil,"ARTWORK");icon:SetSize(22,22);icon:SetTexture(M:TextureFile(M.TargetDistance.ClassIcon(token)))
         local edit=W.Edit(content,(propertyWidth-166)/2-28);edit:SetMaxLetters(128);edit:SetTextInsets(4,4,0,0)
         local skillIcon=CreateFrame("Button",nil,content);skillIcon:SetSize(22,22)
         skillIcon.texture=skillIcon:CreateTexture(nil,"ARTWORK");skillIcon.texture:SetAllPoints()
@@ -312,7 +312,7 @@ local function BuildProperties(e)
             local value=M.TargetDistance.SpellInput(W.InputValue(self))
             local name,id,texture
             if value~="" then name,id,texture=M.PetBuffs.SpellInfo(value)end
-            skillIcon.texture:SetTexture(name and texture or 134400)
+            skillIcon.texture:SetTexture(M:TextureFile(name and texture or 134400))
             W.SetIconTooltip(skillIcon,name and {name=name,id=tonumber(value)or id,icon=texture}or nil)
         end
         local placeholder=W.Label(edit,"技能名称/技能ID",11)

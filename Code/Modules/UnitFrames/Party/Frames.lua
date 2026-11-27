@@ -353,7 +353,7 @@ function P.ConfigureTexture(o)
         o.texture:SetPoint("TOPLEFT",o.frame,"TOPLEFT",0,-5)
         o.texture:SetPoint("BOTTOMRIGHT",o.frame,"BOTTOMRIGHT",0,-5)
     end
-    o.texture:SetTexture(n.file,n.textureWrapMode,n.textureWrapMode)
+    o.texture:SetTexture(M:TextureFile(n.file),n.textureWrapMode,n.textureWrapMode)
     if o.texture.SetSnapToPixelGrid then o.texture:SetSnapToPixelGrid(false) end
     if o.texture.SetTexelSnappingBias then o.texture:SetTexelSnappingBias(0) end
     -- Apply after native SetRotation, which must not replace the WA UV range.
@@ -454,7 +454,7 @@ local function ConfigureMemberHighlight(view,i)
         metal.partyHighlight=texture
     end
     local n=metal.spec;local texture=metal.partyHighlight
-    texture:SetTexture(n.file,n.textureWrapMode,n.textureWrapMode)
+    texture:SetTexture(M:TextureFile(n.file),n.textureWrapMode,n.textureWrapMode)
     local x,y=1+(n.cropX or 0),1+(n.cropY or 0)
     local l,r=.5-.5/x,.5+.5/x;local top,bottom=.5-.5/y,.5+.5/y
     if n.mirror then l,r=r,l end
@@ -663,7 +663,7 @@ end
 function P.Texture(o,s)
     if o.spec.binding=="partyClass" then
         local class=classes[s.partyClass]
-        if class and o.partyClass~=class then o.texture:SetTexture(M:TexturePath(o.spec,MEDIA.."Class\\"..class.." icon.blp"));o.partyClass=class end
+        if class and o.partyClass~=class then o.texture:SetTexture(M:TextureFile(M:TexturePath(o.spec,MEDIA.."Class\\"..class.." icon.blp")));o.partyClass=class end
     elseif o.spec.binding=="partyRole" then
         local atlas=roles[s.partyRole]
         if atlas and o.partyRole~=atlas then o.texture:SetAtlas(atlas,false);o.partyRole=atlas end

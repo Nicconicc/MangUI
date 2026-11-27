@@ -323,11 +323,11 @@ function B.Build(view,o)
         if community then
             communityHeart=M.FooterLinks.ChatCommunityArt(visual,texture,view.preview)
         elseif def.texture then
-            texture:SetTexture(M:TexturePath(o.spec,ART..def.texture,"button_"..def.key))
+            texture:SetTexture(M:TextureFile(M:TexturePath(o.spec,ART..def.texture,"button_"..def.key)))
         elseif def.atlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(def.atlas) then
             texture:SetAtlas(def.atlas)
         elseif def.fallback then
-            texture:SetTexture(def.fallback)
+            texture:SetTexture(M:TextureFile(def.fallback))
         end
         texture:SetBlendMode("BLEND");texture:SetRotation(math.rad(def.rotation or 0))
         local shadow=visual:CreateFontString(nil,"ARTWORK");local text=visual:CreateFontString(nil,"OVERLAY")

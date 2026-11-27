@@ -42,7 +42,7 @@ function M:OpenMedia()
             end
             cell.asset=list[i];cell:SetShown(list[i]~=nil)
             if list[i] then
-                cell:SetPoint("TOPLEFT",((i-1)%3)*188,-math.floor((i-1)/3)*106);cell.tex:SetTexture(list[i].file);cell.label:SetText(list[i].name)
+                cell:SetPoint("TOPLEFT",((i-1)%3)*188,-math.floor((i-1)/3)*106);cell.tex:SetTexture(M:TextureFile(list[i].file));cell.label:SetText(list[i].name)
                 cell.tex:SetTexCoord(0,1,0,1)
                 if list[i].kind=="sprite" then cell.tex:SetTexCoord(0,1/list[i].columns,0,1/list[i].rows) end
             end

@@ -103,7 +103,7 @@ function O.BuildControls(e,parent)
         else
             local value=W.InputValue(row.edit);name,id,icon=M.PetBuffs.SpellInfo(value);id=tonumber(value)or id
         end
-        row.icon.texture:SetTexture(icon or 134400)
+        row.icon.texture:SetTexture(M:TextureFile(icon or 134400))
         W.SetIconTooltip(row.icon,{name=name,id=id,icon=icon,slot=equipment and (entry.slot or 13)or nil},equipment and "item"or "spell")
         if entry.type=="equipment"then row.edit:SetText(name or M:T("未装备"))end
     end
@@ -117,7 +117,7 @@ function O.BuildControls(e,parent)
             end
         end
         if not O.Readable(icon)or icon==0 then icon=nil end
-        row.icon.texture:SetTexture(icon or 134400)
+        row.icon.texture:SetTexture(M:TextureFile(icon or 134400))
         W.SetIconTooltip(row.icon,{id=id,icon=icon},"item")
     end
     function supplement:Refresh(width)

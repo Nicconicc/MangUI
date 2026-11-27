@@ -310,7 +310,7 @@ local function PaintHealthChange(view,o,s,animateOnly,inset,start,full)
             if fx.file~=o.spec.file then
                 fx.file=o.spec.file
                 if not fx.damage.manguiHealthArt then
-                    fx.damage:SetTexture(fx.file);fx.heal:SetTexture(fx.file)
+                    fx.damage:SetTexture(M:TextureFile(fx.file));fx.heal:SetTexture(M:TextureFile(fx.file))
                 end
             end
             if current<previous then
@@ -430,8 +430,8 @@ local function PaintNativeHealthChange(view,o,s,enabled,interpolation)
             private.MinimalSlices(fx,fx.layer,fx.heal,fx.healCap,spec,spec.file)
             fx.healCap:SetBlendMode("ADD")
         else
-            fx.damage:SetTexture(spec.file);private.TextureCoords(fx.damage,spec)
-            fx.heal:SetTexture(spec.file);private.TextureCoords(fx.heal,spec)
+            fx.damage:SetTexture(M:TextureFile(spec.file));private.TextureCoords(fx.damage,spec)
+            fx.heal:SetTexture(M:TextureFile(spec.file));private.TextureCoords(fx.heal,spec)
         end
         fx.layer:SetFrameLevel(o.clip:GetFrameLevel()+2)
         fx.ready=true;fx.layer:Show()

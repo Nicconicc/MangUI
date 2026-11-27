@@ -753,7 +753,7 @@ local function NativeAura(slot,aura,reversed)
         local backdrop=S.CreateAuraBackdrop(slot.nativeHost,container)
         if backdrop then
             slot.nativeBackdrop=backdrop:CreateTexture(nil,"ARTWORK");slot.nativeBackdrop:SetAllPoints()
-            slot.nativeBackdrop:SetTexture(slot.customFallbackIcon)
+            slot.nativeBackdrop:SetTexture(M:TextureFile(slot.customFallbackIcon))
             slot.nativeBackdrop:SetDesaturated(reversed);slot.nativeBackdrop:SetAlpha(reversed and .5 or 1)
             M.MasqueIcons.Attach(slot.nativeBackdrop,"playerSkillMonitor",40,40)
         end
@@ -789,7 +789,7 @@ local function SelectNativeAura(slot,aura)
         slot.nativeAuraType=slot.entry.type
     end
     if slot.nativeHost then slot.nativeHost:Show() end
-    if slot.nativeBackdrop then slot.nativeBackdrop:SetTexture(slot.customFallbackIcon)end
+    if slot.nativeBackdrop then slot.nativeBackdrop:SetTexture(M:TextureFile(slot.customFallbackIcon))end
 end
 local function Icon(view,o,i)
     local slot=o.skillIcons[i];if slot then return slot end
@@ -883,8 +883,8 @@ local function Resolve(slot,entry)
     slot.auraInput,slot.auraEntryType=entry.value,entry.type
     slot.entry=entry;slot.spellID=id;slot.spellName=name or entry.value
     slot.auraMatchName=name or (not tonumber(entry.value) and entry.value)
-    M.CustomMonitor.SetVisual(slot.texture,"SetTexture",icon or 134400);slot.customFallbackIcon=icon or 134400
-    if slot.nativeBackdrop then slot.nativeBackdrop:SetTexture(slot.customFallbackIcon)end
+    M.CustomMonitor.SetVisual(slot.texture,"SetTexture",M:TextureFile(icon or 134400));slot.customFallbackIcon=icon or 134400
+    if slot.nativeBackdrop then slot.nativeBackdrop:SetTexture(M:TextureFile(slot.customFallbackIcon))end
     slot.needsInfo=entry.type~="custom"and(not id or not icon);slot.nextInfo=GetTime()+1
 end
 local function BindAura(slot,enabled)
@@ -1258,7 +1258,7 @@ local function ScanAuras(o,kind)
                         end
                         if stacks and (not slot.stacks or stacks>slot.stacks)then slot.stacks=stacks end
                         if expires and expires>0 and (not slot.expires or expires>slot.expires)then slot.expires=expires end
-                        if Readable(aura.icon) and aura.icon~=nil then M.CustomMonitor.SetVisual(slot.texture,"SetTexture",aura.icon)end
+                        if Readable(aura.icon) and aura.icon~=nil then M.CustomMonitor.SetVisual(slot.texture,"SetTexture",M:TextureFile(aura.icon))end
                     end
                 end
             end
@@ -1690,7 +1690,7 @@ function S.BuildControls(e,parent,Row)
         local value=S.Input(W.InputValue(row.edit))
         local name,id,icon
         if value~="" then name,id,icon=M.PetBuffs.SpellInfo(value)end
-        row.skillIcon.texture:SetTexture(name and icon or 134400)
+        row.skillIcon.texture:SetTexture(M:TextureFile(name and icon or 134400))
         W.SetIconTooltip(row.skillIcon,name and {name=name,id=tonumber(value)or id,icon=icon}or nil)
     end
     panel.insertMarker=CreateFrame("Frame",nil,panel);panel.insertMarker:SetSize(470,2)

@@ -73,13 +73,13 @@ function S.Build(view,o)
     o.outer=f:CreateTexture(nil,"ARTWORK");o.outer:SetPoint("CENTER");o.outer:SetSize(50,50);o.outer:SetBlendMode("ADD")
     if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("ArtifactsFX-YellowRing-Neutral") then
         o.outer:SetAtlas("ArtifactsFX-YellowRing-Neutral")
-    else o.outer:SetTexture(M:TexturePath(o.spec,RING,"outer")) end
-    o.inner=f:CreateTexture(nil,"OVERLAY");o.inner:SetPoint("CENTER");o.inner:SetTexture(M:TexturePath(o.spec,RING,"inner"));o.inner:SetBlendMode("ADD");o.inner:Hide()
+    else o.outer:SetTexture(M:TextureFile(M:TexturePath(o.spec,RING,"outer"))) end
+    o.inner=f:CreateTexture(nil,"OVERLAY");o.inner:SetPoint("CENTER");o.inner:SetTexture(M:TextureFile(M:TexturePath(o.spec,RING,"inner")));o.inner:SetBlendMode("ADD");o.inner:Hide()
     o.gcdBackground=f:CreateTexture(nil,"BACKGROUND");o.gcdBackground:SetPoint("CENTER");o.gcdBackground:SetSize(45,45)
-    o.gcdBackground:SetTexture(M:TexturePath(o.spec,ART.."Aura3.tga","gcdBackground"));o.gcdBackground:SetVertexColor(0,0,0,.5);o.gcdBackground:Hide()
+    o.gcdBackground:SetTexture(M:TextureFile(M:TexturePath(o.spec,ART.."Aura3.tga","gcdBackground")));o.gcdBackground:SetVertexColor(0,0,0,.5);o.gcdBackground:Hide()
     o.gcd=CreateFrame("Cooldown",nil,f,"CooldownFrameTemplate");o.gcd:SetSize(45,45);o.gcd:SetPoint("CENTER");o.gcd:EnableMouse(false)
     -- A normal cooldown swipe removes the elapsed sector, leaving the remaining ring.
-    o.gcd:SetDrawSwipe(true);o.gcd:SetSwipeTexture(M:TexturePath(o.spec,RING,"swipe"));o.gcd:SetReverse(false)
+    o.gcd:SetDrawSwipe(true);o.gcd:SetSwipeTexture(M:TextureFile(M:TexturePath(o.spec,RING,"swipe")));o.gcd:SetReverse(false)
     o.gcd:SetDrawEdge(false);o.gcd:SetDrawBling(false);o.gcd:SetHideCountdownNumbers(true)
     o.gcd.noCooldownCount=true;o.gcd:Hide()
     o.gcd:SetScript("OnCooldownDone",function()

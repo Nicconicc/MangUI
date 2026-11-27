@@ -50,7 +50,7 @@ local function Frame(parent,level)
 end
 local function Art(parent,owner,n,color)
     local f=Frame(parent,parent:GetFrameLevel()+1);f:SetAllPoints(owner)
-    local t=f:CreateTexture(nil,"ARTWORK");t:SetAllPoints();t:SetTexture(n.file)
+    local t=f:CreateTexture(nil,"ARTWORK");t:SetAllPoints();t:SetTexture(M:TextureFile(n.file))
     t:SetBlendMode(n.blend or "BLEND");t:SetVertexColor(unpack(color))
     f.art=t;return f
 end
@@ -284,12 +284,12 @@ local function InterruptVisual(view,cast,now)
     root:ClearAllPoints();root:SetPoint("CENTER",frame,"CENTER",0,0)
     local background=view.nodes.wa1537213e27
     if background and not background.removed and background.spec.enabled~=false then
-        a.background:SetAllPoints(root);a.background:SetTexture(background.spec.file)
+        a.background:SetAllPoints(root);a.background:SetTexture(M:TextureFile(background.spec.file))
         M.RendererInternals.TextureCoords(a.background,background.spec)
         A.Draw(a.background,root,background.spec,1,{1,1,1,1})
         a.background:Show()
     else a.background:Hide() end
-    a.fill:SetTexture(o.spec.file);a.fill:SetBlendMode(o.spec.blend or "BLEND")
+    a.fill:SetTexture(M:TextureFile(o.spec.file));a.fill:SetBlendMode(o.spec.blend or "BLEND")
     a.fill:SetVertexColor(unpack(interruptColor))
     A.PaintProgress(a,a.fill,root,o.spec,ratio,interruptColor)
     local icon=view.nodes.wa8fa968f2a9
@@ -302,7 +302,7 @@ local function InterruptVisual(view,cast,now)
         local iconScale=icon.frame:GetEffectiveScale()
         local texture=cast.icon
         if C.Readable(texture) and texture==nil then texture=134400 end
-        a.icon:SetTexture(texture)
+        a.icon:SetTexture(M:TextureFile(texture))
         a.icon:SetSize(icon.spec.width*iconScale/scale,icon.spec.height*iconScale/scale)
         a.icon:SetPoint("CENTER",root,"CENTER",ix*iconScale/scale-fx,iy*iconScale/scale-fy)
         a.icon:Show()

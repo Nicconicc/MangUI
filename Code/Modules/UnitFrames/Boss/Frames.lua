@@ -99,7 +99,7 @@ function B.ConfigurePortrait(o)
     if o.spec.id~="bossPortrait" then return end
     if not o.bossPortraitMask then
         local mask=o.frame:CreateMaskTexture()
-        mask:SetTexture(M:TexturePath(o.spec,ART.."MainSweepPortraitMask.tga","bossPortraitMask"));mask:SetAllPoints(o.texture)
+        mask:SetTexture(M:TextureFile(M:TexturePath(o.spec,ART.."MainSweepPortraitMask.tga","bossPortraitMask")));mask:SetAllPoints(o.texture)
         o.texture:AddMaskTexture(mask);o.bossPortraitMask=mask
     end
     if o.portraitBackground then

@@ -186,10 +186,10 @@ function S.Build(view,o)
         button:SetFrameLevel(o.frame:GetFrameLevel()+index);button:RegisterForClicks("LeftButtonUp","RightButtonUp")
         local visual=CreateFrame("Frame",nil,button);visual:SetSize(def.size,def.size);visual:EnableMouse(false)
         local texture=visual:CreateTexture(nil,"ARTWORK");texture:SetAllPoints();texture:SetBlendMode("BLEND")
-        if def.asset then texture:SetTexture(def.asset)
-        elseif def.file then texture:SetTexture(M:TexturePath(o.spec,ART..def.file,"button_"..def.key))
+        if def.asset then texture:SetTexture(M:TextureFile(def.asset))
+        elseif def.file then texture:SetTexture(M:TextureFile(M:TexturePath(o.spec,ART..def.file,"button_"..def.key)))
         elseif C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(def.atlas) then texture:SetAtlas(def.atlas)
-        else texture:SetTexture(def.fallback) end
+        else texture:SetTexture(M:TextureFile(def.fallback)) end
         -- Explicit dimensions also apply when the client atlas has its own size.
         texture:ClearAllPoints();texture:SetPoint("CENTER",visual,"CENTER");texture:SetSize(def.size,def.size)
         local slot={button=button,visual=visual,texture=texture,definition=def,progress=0,target=0,owner=o,secureRoute=route}

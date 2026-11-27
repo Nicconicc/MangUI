@@ -72,7 +72,7 @@ end
 local function Texture(parent,file,w,h,x,y,layer)
     local t=parent:CreateTexture(nil,layer or "ARTWORK")
     t:SetSize(w,h);t:SetPoint("CENTER",parent,"CENTER",x or 0,y or 0)
-    t:SetTexture(art..file);return t
+    t:SetTexture(M:TextureFile(art..file));return t
 end
 local function Text(parent,spec)
     local t=parent:CreateFontString(nil,"OVERLAY")
@@ -127,7 +127,7 @@ local function BuildRow(o,key)
             local f=Frame(row.frame,d.width,d.height);f:SetFrameLevel(row.frame:GetFrameLevel()+d.layer);f:Hide()
             local t=Texture(f,"EmberFill.tga",d.width,d.height)
             t:ClearAllPoints();t:SetPoint("BOTTOM",f,"BOTTOM",0,0)
-            local spark=f:CreateTexture(nil,"OVERLAY");spark:SetTexture(d.sparkTexture)
+            local spark=f:CreateTexture(nil,"OVERLAY");spark:SetTexture(M:TextureFile(d.sparkTexture))
             spark:SetSize(d.sparkWidth,d.sparkHeight);spark:SetBlendMode(d.sparkBlendMode)
             spark:SetVertexColor(unpack(d.sparkColor));spark:SetTexCoord(0,1,1,1,0,0,1,0)
             row.fills[i]={frame=f,texture=t,spark=spark}

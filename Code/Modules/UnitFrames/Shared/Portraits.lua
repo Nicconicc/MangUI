@@ -171,7 +171,7 @@ function P.SyncMode(view,o)
     end
 end
 local function ShowStaticModelPortrait(o,unit)
-    o.texture:SetTexture(UNKNOWN_PORTRAIT)
+    o.texture:SetTexture(M:TextureFile(UNKNOWN_PORTRAIT))
     DrawStatic(o,unit,"3D-stand-in")
     o.portraitModel.portraitStaticAt=GetTime()+1
 end
@@ -317,7 +317,7 @@ function P.Configure(view,o)
     end
     if o.spec.unit=="pet" and not o.portraitDeathTexture then
         local death=o.frame:CreateTexture(nil,"ARTWORK")
-        death:SetAllPoints(o.frame);death:SetTexture(M:TexturePath(o.spec,DEAD,"portraitDeath"));death:SetBlendMode("BLEND")
+        death:SetAllPoints(o.frame);death:SetTexture(M:TextureFile(M:TexturePath(o.spec,DEAD,"portraitDeath")));death:SetBlendMode("BLEND")
         death:SetVertexColor(1,1,1,1);death:Hide();o.portraitDeathTexture=death
     end
     if view.preview then
@@ -326,7 +326,7 @@ function P.Configure(view,o)
     end
     if not view.preview and M.db.portrait3D==true and not o.portraitModel then
         local background=o.frame:CreateTexture(nil,"BACKGROUND")
-        background:SetAllPoints(o.frame);background:SetTexture(M:TexturePath(o.spec,CIRCLE,"portraitBackground"))
+        background:SetAllPoints(o.frame);background:SetTexture(M:TextureFile(M:TexturePath(o.spec,CIRCLE,"portraitBackground")))
         background:SetVertexColor(0,0,0,1);background:SetBlendMode("BLEND")
         o.portraitBackground=background
         local viewport=CreateFrame("Frame",nil,o.frame)
@@ -385,12 +385,12 @@ function P.Configure(view,o)
     ShowSource(o,model and (model.portraitFallback or (was3D~=o.portrait3D and model.portraitDirty)))
     if view.preview then
         local texture=o.texture
-        texture:SetTexture(M:TexturePath(o.spec,LOGO,"portraitPreview"));texture:SetTexCoord(0,1,0,1)
+        texture:SetTexture(M:TextureFile(M:TexturePath(o.spec,LOGO,"portraitPreview")));texture:SetTexCoord(0,1,0,1)
         texture:SetBlendMode("BLEND");texture:SetDesaturated(false)
         texture:SetRotation(0);texture:SetVertexColor(1,1,1,1)
         if not o.previewPortraitMask then
             local mask=o.frame:CreateMaskTexture()
-            mask:SetTexture(M:TexturePath(o.spec,CIRCLE,"portraitPreviewMask"));mask:SetAllPoints(texture)
+            mask:SetTexture(M:TextureFile(M:TexturePath(o.spec,CIRCLE,"portraitPreviewMask")));mask:SetAllPoints(texture)
             texture:AddMaskTexture(mask);o.previewPortraitMask=mask
         end
     end

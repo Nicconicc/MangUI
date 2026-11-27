@@ -15,7 +15,7 @@ function I.BuildControls(e,parent)
     local function Editable(row)return row.owner and M.byID[row.owner.id]==row.owner and Index(row.owner[row.listKey],row.entry)and M:CanEdit()end
     local function PreviewIcon(row)
         local item=I.Resolve(row.entry and I.Kind(row.entry)=="equipment"and row.entry or {value=row.item:GetText(),createSpell=row.create and W.InputValue(row.create)or ""})
-        row.icon.texture:SetTexture(item.icon or 134400)
+        row.icon.texture:SetTexture(M:TextureFile(item.icon or 134400))
         W.SetIconTooltip(row.icon,item,"item")
     end
     local function Drop(row,label,choices,selected,apply)

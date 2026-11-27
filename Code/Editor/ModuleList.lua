@@ -137,7 +137,7 @@ function M:RefreshTree()
             row.base:SetTexture("Interface\\BUTTONS\\UI-Listbox-Highlight2.blp")
             row.base:SetBlendMode("ADD");row.base:SetVertexColor(.5,.5,.5,.125)
             row.bg=row:CreateTexture(nil,"BACKGROUND",nil,-1);row.bg:SetAllPoints()
-            row.bg:SetTexture(highlight:GetTexture());row.bg:SetTexCoord(highlight:GetTexCoord())
+            row.bg:SetTexture(M:TextureFile(highlight:GetTexture()));row.bg:SetTexCoord(highlight:GetTexCoord())
             row.bg:SetVertexColor(highlight:GetVertexColor());row.bg:SetBlendMode(highlight:GetBlendMode())
             row.selectionColor={highlight:GetVertexColor()}
             function row:RefreshHighlight()

@@ -154,7 +154,7 @@ local function StartOutgoing(view,o,button)
         ghost:SetScript("OnUpdate",function(self)TrackOutgoing(view,o,self)end)
     end
     o.outgoing={group=group,entries=group.commonItems,entry=button.entry,button=button}
-    ghost.icon:SetTexture(button.item and button.item.icon or 134400)
+    ghost.icon:SetTexture(M:TextureFile(button.item and button.item.icon or 134400))
     if GameTooltip then GameTooltip:Hide() end
     ghost:Show();TrackOutgoing(view,o,ghost)
 end
@@ -308,8 +308,8 @@ function I.Configure(view,o)
                 end)
             end
         end
-        button.entry=entry;button.item=I.Resolve(entry);button.texture:SetTexture(button.item.icon or 134400)
-        button.grayTexture:SetTexture(button.item.icon or 134400);Font(button.time);Font(button.count)
+        button.entry=entry;button.item=I.Resolve(entry);button.texture:SetTexture(M:TextureFile(button.item.icon or 134400))
+        button.grayTexture:SetTexture(M:TextureFile(button.item.icon or 134400));Font(button.time);Font(button.count)
         button:ClearAllPoints();button:SetPoint("CENTER",parent,"CENTER",S.IconOffset(group,index,#entries),-7)
         if not view.preview then
             BindItem(button,button.item,entry)
@@ -420,8 +420,8 @@ function I.Event(view,event,unit)
         -- during combat needs no changes to protected click attributes.
         for _,button in ipairs(o.itemIcons or {})do
             if button.entry and I.Kind(button.entry)=="equipment"then
-                button.item=I.Resolve(button.entry);button.texture:SetTexture(button.item.icon or 134400)
-                button.grayTexture:SetTexture(button.item.icon or 134400)
+                button.item=I.Resolve(button.entry);button.texture:SetTexture(M:TextureFile(button.item.icon or 134400))
+                button.grayTexture:SetTexture(M:TextureFile(button.item.icon or 134400))
             end
         end
     end

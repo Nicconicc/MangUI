@@ -55,7 +55,7 @@ function A.Draw(texture,anchor,n,ratio,color)
     if math.abs(width-512)<.001 then
         if state then
             A.Hide(texture)
-            texture:SetTexture(n.file)
+            texture:SetTexture(M:TextureFile(n.file))
         end
         return
     end
@@ -77,7 +77,7 @@ function A.Draw(texture,anchor,n,ratio,color)
         local t=part.texture
         P.CachedValue(part,"shown",t,"SetShown",visible>0)
         if visible>0 then
-            P.CachedValue(part,"file",t,"SetTexture",n.file)
+            P.CachedValue(part,"file",t,"SetTexture",M:TextureFile(n.file))
             P.CachedValue(part,"blend",t,"SetBlendMode",n.blend or "BLEND")
             P.CachedColor(part,"color",t,"SetVertexColor",color or n.color or {1,1,1,1})
             P.CachedPoint(part,"point",t,"LEFT",anchor,"LEFT",offset,0)

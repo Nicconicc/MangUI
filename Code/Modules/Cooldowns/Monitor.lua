@@ -391,7 +391,7 @@ function D.Paint(view,o)
             slot.fontPath=font
         end
         slot.key=state.key;slot.state=state
-        if slot.lastIcon~=state.icon then slot.texture:SetTexture(state.icon);slot.lastIcon=state.icon end
+        if slot.lastIcon~=state.icon then slot.texture:SetTexture(M:TextureFile(state.icon));slot.lastIcon=state.icon end
         local progress=M.Clamp((now-(slot.added or now))/.25,0,1)
         local desired=-(#entries-1)*22+(i-1)*44
         if slot.desired~=desired then slot.from=slot.position or desired;slot.desired=desired;slot.moved=now end

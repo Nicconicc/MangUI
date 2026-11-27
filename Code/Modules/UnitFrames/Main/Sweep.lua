@@ -91,7 +91,7 @@ local function MaskFile(effect)
     if not C.Readable(file) or file==nil then return false end
     file=M:TexturePath(n,file,"sweepMask")
     if file~=effect.file then
-        effect.mask:SetTexture(file,"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
+        effect.mask:SetTexture(M:TextureFile(file),"CLAMPTOBLACKADDITIVE","CLAMPTOBLACKADDITIVE")
         effect.file=file
     end
     return true
@@ -162,7 +162,7 @@ function S.Configure(view)
                 frame:SetClipsChildren(true)
                 local mask=frame:CreateMaskTexture(nil,"OVERLAY")
                 local band=frame:CreateTexture(nil,"OVERLAY")
-                band:SetTexture(M:TexturePath(o.spec,GRADIENT,"sweepGradient"),"MIRROR","CLAMPTOBLACKADDITIVE")
+                band:SetTexture(M:TextureFile(M:TexturePath(o.spec,GRADIENT,"sweepGradient")),"MIRROR","CLAMPTOBLACKADDITIVE")
                 band:SetTexCoord(-1,1,0,1);band:SetBlendMode("ADD")
                 band:AddMaskTexture(mask)
                 effect={frame=frame,mask=mask,band=band};sweep.effects[o.spec.id]=effect

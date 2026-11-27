@@ -24,7 +24,7 @@ end
 local function Texture(parent,spec,layer)
     local t=parent:CreateTexture(nil,layer or "ARTWORK")
     t:SetSize(spec.width,spec.height);Point(t,parent,spec.xOffset,spec.yOffset)
-    if spec.atlas then t:SetAtlas(spec.texture)else t:SetTexture(art..spec.texture)end
+    if spec.atlas then t:SetAtlas(spec.texture)else t:SetTexture(M:TextureFile(art..spec.texture))end
     UV(t,spec);t:SetVertexColor(unpack(spec.color or {1,1,1,1}))
     t:SetAlpha(spec.alpha or 1);t:SetBlendMode(spec.blendMode or "BLEND")
     return t
@@ -35,7 +35,7 @@ local function Gradient(parent,spec)
     local t=parent:CreateTexture(nil,"BACKGROUND")
     local left=spec.orientation=="HORIZONTAL"
     local fraction=.5
-    t:SetTexture(art.."Wglass.tga");t:SetSize(spec.width*fraction,spec.height)
+    t:SetTexture(M:TextureFile(art.."Wglass.tga"));t:SetSize(spec.width*fraction,spec.height)
     if left then
         t:SetPoint("LEFT",parent,"CENTER",-spec.width/2,spec.yOffset)
         t:SetTexCoord(0,fraction,0,1)

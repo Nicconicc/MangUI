@@ -340,7 +340,7 @@ local function RefreshRows(panel,index)
         if addon then
             if addon.atlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(addon.atlas) then
                 row.logo:SetAtlas(addon.atlas)
-            else row.logo:SetTexture(addon.icon) end
+            else row.logo:SetTexture(M:TextureFile(addon.icon)) end
             row.nameLabel:SetText(addon.title)
             row.description:SetText(Description(addon))
             local status,open,_,command=State(addon,panel.routes)

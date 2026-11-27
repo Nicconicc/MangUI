@@ -231,7 +231,7 @@ function C.Apply(o,slot,preview,loaded)
     slot.customResult=result;slot.show=result.show;slot.condition=result.show;slot.active=result.show
     slot:SetShown(result.show)
     slot.expires=result.expirationTime;slot.stacks=result.count;slot.faded=false;slot.rawKnown=true
-    slot.texture:SetTexture(result.icon or slot.customFallbackIcon or 134400)
+    slot.texture:SetTexture(M:TextureFile(result.icon or slot.customFallbackIcon or 134400))
     if record and not preview then
         if o.spec.parent~="playerOtherMonitor" or M.PlayerOtherMonitor.SoundAllowed(o,record.entry)then Sound(slot,record,result)
         else record.wasShown=false end
@@ -245,7 +245,7 @@ function C.CreateGlow(parent)
     edge:SetSize(72,72);edge:SetPoint("CENTER")
     -- A soft inward band adds readable weight without filling the icon center.
     local inner=frame:CreateTexture(nil,"OVERLAY");frame.inner=inner
-    inner:SetTexture("Interface\\AddOns\\MangUI\\Assets\\UI\\MonitorInnerGlow.tga");inner:SetBlendMode("ADD")
+    inner:SetTexture(M:TextureFile("Interface\\AddOns\\MangUI\\Assets\\UI\\MonitorInnerGlow.tga"));inner:SetBlendMode("ADD")
     inner:SetPoint("TOPLEFT",-2,2);inner:SetPoint("BOTTOMRIGHT",2,-2)
     frame:Hide();return frame
 end

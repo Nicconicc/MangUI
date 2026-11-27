@@ -152,7 +152,7 @@ local function NativeFrame(slot,frame)
     SetGlow(frame.glow,not IsMissing(entry)and entry.glow,entry.glowColor,GetTime())
     frame.icon:SetShown(not IsMissing(entry));frame.time:SetShown(not IsMissing(entry));frame.count:SetShown(not IsMissing(entry))
     if not IsMissing(entry)then
-        if entry.type=="equipment"then frame.icon:SetTexture(slot.item.icon or 134400)else frame:SetIcon(frame.icon)end
+        if entry.type=="equipment"then frame.icon:SetTexture(M:TextureFile(slot.item.icon or 134400))else frame:SetIcon(frame.icon)end
         frame:SetDurationText(frame.time,S.DurationTextOptions());frame:SetApplicationCount(frame.count,{})
     end
 end
@@ -195,7 +195,7 @@ local function BindNative(slot)
             local backdrop=S.CreateAuraBackdrop(host,container)
             if backdrop then
                 slot.missingHost=host;slot.missingBackdrop=backdrop
-                slot.missingIcon=backdrop:CreateTexture(nil,"ARTWORK");slot.missingIcon:SetAllPoints();slot.missingIcon:SetTexture(slot.customFallbackIcon)
+                slot.missingIcon=backdrop:CreateTexture(nil,"ARTWORK");slot.missingIcon:SetAllPoints();slot.missingIcon:SetTexture(M:TextureFile(slot.customFallbackIcon))
                 M.MasqueIcons.Attach(slot.missingIcon,"playerOtherMonitor",40,40)
                 slot.missingGlow=Glow(backdrop)
                 backdrop:EnableMouse(true)
@@ -234,9 +234,9 @@ local function Resolve(slot,entry)
         slot.spellRanks,slot.spellRankRevision=spell.ids,spell.revision
     else slot.spellRanks,slot.spellRankRevision=nil,nil end
     slot.item=entry.type=="equipment"and O.Effects(entry.slot or 13)or nil
-    M.CustomMonitor.SetVisual(slot.texture,"SetTexture",slot.item and slot.item.icon or icon or 134400)
+    M.CustomMonitor.SetVisual(slot.texture,"SetTexture",M:TextureFile(slot.item and slot.item.icon or icon or 134400))
     slot.customFallbackIcon=icon or 134400
-    if slot.missingBackdrop then slot.missingIcon:SetTexture(slot.customFallbackIcon)end
+    if slot.missingBackdrop then slot.missingIcon:SetTexture(M:TextureFile(slot.customFallbackIcon))end
     slot.needsInfo=entry.type~="custom"and entry.type~="equipment"and (not icon or not slot.spellID)
     slot.nextInfo=GetTime()+1
 end
@@ -611,7 +611,7 @@ local function Refresh(view,o,now,combat)
                 if equipment then
                     local item=O.Effects(entry.slot or 13);local fingerprint=ItemFingerprint(item)
                     if slot.fingerprint~=fingerprint then
-                        slot.item=item;slot.fingerprint=fingerprint;M.CustomMonitor.SetVisual(slot.texture,"SetTexture",item.icon or 134400);slot.wasCondition=false
+                        slot.item=item;slot.fingerprint=fingerprint;M.CustomMonitor.SetVisual(slot.texture,"SetTexture",M:TextureFile(item.icon or 134400));slot.wasCondition=false
                         equipmentChanged=true
                         if o.native then if not InCombatLockdown()then BindNative(slot)else slot.nativeDirty=true end end
                     else slot.item=item end
@@ -668,7 +668,7 @@ local function Refresh(view,o,now,combat)
                     slot.active,slot.condition,slot.show,slot.rawKnown=active,active,active,true
                     slot.faded,slot.expires,slot.stacks,slot.auraIndex=false,nil,nil,nil
                     if active and Readable(stanceIcon) and stanceIcon~=nil then
-                        M.CustomMonitor.SetVisual(slot.texture,"SetTexture",stanceIcon)
+                        M.CustomMonitor.SetVisual(slot.texture,"SetTexture",M:TextureFile(stanceIcon))
                     end
                     changed=true
                 end
