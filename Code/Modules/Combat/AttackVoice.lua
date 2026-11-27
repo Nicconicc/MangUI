@@ -363,7 +363,8 @@ local function PlayDialogue(stage)
 end
 
 local function PlayAttack()
-    if V.inCombat then PlayDialogue("Combat") end
+    if not V.inCombat and not C.Bool(UnitAffectingCombat("player")) then return end
+    PlayDialogue("Combat")
     if DialoguePlaying() then return end
     if V.chance<=0 or V.chance<1 and math.random()>=V.chance then return end
     local path=RandomAttackPath(V.attackRace,V.attackSex,V.locale,V.sounds)
