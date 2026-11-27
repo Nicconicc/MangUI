@@ -5,7 +5,7 @@ local R={};M.Renderer=R
 local unpack=unpack or table.unpack
 local raidMarkFiles={}
 for index,name in ipairs({"Star","Circle","Diamond","Triangle","Moon","Square","Cross","Skull"}) do
-    raidMarkFiles[index]="Interface\\AddOns\\MangUI\\Assets\\RaidMarks\\"..name.."-v3.tga"
+    raidMarkFiles[index]="Interface\\AddOns\\MangUI\\Assets\\Library\\RaidMarks\\"..name.."-v3.png"
 end
 local function Readable(value) return not (issecretvalue and issecretvalue(value)) end
 local function Cache(o)
