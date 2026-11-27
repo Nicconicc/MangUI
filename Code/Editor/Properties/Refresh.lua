@@ -504,6 +504,7 @@ local function RefreshProperties(self)
                 visible=row.key=="scale" or (row.key and row.key:find("^party")~=nil)
             elseif n.compound=="attackVoice" then
                 visible=row.key=="attackVoiceSelect" or row.key=="attackVoiceChance"
+                    or (row.key=="attackVoicePackNotice" and not M.AttackVoice.HasVoicePack())
                     or row.key=="attackVoiceDialogueTarget" or row.key=="attackVoiceDialogueCombat"
                     or row.key=="attackVoiceDialogueCast" or row.key=="attackVoiceDialogueAfter" or row.key=="attackVoiceDialogueDeath"
             elseif n.compound=="combatNotices" then

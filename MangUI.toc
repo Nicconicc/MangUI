@@ -18,9 +18,9 @@
 ## Category-zhCN: 单位框体
 ## Category-zhTW: 單位框架
 ## Author: Nc
-## Version: 1025
+## Version: 1026
 ## IconTexture: Interface\AddOns\MangUI\Assets\UI\MIcon.png
-## OptionalDeps: SharedMedia, Masque
+## OptionalDeps: SharedMedia, Masque, MangUIVoicePack
 ## SavedVariables: MangUIUFDB
 ## SavedVariablesPerCharacter: MangUICharacterDB
 

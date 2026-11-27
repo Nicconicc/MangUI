@@ -3,6 +3,14 @@ local C=M.Compat
 local V={}
 M.AttackVoice=V
 local MODULE="attackVoice"
+local voicePack="MangUIVoicePack"
+local voiceAssets="Interface\\AddOns\\"..voicePack.."\\Assets\\Sounds\\"
+
+function V.HasVoicePack()
+    local loaded=(C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+    return loaded and C.Bool(loaded(voicePack)) or false
+end
+
 V.channelChoices={
     {"Master","主音量"},{"SFX","音效"},{"Music","音乐"},{"Ambience","环境音"},{"Dialog","对白"},
 }
@@ -257,11 +265,11 @@ local function DialogueGroup(stage)
 end
 
 local function DialoguePath(locale,pool,clip)
-    return M.ART..("Sounds\\AttackDialogue\\%s\\%s\\%s.ogg"):format(locale,pool.folder,clip[1])
+    return voiceAssets..("AttackDialogue\\%s\\%s\\%s.ogg"):format(locale,pool.folder,clip[1])
 end
 
 local function AttackPath(id)
-    return M.ART.."Sounds\\AttackVoice\\"..id..".ogg"
+    return voiceAssets.."AttackVoice\\"..id..".ogg"
 end
 
 local function DialoguePool(locale,race,sex)
@@ -297,7 +305,7 @@ local function RandomAttackPath(race,sex,locale,sounds)
 end
 
 function V.Preview(node,stage)
-    if type(PlaySoundFile)~="function" then return end
+    if not V.HasVoicePack() or type(PlaySoundFile)~="function" then return end
     local playerRace,playerSex=PlayerVoice()
     local locale=V.DialogueLanguage(node)
     local path
@@ -431,7 +439,7 @@ function V.Configure(view)
         hasChance=hasChance or chance>0
     end
     local enabled=module and module.enabled~=false
-        and hasChance and type(PlaySoundFile)=="function" or false
+        and hasChance and type(PlaySoundFile)=="function" and V.HasVoicePack() or false
     if enabled==V.enabled then
         if enabled and V.voiceID~=V.SelectedVoice() then UpdatePlayer() end
         return
