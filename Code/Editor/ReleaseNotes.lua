@@ -2,6 +2,18 @@ local _,M=...
 local locales={enUS=1,zhCN=2,zhTW=3,deDE=4,frFR=5,esES=6,esMX=6,itIT=7,ptBR=8,ruRU=9,koKR=10}
 local titles={"Release notes","更新日志","更新日誌","Versionshinweise","Notes de version","Notas de versión","Note di versione","Notas da versão","Примечания к версиям","업데이트 내역"}
 local releases={
+{1038,"2026/11/27",table.concat({
+    "Combat voice effects now play only while you are in combat.~The raid-mark atlas is restored and reduced to 1024×1024.~Standardized duplicate textures while preserving existing texture paths and settings.",
+    "修复攻击音效增强在非战斗时偶尔播放的问题，现在仅在战斗中自动触发。~恢复团队标记图集并缩小至 1024×1024。~整理重复贴图，同时保留旧贴图路径和已有设置。",
+    "修正攻擊音效增強偶爾在非戰鬥時播放的問題，現在只會在戰鬥中自動觸發。~恢復團隊標記圖集並縮小至 1024×1024。~整理重複貼圖，同時保留舊貼圖路徑與既有設定。",
+    "Kampfstimmen werden außerhalb des Kampfes nicht mehr versehentlich abgespielt.~Das Schlachtzugsmarkierungs-Atlas ist wiederhergestellt und auf 1024×1024 verkleinert.~Doppelte Texturen wurden bereinigt, vorhandene Pfade und Einstellungen bleiben erhalten.",
+    "Correction des sons de combat parfois joués hors combat.~L’atlas des marqueurs de raid est restauré et réduit à 1024×1024.~Les textures en double sont regroupées, tout en conservant les chemins et réglages existants.",
+    "Se corrigió la reproducción ocasional de sonidos de combate fuera del combate.~Se restauró el atlas de marcas de banda y se redujo a 1024×1024.~Se organizaron las texturas duplicadas conservando las rutas y los ajustes existentes.",
+    "Corretto il raro avvio dei suoni di combattimento fuori dal combattimento.~L’atlante dei simboli incursione è stato ripristinato e ridotto a 1024×1024.~Le texture duplicate sono state riordinate mantenendo percorsi e impostazioni esistenti.",
+    "Corrigida a reprodução ocasional de sons de combate fora do combate.~O atlas de marcas de raide foi restaurado e reduzido para 1024×1024.~As texturas duplicadas foram organizadas sem alterar caminhos e configurações existentes.",
+    "Исправлено случайное воспроизведение боевых звуков вне боя.~Атлас меток рейда восстановлен и уменьшен до 1024×1024.~Дубликаты текстур упорядочены, существующие пути и настройки сохранены.",
+    "비전투 중 가끔 전투 음성이 재생되던 문제를 수정했습니다.~공격대 징표 아틀라스를 복원하고 1024×1024로 줄였습니다.~기존 경로와 설정을 유지하면서 중복 텍스처를 정리했습니다.",
+},"|")},
 {1026,"2026/11/27",table.concat({
     "Moved Voice Enhancement audio into the optional MangUI Voice Pack. Install and enable the separate pack to play or preview voices. Existing voice settings are retained.~Improved Common Item Tracking click coverage by placing its buttons above unit frames.",
     "人声增强音频拆分到独立的可选插件 MangUI Voice Pack。安装并启用音频包后可播放和试听，已有的人声设置会保留。~提高常用物品监控的按钮层级，改善图标下半部的点击响应。",
