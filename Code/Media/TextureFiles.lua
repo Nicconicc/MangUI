@@ -4,6 +4,8 @@ local assets = "Interface\\AddOns\\MangUI\\Assets\\"
 -- The design keeps its original paths so layout rules and old shares retain
 -- their meaning. Resolve aliases only when handing a file to the game.
 local aliases = {
+    ["library\\partyleader.tga"] = "Library\\PartyLeader.blp",
+    ["partyleader.tga"] = "Library\\PartyLeader.blp",
     ["raidmarks\\circle-v3"] = "Library\\RaidMarks\\Circle-v3.png",
     ["raidmarks\\circle-v3.tga"] = "Library\\RaidMarks\\Circle-v3.png",
     ["library\\raidmarks\\circle-v3"] = "Library\\RaidMarks\\Circle-v3.png",
