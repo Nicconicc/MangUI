@@ -18,8 +18,8 @@
 ## Category-zhCN: 单位框体
 ## Category-zhTW: 單位框架
 ## Author: Nc
-## Version: 1035
-## IconTexture: Interface\AddOns\MangUI\Assets\UI\MIcon.blp
+## Version: 1036
+## IconTexture: Interface\AddOns\MangUI\Assets\UI\MIcon.png
 ## OptionalDeps: SharedMedia, Masque, MangUIVoicePack
 ## SavedVariables: MangUIUFDB
 ## SavedVariablesPerCharacter: MangUICharacterDB
