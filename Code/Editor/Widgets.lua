@@ -433,52 +433,10 @@ function W.SpinBox(parent,width,minimum,maximum,step)
     f:SetValue(minimum or 0);Update()
     return f
 end
-function W.Toggle(parent)
-    local b=CreateFrame("CheckButton",nil,parent)
-    b:SetSize(24,24)
-    b:RegisterForClicks("LeftButtonUp")
-    local art=M.ART.."UI\\ToggleSwitch.blp"
-    local track=b:CreateTexture(nil,"ARTWORK")
-    track:SetTexture(art)
-    track:SetTexCoord(0,1,0,.5)
-    track:SetSize(24,12)
-    track:SetPoint("CENTER")
-    local thumb=b:CreateTexture(nil,"OVERLAY")
-    thumb:SetTexture(art)
-    thumb:SetTexCoord(0,.5,.5,1)
-    thumb:SetSize(10,10)
-    local function Refresh(self)
-        local checked=self:GetChecked()
-        local opacity=self:IsEnabled() and 1 or .45
-        thumb:ClearAllPoints()
-        thumb:SetPoint("CENTER",track,"CENTER",checked and 6 or -6,0)
-        if checked then
-            track:SetVertexColor(.56,.78,.53,opacity)
-            thumb:SetVertexColor(.92,.92,.92,opacity)
-        else
-            track:SetVertexColor(.22,.22,.24,opacity)
-            thumb:SetVertexColor(.53,.53,.53,opacity)
-        end
-    end
-    local setChecked=b.SetChecked
-    function b:SetChecked(checked)
-        setChecked(self,checked)
-        Refresh(self)
-    end
-    b:SetScript("OnClick",function(self)
-        if self.onToggle then self.onToggle(self) end
-        Refresh(self)
-    end)
-    b:HookScript("OnEnable",Refresh)
-    b:HookScript("OnDisable",Refresh)
-    Refresh(b)
-    return b
-end
 function W.Check(parent,text,fn)
-    local b=W.Toggle(parent)
-    b:SetWidth(32)
-    local label=W.Label(b,text);label:SetPoint("LEFT",b,"RIGHT",2,0);label:SetTextColor(.9,.9,.9);b.label=label
-    b.onToggle=function(self)fn(self:GetChecked())end;return b
+    local b=CreateFrame("CheckButton",nil,parent,"UICheckButtonTemplate");b:SetSize(24,24)
+    local label=W.Label(b,text);label:SetPoint("LEFT",b,"RIGHT",0,0);label:SetTextColor(.9,.9,.9);b.label=label
+    b:SetScript("OnClick",function(self)fn(self:GetChecked())end);return b
 end
 function W.Drop(parent,width,choices,fn)
     local b=W.Button(parent,"",width,function(self)

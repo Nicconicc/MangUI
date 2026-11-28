@@ -251,7 +251,7 @@ function O.BuildControls(e,parent)
                 local openColor=row.glowColor:GetScript("OnClick")
                 row.glowColor:SetScript("OnClick",function(button)Flush();row.colorOwner,row.colorEntry=row.owner,row.entry;openColor(button)end)
                 row.play=W.Check(row,"播放声音",function(value)Flush();if Editable(row.owner,row.entry)then row.entry.soundEnabled=value==true;M:Commit()end end)
-                row.play:SetPoint("TOPLEFT",0,-94)
+                row.play:SetPoint("TOPLEFT",-4,-94)
                 row.displayChecks={}
                 for index,choice in ipairs({{"combat","战斗中"},{"boss","首领战中"},{"never","不启动"}})do
                     local mode=choice[1]
@@ -298,11 +298,8 @@ function O.BuildControls(e,parent)
             row.glow:ClearAllPoints();row.glow:SetPoint("TOPLEFT",width/3+48,-58);row.glow:SetChecked(entry.glow)
             row.glowColor:ClearAllPoints();row.glowColor:SetPoint("LEFT",row.glow.label,"RIGHT",12,0);row.glowColor:SetColor(entry.glowColor)
             row.play:SetChecked(entry.soundEnabled);row.sound:SetShown(entry.soundEnabled);row.sound:SetWidth(width*.65);row.sound:SetValue(entry.sound)
-            local optionWidth=width/4
-            M:FitLocaleText(row.play.label,optionWidth-40,9)
             for i,button in ipairs(row.displayChecks)do
-                button:ClearAllPoints();button:SetPoint("TOPLEFT",i*optionWidth,-94)
-                M:FitLocaleText(button.label,optionWidth-40,9)
+                button:ClearAllPoints();button:SetPoint("TOPLEFT",width*.26+(i-1)*width*.74/3,-94)
                 button:SetChecked(entry.displayWhen==({"combat","boss","never"})[i])
             end
             row.preview:ClearAllPoints();row.preview:SetPoint("LEFT",row.sound,"RIGHT",12,-11);row.preview:SetShown(entry.soundEnabled)

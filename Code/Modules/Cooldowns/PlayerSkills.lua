@@ -4,7 +4,13 @@ local samples={{type="cooldown",value="116"},{type="debuff",value="172"},{type="
 local auraTypes={
     buff={unit="player",filter="HELPFUL"},
     debuff={unit="target",filter="HARMFUL|PLAYER"},
+    targetBuff={unit="target",filter="HELPFUL"},
+    playerDebuff={unit="player",filter="HARMFUL"},
 }
+local auraKinds={"buff","debuff","targetBuff","playerDebuff"}
+local skillNumeric={skillIconScale={.25,3,1},skillIconSpacing={0,40,4}}
+local skillChecks={"skillCooldownSwipe","skillShowGCD","skillShowShortcut"}
+local extraEntryFields={triggerGlow=true,maxStackGlow=true,maxStacks=true,slot=true}
 local effectTypes={buffCooldown="buff",debuffCooldown="debuff"}
 local function IsCombined(entry)return entry.type=="blizzard" or effectTypes[entry.type]~=nil end
 local function Readable(v)return not issecretvalue or not issecretvalue(v)end
@@ -52,20 +58,27 @@ function S.Direction(group)
     local direction=group and group.growthDirection
     return (direction=="LEFT"or direction=="RIGHT")and direction or "CENTER"
 end
+function S.IconSize(group)
+    return group and group.id=="playerSkillMonitor" and 40*(group.skillIconScale or 1) or 40
+end
+function S.IconPitch(group)
+    return S.IconSize(group)+(group and group.id=="playerSkillMonitor" and (group.skillIconSpacing or 4) or 4)
+end
 function S.RowOffset(group,count)
-    local extent=math.max(0,count-1)*22;local direction=S.Direction(group)
+    local extent=math.max(0,count-1)*S.IconPitch(group)/2;local direction=S.Direction(group)
     return direction=="LEFT"and -extent or (direction=="CENTER"and 0 or extent)
 end
 function S.IconOffset(group,index,count)
     local direction=S.Direction(group)
-    if direction=="LEFT"then return -(index-1)*44 end
-    return (direction=="CENTER"and -(count-1)*22 or 0)+(index-1)*44
+    local pitch=S.IconPitch(group)
+    if direction=="LEFT"then return -(index-1)*pitch end
+    return (direction=="CENTER"and -(count-1)*pitch/2 or 0)+(index-1)*pitch
 end
 function S.ValidEntries(entries)
     if type(entries)~="table" then return false end
     for key,entry in pairs(entries) do
         if type(key)~="number" or key%1~=0 or key<1 or key>#entries or type(entry)~="table" then return false end
-        if entry.type~="cooldown" and entry.type~="usable" and not auraTypes[entry.type] and entry.type~="custom" and not IsCombined(entry)then return false end
+        if entry.type~="cooldown" and entry.type~="usable" and entry.type~="stance" and entry.type~="equipment" and not auraTypes[entry.type] and entry.type~="custom" and not IsCombined(entry)then return false end
         if not M.CustomMonitor.Valid(entry)then return false end
         if type(entry.value)~="string" or #entry.value>384 then return false end
         if entry.effect~=nil and (type(entry.effect)~="string" or #entry.effect>384)then return false end
@@ -82,9 +95,14 @@ function S.ValidEntries(entries)
             end
             for k in pairs(entry.shortcutColor)do if type(k)~="number" or k%1~=0 or k<1 or k>4 then return false end end
         end
+        for _,key in ipairs({"triggerGlow","maxStackGlow"})do
+            if entry[key]~=nil and type(entry[key])~="boolean" then return false end
+        end
+        if entry.maxStacks~=nil and (type(entry.maxStacks)~="number" or entry.maxStacks%1~=0 or entry.maxStacks<0 or entry.maxStacks>999)then return false end
+        if entry.slot~=nil and (type(entry.slot)~="number" or entry.slot%1~=0 or entry.slot<1 or entry.slot>19)then return false end
         for field in pairs(entry)do
             if field~="type" and field~="value" and field~="showShortcut" and field~="shortcut" and field~="shortcutColor"
-                and field~="reverseDisplay" and field~="effect" and field~="blizzardCooldownID" and not M.CustomMonitor.fields[field]then return false end
+                and field~="reverseDisplay" and field~="effect" and field~="blizzardCooldownID" and not extraEntryFields[field] and not M.CustomMonitor.fields[field]then return false end
         end
     end
     for i=1,#entries do if type(entries[i])~="table" then return false end end
@@ -529,10 +547,8 @@ function S.RefreshProfileBindings()
     local key=S.CurrentProfile();local db=M.db
     if not key or not db or (S.IsProfileBound("playerSkillMonitor")and S.IsProfileBound("playerOtherMonitor"))then return false end
     local panel=M.editor and M.editor.skillMonitorPanel
-    if panel then
-        panel:FinishDrag(false)
-        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
-    end
+    if panel and panel.edit then panel.edit:ClearFocus() end
+    if M.editor then M.editor.skillEntry=nil end
     if M.PlayerOtherMonitor.FlushEditor then M.PlayerOtherMonitor.FlushEditor()end
     M:BindPlayerSkillMonitorClass();M:BindPlayerOtherMonitorClass();M:Commit();return true
 end
@@ -554,6 +570,8 @@ function M:EnsurePlayerSkillMonitor(design)
     if not S.ValidEntries(group.monitors) then group.monitors={S.NewEntry()} end
     if group.hideWithoutTarget==nil then group.hideWithoutTarget=false end
     group.growthDirection=S.Direction(group)
+    for key,v in pairs(skillNumeric)do group[key]=M.Clamp(tonumber(group[key]) or v[3],v[1],v[2])end
+    for _,key in ipairs(skillChecks)do group[key]=group[key]~=false end
     for _,entry in ipairs(group.monitors)do
         entry.value=S.Input(entry.value);entry.shortcut=S.Input(entry.shortcut)
         if entry.type=="custom"then M.CustomMonitor.Defaults(entry)end
@@ -581,17 +599,17 @@ function M:UpgradePlayerSkillMonitorDefaults(db)
     end
 end
 M.moduleIDs.playerSkillMonitor=true
-function S.Entries(group)
+function S.Entries(group,draft)
     local result={}
     for _,entry in ipairs(group.monitors or {})do
-        if entry.type=="custom"or entry.value~="" then result[#result+1]=entry end
+        if entry==draft or entry.type=="custom" or entry.type=="equipment" or entry.value~="" then result[#result+1]=entry end
     end
     return result
 end
 function S.MoveBounds(group)
     local count=#S.Entries(group)
     if count==0 then count=#samples end -- Movement mode shows the sample row.
-    return S.RowOffset(group,count),20,math.max(180,count*44+20),112
+    return S.RowOffset(group,count),20,math.max(180,count*S.IconPitch(group)+20),math.max(112,S.IconSize(group)+72)
 end
 function S.RestorePosition(group,reference)
     local x,y=0,-120
@@ -731,7 +749,7 @@ local function StyleNativeAura(slot,frame,reversed)
     -- also handles private visibility without testing secret booleans in Lua.
     frame.shortcutGate=CreateFrame("Frame",nil,slot.shortcutGate or slot.shortcutFrame)
     frame.shortcutGate:SetAllPoints();frame.shortcutGate:EnableMouse(false)
-    slot.shortcutGate=frame.shortcutGate;slot.shortcut:SetParent(frame.shortcutGate)
+    slot.shortcutGate=frame.shortcutGate
     -- Remove the colored backing while a native aura icon is present, so its
     -- half opacity is not composited over another fully opaque icon.
     frame.baseIconGate=CreateFrame("Frame",nil,slot.baseIconGate or slot.baseIconFrame)
@@ -783,7 +801,6 @@ local function SelectNativeAura(slot,aura)
     for _,key in ipairs(nativeVariantFields)do slot[key]=saved and saved[key] or nil end
     slot.nativeReversed=reversed
     M.MasqueIcons.Reparent(slot.texture,slot.baseIconGate or slot.baseIconFrame)
-    slot.shortcut:SetParent(slot.shortcutGate or slot.shortcutFrame)
     if not slot.nativeAuras then
         NativeAura(slot,aura,reversed)
         slot.nativeAuraType=slot.entry.type
@@ -801,6 +818,11 @@ local function Icon(view,o,i)
     slot.countGate=CreateFrame("Frame",nil,slot);slot.countGate:SetAllPoints()
     slot.count=slot.countGate:CreateFontString(nil,"OVERLAY");CountFont(slot.count);slot.count:SetPoint("BOTTOM",slot,"TOP",0,29)
     slot.cooldown=CreateFrame("Cooldown",nil,slot.timerGate,"CooldownFrameTemplate");slot.cooldown:SetAllPoints();slot.cooldown:EnableMouse(false)
+    slot.gcd=CreateFrame("Cooldown",nil,slot,"CooldownFrameTemplate")
+    slot.gcd:SetAllPoints();slot.gcd:EnableMouse(false)
+    slot.gcd:SetDrawEdge(false);slot.gcd:SetDrawBling(false);slot.gcd:SetDrawSwipe(true)
+    M.CustomMonitor.SetVisual(slot.gcd,"SetHideCountdownNumbers",true);slot.gcd.noCooldownCount=true
+    if slot.gcd.SetSwipeColor then slot.gcd:SetSwipeColor(0,0,0,.45)end
     slot.cooldown:SetDrawEdge(false);slot.cooldown:SetDrawBling(false);slot.cooldown:SetDrawSwipe(false)
     M.CustomMonitor.SetVisual(slot.cooldown,"SetHideCountdownNumbers",true);slot.cooldown.noCooldownCount=true
     local formatter=S.CountdownFormatter()
@@ -825,12 +847,7 @@ local function Icon(view,o,i)
     if not view.preview then M.MasqueIcons.Attach(slot.texture,"playerSkillMonitor",40,40) end
     o.skillIcons[i]=slot;return slot
 end
-local function Shortcut(slot,entry)
-    Font(slot.shortcut);slot.shortcut:SetFont(M:EffectiveFontPath(M.MYRIAD),20,"OUTLINE")
-    slot.shortcut:SetTextColor(unpack(entry.shortcutColor or {1,1,1,1}))
-    slot.shortcut:SetText((entry.shortcut or ""):gsub("|","||"))
-    slot.shortcut:SetShown(entry.showShortcut~=false and entry.shortcut~=nil and entry.shortcut~="")
-end
+local Shortcut
 local learnedSpells
 function S.LearnedSpell(name)
     if not name then return end
@@ -873,6 +890,10 @@ function S.LearnedSpell(name)
 end
 local function Resolve(slot,entry)
     local name,id,icon=M.PetBuffs.SpellInfo(entry.value)
+    if entry.type=="equipment" and M.PlayerOtherMonitor then
+        local _,itemName,itemIcon=M.PlayerOtherMonitor.Item(entry.slot or 13)
+        name,icon=itemName,itemIcon
+    end
     id=tonumber(entry.value) or id or Safe(C_Spell and C_Spell.GetSpellIDForSpellIdentifier,entry.value)
     if not Readable(id) then id=nil end
     if name and (entry.type=="cooldown" or entry.type=="usable" or effectTypes[entry.type]~=nil or auraTypes[entry.type])then
@@ -1036,11 +1057,19 @@ function S.Configure(view,o)
     S.ResetMonitorRefresh(o)
     o.skillKinds={}
     o.skillDirection=nil
-    o.entries=S.Entries(view.byID[o.spec.parent]);o.usesNativeAuras=not view.preview and NativeAurasAvailable()
+    local group=view.byID[o.spec.parent]
+    o.skillEditorPreview=view.preview and view.previewScope=="playerSkillMonitor"
+    local draft=o.skillEditorPreview and M.editor and M.editor.skillEntry
+    o.entries=S.Entries(group,draft);o.usesNativeAuras=not view.preview and NativeAurasAvailable()
     for i,entry in ipairs(o.entries)do
         o.skillKinds[entry.type]=true
         local slot=Icon(view,o,i);Resolve(slot,entry);slot.duration=nil;slot.expires=nil;slot.active=false;slot.stacks=nil
         slot.texture:SetVertexColor(1,1,1)
+        slot:SetScale(S.IconSize(group)/40)
+        slot.rowX=nil;slot.sweepStart=nil;slot.maxCharges=nil;slot.auraDuration=nil;slot.item=nil
+        slot.cooldown:SetDrawSwipe(group.skillCooldownSwipe~=false)
+        ClearCooldown(slot.gcd)
+        slot.gcdStart=nil;slot.gcd.monitorStart=nil;slot.cooldown.monitorStart=nil
         ResolveEffect(slot,view.preview)
         if not view.preview and (slot.effect or slot.effectNative) and not InCombatLockdown()then
             BindEffect(slot);slot.effectNeedsBind=false
@@ -1051,7 +1080,7 @@ function S.Configure(view,o)
         CountFont(slot.count);M.CustomMonitor.SetText(slot.count,"")
         M.CustomMonitor.SetText(slot.text,"");ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
         Font(slot.text)
-        Shortcut(slot,entry)
+        Shortcut(slot,group)
         if slot.nativeTime then Font(slot.nativeTime)end
         for _,frame in ipairs(slot.nativeFrames or {})do Font(frame.monitorTime);CountFont(frame.monitorCount)end
         if o.usesNativeAuras then BindAura(slot,view.byID[o.spec.parent].enabled~=false)end
@@ -1119,6 +1148,7 @@ local function Cooldown(entry,slot,cache)
     end
     local charges,maximum,chargeStart,chargeDuration,chargeRate=SpellCharges(key)
     slot.spellCount=SpellCount(slot,key,charges,maximum)
+    slot.maxCharges=Number(maximum)
     if C_Spell and C_Spell.GetSpellCooldownDuration then
         local duration=Safe(C_Spell.GetSpellChargeDuration,key) or Safe(C_Spell.GetSpellCooldownDuration,key,true)
         if duration and slot.cooldown.SetCooldownFromDurationObject then
@@ -1126,7 +1156,8 @@ local function Cooldown(entry,slot,cache)
             slot.cooldown:SetCooldownFromDurationObject(duration,true);return
         end
     end
-    slot.duration=nil;ClearCooldown(slot.cooldown)
+    if slot.duration then ClearCooldown(slot.cooldown);slot.cooldown.monitorStart=nil end
+    slot.duration=nil;slot.sweepStart=nil
     local start,duration,enabled,rate,onGCD=CachedSpellCooldown(cache,key)
     if Readable(onGCD) and onGCD==true then slot.active=false;slot.expires=nil;return end
     if Number(charges) and Number(maximum) and charges<maximum and Number(chargeStart) and Number(chargeDuration) then
@@ -1138,6 +1169,7 @@ local function Cooldown(entry,slot,cache)
         slot.expires=duration>0 and not GlobalCooldown(start,duration,cache) and start+duration/rate or nil
     else slot.expires=nil end
     slot.active=slot.expires~=nil and slot.expires>GetTime()
+    if slot.active then slot.sweepStart,slot.sweepDuration,slot.sweepRate=start,duration,rate end
 end
 local activationEvents={}
 local function HasSpellActivation(id)
@@ -1166,6 +1198,65 @@ local function SpellActionSlots(id)
     end
     return legacyActionSlots[id]
 end
+local bindingsBySlot,bindingRevision
+local actionBars={
+    {"ActionButton","ACTIONBUTTON",12},
+    {"MultiBarBottomLeftButton","MULTIACTIONBAR1BUTTON",12},
+    {"MultiBarBottomRightButton","MULTIACTIONBAR2BUTTON",12},
+    {"MultiBarRightButton","MULTIACTIONBAR3BUTTON",12},
+    {"MultiBarLeftButton","MULTIACTIONBAR4BUTTON",12},
+    {"MultiBar5Button","MULTIACTIONBAR5BUTTON",12},
+    {"MultiBar6Button","MULTIACTIONBAR6BUTTON",12},
+    {"MultiBar7Button","MULTIACTIONBAR7BUTTON",12},
+    {"BT4Button","CLICK BT4Button",180},
+}
+local function ActionBindings()
+    if bindingsBySlot and bindingRevision==S.bindingRevision then return bindingsBySlot end
+    bindingsBySlot={};bindingRevision=S.bindingRevision
+    for _,bar in ipairs(actionBars)do
+        for i=1,bar[3]do
+            local button=_G[bar[1]..i]
+            if button then
+                local slot=Number(button.action)
+                    or Number(Safe(button.GetAttribute,button,"action"))
+                    or Number(Safe(ActionButton_GetPagedID,button))
+                local command=bar[2]..i
+                if bar[1]=="BT4Button" then command=command..":LeftButton" end
+                local key=Safe(GetBindingKey,command)
+                if Readable(key) and type(key)=="string" and slot then
+                    local visible=M.Compat.Bool(Safe(button.IsVisible,button))
+                    local existing=bindingsBySlot[slot]
+                    if not existing or (visible and not existing.visible) then
+                        local label=Safe(GetBindingText,key,"KEY_",true)
+                        bindingsBySlot[slot]={key=Readable(label) and type(label)=="string" and label~="" and label or key,visible=visible}
+                    end
+                end
+            end
+        end
+    end
+    return bindingsBySlot
+end
+Shortcut=function(slot,group)
+    slot.bindingRevision=S.bindingRevision
+    local binding
+    if group.skillShowShortcut~=false and slot.spellID then
+        local keys=ActionBindings()
+        local function Find(id)
+            for _,index in ipairs(SpellActionSlots(id) or {})do
+                local candidate=Number(index) and keys[index]
+                if candidate and (not binding or (candidate.visible and not binding.visible)) then binding=candidate end
+            end
+        end
+        Find(slot.spellID)
+        local override=Number(Safe(C_Spell and C_Spell.GetOverrideSpell or FindSpellOverrideByID,slot.spellID))
+        if override and override>0 and override~=slot.spellID then Find(override)end
+    end
+    slot.shortcut:SetFont(M:EffectiveFontPath(M.MYRIAD),20,"OUTLINE")
+    slot.shortcut:SetTextColor(1,1,1,1)
+    slot.shortcut:SetText(binding and binding.key:gsub("|","||") or "")
+    slot.shortcut:SetShown(binding~=nil)
+end
+
 local function IsSpellActionUsable(id)
     local slots=SpellActionSlots(id)
     local query=C_ActionBar and C_ActionBar.IsUsableAction or IsUsableAction
@@ -1178,12 +1269,13 @@ local function IsSpellActionUsable(id)
     return false
 end
 local function Usable(slot,now,cache)
-    slot.usableReady=false;slot.usableCooldown=nil;slot.spellCount=nil
+    slot.usableReady=false;slot.usableCooldown=nil;slot.spellCount=nil;slot.maxCharges=nil
     local id=slot.spellID
     if not id then return end
     local override=Number(Safe(C_Spell and C_Spell.GetOverrideSpell or FindSpellOverrideByID,id))
     local key=override and override>0 and override or id
     local charges,maximum=SpellCharges(key)
+    slot.maxCharges=Number(maximum)
     slot.spellCount=SpellCount(slot,key,charges,maximum)
     if M.Compat.interface==16001 then
         local base=Number(Safe(C_Spell and C_Spell.GetBaseSpell,id)) or id
@@ -1209,6 +1301,44 @@ local function Usable(slot,now,cache)
         slot.usableCooldown=Safe(C_Spell and C_Spell.GetSpellCooldownDuration,key,true)
     end
 end
+local function SetSwipe(timer,start,duration,rate)
+    if timer.monitorStart==start and timer.monitorDuration==duration and timer.monitorRate==rate then return end
+    timer.monitorStart,timer.monitorDuration,timer.monitorRate=start,duration,rate
+    if start and duration and duration>0 then timer:SetCooldown(start,duration,rate or 1)
+    else ClearCooldown(timer)end
+end
+
+function S.UpdateSkillSwipe(slot,group,now,effectVisible)
+    local entry=slot.entry
+    if not slot.duration then
+        local start,duration,rate=slot.sweepStart,slot.sweepDuration,slot.sweepRate
+        if slot.expires and slot.expires>now and slot.auraDuration and slot.auraDuration>0 then
+            duration,rate=slot.auraDuration,1
+            start=slot.expires-duration
+        end
+        if group.skillCooldownSwipe==false or entry.type=="custom" then start,duration,rate=nil,nil,nil end
+        SetSwipe(slot.cooldown,start,duration,rate)
+    end
+    if group.skillShowGCD~=false and slot.gcdStart and not effectVisible then
+        SetSwipe(slot.gcd,slot.gcdStart,slot.gcdDuration,slot.gcdRate)
+    else SetSwipe(slot.gcd)end
+end
+
+local function ReadGCD(slot,cache)
+    slot.gcdStart,slot.gcdDuration,slot.gcdRate=nil,nil,nil
+    local key=slot.spellID
+    if not key or slot.entry.type=="equipment" or slot.entry.type=="custom" then return end
+    local start,duration,_,rate,onGCD=CachedSpellCooldown(cache,key)
+    start,duration,rate=Number(start),Number(duration),Number(rate)
+    if Readable(onGCD) and onGCD==true then
+        local gs,gd,_,gr=CachedSpellCooldown(cache,M.Compat.interface==16001 and 29515 or 61304)
+        if Number(gs) and Number(gd) then start,duration,rate=gs,gd,Number(gr)end
+    elseif not (start and duration and GlobalCooldown(start,duration,cache))then return end
+    if start and start>0 and duration and duration>0 then
+        slot.gcdStart,slot.gcdDuration,slot.gcdRate=start,duration,rate
+    end
+end
+
 local function NeedsAuraScan(o,slot)
     if slot.auraMatchName then return true end
     if not o.usesNativeAuras or not slot.nativeSpellID then return true end
@@ -1222,7 +1352,7 @@ local function ScanAuras(o,kind)
     for _,slot in ipairs(o.skillIcons)do
         local entry=slot.entry
         if entry and entry.type==kind then
-            slot.active=false;slot.expires=nil;slot.stacks=nil
+            slot.active=false;slot.expires=nil;slot.stacks=nil;slot.auraDuration=nil
             if NeedsAuraScan(o,slot) then
                 local index,key=byName,slot.auraMatchName
                 if not key then index,key=byID,slot.spellID or tonumber(entry.value) end
@@ -1236,7 +1366,7 @@ local function ScanAuras(o,kind)
     end
     if not next(byID) and not next(byName) then return end
     if o.usesNativeAuras and C_Secrets and M.Compat.Bool(Safe(C_Secrets.ShouldAurasBeSecret,auraType.unit)) then return end
-    local filter=debuff and S.TargetAuraFilter(o.usesNativeAuras) or "HELPFUL"
+    local filter=debuff and S.TargetAuraFilter(o.usesNativeAuras) or auraType.filter
     for _,aura in ipairs(M.Compat.AuraSnapshot(auraType.unit,filter))do
         local id=Number(aura.spellId) or Number(aura.spellID)
         local named=Readable(aura.name) and byName[aura.name]
@@ -1257,7 +1387,9 @@ local function ScanAuras(o,kind)
                             slot.observedAuraIDs[id]=true;slot.nativeAuraDirty=true
                         end
                         if stacks and (not slot.stacks or stacks>slot.stacks)then slot.stacks=stacks end
-                        if expires and expires>0 and (not slot.expires or expires>slot.expires)then slot.expires=expires end
+                        if expires and expires>0 and (not slot.expires or expires>slot.expires)then
+                            slot.expires=expires;slot.auraDuration=Number(aura.duration)
+                        end
                         if Readable(aura.icon) and aura.icon~=nil then M.CustomMonitor.SetVisual(slot.texture,"SetTexture",M:TextureFile(aura.icon))end
                     end
                 end
@@ -1308,6 +1440,18 @@ local function BlizzardHUDIcons()
         end
     end
     return byID,bySpell
+end
+
+function S.BlizzardSpellInRange(spell,base)
+    local _,frames=BlizzardHUDIcons()
+    local frame=frames and (frames[spell] or frames[base])
+    if not frame then return end
+    local check=Number(frame.rangeCheckSpellID)
+    if not check or (check~=spell and check~=base) then return end
+    local within=Safe(C_Spell and C_Spell.IsSpellInRange,check)
+    if Readable(within) and type(within)=="boolean" then return within end
+    local outside=frame.spellOutOfRange
+    if Readable(outside) and outside==true then return false end
 end
 
 local function ReadBlizzardPresentation(slot,frame)
@@ -1405,14 +1549,15 @@ function S.Paint(view,o,animateOnly)
     if o.frame:IsShown()~=shown then o.frame:SetShown(shown)end
     if not shown then return end
     local now=GetTime();local entries=o.entries or {}
-    if view.preview and #entries==0 then entries=samples end
+    if view.preview and not o.skillEditorPreview and #entries==0 then entries=samples end
     if not view.preview then
         local kinds=o.skillKinds
         local combined=kinds.blizzard or kinds.buffCooldown or kinds.debuffCooldown
         local cooldown=(kinds.cooldown or combined) and S.MonitorRefreshDue(o,"cooldown",now,.2)
         local usable=kinds.usable and S.MonitorRefreshDue(o,"usable",now,.2)
         local info=S.MonitorRefreshDue(o,"info",now,1)
-        if cooldown or usable or info then
+        local gcd=group.skillShowGCD~=false and S.MonitorRefreshDue(o,"gcd",now,.15)
+        if cooldown or usable or info or gcd then
             local cooldowns={}
             local blizzardByID,blizzardBySpell
             if cooldown and kinds.blizzard and M.Compat.interface==16001 then
@@ -1421,7 +1566,7 @@ function S.Paint(view,o,animateOnly)
             for i,entry in ipairs(entries)do
                 local slot=o.skillIcons[i]
                 if info and slot.needsInfo and now>=(slot.nextInfo or 0) then
-                    Resolve(slot,entry)
+                    Resolve(slot,entry);Shortcut(slot,group)
                     if IsCombined(entry) then slot.effectDirty=true end
                     if o.usesNativeAuras and not InCombatLockdown() then BindAura(slot,group.enabled~=false)end
                 end
@@ -1452,10 +1597,15 @@ function S.Paint(view,o,animateOnly)
                 end
                 if cooldown and (entry.type=="cooldown" or IsCombined(entry))then Cooldown(entry,slot,cooldowns)end
                 if usable and entry.type=="usable" then Usable(slot,now,cooldowns)end
+                if gcd then ReadGCD(slot,cooldowns)end
             end
         end
-        if kinds.buff and S.MonitorRefreshDue(o,"buff",now,1) then ScanAuras(o,"buff")end
-        if kinds.debuff and S.MonitorRefreshDue(o,"debuff",now,1) then ScanAuras(o,"debuff")end
+        for _,kind in ipairs(auraKinds)do
+            if kinds[kind] and S.MonitorRefreshDue(o,kind,now,1) then ScanAuras(o,kind)end
+        end
+        if (kinds.stance or kinds.equipment) and S.MonitorRefreshDue(o,"special",now,.25) then
+            M.PlayerOtherMonitor.RefreshSkillEntries(o,now)
+        end
         if o.usesNativeAuras and not InCombatLockdown()then
             for _,slot in ipairs(o.skillIcons)do
                 if slot.entry and slot.nativeAuraDirty then BindAura(slot,group.enabled~=false)end
@@ -1464,14 +1614,15 @@ function S.Paint(view,o,animateOnly)
         local version=view.targetRefreshGeneration or 0
         if o.usesNativeAuras and o.nativeTargetGeneration~=version then
             for _,slot in ipairs(o.skillIcons)do
-                if slot.nativeAuras and slot.entry and slot.entry.type=="debuff" then slot.nativeAuras:UpdateAllAuras()end
+                if slot.nativeAuras and slot.entry and auraTypes[slot.entry.type] and auraTypes[slot.entry.type].unit=="target" then slot.nativeAuras:UpdateAllAuras()end
             end
             o.nativeTargetGeneration=version
         end
-    elseif #o.entries==0 then
+    elseif not o.skillEditorPreview and #o.entries==0 then
         for i,entry in ipairs(entries)do
             local slot=Icon(view,o,i)
-            if slot.entry~=entry then Resolve(slot,entry);Shortcut(slot,entry)end
+            if slot.entry~=entry then Resolve(slot,entry);Shortcut(slot,group)end
+            slot:SetScale(S.IconSize(group)/40)
         end
     end
     local direction=S.Direction(group)
@@ -1500,7 +1651,7 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetVisual(slot,"EnableMouse",not view.preview and readable and slot.rowVisible)
         end
         o.rowCount=visibleCount
-        local width=math.max(1,visibleCount*44-4)
+        local width=math.max(1,S.IconSize(group)+math.max(0,visibleCount-1)*S.IconPitch(group))
         if o.rowWidth~=width then o.frame:SetSize(width,66);o.rowWidth=width end
         local visibleIndex=0
         for i=1,#entries do
@@ -1508,13 +1659,13 @@ function S.Paint(view,o,animateOnly)
             if slot.rowVisible then
                 visibleIndex=visibleIndex+1
                 local x=S.IconOffset(group,visibleIndex,visibleCount)
-                if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x,-7);slot.rowX=x end
+                if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x/slot:GetScale(),-7/slot:GetScale());slot.rowX=x end
             end
         end
     end
     for i=1,#entries do
         local slot=o.skillIcons[i]
-        local textureAlpha,shortcutAlpha=1,1
+        local textureAlpha=1
         local useCooldownNumbers=false
         local reversed=slot.entry.reverseDisplay==true
         -- On Forever, a readable match can draw the complete faded icon even
@@ -1566,7 +1717,7 @@ function S.Paint(view,o,animateOnly)
                 -- The engine consumes this potentially secret number directly.
                 M.CustomMonitor.SetVisual(slot.texture,"SetDesaturation",slot.duration:EvaluateRemainingDuration(desat,0))
                 textureAlpha=slot.duration:EvaluateRemainingDuration(DisplayCurve(fadeCurves,reversed,1,.5),reversed and .5 or 1)
-                shortcutAlpha=slot.duration:EvaluateRemainingDuration(ShortcutCurve(),1)
+
             else
                 local remaining=Number(Safe(slot.duration.GetRemainingDuration,slot.duration))
                 if remaining then
@@ -1574,7 +1725,7 @@ function S.Paint(view,o,animateOnly)
                     local faded=(remaining>0)~=reversed
                     M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);Remaining(slot,remaining)
                     textureAlpha=faded and .5 or 1
-                    shortcutAlpha=remaining>0 and 0 or 1
+
                 end
             end
         elseif useNative then
@@ -1585,29 +1736,45 @@ function S.Paint(view,o,animateOnly)
             local faded=(active==true)~=reversed
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);Remaining(slot,active and slot.expires and slot.expires-now or nil)
             textureAlpha=faded and .5 or 1
-            shortcutAlpha=active and 0 or 1
+
             if isAura then CountText(slot.count,active and slot.stacks or nil,false)end
             if not isAura then SetCount(slot,slot.spellCount)end
         end
+        local effectVisible
         if not view.preview and IsCombined(slot.entry) then
-            local effectVisible,hasTextTimer=PaintEffect(slot,now)
+            local hasTextTimer
+            effectVisible,hasTextTimer=PaintEffect(slot,now)
             if hasTextTimer then useCooldownNumbers=false end
             if effectVisible then textureAlpha=1
             elseif slot.blizzardDesaturated~=nil then
                 M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",slot.blizzardDesaturated)
                 textureAlpha=1
             end
-            if slot.entry.type=="blizzard" and (slot.effectGlow or slot.customGlow)then
-                M.CustomMonitor.Glow(slot,slot.effectGlow==true)
-            end
-        elseif slot.entry.type=="blizzard" and slot.customGlow then slot.customGlow:Hide() end
+        end
+        if slot.entry.type~="custom" then
+            local entry=slot.entry
+            local count=Number(slot.stacks) or Number(slot.spellCount)
+            local max=entry.maxStacks and entry.maxStacks>0 and entry.maxStacks or slot.maxCharges
+            local proc=entry.triggerGlow==true and not view.preview and
+                (slot.effectGlow==true or (slot.spellID and HasSpellActivation(slot.spellID))
+                    or ((isAura or entry.type=="stance" or entry.type=="equipment") and slot.active))
+            local full=entry.maxStackGlow==true and count and max and max>1 and count>=max
+                and (not isAura or slot.active)
+            if proc or full or slot.customGlow then M.CustomMonitor.Glow(slot,proc or full or false)end
+        end
+        if not view.preview then
+            S.UpdateSkillSwipe(slot,group,now,effectVisible)
+            if slot.bindingRevision~=S.bindingRevision then Shortcut(slot,group)end
+        end
         M.CustomMonitor.SetVisual(slot.cooldown,"SetHideCountdownNumbers",not useCooldownNumbers)
         M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",textureAlpha)
-        M.CustomMonitor.SetVisual(slot.shortcutFrame,"SetAlpha",shortcutAlpha)
+        M.CustomMonitor.SetVisual(slot.shortcutFrame,"SetAlpha",1)
     end
 end
 local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,SPELL_UPDATE_USES=true,
     SPELL_UPDATE_USABLE=true,ACTIONBAR_UPDATE_USABLE=true,ACTIONBAR_SLOT_CHANGED=true,
+    UPDATE_BINDINGS=true,ACTIONBAR_PAGE_CHANGED=true,UPDATE_BONUS_ACTIONBAR=true,
+    PLAYER_EQUIPMENT_CHANGED=true,UPDATE_SHAPESHIFT_FORM=true,UPDATE_SHAPESHIFT_FORMS=true,
     SPELL_ACTIVATION_OVERLAY_GLOW_SHOW=true,SPELL_ACTIVATION_OVERLAY_GLOW_HIDE=true,
     SPELLS_CHANGED=true,LEARNED_SPELL_IN_TAB=true,PLAYER_ENTERING_WORLD=true,PLAYER_REGEN_ENABLED=true,UNIT_SPELLCAST_SUCCEEDED=true,
     ACTIVE_TALENT_GROUP_CHANGED=true,PLAYER_TALENT_UPDATE=true,PLAYER_SPECIALIZATION_CHANGED=true,TRAIT_CONFIG_UPDATED=true,
@@ -1621,15 +1788,25 @@ function S.Event(view,event,unit)
         activationEvents[unit]=event=="SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" or nil
     elseif event=="PLAYER_ENTERING_WORLD" then activationEvents={} end
     if event=="ACTIONBAR_SLOT_CHANGED" or event=="PLAYER_ENTERING_WORLD" then legacyActionSlots=nil end
+    if event=="UPDATE_BINDINGS" or event=="ACTIONBAR_SLOT_CHANGED" or event=="ACTIONBAR_PAGE_CHANGED"
+        or event=="UPDATE_BONUS_ACTIONBAR" or event=="UPDATE_SHAPESHIFT_FORM" or event=="PLAYER_ENTERING_WORLD" then
+        S.bindingRevision=(S.bindingRevision or 0)+1
+    end
+    if event=="SPELLS_CHANGED" or event=="LEARNED_SPELL_IN_TAB" or event=="PLAYER_ENTERING_WORLD" then learnedSpells=nil end
     local o=view.nodes.playerSkillMonitorIcons
     if not o or not o.monitorDirty then return end
     if event=="UNIT_AURA" then
-        S.InvalidateMonitor(o,unit=="player" and "buff" or "debuff")
+        for _,kind in ipairs(auraKinds)do
+            if auraTypes[kind].unit==unit then S.InvalidateMonitor(o,kind)end
+        end
+        if unit=="player" then S.InvalidateMonitor(o,"special")end
         S.InvalidateMonitor(o,"cooldown")
         if unit=="player" and o.skillKinds.usable then S.InvalidateMonitor(o,"usable")end
+    elseif event=="PLAYER_EQUIPMENT_CHANGED" or event=="UPDATE_SHAPESHIFT_FORM" or event=="UPDATE_SHAPESHIFT_FORMS" then
+        S.InvalidateMonitor(o,"special",true)
     elseif event=="PLAYER_TARGET_CHANGED" then
         o.nativeTargetGeneration=nil
-        S.InvalidateMonitor(o,"debuff",true)
+        S.InvalidateMonitor(o,"debuff",true);S.InvalidateMonitor(o,"targetBuff",true)
         S.InvalidateMonitor(o,"usable",true)
         if o.skillKinds.blizzard or o.skillKinds.debuffCooldown then
             for _,slot in ipairs(o.skillIcons)do
@@ -1641,6 +1818,7 @@ function S.Event(view,event,unit)
         S.InvalidateMonitor(o,"usable")
         if o.skillKinds.blizzard then S.InvalidateMonitor(o,"cooldown",activation)end
     elseif event=="SPELL_UPDATE_COOLDOWN" or event=="SPELL_UPDATE_CHARGES" or event=="SPELL_UPDATE_USES" or event=="UNIT_SPELLCAST_SUCCEEDED" then
+        S.InvalidateMonitor(o,"gcd")
         S.InvalidateMonitor(o,"cooldown")
         S.InvalidateMonitor(o,"usable")
     else
@@ -1652,255 +1830,224 @@ end
 
 function S.BuildControls(e,parent,Row)
     local W=M.Widgets
-    local choices={{name="玩家技能冷却",path="cooldown"},{name="玩家Buff",path="buff"},{name="可用触发技能",path="usable"},
-        {name="目标Debuff",path="debuff"},{name="自定义代码",path="custom"}}
-    if M.Compat.interface==16001 then table.insert(choices,2,{name="跟随暴雪",path="blizzard"})end
-    local typeLabels={};for _,choice in ipairs(choices)do typeLabels[choice.path]=choice.name end
-    typeLabels.blizzard="跟随暴雪"
-    typeLabels.buffCooldown="玩家Buff优先，然后显示冷却"
-    typeLabels.debuffCooldown="目标Debuff优先，然后显示冷却"
-    local panel=CreateFrame("Frame",nil,parent);panel:SetSize(470,30);e.skillMonitorPanel=panel
-    local sharing=CreateFrame("Frame",nil,parent);sharing:SetSize(470,56);e.skillMonitorSharing=sharing
-    local function SectionTitle(frame,text)
-        local title=W.Label(frame,text,12);title:SetPoint("CENTER",frame,"TOP",0,12)
-        title:SetTextColor(1,.82,0);title:SetJustifyH("CENTER");M:SetLocaleLineHeight(title,18)
-        local left=frame:CreateTexture(nil,"ARTWORK");left:SetHeight(1);left:SetColorTexture(.5,.5,.5,.45)
-        left:SetPoint("LEFT",frame,"TOPLEFT",0,12);left:SetPoint("RIGHT",title,"LEFT",-8,0)
-        local right=frame:CreateTexture(nil,"ARTWORK");right:SetHeight(1);right:SetColorTexture(.5,.5,.5,.45)
-        right:SetPoint("LEFT",title,"RIGHT",8,0);right:SetPoint("RIGHT",frame,"TOPRIGHT",0,12)
-        frame.sectionRightLine=right
-        return title
+    local choices={
+        {name="跟随暴雪CDM",path="blizzard"},{name="法术冷却",path="cooldown"},
+        {name="Buff/Debuff",path="aura"},{name="可用触发法术",path="usable"},
+        {name="姿态/形态/光环",path="stance"},{name="装备触发",path="equipment"},
+        {name="自定义代码",path="custom"},
+    }
+    local function Current()
+        return M.selection=="playerSkillMonitor" and M.byID.playerSkillMonitor
     end
-    sharing.title=SectionTitle(sharing,"配置分享");panel.title=SectionTitle(panel,"监控设置");W.DragListHeader(panel)
-    e.propRows[#e.propRows+1]={height=56,controls={{sharing,0,0}},kinds={},key="skillMonitorSharing"}
-    local property={height=30,controls={{panel,0,0}},kinds={},key="skillMonitorItems"}
-    e.propRows[#e.propRows+1]=property;panel.propertyRow=property;panel.rows={}
-    local monitorTop=0
-    local function Current()local n=M.byID[M.selection];return n and n.compound=="playerSkillMonitor" and n end
-    local function Editable(group,entry)
-        return group and M.byID[group.id]==group and S.EntryIndex(group,entry) and M:CanEdit()
+    local function Editable(owner,entry)
+        return owner and owner==Current() and S.EntryIndex(owner,entry) and M:CanEdit()
     end
-    local function Flush()
-        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
+    local function Panel(height,key)
+        local frame=CreateFrame("Frame",nil,parent);frame:SetSize(470,height)
+        Row(height,{{frame,0,0}}, {},key)
+        return frame,e.propRows[#e.propRows]
     end
-    sharing.exportAll=W.Button(sharing,"导出配置",150,function()Flush();M:ShowConfigStringDialog("export","skillsAll")end)
-    sharing.import=W.Button(sharing,"导入配置",150,function()Flush();M:ShowConfigStringDialog("import","skills")end)
-    for _,button in ipairs({sharing.exportAll,sharing.import})do button:SetHoverTextColor(1,.82,0)end
-    local function SkillIcon(row)
-        local value=S.Input(W.InputValue(row.edit))
-        local name,id,icon
-        if value~="" then name,id,icon=M.PetBuffs.SpellInfo(value)end
-        row.skillIcon.texture:SetTexture(M:TextureFile(name and icon or 134400))
-        W.SetIconTooltip(row.skillIcon,name and {name=name,id=tonumber(value)or id,icon=icon}or nil)
-    end
-    panel.insertMarker=CreateFrame("Frame",nil,panel);panel.insertMarker:SetSize(470,2)
-    panel.insertMarker:SetFrameLevel(panel:GetFrameLevel()+40);panel.insertMarker:Hide()
-    local line=panel.insertMarker:CreateTexture(nil,"OVERLAY");line:SetAllPoints();line:SetColorTexture(1,.82,0,1)
-    panel.dragGhost=W.Panel(e.window);panel.dragGhost:SetSize(220,32);panel.dragGhost:SetFrameStrata("TOOLTIP")
-    panel.dragGhost:SetFrameLevel(9200);panel.dragGhost:Hide()
-    panel.dragText=panel.dragGhost:CreateFontString(nil,"OVERLAY");panel.dragText:SetFont(M:DefaultFontPath(),12,"")
-    panel.dragText:SetPoint("LEFT",10,0);panel.dragText:SetWidth(200);panel.dragText:SetWordWrap(false)
-    function panel:FinishDrag(apply)
-        local drag=self.drag;if not drag then return end
-        W.SetEditorKeyboard(self,false,true)
-        self.drag=nil;self.insertMarker:Hide();self.dragGhost:Hide()
-        for _,row in ipairs(self.rows)do row.dragTint:Hide()end
-        if not apply or not drag.valid or Current()~=drag.group or drag.entries~=drag.group.monitors or not Editable(drag.group,drag.entry)then return end
-        local from=S.EntryIndex(drag.group,drag.entry)
-        if from~=drag.target then
-            table.remove(drag.entries,from);table.insert(drag.entries,drag.target,drag.entry);M:Commit()
+    local imports=Panel(36,"skillMonitorImport")
+    local share=Panel(56,"skillMonitorSharing")
+    local panel=Panel(205,"skillMonitorEntry");e.skillMonitorPanel=panel
+    local function Flush() if panel.edit and panel.edit:HasFocus() then panel.edit:ClearFocus() end end
+    imports.available=S.AddBlizzardCooldownButton and S.AddBlizzardCooldownButton(imports,Current,Flush)
+    e.skillMonitorImport=imports
+    local title=W.Label(share,"配置分享",12);title:SetPoint("CENTER",share,"TOP",0,10)
+    title:SetTextColor(1,.82,0);title:SetJustifyH("CENTER")
+    for _,point in ipairs({"LEFT","RIGHT"})do
+        local line=share:CreateTexture(nil,"ARTWORK");line:SetHeight(1);line:SetColorTexture(.5,.5,.5,.45)
+        if point=="LEFT" then
+            line:SetPoint("LEFT",share,"TOPLEFT",0,10);line:SetPoint("RIGHT",title,"LEFT",-8,0)
+        else
+            line:SetPoint("RIGHT",share,"TOPRIGHT",0,10);line:SetPoint("LEFT",title,"RIGHT",8,0)
         end
     end
-    function panel:UpdateDrag(elapsed)
-        local drag=self.drag;if not drag then return end
-        if not self:IsVisible()or Current()~=drag.group or drag.entries~=drag.group.monitors or #drag.entries~=drag.count or not Editable(drag.group,drag.entry)then
-            self:FinishDrag(false);return
+    local export=W.Button(share,"导出配置",150,function()Flush();M:ShowConfigStringDialog("export","skillsAll")end)
+    local import=W.Button(share,"导入配置",150,function()Flush();M:ShowConfigStringDialog("import","skills")end)
+    export:SetPoint("TOPLEFT",0,-24);import:SetPoint("LEFT",export,"RIGHT",8,0)
+    local globals={}
+    for _,option in ipairs({
+        {"图标缩放","skillIconScale",.05},{"图标间距","skillIconSpacing",1},
+        {"显示冷却刷","skillCooldownSwipe"},{"显示GCD","skillShowGCD"},{"显示快捷键","skillShowShortcut"},
+    })do
+        local label,key,step=option[1],option[2],option[3]
+        if step then
+            local limits=skillNumeric[key]
+            local caption=W.Label(parent,label)
+            local slider=W.SpinBox(parent,205,limits[1],limits[2],step)
+            slider:SetScript("OnValueChanged",function(self,value)
+                local owner=Current()
+                if not self.updating and owner and M:CanEdit()then owner[key]=value;M:Commit()end
+            end)
+            Row(53,{{caption,0,0},{slider,12,-22}}, {},key)
+            globals[key]=slider
+        else
+            local check=W.Check(parent,label,function(value)
+                local owner=Current()
+                if owner and M:CanEdit()then owner[key]=not not value;M:Commit()
+                elseif owner then globals[key]:SetChecked(owner[key]~=false)end
+            end)
+            Row(30,{{check,-4,0}}, {},key)
+            globals[key]=check
         end
-        local cursorX,cursorY=GetCursorPosition();local scale=self:GetEffectiveScale()
-        local x,y=cursorX/scale,cursorY/scale;local scroll=e.propScroll
-        local top,bottom,left,right=scroll:GetTop(),scroll:GetBottom(),scroll:GetLeft(),scroll:GetRight()
-        if not top or not bottom or not left or not right or not self:GetTop()then self:FinishDrag(false);return end
-        drag.valid=x>=left and x<=right and y>=bottom and y<=top
-        if drag.valid then
-            local direction=y>top-22 and -1 or (y<bottom+22 and 1 or 0)
-            if direction~=0 then
-                local limit=math.max(0,e.props:GetHeight()-scroll:GetHeight())
-                scroll:SetVerticalScroll(M.Clamp(scroll:GetVerticalScroll()+direction*(elapsed or 0)*260,0,limit))
-            end
-            local insertion=M.Clamp(math.floor((self:GetTop()-monitorTop-y)/88+.5)+1,1,drag.count+1)
-            local from=S.EntryIndex(drag.group,drag.entry)
-            drag.target=M.Clamp(insertion-(insertion>from and 1 or 0),1,drag.count)
-            self.insertMarker:ClearAllPoints();self.insertMarker:SetPoint("TOPLEFT",self,"TOPLEFT",0,-monitorTop-(insertion-1)*88+3)
-            self.insertMarker:SetWidth(self:GetWidth());self.insertMarker:Show()
-        else self.insertMarker:Hide()end
-        local ghostScale=self.dragGhost:GetEffectiveScale()
-        self.dragGhost:ClearAllPoints();self.dragGhost:SetPoint("BOTTOMLEFT",UIParent,"BOTTOMLEFT",cursorX/ghostScale+14,cursorY/ghostScale+12)
     end
-    function panel:BeginDrag(row)
-        if self.drag or not Editable(row.group,row.entry)or #row.group.monitors<2 then return end
+
+    local function Update(change)
+        local owner,entry=panel.owner,panel.entry
         Flush()
-        for _,current in ipairs(self.rows)do if current.drop.menu then current.drop.menu:Hide()end end
-        local group,entry=row.group,row.entry;local index=S.EntryIndex(group,entry)
-        self.drag={group=group,entry=entry,entries=group.monitors,count=#group.monitors,target=index,valid=false}
-        row.dragTint:Show();self.dragText:SetText((entry.value~="" and entry.value or M:T("拖拽排序")):gsub("|","||"))
-        self.dragGhost:Show();W.SetEditorKeyboard(self,true,true);self:UpdateDrag(0)
+        if Editable(owner,entry)then change(entry);M:Commit()end
     end
-    local function DragSurface(surface,row)
-        surface:EnableMouse(true);surface:RegisterForDrag("LeftButton")
-        surface:SetScript("OnDragStart",function()panel:BeginDrag(row)end)
-        surface:SetScript("OnDragStop",function()panel:UpdateDrag(0);panel:FinishDrag(true)end)
-        surface:SetScript("OnMouseUp",function(_,button)if button=="RightButton"then panel:FinishDrag(false)end end)
-    end
-    panel:SetScript("OnUpdate",function(self,elapsed)
-        if not self.drag then return end
-        self:UpdateDrag(elapsed)
-        if IsMouseButtonDown("RightButton")then self:FinishDrag(false)
-        elseif not IsMouseButtonDown("LeftButton")then self:FinishDrag(true)end
-    end)
-    panel:SetScript("OnKeyDown",function(self,key)if InCombatLockdown()then self:FinishDrag(false);return end;
-        if not self.drag then W.SetEditorKeyboard(self,nil,true);return end
-        W.SetEditorKeyboard(self,nil,key~="ESCAPE")
-        if key=="ESCAPE"then self:FinishDrag(false);W.SetEditorKeyboard(self,nil,false)end
-    end)
-    W.SetEditorKeyboard(panel,false,true)
-    panel:SetScript("OnShow",function(self)if not self.drag then W.SetEditorKeyboard(self,false,true)end end)
-    panel:SetScript("OnHide",function(self)
-        self:FinishDrag(false)
-        if M.configDialog and M.configDialog.scope then M.configDialog:Hide()end
-    end)
-    local function BindInput(row,edit,field)
-        local function Save(self,owner,item)
-            owner=owner or self.monitorOwner or row.group;item=item or self.monitorEntry or row.entry
-            if not Editable(owner,item)then return end
-            local value=S.Input(W.InputValue(self))
-            if item[field]~=value then
-                item[field]=value
-                if field=="value" then item.blizzardCooldownID=nil end
-                M:Commit()
-            end
-        end
-        edit:SetScript("OnEditFocusGained",function(self)self.monitorOwner=row.group;self.monitorEntry=row.entry end)
-        edit:SetScript("OnEditFocusLost",function(self)
-            local owner,item=self.monitorOwner,self.monitorEntry;self.monitorOwner=nil;self.monitorEntry=nil;Save(self,owner,item)
+    local function Choice(label,options,width,change)
+        local button
+        button=W.MediaSelect(panel,label,width,"choice",function()
+            if button.menu then button.menu:Hide();return end
+            local owner,entry=panel.owner,panel.entry
+            W.MediaMenu(button,options,"choice",button.value,function(choice)
+                if panel.owner==owner and panel.entry==entry then Update(function(item)change(item,choice.path)end)end
+            end)
         end)
-        edit:SetScript("OnEnterPressed",function(self)Save(self);self:ClearFocus()end)
-        edit:SetScript("OnEscapePressed",function(self)W.SetInputValue(self,(self.monitorEntry or row.entry)[field] or "");self:ClearFocus()end)
-        W.NamedInput(edit,field=="value"and "spell"or nil)
-        edit:HookScript("OnHide",function(self)self:ClearFocus()end)
-    end
-    panel.add=W.Button(panel,"添加监控",130,function()
-        local group=Current();if not group or not M:CanEdit()then return end
-        Flush();group.monitors[#group.monitors+1]=S.NewEntry();M:Commit()
-    end)
-    if S.AddBlizzardCooldownButton and S.AddBlizzardCooldownButton(panel, Current, Flush) then monitorTop=32 end
-    function panel:Refresh(group)
-        S.RefreshMonitorTitle(self.title)
-        if self.blizzardSyncCheck then self.blizzardSyncCheck:SetChecked(S.BlizzardSyncEnabled())end
-        if self.drag and (self.drag.group~=group or self.drag.entries~=group.monitors or self.drag.count~=#group.monitors)then self:FinishDrag(false)end
-        local monitors=group and group.monitors or {};local width=e.props:GetWidth()
-        sharing:SetWidth(width)
-        for i,button in ipairs({sharing.exportAll,sharing.import})do
-            local buttonWidth=(width-8)/2;button:SetWidth(buttonWidth)
-            button:ClearAllPoints();button:SetPoint("TOPLEFT",sharing,"TOPLEFT",(i-1)*(buttonWidth+8),-24)
-        end
-        if self.owner~=group or self.count~=#monitors or self.width~=width then e.propertyLayoutSignature=nil end
-        self.owner,self.count,self.width=group,#monitors,width
-        self:SetSize(width,monitorTop+#monitors*88+32);property.height=self:GetHeight()
-        for i,entry in ipairs(monitors)do
-            local row=self.rows[i]
-            if not row then
-                row=CreateFrame("Frame",nil,self);row:SetHeight(84);self.rows[i]=row
-                row.dragTint=row:CreateTexture(nil,"BACKGROUND");row.dragTint:SetAllPoints();row.dragTint:SetColorTexture(.2,.6,.9,.2);row.dragTint:Hide()
-                DragSurface(row,row)
-                row.dragHandle=CreateFrame("Button",nil,row);row.dragHandle:SetSize(100,18)
-                row.dragLabel=W.Label(row.dragHandle,"",12);row.dragLabel:SetPoint("CENTER");row.dragLabel:SetJustifyH("CENTER")
-                row.dragLabel:SetTextColor(.65,.65,.65)
-                M:SetLocaleLineHeight(row.dragLabel,18);row.dragLabel:SetWordWrap(false)
-                DragSurface(row.dragHandle,row)
-                -- Reuse the font selector's skin, arrow, menu rows and single check mark.
-                row.drop=W.MediaSelect(row,"监控类型",160,"choice",function()
-                    if row.drop.menu then row.drop.menu:Hide();return end
-                    local owner,item=row.group,row.entry
-                    W.MediaMenu(row.drop,choices,"choice",item.type,function(choice)
-                        Flush()
-                        if Editable(owner,item)then item.type=choice.path;if item.type=="custom"then M.CustomMonitor.Defaults(item)end;M:Commit()end
-                    end)
-                end)
-                row.drop:SetPoint("TOPLEFT",0,0);row.caption=row.drop.caption
-                function row.drop:SetValue(value)
-                    self.value=value
-                    self:SetMedia(typeLabels[value] or typeLabels.cooldown,value)
-                end
-                row.showShortcut=W.Check(row,"显示快捷键",function(enabled)
-                    local owner,item=row.group,row.entry;Flush()
-                    if Editable(owner,item)then item.showShortcut=enabled==true;M:Commit()end
-                end)
-                row.showShortcut.label:SetWordWrap(false)
-                row.shortcutEdit=W.Edit(row,100);row.shortcutEdit:SetMaxLetters(32);row.shortcutEdit:SetTextInsets(6,6,0,0)
-                row.shortcutPlaceholder=W.Label(row.shortcutEdit,"快捷键",11)
-                row.shortcutPlaceholder:SetPoint("LEFT",6,0);row.shortcutPlaceholder:SetPoint("RIGHT",-6,0)
-                row.shortcutPlaceholder:SetTextColor(.5,.5,.5);row.shortcutPlaceholder:SetWordWrap(false)
-                row.shortcutEdit:HookScript("OnTextChanged",function(self)row.shortcutPlaceholder:SetShown(self:GetText()=="")end)
-                BindInput(row,row.shortcutEdit,"shortcut")
-                row.shortcutColor=W.ColorSwatch(row,function(color)
-                    local owner,item=row.colorOwner,row.colorEntry
-                    if Editable(owner,item)then item.shortcutColor=M.Copy(color);M:Commit()end
-                end)
-                local openColor=row.shortcutColor:GetScript("OnClick")
-                row.shortcutColor:SetScript("OnClick",function(button)
-                    Flush();row.colorOwner,row.colorEntry=row.group,row.entry;openColor(button)
-                end)
-                row.skillIcon=CreateFrame("Button",nil,row);row.skillIcon:SetSize(26,26);row.skillIcon:SetPoint("TOPLEFT",0,-51)
-                row.skillIcon.texture=row.skillIcon:CreateTexture(nil,"ARTWORK");row.skillIcon.texture:SetAllPoints()
-                DragSurface(row.skillIcon,row)
-                row.edit=W.Edit(row,width/2);row.edit:SetMaxLetters(128);row.edit:SetTextInsets(6,6,0,0)
-                row.edit:SetPoint("LEFT",row.skillIcon,"RIGHT",8,0)
-                row.placeholder=W.Label(row.edit,"输入监控技能名或ID",11)
-                row.placeholder:SetPoint("LEFT",row.edit,"LEFT",6,0);row.placeholder:SetPoint("RIGHT",row.edit,"RIGHT",-6,0)
-                row.placeholder:SetTextColor(.5,.5,.5);row.placeholder:SetWordWrap(false)
-                row.edit:HookScript("OnTextChanged",function(self)row.placeholder:SetShown(self:GetText()=="");SkillIcon(row)end)
-                BindInput(row,row.edit,"value")
-                row.remove=W.Button(row,"删除",72,function()
-                    local owner,item=row.group,row.entry;Flush()
-                    local index=owner and S.EntryIndex(owner,item)
-                    if index and Editable(owner,item)then table.remove(owner.monitors,index);M:Commit()end
-                end)
-                row.code=W.Button(row,"编辑代码",100,function()Flush();if Editable(row.group,row.entry)then M.CustomMonitor.OpenEditor(row.group,row.entry)end end)
-                row.reverseDisplay=W.Check(row,"反转显示效果",function(enabled)
-                    local owner,item=row.group,row.entry;Flush()
-                    if Editable(owner,item)then item.reverseDisplay=enabled==true;M:Commit()end
-                end)
-                row.reverseDisplay.label:SetWordWrap(false)
-                row.remove:SetPoint("TOPRIGHT",row,"TOPRIGHT",0,-53)
-                row.dragHandle:SetPoint("TOP",row.remove,"TOP",0,53)
+        function button:SetValue(value)
+            self.value=value
+            for _,choice in ipairs(options)do
+                if choice.path==value then self:SetMedia(choice.name,value);return end
             end
-            row.group,row.entry=group,entry;row:SetWidth(width);row:ClearAllPoints();row:SetPoint("TOPLEFT",self,"TOPLEFT",0,-monitorTop-(i-1)*88)
-            row.dragHandle:SetWidth(math.max(100,row.dragLabel:GetStringWidth()+4))
-            local dropWidth=math.max(140,width*.34)
-            row.drop:SetWidth(dropWidth);row.drop:SetValue(entry.type)
-            row.showShortcut:ClearAllPoints();row.showShortcut:SetPoint("TOPLEFT",row,"TOPLEFT",dropWidth+10,-20)
-            local keyX=dropWidth+10+24+math.max(72,row.showShortcut.label:GetStringWidth())+8
-            row.shortcutEdit:ClearAllPoints();row.shortcutEdit:SetPoint("TOPLEFT",row,"TOPLEFT",keyX,-21)
-            row.shortcutEdit:SetWidth(70)
-            row.shortcutColor:ClearAllPoints();row.shortcutColor:SetPoint("LEFT",row.shortcutEdit,"RIGHT",12,0)
-            row.edit:SetWidth(width/3);
-            row.code:ClearAllPoints();row.code:SetPoint("TOPLEFT",width/3+48,-53);row.code:SetShown(entry.type=="custom")
-            row.reverseDisplay:ClearAllPoints();row.reverseDisplay:SetPoint("TOPLEFT",width/3+76,-53)
-            row.reverseDisplay:SetShown(entry.type=="cooldown" or auraTypes[entry.type]~=nil)
-            row.reverseDisplay:SetChecked(entry.reverseDisplay==true)
-            row.placeholder:SetText(entry.type=="custom"and "图标法术名称或ID（可选）"
-                or (entry.type=="buff"and "输入Buff名称或ID"or "输入监控技能名或ID"))
-            if not row.edit:HasFocus()then W.SetInputValue(row.edit,entry.value)end
-            if not row.shortcutEdit:HasFocus()then row.shortcutEdit:SetText(entry.shortcut or "")end
-            row.showShortcut:SetChecked(entry.showShortcut~=false);row.shortcutColor:SetColor(entry.shortcutColor or {1,1,1,1})
-            local shortcutEnabled=entry.showShortcut~=false
-            if shortcutEnabled then row.shortcutEdit:Enable()else row.shortcutEdit:ClearFocus();row.shortcutEdit:Disable()end
-            row.shortcutEdit:EnableMouse(shortcutEnabled);row.shortcutEdit:SetAlpha(shortcutEnabled and 1 or .55)
-            row.shortcutEdit:SetTextColor(shortcutEnabled and 1 or .45,shortcutEnabled and 1 or .45,shortcutEnabled and 1 or .45)
-            row.shortcutPlaceholder:SetShown(row.shortcutEdit:GetText()=="");SkillIcon(row)
-            row.placeholder:SetShown(row.edit:GetText()=="");W.ShadeDragRow(row,i);row:Show()
         end
-        for i=#monitors+1,#self.rows do self.rows[i]:Hide()end
-        self.add:ClearAllPoints();self.add:SetPoint("TOPLEFT",self,"TOPLEFT",0,-monitorTop-#monitors*88)
+        return button
+    end
+    local function AuraKind(unit,harmful)
+        if unit=="target"then return harmful and "debuff" or "targetBuff"end
+        return harmful and "playerDebuff" or "buff"
+    end
+    local function Harmful(entry)
+        return entry.type=="debuff" or entry.type=="playerDebuff"
+    end
+    local kind=Choice("监控类型",choices,150,function(entry,value)
+        if value=="aura" then
+            if not auraTypes[entry.type] then entry.type="buff" end
+        else
+            entry.type=value
+            if value=="custom" then M.CustomMonitor.Defaults(entry) end
+        end
+    end)
+    kind:SetPoint("TOPLEFT",0,0)
+    local unit=Choice("单位",{{name="玩家",path="player"},{name="目标",path="target"}},115,function(entry,value)
+        entry.type=AuraKind(value,Harmful(entry))
+    end)
+    unit:SetPoint("TOPLEFT",160,0)
+    local filter=Choice("类型",{{name="Buff",path="buff"},{name="Debuff",path="debuff"}},115,function(entry,value)
+        if auraTypes[entry.type] then entry.type=AuraKind(auraTypes[entry.type].unit,value=="debuff")end
+    end)
+    filter:SetPoint("TOPLEFT",285,0)
+    local equipmentSlots={}
+    for slot=1,19 do
+        local name=({"HEADSLOT","NECKSLOT","SHOULDERSLOT","SHIRTSLOT","CHESTSLOT","WAISTSLOT","LEGSSLOT","FEETSLOT",
+            "WRISTSLOT","HANDSSLOT","FINGER0SLOT","FINGER1SLOT","TRINKET0SLOT","TRINKET1SLOT","BACKSLOT","MAINHANDSLOT",
+            "SECONDARYHANDSLOT","RANGEDSLOT","TABARDSLOT"})[slot]
+        equipmentSlots[slot]={name=_G[name] or tostring(slot),path=tostring(slot)}
+    end
+    local equipment=Choice("装备位置",equipmentSlots,190,function(entry,value)entry.slot=tonumber(value)end)
+    equipment:SetPoint("TOPLEFT",160,0)
+
+    local icon=CreateFrame("Button",nil,panel);icon:SetSize(26,26);icon:SetPoint("TOPLEFT",0,-58)
+    icon.texture=icon:CreateTexture(nil,"ARTWORK");icon.texture:SetAllPoints()
+    local edit=W.Edit(panel,220);panel.edit=edit
+    edit:SetMaxLetters(128);edit:SetTextInsets(6,6,0,0);edit:SetPoint("LEFT",icon,"RIGHT",8,0)
+    W.NamedInput(edit,"spell")
+    local placeholder=W.Label(edit,"输入监控技能名或ID",11);placeholder:SetPoint("LEFT",6,0);placeholder:SetTextColor(.5,.5,.5)
+    local function RefreshIcon()
+        local entry=panel.entry
+        local value=S.Input(W.InputValue(edit))
+        local name,id,texture
+        if entry and entry.type=="equipment" then
+            id,name,texture=M.PlayerOtherMonitor.Item(entry.slot or 13)
+        else name,id,texture=M.PetBuffs.SpellInfo(value);id=tonumber(value) or id end
+        icon.texture:SetTexture(M:TextureFile(texture or 134400))
+        W.SetIconTooltip(icon,name and {name=name,id=id,icon=texture,slot=entry and entry.slot} or nil,
+            entry and entry.type=="equipment" and "item" or "spell")
+        placeholder:SetShown(edit:GetText()=="")
+    end
+    edit:HookScript("OnTextChanged",RefreshIcon)
+    edit:SetScript("OnEditFocusGained",function(self)self.owner,self.entry=panel.owner,panel.entry end)
+    edit:SetScript("OnEditFocusLost",function(self)
+        local owner,entry=self.owner,self.entry;self.owner,self.entry=nil,nil
+        if Editable(owner,entry)then
+            local value=S.Input(W.InputValue(self))
+            if value~=entry.value then entry.value=value;entry.blizzardCooldownID=nil;M:Commit()end
+        end
+    end)
+    edit:SetScript("OnEnterPressed",function(self)self:ClearFocus()end)
+    edit:SetScript("OnEscapePressed",function(self)
+        if self.entry then W.SetInputValue(self,self.entry.value)end
+        self:ClearFocus()
+    end)
+    edit:HookScript("OnHide",function(self)self:ClearFocus()end)
+    local code=W.Button(panel,"编辑代码",100,function()
+        Flush()
+        if Editable(panel.owner,panel.entry)then M.CustomMonitor.OpenEditor(panel.owner,panel.entry)end
+    end)
+    code:SetPoint("LEFT",edit,"RIGHT",10,0)
+
+    local function EntryCheck(label,key,y)
+        local check=W.Check(panel,label,function(value)Update(function(entry)entry[key]=not not value end)end)
+        check:SetPoint("TOPLEFT",-4,y)
+        return check
+    end
+    local glow=EntryCheck("触发发光","triggerGlow",-96)
+    local maxGlow=EntryCheck("最大层数发光","maxStackGlow",-129)
+    local reverse=EntryCheck("反转褪色效果","reverseDisplay",-162)
+    local maxLabel=W.Label(panel,"层数上限（0 = 自动）")
+    maxLabel:SetPoint("LEFT",maxGlow.label,"RIGHT",18,0)
+    local maxStacks=W.SpinBox(panel,76,0,999,1)
+    maxStacks:SetPoint("LEFT",maxLabel,"RIGHT",8,0)
+    maxStacks:SetScript("OnValueChanged",function(self,value)
+        if not self.updating then Update(function(entry)entry.maxStacks=value end)end
+    end)
+    panel:SetScript("OnHide",function()
+        Flush()
+        for _,button in ipairs({kind,unit,filter,equipment})do if button.menu then button.menu:Hide()end end
+    end)
+    function panel:Refresh(owner)
+        local entry=e.skillEntry
+        if entry and not S.EntryIndex(owner,entry)then e.skillEntry=nil;entry=nil end
+        local width=e.props:GetWidth()
+        share:SetWidth(width);export:SetWidth((width-8)/2);import:SetWidth((width-8)/2)
+        if imports.blizzardSyncCheck then imports.blizzardSyncCheck:SetChecked(S.BlizzardSyncEnabled())end
+        for key,control in pairs(globals)do
+            control.updating=true
+            if skillNumeric[key]then control:SetValue(owner[key] or skillNumeric[key][3])
+            else control:SetChecked(owner[key]~=false)end
+            control.updating=false
+        end
+        if self.entry~=entry or self.owner~=owner then
+            Flush()
+            for _,button in ipairs({kind,unit,filter,equipment})do if button.menu then button.menu:Hide()end end
+        end
+        self.owner,self.entry=owner,entry
+        if not entry then return end
+        local aura=auraTypes[entry.type]
+        local combined=effectTypes[entry.type]
+        local isEquipment=entry.type=="equipment"
+        kind:SetValue((aura or combined) and "aura" or entry.type)
+        unit:SetShown(aura~=nil or combined~=nil);filter:SetShown(aura~=nil or combined~=nil)
+        if aura or combined then
+            local category=aura or auraTypes[combined]
+            unit:SetValue(category.unit)
+            filter:SetValue((Harmful(entry) or combined=="debuff") and "debuff" or "buff")
+        end
+        equipment:SetShown(isEquipment);equipment:SetValue(tostring(entry.slot or 13))
+        code:SetShown(entry.type=="custom")
+        if isEquipment then
+            local _,name=M.PlayerOtherMonitor.Item(entry.slot or 13)
+            W.SetInputValue(edit,name or M:T("未装备"));edit:Disable()
+        else
+            edit:Enable()
+            if not edit:HasFocus()then W.SetInputValue(edit,entry.value)end
+        end
+        RefreshIcon()
+        glow:SetChecked(entry.triggerGlow==true);maxGlow:SetChecked(entry.maxStackGlow==true)
+        reverse:SetChecked(entry.reverseDisplay==true)
+        maxStacks.updating=true;maxStacks:SetValue(entry.maxStacks or 0);maxStacks.updating=false
+        maxStacks:SetShown(entry.maxStackGlow==true);maxLabel:SetShown(entry.maxStackGlow==true)
     end
 end

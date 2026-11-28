@@ -319,10 +319,8 @@ function M:ApplyPlayerSkillMonitorString(input)
     local config=self:ImportPlayerSkillMonitorString(input)
     if not config then return false,INVALID end
     local panel=self.editor and self.editor.skillMonitorPanel
-    if panel then
-        panel:FinishDrag(false)
-        for _,row in ipairs(panel.rows)do row.edit:ClearFocus();row.shortcutEdit:ClearFocus()end
-    end
+    if panel and panel.edit then panel.edit:ClearFocus() end
+    if M.editor then M.editor.skillEntry=nil end
     local ok,errorText=self.PlayerSkillMonitor.ApplyCharacterSharing("playerSkillMonitor",config)
     if not ok then return false,errorText or INVALID end
     self:Commit();return true

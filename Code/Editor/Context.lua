@@ -140,7 +140,8 @@ local propertyCategories={
     partyFrames={{"scale","partySpacing","partyPlayerX"},{"partyMaterial","partyHealthColor","partyHealthEndColor"},
         {"partyFont","partyNameSize"},{"partyHideInRaid","partyHideNumbers","partyHidePlayer","partyBuffsTimedOnly","partyBuffsOnlyPlayer"},{"partyMouseoverCast"}},
     cast={{"overallScale","castHorizontalScale","castIconSize","castColor","castStageSound"},{"hidePlayerCastText","nameFont","castFontSize"},{"showRangedProgress","showMeleeProgress"}},
-    playerSkillMonitor={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"skillMonitorItems"},{"skillMonitorSharing"}},
+    playerSkillMonitor={{"skillMonitorImport","skillIconScale","skillIconSpacing","skillMonitorDirection","skillMonitorHideWithoutTarget",
+        "skillCooldownSwipe","skillShowGCD","skillShowShortcut","skillMonitorEntry"},{"skillMonitorSharing"}},
     playerOtherMonitor={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"otherMonitorItems"},{"otherMonitorEquipment"},{"otherMonitorSharing"}},
     cooldownMonitor={{"scale"},{"minCooldown","maxCooldown"},{"blacklist"}},
     raidBuffs={{"scale","skillMonitorHideWithoutTarget","raidBuffsOnlyRaid","skillMonitorDirection"},{"raidBuffsSharedRows"},{"raidBuffsSharing"},{"raidBuffsGuideSettings"}},
@@ -321,6 +322,12 @@ local function MainPreviewSelection(n)
 end
 local function SetSelection(id)
     if M.commitRefreshToken then M:FlushCommit() end
+    if M.editor and M.editor.skillEntry then
+        local panel=M.editor.skillMonitorPanel
+        if panel and panel.edit then panel.edit:ClearFocus()end
+        M.editor.skillEntry=nil
+        M.editor.propScroll:SetVerticalScroll(0)
+    end
     M.selection=id;M.multi={[id]=true}
     M:RefreshEditor(true)
 end

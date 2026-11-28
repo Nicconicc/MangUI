@@ -578,6 +578,56 @@ local function Equipment(slot,auras,now,weaponAuras)
     slot.faded=not active and hasFixed and cdExpires~=nil and cdExpires>now or false
     slot.fixedCooldown=hasFixed;slot.condition=active;slot.show=active or slot.faded;slot.rawKnown=auras~=nil
 end
+-- Reuse the equipment timer and stance readers in the class skill row.
+function O.RefreshSkillEntries(o,now)
+    local stanceID,stanceName,stanceIcon
+    local playerAuras,weaponAuras
+    if o.skillKinds.stance then stanceID,stanceName,stanceIcon=ActiveStance()end
+    if o.skillKinds.equipment or o.skillKinds.stance then
+        if o.skillKinds.equipment and S.MonitorRefreshDue(o,"skillEquipment",now,1) then
+            TrackEquipment(not not O.equipped)
+        end
+        local context={weaponIDs={},otherIcons=o.skillIcons,weaponAuraBindings=o.skillWeaponBindings}
+        for _,slot in ipairs(o.skillIcons)do
+            local entry=slot.entry
+            if entry and entry.type=="equipment" then
+                slot.item=O.Effects(entry.slot or 13)
+                slot.fingerprint=ItemFingerprint(slot.item)
+                if slot.item.slot==16 or slot.item.slot==17 then
+                    for id in pairs(slot.item.effects)do context.weaponIDs[id]=true end
+                end
+            end
+        end
+        local snapshot=Auras("player","HELPFUL",context.weaponIDs)
+        playerAuras=snapshot and snapshot.complete and snapshot or nil
+        if o.skillKinds.equipment then weaponAuras=WeaponAuras(context,playerAuras)end
+        o.skillWeaponBindings=context.weaponAuraBindings
+    end
+    for _,slot in ipairs(o.skillIcons)do
+        local entry=slot.entry
+        if entry and entry.type=="equipment" then
+            Equipment(slot,playerAuras,now,weaponAuras or {})
+            slot.spellCount=slot.stacks
+            slot.auraDuration=nil
+            if slot.active and playerAuras then
+                for id in pairs(slot.item.effects)do
+                    local aura=weaponAuras and weaponAuras[id] and weaponAuras[id][entry.slot] or playerAuras.byID[id]
+                    if aura and Number(aura.expirationTime)==slot.expires then
+                        slot.auraDuration=Number(aura.duration);break
+                    end
+                end
+            end
+            M.CustomMonitor.SetVisual(slot.texture,"SetTexture",M:TextureFile(slot.item.icon or 134400))
+        elseif entry and entry.type=="stance" then
+            local form=stanceID~=nil and (slot.spellID==stanceID or (stanceName and stanceName==slot.auraMatchName))
+            local aura=playerAuras and (playerAuras.byID[slot.spellID] or playerAuras.byName[slot.auraMatchName])
+            slot.active=not not (form or aura)
+            local icon=form and stanceIcon or aura and aura.icon
+            if Readable(icon) and icon then M.CustomMonitor.SetVisual(slot.texture,"SetTexture",M:TextureFile(icon))end
+        end
+    end
+end
+
 local function Refresh(view,o,now,combat)
     local kinds=o.otherKinds
     local equipment=kinds.equipment and S.MonitorRefreshDue(o,"equipment",now,1)

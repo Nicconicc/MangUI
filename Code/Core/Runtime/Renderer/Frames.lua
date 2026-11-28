@@ -601,6 +601,9 @@ function R.Apply(view,design,unchanged)
     local prepared=R.PrepareDesign(design,unchanged)
     local selectionChanged=view.renderSelection~=view.selected or view.renderScene~=view.scene
         or view.renderScope~=view.previewScope
+    local skillDraft=view.preview and view.previewScope=="playerSkillMonitor" and M.editor and M.editor.skillEntry
+    local skillPreviewChanged=view.preview and (view.skillDraft~=skillDraft or view.renderScope~=view.previewScope)
+    view.skillDraft=skillDraft
     view.renderSelection=view.selected;view.renderScene=view.scene;view.renderScope=view.previewScope
     local settings=table.concat({tostring(M.DisplayModes.Minimal()),tostring(M.db and M.db.portrait3D),tostring(M.db and M.db.healthClassColor),
         tostring(M.db and M.db.hideWithoutTarget),tostring(M.db and M.db.useGlobalFont),
@@ -692,7 +695,7 @@ function R.Apply(view,design,unchanged)
         else moduleID=o.module and o.module.id end
         -- Logical module roots can own visuals through treeParent rather than
         -- the physical frame parent (notably the central player/target module).
-        configure=configure or (moduleID and changed[moduleID])
+        configure=configure or (moduleID and changed[moduleID]) or (n.kind=="skillmonitor" and skillPreviewChanged)
         if n.id=="playerThirdResource" then
             configure=configure or changed.wa70b7aa5607 or changed.wa4f9903a71c
         end

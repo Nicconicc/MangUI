@@ -475,7 +475,13 @@ local function RefreshProperties(self)
             elseif n.compound=="playerOtherMonitor" then
                 visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="otherMonitorSharing"or row.key=="otherMonitorItems"or row.key=="otherMonitorEquipment"
             elseif n.compound=="playerSkillMonitor" then
-                visible=row.key=="scale" or row.key=="skillMonitorHideWithoutTarget"or row.key=="skillMonitorDirection"or row.key=="skillMonitorSharing"or row.key=="skillMonitorItems"
+                if e.skillEntry then visible=row.key=="skillMonitorEntry"
+                else
+                    visible=row.key=="skillIconScale" or row.key=="skillIconSpacing" or row.key=="skillMonitorDirection"
+                        or row.key=="skillMonitorHideWithoutTarget" or row.key=="skillCooldownSwipe" or row.key=="skillShowGCD"
+                        or row.key=="skillShowShortcut" or row.key=="skillMonitorSharing"
+                        or (row.key=="skillMonitorImport" and e.skillMonitorImport.available~=nil)
+                end
             elseif n.compound=="raidBuffs"then
                 visible=row.key=="scale"or row.key=="skillMonitorHideWithoutTarget"or row.key=="raidBuffsOnlyRaid"or row.key=="skillMonitorDirection"or row.key=="raidBuffsSharing"or row.key=="raidBuffsSharedRows"or row.key=="raidBuffsGuideSettings"
             elseif n.compound=="receivedBuffs"then
@@ -557,7 +563,8 @@ local function RefreshProperties(self)
             visible=row.key=="decorationHidden" or row.key=="x" or row.key=="y" or row.key=="scale"
         end
         if e.mainPreview and row.key=="overallScale" and n.compound~="targetCast" then visible=false end
-        if row.key=="moduleGuideSettings"then visible=M.ModuleGuides.Supports(n)and n.id~="raidBuffs"end
+        if row.key=="moduleGuideSettings"then visible=M.ModuleGuides.Supports(n) and n.id~="raidBuffs"
+            and (n.id~="playerSkillMonitor" or not e.skillEntry)end
         if M.DisplayModes.IsBar(n) then
             visible=row.key=="hpMaterial" or row.key=="width" or row.key=="height" or row.key=="barBackgroundColor"
                 or (n.id=="minimalHealth" and row.key=="healthColors")

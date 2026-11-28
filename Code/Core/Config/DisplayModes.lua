@@ -252,10 +252,8 @@ end
 
 function D.FlushEditors()
     local panel=M.editor and M.editor.skillMonitorPanel
-    if panel then
-        panel:FinishDrag(false)
-        for _,row in ipairs(panel.rows) do row.edit:ClearFocus();row.shortcutEdit:ClearFocus() end
-    end
+    if panel and panel.edit then panel.edit:ClearFocus() end
+    if M.editor then M.editor.skillEntry=nil end
     for _,monitor in ipairs({M.PlayerOtherMonitor,M.CommonItems,M.ReceivedBuffs,M.RaidBuffMonitor,M.RaidVulnerability}) do
         if monitor.FlushEditor then monitor.FlushEditor() end
     end

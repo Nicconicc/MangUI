@@ -113,6 +113,14 @@ local function EndMonitorDrag(e)
     if not drag then return end
     CancelMonitorDrag(e)
     local target=MonitorTarget(e,drag)
+    if target and target.entry==drag.entry and drag.group.id=="playerSkillMonitor" then
+        local clicked=MonitorTarget(e)
+        if clicked and clicked.entry==drag.entry then
+            e.skillEntry=drag.entry;e.propScroll:SetVerticalScroll(0)
+            M:RefreshEditor(true)
+        end
+        return
+    end
     if not target or target.entry==drag.entry or drag.list[drag.index]~=drag.entry or not M:CanEdit()then return end
     table.remove(drag.list,drag.index);table.insert(drag.list,target.index,drag.entry)
     M:Commit()
@@ -212,6 +220,69 @@ local function RefreshChatToggles(e,group)
     end
 end
 
+local function RefreshSkillButtons(e,group)
+    if not group then
+        if e.skillAdd then e.skillAdd:Hide()end
+        for _,button in ipairs(e.skillDeletes or {})do button:Hide()end
+        return
+    end
+    local object=e.view.nodes.playerSkillMonitorIcons
+    if not object then return end
+    local S=M.PlayerSkillMonitor
+    local function Flush()
+        local panel=e.skillMonitorPanel
+        if panel and panel.edit then panel.edit:ClearFocus()end
+    end
+    if not e.skillAdd then
+        e.skillAdd=W.Button(e.input,"+",32,function()
+            local owner=Selected()
+            if not owner or owner.id~="playerSkillMonitor" or not M:CanEdit()then return end
+            Flush()
+            local entry
+            for _,candidate in ipairs(owner.monitors)do
+                if candidate.value=="" and candidate.type=="cooldown" then entry=candidate;break end
+            end
+            if not entry then entry=S.NewEntry();owner.monitors[#owner.monitors+1]=entry end
+            e.skillEntry=entry;e.propScroll:SetVerticalScroll(0);M:Commit()
+        end)
+        e.skillDeletes={}
+    end
+    local add=e.skillAdd
+    add:SetFrameLevel(e.input:GetFrameLevel()+5)
+    local entries=object.entries or {}
+    local rightIndex=S.Direction(group)=="LEFT" and 1 or #entries
+    local rightSlot=#entries>0 and object.skillIcons[rightIndex]
+    add:ClearAllPoints()
+    if rightSlot then add:SetPoint("LEFT",rightSlot,"RIGHT",6,0)
+    else add:SetPoint("CENTER",object.frame,"CENTER",0,0)end
+    add:Show()
+    for i=1,math.max(#entries,#e.skillDeletes)do
+        local slot=object.skillIcons and object.skillIcons[i]
+        local entry=entries[i]
+        local button=e.skillDeletes[i]
+        if entry and slot then
+            if not button then
+                button=CreateFrame("Button",nil,e.input);button:SetSize(18,16)
+                button:RegisterForClicks("LeftButtonUp")
+                local label=W.Label(button,"×",15);label:SetPoint("CENTER");label:SetTextColor(1,.22,.22)
+                button:SetScript("OnClick",function(self)
+                    local owner=Selected()
+                    if owner~=self.owner or not M:CanEdit()then return end
+                    Flush()
+                    local index=S.EntryIndex(owner,self.entry)
+                    if not index then return end
+                    if e.skillEntry==self.entry then e.skillEntry=nil end
+                    table.remove(owner.monitors,index);M:Commit()
+                end)
+                e.skillDeletes[i]=button
+            end
+            button.owner,button.entry=group,entry
+            button:SetFrameLevel(e.input:GetFrameLevel()+5)
+            button:ClearAllPoints();button:SetPoint("TOP",slot,"BOTTOM",0,-4);button:Show()
+        elseif button then button:Hide()end
+    end
+end
+
 function M:FitPreview()
     local e=self.editor;local geo=self:Geometry();e.geometry=geo
     local minx,miny,maxx,maxy
@@ -247,6 +318,7 @@ function M:FitPreview()
         if left then minx,miny,maxx,maxy=left,bottom,right,top end
     end
     local moduleID=PreviewModuleID(selected)
+    if moduleID=="playerSkillMonitor" and #(e.view.nodes.playerSkillMonitorIcons.entries or {})>0 then maxx=maxx+42 end
     if HasDedicatedPreview(selected) and moduleID~="partyFrames" and moduleID~="systemMenu" then
         local availableWidth=math.max(1,e.canvas:GetWidth()-40)
         local preserveSize=moduleID=="bossFrames" or moduleID=="chatButtons" or moduleID=="combatNotices"
@@ -393,6 +465,7 @@ function M:RefreshEditor(unchanged)
     R.Apply(e.view,self.db.design,unchanged==true)
     if e.mainPreview or HasDedicatedPreview(selected) or not e.fit or e.refit then self:FitPreview();e.refit=false end
     RefreshChatToggles(e,chatPreview and selected)
+    RefreshSkillButtons(e,selected and selected.id=="playerSkillMonitor" and selected)
     if e.previewXYIcon then
         local occupied=false
         for _,hint in ipairs({e.previewDragHint,e.previewDistanceHint,e.previewThreatHint,e.previewChatHint,e.previewSystemHint})do
