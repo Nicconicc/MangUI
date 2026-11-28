@@ -813,11 +813,13 @@ local function ListenForCountdownEnd(slot,timer)
     end)
 end
 local function ObserveNativeAuraSound(slot,frame,timer)
-    frame:HookScript("OnShow",function()
+    local function ObserveStart()
         if not slot.resettingSoundTimer and slot.entry and (slot.entry.soundEnabled or slot.entry.onlyWhenTriggered) then
             slot.auraSoundTimer=timer
         end
-    end)
+    end
+    frame:HookScript("OnShow",ObserveStart)
+    timer:HookScript("OnShow",ObserveStart)
     frame:HookScript("OnHide",function()
         if slot.auraSoundTimer==timer then slot.auraSoundTimer=nil end
     end)
@@ -914,6 +916,7 @@ local function StyleNativeAura(slot,frame,reversed,nativeGlows,nativeStacks)
     local presence=AuraVisibilityMarker(frame)
     nativeGlows[#nativeGlows+1]=CreateNativeGlowDisplay(slot,presence)
     local tracker=nativeGlows[#nativeGlows]
+    tracker.auraFrame=frame
     if frame.SetDurationCooldown then
         local timer=CreateFrame("Cooldown",nil,frame,"CooldownFrameTemplate")
         timer:SetAllPoints();timer:EnableMouse(false)
@@ -1600,6 +1603,7 @@ local function ReadGCD(slot,cache)
 end
 
 local function NeedsAuraScan(o,slot)
+    if slot.entry.soundEnabled then return true end
     if slot.auraMatchName then return true end
     if not o.usesNativeAuras or not slot.nativeSpellID then return true end
     return M.Compat.interface==16001 and not slot.nativeBackdrop
@@ -1932,8 +1936,17 @@ local function UpdateSkillSound(slot,now,active,expires,nativeTimer)
     state.active=active
 end
 
-local function NativeSoundTimer(slot,marker,timer,now)
+local function AuraDurationEnd(duration,now)
+    if not Readable(duration) or (type(duration)~="table" and type(duration)~="userdata") then return end
+    local remaining=Number(Safe(function()return duration:GetRemainingDuration()end))
+    if remaining and remaining>0 then return now+remaining end
+end
+local function NativeSoundTimer(slot,marker,timer,now,auraFrame)
     local expires=CountdownEnd(timer)
+    if not expires and auraFrame and not M.Compat.Bool(Safe(auraFrame.IsForbidden,auraFrame))then
+        local duration=Safe(auraFrame.GetAuraDuration,auraFrame)
+        expires=AuraDurationEnd(duration,now)
+    end
     if expires and expires>now then return true,expires,timer end
     if marker then
         local visible=Safe(marker.IsVisible,marker)
@@ -1944,6 +1957,66 @@ local function NativeSoundTimer(slot,marker,timer,now)
     end
     if timer and slot.auraSoundTimer==timer then return true,nil,timer end
     if expires then return false end
+end
+
+local function TargetDebuffSoundEvent(o,update)
+    if not Readable(update) or type(update)~="table"
+        or (canaccesstable and not canaccesstable(update))then return end
+    local now=GetTime()
+    local function Observe(slot,aura)
+        if not Readable(aura) or type(aura)~="table"
+            or (canaccesstable and not canaccesstable(aura))then return end
+        local id=Number(aura.spellId) or Number(aura.spellID)
+        if not (id and (id==slot.spellID or (slot.boundAuraIDs and slot.boundAuraIDs[id])))
+            and not (slot.auraMatchName and Readable(aura.name) and aura.name==slot.auraMatchName)then return end
+        if not Readable(aura.isHarmful) or aura.isHarmful~=true then return end
+        if slot.entry.onlyMine~=false and not AuraSourceIsPlayer(aura) then return end
+        local instance=Number(aura.auraInstanceID)
+        if not instance then return end
+        local expires=Number(aura.expirationTime)
+        if not expires then
+            local duration=Safe(C_UnitAuras and C_UnitAuras.GetAuraDuration,"target",instance)
+            expires=AuraDurationEnd(duration,now)
+        end
+        if expires and expires>0 and expires<=now then return end
+        slot.soundAura={entry=slot.entry,id=instance,expires=expires and expires>0 and expires or nil}
+        if not slot.skillSound or slot.skillSound.entry~=slot.entry then
+            slot.skillSound={entry=slot.entry,active=false}
+        end
+        UpdateSkillSound(slot,now,true,slot.soundAura.expires)
+    end
+    local added,updated,removed=update.addedAuras,update.updatedAuraInstanceIDs,update.removedAuraInstanceIDs
+    local function List(value)
+        return Readable(value) and type(value)=="table" and (not canaccesstable or canaccesstable(value)) and value
+    end
+    added,updated,removed=List(added),List(updated),List(removed)
+    local full=Readable(update.isFullUpdate) and update.isFullUpdate==true
+    if not added and not updated and not removed and not full then return end
+    for _,slot in ipairs(o.skillIcons)do
+        if slot.entry and slot.entry.type=="debuff" and slot.entry.soundEnabled then
+            for _,aura in ipairs(added or {})do Observe(slot,aura)end
+            local tracked=slot.soundAura
+            if tracked and tracked.entry==slot.entry then
+                if full and C_UnitAuras and C_UnitAuras.GetAuraDataByAuraInstanceID then
+                    local ok,aura=pcall(C_UnitAuras.GetAuraDataByAuraInstanceID,"target",tracked.id)
+                    if ok and type(aura)=="nil" then
+                        slot.soundAura=nil;UpdateSkillSound(slot,now,false)
+                    elseif ok then Observe(slot,aura)end
+                end
+                for _,id in ipairs(updated or {})do
+                    if Number(id)==tracked.id then
+                        Observe(slot,Safe(C_UnitAuras and C_UnitAuras.GetAuraDataByAuraInstanceID,"target",id))
+                    end
+                end
+                for _,id in ipairs(removed or {})do
+                    if Number(id)==tracked.id and slot.soundAura and slot.soundAura.id==tracked.id then
+                        slot.soundAura=nil
+                        UpdateSkillSound(slot,now,false)
+                    end
+                end
+            end
+        end
+    end
 end
 
 local function SpellSoundTimer(slot,now)
@@ -2281,10 +2354,16 @@ function S.Paint(view,o,animateOnly)
                     else auraUnknown=nativeActive==nil and slot.effectPresence~=nil end
                 elseif useNative and not active then
                     for _,watch in ipairs(slot.nativeGlows or {})do
-                        local nativeActive,finish,timer=NativeSoundTimer(slot,watch.marker,watch.timer,now)
+                        local nativeActive,finish,timer=NativeSoundTimer(slot,watch.marker,watch.timer,now,watch.auraFrame)
                         if nativeActive then soundActive,expires,nativeTimer=true,finish,timer;break end
                         if nativeActive==nil then auraUnknown=true end
                     end
+                end
+                local tracked=slot.soundAura
+                if tracked and tracked.entry==entry then
+                    if not tracked.expires or tracked.expires>now then
+                        soundActive,expires=true,expires or tracked.expires
+                    else slot.soundAura=nil end
                 end
                 if slot.blizzardEnd and slot.blizzardEnd>now and not expires then
                     soundActive,expires=true,slot.blizzardEnd
@@ -2298,7 +2377,7 @@ function S.Paint(view,o,animateOnly)
                 UpdateSkillSound(slot,now,soundActive,expires,nativeTimer)
                 local tracking=slot.skillSound
                 slot.triggerVisible=soundActive==true or (soundActive==nil and tracking and tracking.active and not tracking.ended)
-            elseif not view.preview then slot.skillSound=nil end
+            elseif not view.preview then slot.skillSound,slot.soundAura=nil,nil end
         end
         if not view.preview then
             S.UpdateSkillSwipe(slot,group,now,effectVisible)
@@ -2369,6 +2448,9 @@ function S.Event(view,event,unit,castGUID,spellID)
         -- action usability, but it must not tear down a live aura timer.
         S.InvalidateMonitor(o,"cooldown",true)
     elseif event=="UNIT_AURA" then
+        if unit=="target" and o.skillKinds and o.skillKinds.debuff and o.frame:IsShown()then
+            TargetDebuffSoundEvent(o,castGUID)
+        end
         for _,kind in ipairs(auraKinds)do
             if auraTypes[kind].unit==unit then S.InvalidateMonitor(o,kind)end
         end
@@ -2382,7 +2464,9 @@ function S.Event(view,event,unit,castGUID,spellID)
         for _,slot in ipairs(o.skillIcons)do
             if slot.effect and (slot.effect.unit=="target" or slot.effect.alternate)then slot.effectAura=nil end
             local aura=slot.entry and auraTypes[slot.entry.type]
-            if (aura and aura.unit=="target") or (slot.effect and slot.effect.unit=="target")then slot.skillSound=nil end
+            if (aura and aura.unit=="target") or (slot.effect and slot.effect.unit=="target")then
+                slot.skillSound,slot.soundAura,slot.auraSoundTimer=nil,nil,nil
+            end
         end
         S.InvalidateMonitor(o,"cooldown",true)
     elseif activation or event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" or event=="ACTIONBAR_SLOT_CHANGED" then
