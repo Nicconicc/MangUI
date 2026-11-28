@@ -66,6 +66,7 @@ local function CategoryEntries(key, order, readInfo, overrides, defaultLayout)
                     local entry = S.NewEntry()
                     entry.type, entry.value, entry.blizzardCooldownID = "blizzard", tostring(base or id), cooldownID
                     entry.blizzardCategory=key
+                    if key=="TrackedBuff" then entry.onlyMine=true end
                     entries[#entries + 1] = entry
                 end
             end

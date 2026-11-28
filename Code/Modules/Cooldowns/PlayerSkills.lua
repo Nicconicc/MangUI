@@ -1235,6 +1235,13 @@ local function ResolveEffect(slot,preview)
             if entry.type=="blizzard" then
                 local other=auraTypes[kind=="buff" and "debuff" or "buff"]
                 slot.effect.alternate={unit=other.unit,filter=other.filter,ids=ids}
+                if entry.blizzardCategory=="TrackedBuff" then
+                    local onlyMine=entry.onlyMine~=false
+                    slot.effect.onlyMine=onlyMine
+                    slot.effect.filter=AuraFilter(aura,onlyMine)
+                    slot.effect.alternate.onlyMine=onlyMine
+                    slot.effect.alternate.filter=AuraFilter(other,onlyMine)
+                end
             else
                 slot.effect.onlyMine=entry.onlyMine~=false
                 slot.effect.filter=AuraFilter(aura,slot.effect.onlyMine)
@@ -1661,6 +1668,10 @@ end
 local function ReadBlizzardPresentation(slot,frame)
     slot.blizzardTimer,slot.blizzardDesaturated,slot.blizzardAuraActive=nil,nil,nil
     local usesAura=frame and frame.cooldownUseAuraDisplayTime
+    local ownTracked=slot.entry.blizzardCategory=="TrackedBuff" and slot.entry.onlyMine~=false
+    -- The unfiltered CDM label cannot verify the caster. Use our filtered
+    -- native aura container for these timers, including during combat.
+    if ownTracked and (not Readable(usesAura) or usesAura~=false) then return end
     slot.blizzardAuraActive=Readable(usesAura) and usesAura==true
     local texture=frame and Safe(frame.GetIconTexture,frame)
     if Readable(texture) and texture then
@@ -2386,7 +2397,7 @@ function S.BuildControls(e,parent,Row)
         triggerColor:SetColor(entry.triggerGlowColor or whiteGlow)
         stackColor:SetColor(entry.maxStackGlowColor or whiteGlow)
         reverse:SetChecked(entry.reverseDisplay==true)
-        onlyMine:SetShown(aura~=nil or combined~=nil)
+        onlyMine:SetShown(aura~=nil or combined~=nil or (entry.type=="blizzard" and entry.blizzardCategory=="TrackedBuff"))
         onlyMine:SetChecked(entry.onlyMine~=false)
     end
 end
