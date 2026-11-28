@@ -14,7 +14,8 @@ local function SkillChecked(group,key)
     if key=="skillRangeRed" then return group[key]==true end
     return group[key]~=false
 end
-local extraEntryFields={triggerGlow=true,maxStackGlow=true,maxStacks=true,slot=true,blizzardCategory=true}
+local extraEntryFields={triggerGlow=true,maxStackGlow=true,triggerGlowColor=true,maxStackGlowColor=true,maxStacks=true,slot=true,blizzardCategory=true}
+local whiteGlow={1,1,1,1}
 local validBlizzardCategories={Essential=true,Utility=true,TrackedBuff=true}
 local effectTypes={buffCooldown="buff",debuffCooldown="debuff"}
 local function IsCombined(entry)return entry.type=="blizzard" or effectTypes[entry.type]~=nil end
@@ -96,6 +97,16 @@ function S.ValidEntries(entries)
         if type(key)~="number" or key%1~=0 or key<1 or key>#entries or type(entry)~="table" then return false end
         if entry.type~="cooldown" and entry.type~="usable" and entry.type~="stance" and entry.type~="equipment" and not auraTypes[entry.type] and entry.type~="custom" and not IsCombined(entry)then return false end
         if not M.CustomMonitor.Valid(entry)then return false end
+        for _,key in ipairs({"triggerGlowColor","maxStackGlowColor"})do
+            local color=entry[key]
+            if color~=nil then
+                if type(color)~="table" or #color~=4 then return false end
+                for index=1,4 do
+                    local value=color[index]
+                    if type(value)~="number" or value~=value or value<0 or value>1 then return false end
+                end
+            end
+        end
         if type(entry.value)~="string" or #entry.value>384 then return false end
         if entry.effect~=nil and (type(entry.effect)~="string" or #entry.effect>384)then return false end
         if entry.blizzardCategory~=nil and not validBlizzardCategories[entry.blizzardCategory]then return false end
@@ -774,13 +785,34 @@ local function AuraVisibilityMarker(parent)
     marker:SetAllPoints();marker:EnableMouse(false)
     return marker
 end
+local function ApplySkillGlowBorder(glow,border)
+    if glow.skinBorder==border then return end
+    glow.skinBorder=border
+    if border then
+        if border.atlas and glow.edge.SetAtlas then glow.edge:SetAtlas(border.atlas)
+        else glow.edge:SetTexture(border.texture)end
+        glow.edge:SetTexCoord(unpack(border.coords))
+        glow.edge:SetSize(border.width,border.height)
+        glow.edge:SetDesaturated(true)
+        glow.inner:Hide()
+    else
+        glow.edge:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+        glow.edge:SetTexCoord(0,1,0,1);glow.edge:SetSize(72,72)
+        glow.edge:SetDesaturated(false)
+        glow.inner:Show()
+    end
+end
+local function PaintSkillGlow(slot,glow,enabled,color,now)
+    M.CustomMonitor.PaintGlow(glow,enabled,color or whiteGlow,now)
+    if enabled then ApplySkillGlowBorder(glow,M.MasqueIcons.GlowBorder(slot.texture))end
+end
 local function CreateNativeGlowDisplay(slot,marker)
     -- The marker observes the aura, but the glow belongs to MangUI's slot.
     local glow=M.CustomMonitor.CreateGlow(slot)
     glow:SetFrameLevel(slot:GetFrameLevel()+25)
     return {glow=glow,marker=marker}
 end
-local function PaintNativeGlow(display,enabled,now)
+local function PaintNativeGlow(slot,display,enabled,now,color)
     if not display or not display.glow then return end
     local glow,marker=display.glow,display.marker
     local visible=enabled and marker and Safe(marker.IsVisible,marker)
@@ -788,12 +820,12 @@ local function PaintNativeGlow(display,enabled,now)
         if not Readable(visible) then
             if glow.SetAlphaFromBoolean then
                 glow:SetAlphaFromBoolean(visible,1,0)
-                M.CustomMonitor.PaintGlow(glow,true,nil,now)
+                PaintSkillGlow(slot,glow,true,color,now)
                 return
             end
         elseif visible then
             glow:SetAlpha(1)
-            M.CustomMonitor.PaintGlow(glow,true,nil,now)
+            PaintSkillGlow(slot,glow,true,color,now)
             return
         end
     end
@@ -1727,11 +1759,11 @@ local function PaintRestrictedStackGlow(slot,count,threshold,now)
     end
     if slot.restrictedStackGlow then
         if shown then M.CustomMonitor.SetVisual(slot.restrictedStackGlow,"SetAlpha",alpha)end
-        M.CustomMonitor.PaintGlow(slot.restrictedStackGlow,shown,nil,now)
+        PaintSkillGlow(slot,slot.restrictedStackGlow,shown,slot.entry.maxStackGlowColor,now)
     end
 end
 
-local function PaintTriggerGlow(slot,shouldGlow,watchCooldown,now)
+local function PaintTriggerGlow(slot,shouldGlow,watchCooldown,now,color)
     local alpha=shouldGlow and 1 or 0
     if watchCooldown and not shouldGlow then
         if slot.duration then
@@ -1753,7 +1785,7 @@ local function PaintTriggerGlow(slot,shouldGlow,watchCooldown,now)
         local level=slot:GetFrameLevel()+25
         if slot.customGlow:GetFrameLevel()~=level then slot.customGlow:SetFrameLevel(level)end
         M.CustomMonitor.SetVisual(slot.customGlow,"SetAlpha",alpha)
-        M.CustomMonitor.PaintGlow(slot.customGlow,shouldGlow,nil,now)
+        PaintSkillGlow(slot,slot.customGlow,shouldGlow,color,now)
     end
 end
 
@@ -1904,10 +1936,11 @@ function S.Paint(view,o,animateOnly)
         end
         if slot.entry.type=="custom"then
             if slot.restrictedStackGlow then slot.restrictedStackGlow:Hide()end
-            for _,display in ipairs(slot.nativeGlows or {})do PaintNativeGlow(display,false,now)end
-            for _,display in ipairs(slot.nativeStacks or {})do PaintNativeGlow(display,false,now)end
-            PaintNativeGlow(slot.effectNativeGlow,false,now)
-            PaintNativeGlow(slot.effectNativeStack,false,now)
+            for _,display in ipairs(slot.nativeGlows or {})do PaintNativeGlow(slot,display,false,now)end
+            for _,display in ipairs(slot.nativeStacks or {})do PaintNativeGlow(slot,display,false,now)end
+            PaintNativeGlow(slot,slot.effectNativeGlow,false,now)
+            PaintNativeGlow(slot,slot.effectNativeStack,false,now)
+            if slot.customGlow then ApplySkillGlowBorder(slot.customGlow,nil)end
             ClearCooldown(slot.cooldown);slot.duration=nil
             local result=M.CustomMonitor.Apply(o,slot,view.preview)
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);textureAlpha=1
@@ -2001,19 +2034,20 @@ function S.Paint(view,o,animateOnly)
             local proc=trigger and (effectVisible==true or slot.effectGlow==true or slot.blizzardAuraActive==true
                 or ((isAura or entry.type=="stance" or entry.type=="equipment") and active))
             local full=threshold and numeric and numeric>=threshold
-            PaintTriggerGlow(slot,proc or full or false,trigger and IsSpellIcon(entry),now)
+            local color=full and (entry.maxStackGlowColor or whiteGlow) or entry.triggerGlowColor
+            PaintTriggerGlow(slot,proc or full or false,trigger and IsSpellIcon(entry),now,color)
             PaintRestrictedStackGlow(slot,count,threshold,now)
             for _,display in ipairs(slot.nativeGlows or {})do
-                PaintNativeGlow(display,trigger and useNative,now)
+                PaintNativeGlow(slot,display,trigger and not full and useNative,now,entry.triggerGlowColor)
             end
             local useNativeEffect=IsSpellIcon(entry) and slot.effect and not slot.effectNeedsBind and not effectVisible
-            PaintNativeGlow(slot.effectNativeGlow,trigger and not proc and useNativeEffect,now)
+            PaintNativeGlow(slot,slot.effectNativeGlow,trigger and not proc and not full and useNativeEffect,now,entry.triggerGlowColor)
             for _,display in ipairs(slot.nativeStacks or {})do
-                PaintNativeGlow(display,threshold and useNative and display.threshold==threshold,now)
+                PaintNativeGlow(slot,display,threshold and useNative and display.threshold==threshold,now,entry.maxStackGlowColor)
             end
             local display=slot.effectNativeStack
             if display and display.glow then
-                PaintNativeGlow(display,threshold and useNativeEffect and display.threshold==threshold,now)
+                PaintNativeGlow(slot,display,threshold and useNativeEffect and display.threshold==threshold,now,entry.maxStackGlowColor)
             end
         end
         if not view.preview then
@@ -2247,6 +2281,22 @@ function S.BuildControls(e,parent,Row)
     local glow=EntryCheck("触发发光","triggerGlow",-96)
     local maxGlow=EntryCheck("最大层数发光","maxStackGlow",-129)
     local reverse=EntryCheck("反转褪色效果","reverseDisplay",-162)
+    local function GlowColor(check,key)
+        local owner,entry
+        local swatch=W.ColorSwatch(panel,function(color)
+            if Editable(owner,entry)then entry[key]=M.Copy(color);M:Commit()end
+        end)
+        swatch:SetPoint("LEFT",check.label,"RIGHT",12,0)
+        local open=swatch:GetScript("OnClick")
+        swatch:SetScript("OnClick",function(button)
+            Flush()
+            owner,entry=panel.owner,panel.entry
+            if Editable(owner,entry)then open(button)end
+        end)
+        return swatch
+    end
+    local triggerColor=GlowColor(glow,"triggerGlowColor")
+    local stackColor=GlowColor(maxGlow,"maxStackGlowColor")
     panel:SetScript("OnHide",function()
         Flush()
         for _,button in ipairs({kind,unit,filter,equipment})do if button.menu then button.menu:Hide()end end
@@ -2292,6 +2342,8 @@ function S.BuildControls(e,parent,Row)
         RefreshIcon()
         glow:SetChecked(TriggerGlowEnabled(entry))
         maxGlow:SetChecked(entry.maxStackGlow==true)
+        triggerColor:SetColor(entry.triggerGlowColor or whiteGlow)
+        stackColor:SetColor(entry.maxStackGlowColor or whiteGlow)
         reverse:SetChecked(entry.reverseDisplay==true)
     end
 end

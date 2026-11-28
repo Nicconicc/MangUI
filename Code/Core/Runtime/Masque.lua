@@ -56,7 +56,7 @@ local function Apply(entry)
         frame:SetPoint("CENTER", parent, "CENTER")
         local normal = frame:CreateTexture(nil, "ARTWORK")
         normal:Hide()
-        entry.frame = frame
+        entry.frame, entry.normal = frame, normal
         entry.group = Group(entry.key)
         if entry.overlay then
             local function UpdateOverlay() SyncOverlay(entry) end
@@ -138,6 +138,38 @@ function K.Reparent(icon, parent)
     icon:SetParent(parent)
     local entry = entries[icon]
     if entry and entry.frame and entry.frame:GetParent() ~= parent then Queue(entry) end
+end
+
+function K.GlowBorder(icon)
+    local entry = entries[icon]
+    if not entry or entry.failed or not entry.normal then return end
+    local now = GetTime()
+    if now < (entry.borderRefresh or 0) then return entry.glowBorder end
+    entry.borderRefresh = now + .25
+    local ok, texture, atlas, width, height, coords = pcall(function()
+        -- Masque can replace the supplied Normal region when a skin has no
+        -- button states. That replacement is the border actually on screen.
+        local config = entry.frame._MSQ_CFG
+        local normal = (config and config.Normal)
+            or (entry.group.GetLayer and entry.group:GetLayer(entry.frame,"Normal"))
+            or entry.normal
+        if not normal:IsShown() then return end
+        local texture, atlas = normal:GetTexture(), normal.GetAtlas and normal:GetAtlas()
+        local width, height = normal:GetWidth(), normal:GetHeight()
+        local coords = {normal:GetTexCoord()}
+        if (texture or atlas) and width > 0 and height > 0 and #coords >= 4 then
+            return texture, atlas, width, height, coords
+        end
+    end)
+    if ok and width then
+        local old = entry.glowBorder
+        if old and old.texture==texture and old.atlas==atlas and old.width==width and old.height==height
+            and table.concat(old.coords,",")==table.concat(coords,",") then return old end
+        entry.glowBorder = {texture=texture,atlas=atlas,width=width,height=height,coords=coords}
+    else
+        entry.glowBorder = nil
+    end
+    return entry.glowBorder
 end
 
 function K.AuraKey(spec)
