@@ -2247,13 +2247,6 @@ function S.BuildControls(e,parent,Row)
     local glow=EntryCheck("触发发光","triggerGlow",-96)
     local maxGlow=EntryCheck("最大层数发光","maxStackGlow",-129)
     local reverse=EntryCheck("反转褪色效果","reverseDisplay",-162)
-    local maxLabel=W.Label(panel,"层数上限（0 = 自动）")
-    maxLabel:SetPoint("LEFT",maxGlow.label,"RIGHT",18,0)
-    local maxStacks=W.SpinBox(panel,84,0,999,1,true)
-    maxStacks:SetPoint("LEFT",maxLabel,"RIGHT",8,0)
-    maxStacks:SetScript("OnValueChanged",function(self,value)
-        if not self.updating then Update(function(entry)entry.maxStacks=value end)end
-    end)
     panel:SetScript("OnHide",function()
         Flush()
         for _,button in ipairs({kind,unit,filter,equipment})do if button.menu then button.menu:Hide()end end
@@ -2300,7 +2293,5 @@ function S.BuildControls(e,parent,Row)
         glow:SetChecked(TriggerGlowEnabled(entry))
         maxGlow:SetChecked(entry.maxStackGlow==true)
         reverse:SetChecked(entry.reverseDisplay==true)
-        maxStacks.updating=true;maxStacks:SetValue(entry.maxStacks or 0);maxStacks.updating=false
-        maxStacks:SetShown(entry.maxStackGlow==true);maxLabel:SetShown(entry.maxStackGlow==true)
     end
 end
