@@ -501,6 +501,30 @@ function M:ResetDesign()
     end
     self.selection="mainComposite"; self:Commit()
 end
+local monitorPosition = {
+    playerSkillMonitor="PlayerSkillMonitor", playerOtherMonitor="PlayerOtherMonitor",
+    receivedBuffs="ReceivedBuffs", raidBuffs="RaidBuffMonitor",
+    raidVulnerability="RaidVulnerability", commonItems="CommonItems",
+}
+local monitorPositionNode = {
+    cooldownMonitor="cooldownMonitorIcons", targetDistance="targetDistanceNumber",
+    targetThreat="targetThreatDisplay",
+}
+function M:PreviewResetKeepsPosition(id)
+    return monitorPosition[id]~=nil or monitorPositionNode[id]~=nil
+end
+local function MonitorPosition(M,id,index)
+    local group=index[id]
+    if not group then return end
+    local anchor=monitorPositionNode[id]
+    if not anchor or not index[anchor] then anchor=id end
+    local geometry=M:Geometry(index,{id,anchor})
+    local g=geometry[anchor]
+    local monitor=monitorPosition[id] and M[monitorPosition[id]]
+    local x,y=0,0
+    if monitor then x,y=monitor.MoveBounds(group)end
+    return g.x+x*g.s,g.y+y*g.s,geometry[id].s
+end
 function M:ResetPreviewModule(moduleID)
     if not self.moduleIDs[moduleID] or not self:CanEdit() then return end
     local defaultsByID,currentByID,sourceNodes,sourceSeen={},{},{},{}
@@ -549,6 +573,19 @@ function M:ResetPreviewModule(moduleID)
     end
     for _,id in ipairs(sourceNodes) do
         if resetIDs[id] and not seen[id] then nodes[#nodes+1]=self.Copy(defaultsByID[id]) end
+    end
+    if self:PreviewResetKeepsPosition(moduleID) and currentByID[moduleID] and resetIDs[moduleID] then
+        local after={}
+        for _,node in ipairs(nodes) do after[node.id]=node end
+        local x,y=MonitorPosition(self,moduleID,currentByID)
+        local newX,newY,scale=MonitorPosition(self,moduleID,after)
+        local group=after[moduleID]
+        if scale>0 then
+            -- The mover tracks the visible center, which can shift when
+            -- restoring icon scale, row direction, or the number of entries.
+            group.x=(group.x or 0)+(x-newX)/scale
+            group.y=(group.y or 0)+(y-newY)/scale
+        end
     end
     self.db.design.nodes=nodes
     if not currentByID[self.selection] or (Belongs(self.selection,currentByID) and not resetIDs[self.selection]) then

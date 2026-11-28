@@ -675,7 +675,7 @@ M:EnsurePlayerSkillMonitor(M.defaults);M:EnsurePlayerSkillMonitor(M.recordedDefa
 function S.EntryIndex(group,entry)
     for i,current in ipairs(group.monitors or {})do if current==entry then return i end end
 end
-local desaturationCurves={}
+local desaturationCurves,reversedOpacityCurves={},{}
 local function DisplayCurve(curves,reversed,inactive,active)
     if not curves[reversed] and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
         local curve=C_CurveUtil.CreateCurve()
@@ -1064,7 +1064,8 @@ local function BindEffect(slot)
             frame:SetFrameLevel(slot.baseIconFrame:GetFrameLevel()+2)
             local icon=frame:CreateTexture(nil,"ARTWORK");icon:SetAllPoints()
             slot.effectNativeIcon=icon
-            icon:SetDesaturated(slot.entry.reverseDisplay==true)
+            local reversed=slot.entry.reverseDisplay==true
+            icon:SetDesaturated(reversed);icon:SetAlpha(reversed and .5 or 1)
             M.MasqueIcons.Attach(icon,"playerSkillMonitor",40,40)
             frame:SetIcon(icon)
             local presence=AuraVisibilityMarker(frame)
@@ -1098,7 +1099,9 @@ local function BindEffect(slot)
     native:SetAuraGroupCandidateFilters("effect",{includeSpellIDs=effect.ids})
     if slot.effectNativeStack then BindNativeStackGlow(slot,slot.effectNativeStack)end
     if slot.effectNativeIcon then
-        Safe(M.CustomMonitor.SetVisual,slot.effectNativeIcon,"SetDesaturated",slot.entry.reverseDisplay==true)
+        local reversed=slot.entry.reverseDisplay==true
+        Safe(M.CustomMonitor.SetVisual,slot.effectNativeIcon,"SetDesaturated",reversed)
+        Safe(M.CustomMonitor.SetVisual,slot.effectNativeIcon,"SetAlpha",reversed and .5 or 1)
     end
     native:SetEnabled(true);native:UpdateAllAuras()
 end
@@ -1208,6 +1211,7 @@ function S.Configure(view,o)
     for i,entry in ipairs(o.entries)do
         o.skillKinds[entry.type]=true
         local slot=Icon(view,o,i);Resolve(slot,entry);slot.duration=nil;slot.expires=nil;slot.active=false;slot.stacks=nil
+        slot.baseIconFrame:SetAlpha(1)
         slot.texture:SetVertexColor(1,1,1)
         slot.appliedSpellR,slot.appliedSpellG,slot.appliedSpellB=1,1,1
         slot:SetScale(S.IconSize(group)/40)
@@ -1672,6 +1676,7 @@ local function PaintEffect(slot,now,reversed)
     local native=slot.effectNative
     local useNative=effect and native and not active and not slot.effectNeedsBind
     if native then native:SetAlpha(useNative and 1 or 0)end
+    if native then slot.baseIconFrame:SetAlpha(1)end
     slot.countGate:SetAlpha(1)
     slot.timerGate:SetAlpha(1)
     M.CustomMonitor.SetVisual(slot.cooldown,"SetAlpha",active and 0 or 1)
@@ -1691,9 +1696,11 @@ local function PaintEffect(slot,now,reversed)
             if slot.timerGate.SetAlphaFromBoolean then
                 slot.timerGate:SetAlphaFromBoolean(present,0,1)
                 slot.countGate:SetAlphaFromBoolean(present,0,1)
+                if reversed then slot.baseIconFrame:SetAlphaFromBoolean(present,0,1)end
             elseif Readable(present) then
                 local alpha=present and 0 or 1
                 slot.timerGate:SetAlpha(alpha);slot.countGate:SetAlpha(alpha)
+                if reversed then slot.baseIconFrame:SetAlpha(alpha)end
             end
         end
     end
@@ -1960,6 +1967,14 @@ function S.Paint(view,o,animateOnly)
                 textureAlpha=1
             end
             PaintSpellColor(slot,reversed,spellFaded)
+            if reversed and slot.entry.type=="blizzard" then
+                if spellFaded~=nil then
+                    textureAlpha=spellFaded and .5 or 1
+                elseif slot.duration and slot.duration.EvaluateRemainingDuration then
+                    local curve=DisplayCurve(reversedOpacityCurves,true,1,.5)
+                    if curve then textureAlpha=slot.duration:EvaluateRemainingDuration(curve,1)end
+                end
+            end
         end
         if slot.entry.type~="custom" then
             local entry=slot.entry

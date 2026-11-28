@@ -301,7 +301,13 @@ function M:OpenDesigner()
         local id=PreviewModuleID(Selected())
         local group=id and M.byID[id]
         if not group or not M:CanEdit() then return end
-        W.Confirm(f,"恢复“"..group.label.."”的默认布局？只会重置当前框体。",function()M:ResetPreviewModule(id)end)
+        local message
+        if M:PreviewResetKeepsPosition(id) then
+            message=M:T("恢复“%s”的默认设置并保留当前位置？"):format(M:T(group.label))
+        else
+            message="恢复“"..group.label.."”的默认布局？只会重置当前框体。"
+        end
+        W.Confirm(f,message,function()M:ResetPreviewModule(id)end)
     end)
     e.restoreGroup:SetHoverTextColor(1,.82,0)
     e.restoreGroup:SetTextCenterOffset(0,-2)
