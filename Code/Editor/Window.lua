@@ -256,15 +256,23 @@ function M:OpenDesigner()
     e.previewMonitorHint:SetTextColor(.7,.75,.8);e.previewMonitorHint:Hide()
     e.monitorGlow=CreateFrame("Frame",nil,e.input,"BackdropTemplate")
     e.monitorGlow:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=10})
-    e.monitorGlow:SetBackdropColor(1,.82,.2,.16);e.monitorGlow:SetBackdropBorderColor(1,.82,.2,1)
+    e.monitorGlow:SetBackdropColor(1,1,1,.16);e.monitorGlow:SetBackdropBorderColor(1,1,1,1)
     e.monitorGlow:EnableMouse(false);e.monitorGlow:Hide()
     local insert=CreateFrame("Frame",nil,e.input);e.monitorInsert=insert
     insert:SetWidth(2);insert:EnableMouse(false);insert:Hide()
-    local beam=insert:CreateTexture(nil,"ARTWORK");beam:SetAllPoints()
-    beam:SetColorTexture(1,.85,.32,1)
-    local halo=insert:CreateTexture(nil,"BACKGROUND")
-    halo:SetPoint("TOPLEFT",-2,1);halo:SetPoint("BOTTOMRIGHT",2,-1)
-    halo:SetColorTexture(1,.65,.14,.38)
+    local function FadeLineHalf(top)
+        local beam=insert:CreateTexture(nil,"ARTWORK")
+        beam:SetPoint("TOPLEFT",insert,top and "TOPLEFT" or "LEFT")
+        beam:SetPoint("BOTTOMRIGHT",insert,top and "RIGHT" or "BOTTOMRIGHT")
+        beam:SetColorTexture(1,1,1,1)
+        local bottomAlpha,topAlpha=top and 1 or 0,top and 0 or 1
+        if beam.SetGradient and CreateColor then
+            beam:SetGradient("VERTICAL",CreateColor(1,1,1,bottomAlpha),CreateColor(1,1,1,topAlpha))
+        elseif beam.SetGradientAlpha then
+            beam:SetGradientAlpha("VERTICAL",1,1,1,bottomAlpha,1,1,1,topAlpha)
+        end
+    end
+    FadeLineHalf(true);FadeLineHalf(false)
     e.monitorGhost=CreateFrame("Frame",nil,e.input)
     e.monitorGhost:SetFrameStrata("TOOLTIP");e.monitorGhost:EnableMouse(false);e.monitorGhost:Hide()
     e.monitorGhost.texture=e.monitorGhost:CreateTexture(nil,"ARTWORK");e.monitorGhost.texture:SetAllPoints()
