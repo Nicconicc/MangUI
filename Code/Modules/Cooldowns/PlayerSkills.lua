@@ -19,6 +19,10 @@ local whiteGlow={1,1,1,1}
 local validBlizzardCategories={Essential=true,Utility=true,TrackedBuff=true}
 local effectTypes={buffCooldown="buff",debuffCooldown="debuff"}
 local function IsCombined(entry)return entry.type=="blizzard" or effectTypes[entry.type]~=nil end
+local function AuraFilter(aura,onlyMine)
+    local filter=aura.filter:gsub("|PLAYER","")
+    return onlyMine and filter.."|PLAYER" or filter
+end
 local function IsSpellIcon(entry)
     return IsCombined(entry) or entry.type=="cooldown" or entry.type=="usable"
 end
@@ -35,6 +39,11 @@ local function Number(v)return Readable(v) and type(v)=="number" and v or nil en
 local function Safe(fn,...)
     if not fn then return end
     local ok,a,b,c,d,e=pcall(fn,...);if ok then return a,b,c,d,e end
+end
+local function AuraSourceIsPlayer(aura)
+    local source=aura.sourceUnit
+    return Readable(source) and (source=="player"
+        or (source~=nil and M.Compat.Bool(Safe(UnitIsUnit,source,"player"))))
 end
 function S.FormatCountdown(seconds)
     seconds=Number(seconds)
@@ -114,6 +123,7 @@ function S.ValidEntries(entries)
         if cooldownID~=nil and (type(cooldownID)~="number" or cooldownID<=0 or cooldownID>2147483647 or cooldownID%1~=0)then return false end
         if entry.showShortcut~=nil and type(entry.showShortcut)~="boolean" then return false end
         if entry.reverseDisplay~=nil and type(entry.reverseDisplay)~="boolean" then return false end
+        if entry.onlyMine~=nil and type(entry.onlyMine)~="boolean" then return false end
         if entry.shortcut~=nil and (type(entry.shortcut)~="string" or #entry.shortcut>128) then return false end
         if entry.shortcutColor~=nil then
             if type(entry.shortcutColor)~="table" then return false end
@@ -130,7 +140,7 @@ function S.ValidEntries(entries)
         if entry.slot~=nil and (type(entry.slot)~="number" or entry.slot%1~=0 or entry.slot<1 or entry.slot>19)then return false end
         for field in pairs(entry)do
             if field~="type" and field~="value" and field~="showShortcut" and field~="shortcut" and field~="shortcutColor"
-                and field~="reverseDisplay" and field~="effect" and field~="blizzardCooldownID" and not extraEntryFields[field] and not M.CustomMonitor.fields[field]then return false end
+                and field~="reverseDisplay" and field~="onlyMine" and field~="effect" and field~="blizzardCooldownID" and not extraEntryFields[field] and not M.CustomMonitor.fields[field]then return false end
         end
     end
     for i=1,#entries do if type(entries[i])~="table" then return false end end
@@ -913,7 +923,8 @@ local function NativeAura(slot,aura,reversed)
     end
     local width=slot.nativeBackdrop and S.auraBackdropLayoutWidth or 40
     local nativeGlows,nativeStacks=slot.nativeGlows,slot.nativeStacks
-    container:AddAuraGroup("monitor",aura.filter,{maxFrameCount=0,
+    slot.nativeAuraFilter=AuraFilter(aura,slot.entry.onlyMine~=false)
+    container:AddAuraGroup("monitor",slot.nativeAuraFilter,{maxFrameCount=0,
         initializeFrame=function(frame)StyleNativeAura(slot,frame,reversed,nativeGlows,nativeStacks)end})
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
@@ -922,7 +933,7 @@ local function NativeAura(slot,aura,reversed)
 end
 -- Native AuraButtons can become inaccessible after initialization. Keep one
 -- initialized container per style and switch containers without restyling them.
-local nativeVariantFields={"nativeAuras","nativeHost","nativeBackdrop","nativeFrames","nativeGlows","nativeStacks","nativeAuraType","shortcutGate","baseIconGate"}
+local nativeVariantFields={"nativeAuras","nativeHost","nativeBackdrop","nativeFrames","nativeGlows","nativeStacks","nativeAuraType","nativeAuraFilter","shortcutGate","baseIconGate"}
 local function SelectNativeAura(slot,aura)
     local reversed=slot.entry.reverseDisplay==true
     if slot.nativeAuras and slot.nativeReversed==reversed then return end
@@ -1064,8 +1075,12 @@ local function BindAura(slot,enabled)
     slot.nativeAuras:SetEnabled(false)
     if slot.nativeAuraType~=slot.entry.type then
         slot.nativeAuras:SetUnit(aura.unit)
-        slot.nativeAuras:SetAuraGroupFilterString("monitor",aura.filter)
         slot.nativeAuraType=slot.entry.type
+    end
+    local filter=AuraFilter(aura,slot.entry.onlyMine~=false)
+    if slot.nativeAuraFilter~=filter then
+        slot.nativeAuras:SetAuraGroupFilterString("monitor",filter)
+        slot.nativeAuraFilter=filter
     end
     local ids={[slot.spellID]=true}
     local raid=M.RaidBuffMonitor
@@ -1087,6 +1102,7 @@ local function BindEffect(slot)
     local native=slot.effectNative
     local effect=slot.effect
     if native then native:SetEnabled(false)end
+    slot.boundEffect=nil
     if not effect or not next(effect.ids) or not NativeAurasAvailable() then return end
     if not native then
         native=CreateFrame("AuraContainer",nil,slot,"CustomAuraContainerTemplate")
@@ -1137,10 +1153,33 @@ local function BindEffect(slot)
         Safe(M.CustomMonitor.SetVisual,slot.effectNativeIcon,"SetAlpha",reversed and reversedOpacity or 1)
     end
     native:SetEnabled(true);native:UpdateAllAuras()
+    slot.boundEffect=effect
 end
 
+local function SameEffectBinding(first,second)
+    if first==second then return true end
+    if not first or not second or first.unit~=second.unit or first.filter~=second.filter then return false end
+    for id in pairs(first.ids)do if not second.ids[id]then return false end end
+    for id in pairs(second.ids)do if not first.ids[id]then return false end end
+    return true
+end
 local function ResolveEffect(slot,preview)
     local entry,id=slot.entry,slot.spellID
+    local blizzardInfo
+    if not preview and entry.type=="blizzard" and M.Compat.interface==16001 then
+        blizzardInfo=Safe(S.GetBlizzardCooldownInfo,entry,id)
+        if not Readable(blizzardInfo) or type(blizzardInfo)~="table"
+            or (canaccesstable and not canaccesstable(blizzardInfo))then blizzardInfo=nil end
+        local known=blizzardInfo and blizzardInfo.isKnown
+        if (not blizzardInfo or not Readable(known)) and InCombatLockdown()
+            and slot.resolvedBlizzardEntry==entry and slot.resolvedBlizzardSpell==id then
+            -- Combat can temporarily restrict the CDM metadata. Keep the
+            -- engine-owned aura timer for the already resolved spell.
+            slot.effectDirty=false
+            return
+        end
+    end
+    slot.resolvedBlizzardEntry,slot.resolvedBlizzardSpell=nil,nil
     slot.effect,slot.effectAura,slot.effectSpell,slot.effectGlow,slot.effectRevenge=nil,nil,nil,nil,nil
     slot.blizzardID,slot.blizzardTimer,slot.blizzardDesaturated,slot.blizzardAuraActive=nil,nil,nil,nil
     slot.effectKnown=true
@@ -1148,9 +1187,10 @@ local function ResolveEffect(slot,preview)
         local kind=effectTypes[entry.type]
         local ids,name={},nil
         if entry.type=="blizzard" and M.Compat.interface==16001 then
-            local info=Safe(S.GetBlizzardCooldownInfo,entry,id)
+            local info=blizzardInfo
             slot.effectKnown=info and Readable(info.isKnown) and info.isKnown==true or false
             if info then
+                slot.resolvedBlizzardEntry,slot.resolvedBlizzardSpell=entry,id
                 slot.effectSpell=Number(info.overrideSpellID) or Number(info.spellID)
                 slot.blizzardID=Number(info.cooldownID) or entry.blizzardCooldownID
                 local revengeName=M.PetBuffs.SpellInfo(6572)
@@ -1195,6 +1235,9 @@ local function ResolveEffect(slot,preview)
             if entry.type=="blizzard" then
                 local other=auraTypes[kind=="buff" and "debuff" or "buff"]
                 slot.effect.alternate={unit=other.unit,filter=other.filter,ids=ids}
+            else
+                slot.effect.onlyMine=entry.onlyMine~=false
+                slot.effect.filter=AuraFilter(aura,slot.effect.onlyMine)
             end
         end
     end
@@ -1210,7 +1253,7 @@ local function ResolveEffect(slot,preview)
         end
     end
     slot.effectDirty=false
-    slot.effectNeedsBind=slot.effect~=nil or slot.effectNative~=nil
+    slot.effectNeedsBind=not SameEffectBinding(slot.boundEffect,slot.effect)
 end
 -- All callers use the same deadlines, including full renderer refreshes.
 -- Events only mark data dirty. An event burst can consume one refresh per lane.
@@ -1228,9 +1271,6 @@ function S.MonitorRefreshDue(o, key, now, fallback)
     o.monitorEarliest[key] = now + .05
     o.monitorFallback[key] = now + fallback
     return true
-end
-function S.TargetAuraFilter(native)
-    return native and "HARMFUL" or "HARMFUL|PLAYER"
 end
 function S.Configure(view,o)
     o.skillIcons=o.skillIcons or {};o.nativeTargetGeneration=nil
@@ -1512,7 +1552,6 @@ end
 local emptyAuraSlots={}
 local function ScanAuras(o,kind)
     local auraType=auraTypes[kind]
-    local debuff=kind=="debuff"
     local byID, byName = {}, {}
     for _,slot in ipairs(o.skillIcons)do
         local entry=slot.entry
@@ -1531,21 +1570,19 @@ local function ScanAuras(o,kind)
     end
     if not next(byID) and not next(byName) then return end
     if o.usesNativeAuras and C_Secrets and M.Compat.Bool(Safe(C_Secrets.ShouldAurasBeSecret,auraType.unit)) then return end
-    local filter=debuff and S.TargetAuraFilter(o.usesNativeAuras) or auraType.filter
+    local filter=AuraFilter(auraType,false)
     for _,aura in ipairs(M.Compat.AuraSnapshot(auraType.unit,filter))do
         local id=Number(aura.spellId) or Number(aura.spellID)
         local named=Readable(aura.name) and byName[aura.name]
         local numbered=id and byID[id]
         if named or numbered then
-            local source=aura.sourceUnit
-            local accepted=not debuff or (Readable(source) and (source=="player" or
-                (source~=nil and UnitIsUnit and M.Compat.Bool(Safe(UnitIsUnit,source,"player")))))
-            if accepted then
-                local stacks,expires=Number(aura.applications),Number(aura.expirationTime)
-                for i=1,2 do
-                    local slots
-                    if i==1 then slots=named else slots=numbered end
-                    for _,slot in ipairs(slots or emptyAuraSlots) do
+            local own=AuraSourceIsPlayer(aura)
+            local stacks,expires=Number(aura.applications),Number(aura.expirationTime)
+            for i=1,2 do
+                local slots
+                if i==1 then slots=named else slots=numbered end
+                for _,slot in ipairs(slots or emptyAuraSlots) do
+                    if slot.entry.onlyMine==false or own then
                         slot.active=true
                         if id and o.usesNativeAuras and not (slot.boundAuraIDs and slot.boundAuraIDs[id]) then
                             slot.observedAuraIDs=slot.observedAuraIDs or {}
@@ -1568,7 +1605,8 @@ local function FindEffectAura(effect,now)
             local aura=Safe(C_UnitAuras.GetPlayerAuraBySpellID,id)
             if Readable(aura) and type(aura)=="table" and (not canaccesstable or canaccesstable(aura))then
                 local expires=Number(aura.expirationTime)
-                if expires and (expires==0 or expires>now) then return aura end
+                if expires and (expires==0 or expires>now)
+                    and (effect.onlyMine~=true or AuraSourceIsPlayer(aura)) then return aura end
             end
         end
     end
@@ -1579,9 +1617,8 @@ local function FindEffectAura(effect,now)
         local id=Number(aura.spellId) or Number(aura.spellID)
         local sameName=effect.name and Readable(aura.name) and effect.name==aura.name
         if (id and effect.ids[id]) or sameName then
-            local source=aura.sourceUnit
-            local own=effect.unit~="target" or (Readable(source) and (source=="player"
-                or (source and M.Compat.Bool(Safe(UnitIsUnit,source,"player")))))
+            local requireMine=effect.onlyMine==true or (effect.onlyMine==nil and effect.unit=="target")
+            local own=not requireMine or AuraSourceIsPlayer(aura)
             local expires=Number(aura.expirationTime)
             if own and expires and ((expires==0 and not best) or (expires>now and expires>latest)) then
                 best,latest=aura,expires
@@ -1712,16 +1749,15 @@ local function PaintEffect(slot,now,reversed)
     if native then slot.baseIconFrame:SetAlpha(1)end
     slot.countGate:SetAlpha(1)
     slot.timerGate:SetAlpha(1)
-    M.CustomMonitor.SetVisual(slot.cooldown,"SetAlpha",active and 0 or 1)
+    M.CustomMonitor.SetVisual(slot.cooldown,"SetAlpha",timed and 0 or 1)
     if timed then
         Remaining(slot,expires-now)
     elseif slot.blizzardTimer then
         M.CustomMonitor.SetText(slot.text,slot.blizzardTimer)
     end
     if active then
-        if not timed then Remaining(slot)end
         M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",reversed)
-        return true,true
+        return true,timed or slot.blizzardTimer~=nil
     end
     if useNative and slot.effectPresence then
         local present=Safe(slot.effectPresence.IsVisible,slot.effectPresence)
@@ -2083,7 +2119,11 @@ function S.Event(view,event,unit)
     if event=="SPELLS_CHANGED" or event=="LEARNED_SPELL_IN_TAB" or event=="PLAYER_ENTERING_WORLD" then learnedSpells=nil end
     local o=view.nodes.playerSkillMonitorIcons
     if not o or not o.monitorDirty then return end
-    if event=="UNIT_AURA" then
+    if event=="ACTIONBAR_PAGE_CHANGED" or event=="UPDATE_BONUS_ACTIONBAR" or event=="UPDATE_BINDINGS" then
+        -- Shortcut labels update via bindingRevision. Paging may change
+        -- action usability, but it must not tear down a live aura timer.
+        S.InvalidateMonitor(o,"cooldown",true)
+    elseif event=="UNIT_AURA" then
         for _,kind in ipairs(auraKinds)do
             if auraTypes[kind].unit==unit then S.InvalidateMonitor(o,kind)end
         end
@@ -2133,7 +2173,7 @@ function S.BuildControls(e,parent,Row)
     local appearance=Panel(24,"skillMonitorAppearance")
     W.SettingsSectionTitle(appearance,"外观与显示",-8)
     local share=Panel(56,"skillMonitorSharing")
-    local panel=Panel(239,"skillMonitorEntry");e.skillMonitorPanel=panel
+    local panel=Panel(271,"skillMonitorEntry");e.skillMonitorPanel=panel
     local function Flush() if panel.edit and panel.edit:HasFocus() then panel.edit:ClearFocus() end end
     local back=W.Button(panel,"返回",96,function()
         Flush()
@@ -2281,6 +2321,7 @@ function S.BuildControls(e,parent,Row)
     local glow=EntryCheck("触发发光","triggerGlow",-96)
     local maxGlow=EntryCheck("最大层数发光","maxStackGlow",-129)
     local reverse=EntryCheck("反转褪色效果","reverseDisplay",-162)
+    local onlyMine=EntryCheck("只来源于自己","onlyMine",-195)
     local function GlowColor(check,key)
         local owner,entry
         local swatch=W.ColorSwatch(panel,function(color)
@@ -2345,5 +2386,7 @@ function S.BuildControls(e,parent,Row)
         triggerColor:SetColor(entry.triggerGlowColor or whiteGlow)
         stackColor:SetColor(entry.maxStackGlowColor or whiteGlow)
         reverse:SetChecked(entry.reverseDisplay==true)
+        onlyMine:SetShown(aura~=nil or combined~=nil)
+        onlyMine:SetChecked(entry.onlyMine~=false)
     end
 end
