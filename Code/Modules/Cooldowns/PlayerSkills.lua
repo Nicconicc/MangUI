@@ -897,13 +897,13 @@ local function StyleNativeAura(slot,frame,reversed,nativeGlows,nativeStacks)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
     local forever=slot.nativeHost~=nil
     if forever then frame:SetFrameLevel(slot.baseIconFrame:GetFrameLevel()+2)end
-    frame.monitorIcon=frame:CreateTexture(nil,"ARTWORK");frame.monitorIcon:SetAllPoints();frame.monitorIcon:SetDesaturated(not reversed)
-    if not reversed and forever and not slot.nativeBackdrop then
+    frame.monitorIcon=frame:CreateTexture(nil,"ARTWORK");frame.monitorIcon:SetAllPoints();frame.monitorIcon:SetDesaturated(reversed)
+    if reversed and forever and not slot.nativeBackdrop then
         -- The provider owns visibility. An opaque, dimmed icon covers the
         -- colored base even when the client forbids reading aura visibility.
         frame.monitorIcon:SetVertexColor(.5,.5,.5,1)
-    elseif not reversed then
-        frame.monitorIcon:SetAlpha(.5)
+    elseif reversed then
+        frame.monitorIcon:SetAlpha(reversedOpacity)
     end
     frame.monitorTime=frame:CreateFontString(nil,"OVERLAY");Font(frame.monitorTime)
     frame.monitorTime:SetPoint("BOTTOM",frame,"TOP",0,7)
@@ -958,7 +958,7 @@ local function NativeAura(slot,aura,reversed)
         if backdrop then
             slot.nativeBackdrop=backdrop:CreateTexture(nil,"ARTWORK");slot.nativeBackdrop:SetAllPoints()
             slot.nativeBackdrop:SetTexture(M:TextureFile(slot.customFallbackIcon))
-            slot.nativeBackdrop:SetDesaturated(reversed);slot.nativeBackdrop:SetAlpha(reversed and reversedOpacity or 1)
+            slot.nativeBackdrop:SetDesaturated(not reversed);slot.nativeBackdrop:SetAlpha(reversed and 1 or .5)
             M.MasqueIcons.Attach(slot.nativeBackdrop,"playerSkillMonitor",40,40)
         end
     end
@@ -1782,9 +1782,10 @@ local function UpdateSpellColor(slot,group)
     end
     slot.spellR,slot.spellG,slot.spellB=r,g,b
 end
-local function PaintSpellColor(slot,reversed,faded)
+local function PaintSpellColor(slot,reversed,faded,triggered)
     local r,g,b=slot.spellR,slot.spellG,slot.spellB
-    if reversed and slot.entry.type=="blizzard" and (faded==true or (faded==nil and b>r)) then
+    if (triggered and not (r==.64 and g==.15 and b==.15))
+        or (reversed and slot.entry.type=="blizzard" and (faded==true or (faded==nil and b>r))) then
         -- Vertex tint is applied after desaturation. Use neutral RGB so the
         -- reversed CDM icon stays gray even when the spell lacks resources.
         r,g,b=1,1,1
@@ -2186,11 +2187,12 @@ function S.Paint(view,o,animateOnly)
                 end
             end
         elseif useNative then
-            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",reversed);M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
-            textureAlpha=reversed and reversedOpacity or 1
+            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",not reversed);M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
+            textureAlpha=reversed and 1 or .5
         else
             local active=slot.active and (not slot.expires or slot.expires>now)
             local faded=(active==true)~=reversed
+            if not IsSpellIcon(slot.entry) then faded=(active~=true)~=reversed end
             if IsSpellIcon(slot.entry) and not slot.cooldownDesaturates then faded=reversed end
             spellFaded=faded
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);Remaining(slot,active and slot.expires and slot.expires-now or nil)
@@ -2210,7 +2212,17 @@ function S.Paint(view,o,animateOnly)
                 M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",spellFaded)
                 textureAlpha=1
             end
-            PaintSpellColor(slot,reversed,spellFaded)
+            local triggered=slot.entry.type~="blizzard" and (effectVisible or slot.effectGlow==true
+                or (slot.active and slot.expires and slot.expires>now)
+                or (slot.duration and spellFaded~=nil and spellFaded~=reversed))
+            if triggered then
+                spellFaded=reversed
+                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",spellFaded)
+            elseif slot.entry.type~="blizzard" and slot.duration and not reversed then
+                -- The cooldown sweep can run without desaturating a manual icon.
+                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
+            end
+            PaintSpellColor(slot,reversed,spellFaded,triggered)
             if reversed then
                 if spellFaded~=nil then
                     textureAlpha=spellFaded and reversedOpacity or 1
