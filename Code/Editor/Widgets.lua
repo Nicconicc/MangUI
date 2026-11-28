@@ -453,7 +453,7 @@ function W.Toggle(parent)
         thumb:ClearAllPoints()
         thumb:SetPoint("CENTER",track,"CENTER",checked and 6 or -6,0)
         if checked then
-            track:SetVertexColor(.32,.33,.46,opacity)
+            track:SetVertexColor(.56,.78,.53,opacity)
             thumb:SetVertexColor(.92,.92,.92,opacity)
         else
             track:SetVertexColor(.22,.22,.24,opacity)
@@ -476,7 +476,8 @@ function W.Toggle(parent)
 end
 function W.Check(parent,text,fn)
     local b=W.Toggle(parent)
-    local label=W.Label(b,text);label:SetPoint("LEFT",b,"RIGHT",0,0);label:SetTextColor(.9,.9,.9);b.label=label
+    b:SetWidth(32)
+    local label=W.Label(b,text);label:SetPoint("LEFT",b,"RIGHT",2,0);label:SetTextColor(.9,.9,.9);b.label=label
     b.onToggle=function(self)fn(self:GetChecked())end;return b
 end
 function W.Drop(parent,width,choices,fn)
