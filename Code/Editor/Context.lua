@@ -141,7 +141,7 @@ local propertyCategories={
         {"partyFont","partyNameSize"},{"partyHideInRaid","partyHideNumbers","partyHidePlayer","partyBuffsTimedOnly","partyBuffsOnlyPlayer"},{"partyMouseoverCast"}},
     cast={{"overallScale","castHorizontalScale","castIconSize","castColor","castStageSound"},{"hidePlayerCastText","nameFont","castFontSize"},{"showRangedProgress","showMeleeProgress"}},
     playerSkillMonitor={{"skillMonitorImport","skillMonitorAppearance","skillIconScale","skillIconSpacing","skillMonitorDirection","skillMonitorHideWithoutTarget",
-        "skillCooldownSwipe","skillShowGCD","skillShowShortcut","skillMonitorEntry"},{"skillMonitorSharing"}},
+        "skillCooldownSwipe","skillShowGCD","skillShowShortcut","skillRangeRed","skillMonitorEntry"},{"skillMonitorSharing"}},
     playerOtherMonitor={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"otherMonitorItems"},{"otherMonitorEquipment"},{"otherMonitorSharing"}},
     cooldownMonitor={{"scale"},{"minCooldown","maxCooldown"},{"blacklist"}},
     raidBuffs={{"scale","skillMonitorHideWithoutTarget","raidBuffsOnlyRaid","skillMonitorDirection"},{"raidBuffsSharedRows"},{"raidBuffsSharing"},{"raidBuffsGuideSettings"}},

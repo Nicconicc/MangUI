@@ -479,7 +479,7 @@ local function RefreshProperties(self)
                 else
                     visible=row.key=="skillMonitorAppearance" or row.key=="skillIconScale" or row.key=="skillIconSpacing" or row.key=="skillMonitorDirection"
                         or row.key=="skillMonitorHideWithoutTarget" or row.key=="skillCooldownSwipe" or row.key=="skillShowGCD"
-                        or row.key=="skillShowShortcut" or row.key=="skillMonitorSharing"
+                        or row.key=="skillShowShortcut" or row.key=="skillRangeRed" or row.key=="skillMonitorSharing"
                         or (row.key=="skillMonitorImport" and e.skillMonitorImport.available~=nil)
                 end
             elseif n.compound=="raidBuffs"then

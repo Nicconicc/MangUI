@@ -10,10 +10,20 @@ local auraTypes={
 local auraKinds={"buff","debuff","targetBuff","playerDebuff"}
 local skillNumeric={skillIconScale={.5,2,1},skillIconSpacing={0,10,4}}
 local skillChecks={"skillCooldownSwipe","skillShowGCD","skillShowShortcut"}
+local function SkillChecked(group,key)
+    if key=="skillRangeRed" then return group[key]==true end
+    return group[key]~=false
+end
 local extraEntryFields={triggerGlow=true,maxStackGlow=true,maxStacks=true,slot=true,blizzardCategory=true}
 local validBlizzardCategories={Essential=true,Utility=true,TrackedBuff=true}
 local effectTypes={buffCooldown="buff",debuffCooldown="debuff"}
 local function IsCombined(entry)return entry.type=="blizzard" or effectTypes[entry.type]~=nil end
+local function IsSpellIcon(entry)
+    return IsCombined(entry) or entry.type=="cooldown" or entry.type=="usable"
+end
+local function TriggerGlowEnabled(entry)
+    return entry.triggerGlow==true or (entry.type=="usable" and entry.triggerGlow==nil)
+end
 local function Readable(v)return not issecretvalue or not issecretvalue(v)end
 local function Number(v)return Readable(v) and type(v)=="number" and v or nil end
 local function Safe(fn,...)
@@ -607,6 +617,7 @@ function M:EnsurePlayerSkillMonitor(design)
     group.growthDirection=S.Direction(group)
     for key,v in pairs(skillNumeric)do group[key]=M.Clamp(tonumber(group[key]) or v[3],v[1],v[2])end
     for _,key in ipairs(skillChecks)do group[key]=group[key]~=false end
+    group.skillRangeRed=group.skillRangeRed==true
     for _,entry in ipairs(group.monitors)do
         entry.value=S.Input(entry.value);entry.shortcut=S.Input(entry.shortcut)
         if entry.type=="custom"then M.CustomMonitor.Defaults(entry)end
@@ -659,8 +670,7 @@ M:EnsurePlayerSkillMonitor(M.defaults);M:EnsurePlayerSkillMonitor(M.recordedDefa
 function S.EntryIndex(group,entry)
     for i,current in ipairs(group.monitors or {})do if current==entry then return i end end
 end
-local desaturationCurves,fadeCurves={},{}
-local shortcutCurve
+local desaturationCurves={}
 local function DisplayCurve(curves,reversed,inactive,active)
     if not curves[reversed] and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
         local curve=C_CurveUtil.CreateCurve()
@@ -670,13 +680,6 @@ local function DisplayCurve(curves,reversed,inactive,active)
         curves[reversed]=curve
     end
     return curves[reversed]
-end
-local function ShortcutCurve()
-    if not shortcutCurve and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
-        shortcutCurve=C_CurveUtil.CreateCurve();shortcutCurve:SetType(Enum.LuaCurveType.Step)
-        shortcutCurve:AddPoint(0,1);shortcutCurve:AddPoint(.001,0)
-    end
-    return shortcutCurve
 end
 local function NativeAurasAvailable()
     local interface=M.Compat.interface or 0
@@ -689,6 +692,10 @@ local function NativeAurasAvailable()
 end
 local function ClearCooldown(cooldown)
     if cooldown.Clear then cooldown:Clear() else cooldown:SetCooldown(0,0) end
+end
+local function ConfigureSwipe(timer)
+    if timer.SetReverse then timer:SetReverse(true)end
+    if timer.SetSwipeColor then timer:SetSwipeColor(0,0,0,.7)end
 end
 local countdownFontSize=16 -- Shared by countdowns and count labels.
 local function Font(label)
@@ -756,7 +763,7 @@ function S.CreateAuraBackdrop(parent,container)
     if ok then return backdrop end
     backdrop:Hide()
 end
-local function StyleNativeAura(slot,frame,reversed)
+local function StyleNativeAura(slot,frame,reversed,nativeGlows)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
     local forever=slot.nativeHost~=nil
@@ -775,6 +782,9 @@ local function StyleNativeAura(slot,frame,reversed)
     frame:SetIcon(frame.monitorIcon);frame:SetDurationText(frame.monitorTime,S.DurationTextOptions())
     frame.monitorCount=frame:CreateFontString(nil,"OVERLAY");CountFont(frame.monitorCount)
     frame.monitorCount:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-1,1);frame:SetApplicationCount(frame.monitorCount,{})
+    local glow=M.CustomMonitor.CreateGlow(frame)
+    glow:SetFrameLevel(slot:GetFrameLevel()+25)
+    nativeGlows[#nativeGlows+1]=glow
     if forever then return end
     -- The provider denies direct access to its AuraButtons once auras become
     -- secret. Our own child exposes inherited visibility as a secret boolean;
@@ -801,7 +811,7 @@ local function NativeAura(slot,aura,reversed)
     end
     local container=CreateFrame("AuraContainer",nil,parent,"CustomAuraContainerTemplate")
     container:SetEnabled(false);container:SetUnit(aura.unit);container:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0)
-    slot.nativeFrames={};slot.nativeAuras=container
+    slot.nativeFrames={};slot.nativeGlows={};slot.nativeAuras=container
     if slot.nativeHost then
         local backdrop=S.CreateAuraBackdrop(slot.nativeHost,container)
         if backdrop then
@@ -812,7 +822,9 @@ local function NativeAura(slot,aura,reversed)
         end
     end
     local width=slot.nativeBackdrop and S.auraBackdropLayoutWidth or 40
-    container:AddAuraGroup("monitor",aura.filter,{maxFrameCount=0,initializeFrame=function(frame)StyleNativeAura(slot,frame,reversed)end})
+    local nativeGlows=slot.nativeGlows
+    container:AddAuraGroup("monitor",aura.filter,{maxFrameCount=0,
+        initializeFrame=function(frame)StyleNativeAura(slot,frame,reversed,nativeGlows)end})
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
     container:SetFlowLayoutMaximumLineSize(width+.001)
@@ -820,7 +832,7 @@ local function NativeAura(slot,aura,reversed)
 end
 -- Native AuraButtons can become inaccessible after initialization. Keep one
 -- initialized container per style and switch containers without restyling them.
-local nativeVariantFields={"nativeAuras","nativeHost","nativeBackdrop","nativeFrames","nativeAuraType","shortcutGate","baseIconGate"}
+local nativeVariantFields={"nativeAuras","nativeHost","nativeBackdrop","nativeFrames","nativeGlows","nativeAuraType","shortcutGate","baseIconGate"}
 local function SelectNativeAura(slot,aura)
     local reversed=slot.entry.reverseDisplay==true
     if slot.nativeAuras and slot.nativeReversed==reversed then return end
@@ -859,7 +871,13 @@ local function Icon(view,o,i)
     M.CustomMonitor.SetVisual(slot.gcd,"SetHideCountdownNumbers",true);slot.gcd.noCooldownCount=true
     if slot.gcd.SetSwipeColor then slot.gcd:SetSwipeColor(0,0,0,.45)end
     slot.cooldown:SetDrawEdge(false);slot.cooldown:SetDrawBling(false);slot.cooldown:SetDrawSwipe(false)
+    ConfigureSwipe(slot.cooldown)
     M.CustomMonitor.SetVisual(slot.cooldown,"SetHideCountdownNumbers",true);slot.cooldown.noCooldownCount=true
+    slot.effectSwipe=CreateFrame("Cooldown",nil,slot,"CooldownFrameTemplate")
+    slot.effectSwipe:SetAllPoints();slot.effectSwipe:EnableMouse(false)
+    slot.effectSwipe:SetDrawEdge(false);slot.effectSwipe:SetDrawBling(false)
+    M.CustomMonitor.SetVisual(slot.effectSwipe,"SetHideCountdownNumbers",true)
+    slot.effectSwipe.noCooldownCount=true;ConfigureSwipe(slot.effectSwipe)
     local formatter=S.CountdownFormatter()
     if formatter and slot.cooldown.SetCountdownFormatter then slot.cooldown:SetCountdownFormatter(formatter)
     elseif slot.cooldown.SetCountdownAbbrevThreshold then slot.cooldown:SetCountdownAbbrevThreshold(60)end
@@ -985,11 +1003,25 @@ local function BindEffect(slot)
             frame:SetSize(40,40);frame:EnableMouse(false)
             frame:SetFrameLevel(slot.baseIconFrame:GetFrameLevel()+2)
             local icon=frame:CreateTexture(nil,"ARTWORK");icon:SetAllPoints()
+            slot.effectNativeIcon=icon
             M.MasqueIcons.Attach(icon,"playerSkillMonitor",40,40)
             frame:SetIcon(icon)
+            local glow=M.CustomMonitor.CreateGlow(frame)
+            glow:SetFrameLevel(slot:GetFrameLevel()+25)
+            slot.effectNativeGlow=glow
             local timer=frame:CreateFontString(nil,"OVERLAY");Font(timer)
             timer:SetPoint("BOTTOM",frame,"TOP",0,7)
             frame:SetDurationText(timer,S.DurationTextOptions())
+            if frame.SetDurationCooldown then
+                local swipe=CreateFrame("Cooldown",nil,frame,"CooldownFrameTemplate")
+                swipe:SetAllPoints();swipe:EnableMouse(false)
+                swipe:SetDrawEdge(false);swipe:SetDrawBling(false)
+                M.CustomMonitor.SetVisual(swipe,"SetHideCountdownNumbers",true)
+                swipe.noCooldownCount=true;ConfigureSwipe(swipe)
+                swipe:SetDrawSwipe(slot.showCooldownSwipe)
+                slot.effectNativeSwipe=swipe
+                frame:SetDurationCooldown(swipe)
+            end
             local count=frame:CreateFontString(nil,"OVERLAY");CountFont(count)
             count:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-1,1);frame:SetApplicationCount(count,{})
             local presence=CreateFrame("Frame",nil,frame);presence:SetAllPoints();presence:EnableMouse(false)
@@ -1009,7 +1041,7 @@ end
 local function ResolveEffect(slot,preview)
     local entry,id=slot.entry,slot.spellID
     slot.effect,slot.effectAura,slot.effectSpell,slot.effectGlow,slot.effectRevenge=nil,nil,nil,nil,nil
-    slot.blizzardID,slot.blizzardTimer,slot.blizzardDesaturated=nil,nil,nil
+    slot.blizzardID,slot.blizzardTimer,slot.blizzardDesaturated,slot.blizzardAuraActive=nil,nil,nil,nil
     slot.effectKnown=true
     if not preview and IsCombined(entry) then
         local kind=effectTypes[entry.type]
@@ -1065,6 +1097,17 @@ local function ResolveEffect(slot,preview)
             end
         end
     end
+    if not preview and id and (entry.type=="cooldown" or entry.type=="usable") then
+        local override=Number(Safe(C_Spell and C_Spell.GetOverrideSpell or FindSpellOverrideByID,id))
+        local lookup=C_UnitAuras and C_UnitAuras.GetCooldownAuraBySpellID
+        local mapped=Number(Safe(lookup,override and override>0 and override or id))
+        if (not mapped or mapped<=0) and override and override~=id then mapped=Number(Safe(lookup,id))end
+        if mapped and mapped>0 then
+            local ids={[mapped]=true}
+            slot.effect={unit="player",filter="HELPFUL",ids=ids,
+                alternate={unit="target",filter="HARMFUL|PLAYER",ids=ids}}
+        end
+    end
     slot.effectDirty=false
     slot.effectNeedsBind=slot.effect~=nil or slot.effectNative~=nil
 end
@@ -1103,14 +1146,18 @@ function S.Configure(view,o)
         slot.texture:SetVertexColor(1,1,1)
         slot:SetScale(S.IconSize(group)/40)
         slot.rowX=nil;slot.sweepStart=nil;slot.maxCharges=nil;slot.auraDuration=nil;slot.item=nil
-        slot.cooldown:SetDrawSwipe(group.skillCooldownSwipe~=false)
+        slot.showCooldownSwipe=group.skillCooldownSwipe~=false
+        slot.cooldown:SetDrawSwipe(slot.showCooldownSwipe)
+        slot.effectSwipe:SetDrawSwipe(slot.showCooldownSwipe);ClearCooldown(slot.effectSwipe);slot.effectSwipe.monitorStart=nil
+        if slot.effectNativeSwipe then slot.effectNativeSwipe:SetDrawSwipe(slot.showCooldownSwipe)end
+        slot.cooldownDesaturates=nil;slot.spellR,slot.spellG,slot.spellB=1,1,1
         ClearCooldown(slot.gcd)
         slot.gcdStart=nil;slot.gcd.monitorStart=nil;slot.cooldown.monitorStart=nil
         ResolveEffect(slot,view.preview)
         if not view.preview and (slot.effect or slot.effectNative) and not InCombatLockdown()then
             BindEffect(slot);slot.effectNeedsBind=false
         end
-        slot.timerGate:SetAlpha(1);slot.cooldown:SetAlpha(1)
+        slot.timerGate:SetAlpha(1);M.CustomMonitor.SetVisual(slot.cooldown,"SetAlpha",1)
         if slot.effectNative then slot.effectNative:SetAlpha(0)end
         slot.spellCount=nil;slot.countGate:SetAlpha(1)
         CountFont(slot.count);M.CustomMonitor.SetText(slot.count,"")
@@ -1176,15 +1223,19 @@ local function GlobalCooldown(start,duration,cache)
     local gs,gd=CachedSpellCooldown(cache,M.Compat.interface==16001 and 29515 or 61304)
     return Number(gs) and Number(gd) and math.abs(gs-start)<.001 and math.abs(gd-duration)<.001
 end
+local function SpellIconID(slot)
+    local id=slot.spellID
+    if slot.effectSpell then return slot.effectSpell end
+    if not id then return end
+    local override=Number(Safe(C_Spell and C_Spell.GetOverrideSpell or FindSpellOverrideByID,id))
+    return override and override>0 and override or id
+end
 local function Cooldown(entry,slot,cache)
-    local key=slot.effectSpell or slot.spellID or entry.value
-    if not slot.effectSpell and slot.spellID then
-        local override=Number(Safe(C_Spell and C_Spell.GetOverrideSpell or FindSpellOverrideByID,slot.spellID))
-        if override and override>0 then key=override end
-    end
+    local key=SpellIconID(slot) or entry.value
     local charges,maximum,chargeStart,chargeDuration,chargeRate=SpellCharges(key)
     slot.spellCount=SpellCount(slot,key,charges,maximum)
     slot.maxCharges=Number(maximum)
+    slot.cooldownDesaturates=not (slot.maxCharges and slot.maxCharges>1 and Number(charges) and charges>0)
     if C_Spell and C_Spell.GetSpellCooldownDuration then
         local duration=Safe(C_Spell.GetSpellChargeDuration,key) or Safe(C_Spell.GetSpellCooldownDuration,key,true)
         if duration and slot.cooldown.SetCooldownFromDurationObject then
@@ -1195,9 +1246,11 @@ local function Cooldown(entry,slot,cache)
     if slot.duration then ClearCooldown(slot.cooldown);slot.cooldown.monitorStart=nil end
     slot.duration=nil;slot.sweepStart=nil
     local start,duration,enabled,rate,onGCD=CachedSpellCooldown(cache,key)
-    if Readable(onGCD) and onGCD==true then slot.active=false;slot.expires=nil;return end
-    if Number(charges) and Number(maximum) and charges<maximum and Number(chargeStart) and Number(chargeDuration) then
+    local recharging=Number(charges) and Number(maximum) and charges<maximum and Number(chargeStart) and Number(chargeDuration)
+    if recharging then
         start,duration,rate=chargeStart,chargeDuration,chargeRate
+    elseif Readable(onGCD) and onGCD==true then
+        slot.active=false;slot.expires=nil;return
     end
     start,duration,rate=Number(start),Number(duration),Number(rate) or 1
     local disabled=Readable(enabled) and (enabled==false or enabled==0)
@@ -1304,39 +1357,6 @@ local function IsSpellActionUsable(id)
     end
     return false
 end
-local function Usable(slot,now,cache)
-    slot.usableReady=false;slot.usableCooldown=nil;slot.spellCount=nil;slot.maxCharges=nil
-    local id=slot.spellID
-    if not id then return end
-    local override=Number(Safe(C_Spell and C_Spell.GetOverrideSpell or FindSpellOverrideByID,id))
-    local key=override and override>0 and override or id
-    local charges,maximum=SpellCharges(key)
-    slot.maxCharges=Number(maximum)
-    slot.spellCount=SpellCount(slot,key,charges,maximum)
-    if M.Compat.interface==16001 then
-        local base=Number(Safe(C_Spell and C_Spell.GetBaseSpell,id)) or id
-        if base<=0 then base=id end
-        if not IsSpellActionUsable(base) and (key==base or not IsSpellActionUsable(key)) then return end
-    else
-        if not HasSpellActivation(key) and (key==id or not HasSpellActivation(id)) then return end
-        local usable=Safe(C_Spell and C_Spell.IsSpellUsable or IsUsableSpell,key)
-        if not Readable(usable) or usable~=true then return end
-    end
-    if Number(maximum) and maximum>0 and Number(charges) then
-        slot.usableReady=charges>0
-        return
-    end
-    local start,duration,enabled,rate=CachedSpellCooldown(cache,key)
-    if Readable(enabled) and (enabled==false or enabled==0) then return end
-    start,duration,rate=Number(start),Number(duration),Number(rate) or 1
-    if start and duration and rate>0 then
-        slot.usableReady=duration<=0 or start+duration/rate<=now or GlobalCooldown(start,duration,cache)==true
-    else
-        -- The cooldown object can drive the icon without reading a secret
-        -- timer or confusing recharge time with the spell's actual cooldown.
-        slot.usableCooldown=Safe(C_Spell and C_Spell.GetSpellCooldownDuration,key,true)
-    end
-end
 local function SetSwipe(timer,start,duration,rate)
     if timer.monitorStart==start and timer.monitorDuration==duration and timer.monitorRate==rate then return end
     timer.monitorStart,timer.monitorDuration,timer.monitorRate=start,duration,rate
@@ -1355,6 +1375,11 @@ function S.UpdateSkillSwipe(slot,group,now,effectVisible)
         if group.skillCooldownSwipe==false or entry.type=="custom" then start,duration,rate=nil,nil,nil end
         SetSwipe(slot.cooldown,start,duration,rate)
     end
+    local expires=effectVisible and slot.effectExpires
+    local duration=expires and Number(slot.effectAura.duration)
+    if group.skillCooldownSwipe~=false and duration and duration>0 then
+        SetSwipe(slot.effectSwipe,expires-duration,duration,1)
+    else SetSwipe(slot.effectSwipe)end
     if group.skillShowGCD~=false and slot.gcdStart and not effectVisible then
         SetSwipe(slot.gcd,slot.gcdStart,slot.gcdDuration,slot.gcdRate)
     else SetSwipe(slot.gcd)end
@@ -1493,27 +1518,14 @@ function S.BlizzardSpellInRange(spell,base)
 end
 
 local function ReadBlizzardPresentation(slot,frame)
-    slot.blizzardTimer,slot.blizzardDesaturated=nil,nil
+    slot.blizzardTimer,slot.blizzardDesaturated,slot.blizzardAuraActive=nil,nil,nil
+    local usesAura=frame and frame.cooldownUseAuraDisplayTime
+    slot.blizzardAuraActive=Readable(usesAura) and usesAura==true
     local texture=frame and Safe(frame.GetIconTexture,frame)
-    local r,g,b
     if Readable(texture) and texture then
-        r,g,b=Safe(texture.GetVertexColor,texture)
         local desaturated=Safe(texture.IsDesaturated,texture)
         if Readable(desaturated) and type(desaturated)=="boolean" then slot.blizzardDesaturated=desaturated end
     end
-    if not Number(r) or not Number(g) or not Number(b)then
-        local spell=slot.effectSpell or slot.spellID
-        local usable,noPower=Safe(C_Spell and C_Spell.IsSpellUsable,spell)
-        local inRange=Safe(C_Spell and C_Spell.IsSpellInRange,spell,"target")
-        r,g,b=1,1,1
-        if Readable(inRange) and (inRange==false or inRange==0)then r,g,b=.64,.15,.15
-        elseif Readable(usable) and (usable==false or usable==0)then
-            if Readable(noPower) and (noPower==true or noPower==1)then r,g,b=.5,.5,1
-            elseif Readable(noPower) then r,g,b=.4,.4,.4 end
-        end
-    end
-    slot.texture:SetVertexColor(r,g,b)
-
     local timer=frame and Safe(frame.GetCooldownFrame,frame)
     if not Readable(timer) or not timer then return end
     local label=Safe(timer.GetCountdownFontString,timer)
@@ -1534,11 +1546,38 @@ local function ReadBlizzardPresentation(slot,frame)
     end
 end
 
-local function PaintEffect(slot,now)
+local function UpdateSpellColor(slot,group)
+    local spell=SpellIconID(slot)
+    local usable,noPower=Safe(C_Spell and C_Spell.IsSpellUsable or IsUsableSpell,spell)
+    local r,g,b=1,1,1
+    local outOfRange=false
+    if spell and group.skillRangeRed==true and M.Compat.Bool(Safe(UnitExists,"target")) then
+        local base=Number(Safe(C_Spell and C_Spell.GetBaseSpell,slot.spellID))
+        local rangeSpell=base and base>0 and base or slot.spellID or spell
+        local checks=C_Spell and C_Spell.SpellHasRange
+        local hasRange=not checks or Safe(checks,rangeSpell)
+        if Readable(hasRange) and (hasRange==true or hasRange==1) then
+            local within=Safe(C_Spell and C_Spell.IsSpellInRange or IsSpellInRange,rangeSpell,"target")
+            outOfRange=Readable(within) and (within==false or within==0)
+        end
+    end
+    if outOfRange then r,g,b=.64,.15,.15
+    elseif Readable(usable) and (usable==false or usable==0)then
+        if Readable(noPower) and (noPower==true or noPower==1)then r,g,b=.5,.5,1
+        elseif Readable(noPower) then r,g,b=.4,.4,.4 end
+    end
+    if slot.spellR~=r or slot.spellG~=g or slot.spellB~=b then
+        slot.texture:SetVertexColor(r,g,b)
+        slot.spellR,slot.spellG,slot.spellB=r,g,b
+    end
+end
+
+local function PaintEffect(slot,now,reversed)
     local effect,aura=slot.effect,slot.effectAura
     local expires=aura and Number(aura.expirationTime)
     local timed=expires and expires>now
     local active=expires and (expires==0 or timed)
+    slot.effectExpires=timed and expires or nil
     local stacks=active and aura.applications
     local amount=Number(stacks)
     local display=amount and amount>1 and amount or nil
@@ -1552,17 +1591,18 @@ local function PaintEffect(slot,now)
     local native=slot.effectNative
     local useNative=effect and native and not active and not slot.effectNeedsBind
     if native then native:SetAlpha(useNative and 1 or 0)end
+    if slot.effectNativeIcon then M.CustomMonitor.SetVisual(slot.effectNativeIcon,"SetDesaturated",reversed)end
     slot.countGate:SetAlpha(1)
     slot.timerGate:SetAlpha(1)
-    if slot.blizzardTimer then
-        slot.cooldown:SetAlpha(0)
-        M.CustomMonitor.SetText(slot.text,slot.blizzardTimer)
-    else
-        slot.cooldown:SetAlpha(timed and 0 or 1)
-    end
-    if timed and not slot.blizzardTimer then
+    M.CustomMonitor.SetVisual(slot.cooldown,"SetAlpha",active and 0 or 1)
+    if timed then
         Remaining(slot,expires-now)
-        M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
+    elseif slot.blizzardTimer then
+        M.CustomMonitor.SetText(slot.text,slot.blizzardTimer)
+    end
+    if active then
+        if not timed then Remaining(slot)end
+        M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",reversed)
         return true,true
     end
     if useNative and slot.effectPresence then
@@ -1580,6 +1620,32 @@ local function PaintEffect(slot,now)
     if slot.blizzardTimer then return false,true end
 end
 
+local function PaintTriggerGlow(slot,shouldGlow,watchCooldown,now)
+    local alpha=shouldGlow and 1 or 0
+    if watchCooldown and not shouldGlow then
+        if slot.duration then
+            local remaining=Number(Safe(slot.duration.GetRemainingDuration,slot.duration))
+            if remaining then
+                shouldGlow=remaining>0;alpha=shouldGlow and 1 or 0
+            else
+                local curve=DisplayCurve(desaturationCurves,false,0,1)
+                if curve and slot.duration.EvaluateRemainingDuration then
+                    shouldGlow=true;alpha=slot.duration:EvaluateRemainingDuration(curve,0)
+                end
+            end
+        elseif slot.active and slot.expires and slot.expires>now then
+            shouldGlow=true;alpha=1
+        end
+    end
+    if shouldGlow and not slot.customGlow then slot.customGlow=M.CustomMonitor.CreateGlow(slot)end
+    if slot.customGlow then
+        local level=slot:GetFrameLevel()+25
+        if slot.customGlow:GetFrameLevel()~=level then slot.customGlow:SetFrameLevel(level)end
+        M.CustomMonitor.SetVisual(slot.customGlow,"SetAlpha",alpha)
+        M.CustomMonitor.PaintGlow(slot.customGlow,shouldGlow,nil,now)
+    end
+end
+
 function S.Paint(view,o,animateOnly)
     local group=view.byID[o.spec.parent]
     local shown=o.spec.enabled~=false and (view.preview or group.enabled~=false) and not(view.hidden and view.hidden[o.spec.id])
@@ -1590,12 +1656,11 @@ function S.Paint(view,o,animateOnly)
     if view.preview and not o.skillEditorPreview and #entries==0 then entries=samples end
     if not view.preview then
         local kinds=o.skillKinds
-        local combined=kinds.blizzard or kinds.buffCooldown or kinds.debuffCooldown
-        local cooldown=(kinds.cooldown or combined) and S.MonitorRefreshDue(o,"cooldown",now,.2)
-        local usable=kinds.usable and S.MonitorRefreshDue(o,"usable",now,.2)
+        local spells=kinds.cooldown or kinds.usable or kinds.blizzard or kinds.buffCooldown or kinds.debuffCooldown
+        local cooldown=spells and S.MonitorRefreshDue(o,"cooldown",now,.2)
         local info=S.MonitorRefreshDue(o,"info",now,1)
         local gcd=group.skillShowGCD~=false and S.MonitorRefreshDue(o,"gcd",now,.15)
-        if cooldown or usable or info or gcd then
+        if cooldown or info or gcd then
             local cooldowns={}
             local blizzardByID,blizzardBySpell
             if cooldown and kinds.blizzard and M.Compat.interface==16001 then
@@ -1605,10 +1670,10 @@ function S.Paint(view,o,animateOnly)
                 local slot=o.skillIcons[i]
                 if info and slot.needsInfo and now>=(slot.nextInfo or 0) then
                     Resolve(slot,entry);Shortcut(slot,group)
-                    if IsCombined(entry) then slot.effectDirty=true end
+                    if IsSpellIcon(entry) then slot.effectDirty=true end
                     if o.usesNativeAuras and not InCombatLockdown() then BindAura(slot,group.enabled~=false)end
                 end
-                if IsCombined(entry) then
+                if IsSpellIcon(entry) then
                     if slot.effectDirty then
                         local known=slot.effectKnown
                         ResolveEffect(slot,false)
@@ -1624,17 +1689,23 @@ function S.Paint(view,o,animateOnly)
                         if second and second.unit=="player" then first,second=second,first end
                         slot.effectAura=FindEffectAura(first,now) or (second and FindEffectAura(second,now))
                     end
-                    if cooldown and entry.type=="blizzard" then
-                        local id=slot.effectSpell or slot.spellID
-                        local native=blizzardByID and (blizzardByID[slot.blizzardID] or blizzardBySpell[slot.spellID])
-                        if M.Compat.interface==16001 then Safe(ReadBlizzardPresentation,slot,native)end
+                    if cooldown then
+                        if entry.type=="blizzard" and M.Compat.interface==16001 then
+                            local native=blizzardByID and (blizzardByID[slot.blizzardID] or blizzardBySpell[slot.spellID])
+                            Safe(ReadBlizzardPresentation,slot,native)
+                        end
+                        local id=SpellIconID(slot)
                         slot.effectGlow=slot.effectKnown and id and (HasSpellActivation(id)
                             or (id~=slot.spellID and slot.spellID and HasSpellActivation(slot.spellID))
                             or (slot.effectRevenge and IsSpellActionUsable(id)))
+                        Cooldown(entry,slot,cooldowns)
+                        UpdateSpellColor(slot,group)
+                        local auraIcon=slot.effectAura and slot.effectAura.icon
+                        local spellIcon=Safe(C_Spell and C_Spell.GetSpellTexture,id)
+                        local icon=(Readable(auraIcon) and auraIcon) or (Readable(spellIcon) and spellIcon) or slot.customFallbackIcon
+                        M.CustomMonitor.SetVisual(slot.texture,"SetTexture",M:TextureFile(icon))
                     end
                 end
-                if cooldown and (entry.type=="cooldown" or IsCombined(entry))then Cooldown(entry,slot,cooldowns)end
-                if usable and entry.type=="usable" then Usable(slot,now,cooldowns)end
                 if gcd then ReadGCD(slot,cooldowns)end
             end
         end
@@ -1664,23 +1735,13 @@ function S.Paint(view,o,animateOnly)
         end
     end
     local direction=S.Direction(group)
-    if view.preview or o.skillKinds.usable or o.skillDirection~=direction then
+    if view.preview or o.skillDirection~=direction then
         o.skillDirection=direction
         local visibleCount=0
         for i=1,#entries do
             local slot=o.skillIcons[i]
             local alpha=1
             if not view.preview and slot.entry.type=="blizzard" and not slot.effectKnown then alpha=0 end
-            if slot.entry.type=="usable" and not view.preview then
-                local timer=slot.usableCooldown
-                local remaining=timer and Number(Safe(timer.GetRemainingDuration,timer))
-                if remaining then alpha=remaining<=0 and 1 or 0
-                elseif timer and timer.EvaluateRemainingDuration and ShortcutCurve() then
-                    -- A restricted timer can drive visibility through native alpha.
-                    -- Keep its position when Lua cannot read the evaluated value.
-                    alpha=timer:EvaluateRemainingDuration(ShortcutCurve(),0)
-                else alpha=slot.usableReady and 1 or 0 end
-            end
             local readable=Readable(alpha)
             slot.rowVisible=not readable or alpha==1
             if slot.rowVisible then visibleCount=visibleCount+1 end
@@ -1717,7 +1778,6 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetVisual(slot.nativeHost,"SetAlpha",useNative and 1 or 0)
             M.CustomMonitor.SetVisual(slot.baseIconFrame,"SetAlpha",useNative and slot.nativeBackdrop and 0 or 1)
         end
-        if slot.entry.type~="custom"and slot.entry.type~="blizzard" and slot.customGlow then slot.customGlow:Hide()end
         for _,frame in ipairs(slot.nativeFrames or {})do
             if useNative then
                 local present=Safe(frame.monitorPresence.IsVisible,frame.monitorPresence)
@@ -1737,12 +1797,9 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetText(slot.text,result.text or S.FormatCountdown(result.expirationTime and result.expirationTime-now))
             M.CustomMonitor.SetText(slot.count,result.count and tostring(result.count)or "")
             M.CustomMonitor.Glow(slot,result.show and result.glow)
-        elseif slot.entry.type=="usable" then
-            M.CustomMonitor.SetText(slot.text,"")
-            if view.preview then SetCount(slot,nil) else SetCount(slot,slot.spellCount) end
-            M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
+            M.CustomMonitor.SetVisual(slot.customGlow,"SetAlpha",1)
         elseif view.preview then
-            local faded=(i%2==1)~=reversed
+            local faded=(not o.skillEditorPreview and i%2==1)~=reversed
             ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);textureAlpha=faded and .5 or 1
             M.CustomMonitor.SetText(slot.text,S.FormatCountdown(30-i))
             M.CustomMonitor.SetText(slot.count,isAura and "3"or "2")
@@ -1751,10 +1808,11 @@ function S.Paint(view,o,animateOnly)
             useCooldownNumbers=true
             M.CustomMonitor.SetText(slot.text,"")
             local desat=DisplayCurve(desaturationCurves,reversed,0,1)
-            if desat and slot.duration.EvaluateRemainingDuration and slot.texture.SetDesaturation then
+            if not slot.cooldownDesaturates then
+                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",reversed)
+            elseif desat and slot.duration.EvaluateRemainingDuration and slot.texture.SetDesaturation then
                 -- The engine consumes this potentially secret number directly.
                 M.CustomMonitor.SetVisual(slot.texture,"SetDesaturation",slot.duration:EvaluateRemainingDuration(desat,0))
-                textureAlpha=slot.duration:EvaluateRemainingDuration(DisplayCurve(fadeCurves,reversed,1,.5),reversed and .5 or 1)
 
             else
                 local remaining=Number(Safe(slot.duration.GetRemainingDuration,slot.duration))
@@ -1762,7 +1820,6 @@ function S.Paint(view,o,animateOnly)
                     useCooldownNumbers=false
                     local faded=(remaining>0)~=reversed
                     M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);Remaining(slot,remaining)
-                    textureAlpha=faded and .5 or 1
 
                 end
             end
@@ -1772,20 +1829,21 @@ function S.Paint(view,o,animateOnly)
         else
             local active=slot.active and (not slot.expires or slot.expires>now)
             local faded=(active==true)~=reversed
+            if IsSpellIcon(slot.entry) and not slot.cooldownDesaturates then faded=reversed end
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);Remaining(slot,active and slot.expires and slot.expires-now or nil)
-            textureAlpha=faded and .5 or 1
+            if not IsSpellIcon(slot.entry) then textureAlpha=faded and .5 or 1 end
 
             if isAura then CountText(slot.count,active and slot.stacks or nil,false)end
             if not isAura then SetCount(slot,slot.spellCount)end
         end
         local effectVisible
-        if not view.preview and IsCombined(slot.entry) then
+        if not view.preview and IsSpellIcon(slot.entry) then
             local hasTextTimer
-            effectVisible,hasTextTimer=PaintEffect(slot,now)
+            effectVisible,hasTextTimer=PaintEffect(slot,now,reversed)
             if hasTextTimer then useCooldownNumbers=false end
             if effectVisible then textureAlpha=1
             elseif slot.blizzardDesaturated~=nil then
-                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",slot.blizzardDesaturated)
+                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",slot.blizzardDesaturated~=reversed)
                 textureAlpha=1
             end
         end
@@ -1793,12 +1851,19 @@ function S.Paint(view,o,animateOnly)
             local entry=slot.entry
             local count=Number(slot.stacks) or Number(slot.spellCount)
             local max=entry.maxStacks and entry.maxStacks>0 and entry.maxStacks or slot.maxCharges
-            local proc=entry.triggerGlow==true and not view.preview and
-                (slot.effectGlow==true or (slot.spellID and HasSpellActivation(slot.spellID))
-                    or ((isAura or entry.type=="stance" or entry.type=="equipment") and slot.active))
+            local trigger=not view.preview and TriggerGlowEnabled(entry)
+            local active=slot.active and (not slot.expires or slot.expires>now)
+            local proc=trigger and (effectVisible==true or slot.effectGlow==true or slot.blizzardAuraActive==true
+                or ((isAura or entry.type=="stance" or entry.type=="equipment") and active))
             local full=entry.maxStackGlow==true and count and max and max>1 and count>=max
                 and (not isAura or slot.active)
-            if proc or full or slot.customGlow then M.CustomMonitor.Glow(slot,proc or full or false)end
+            PaintTriggerGlow(slot,proc or full or false,trigger and IsSpellIcon(entry),now)
+            for _,glow in ipairs(slot.nativeGlows or {})do
+                M.CustomMonitor.PaintGlow(glow,trigger and useNative,nil,now)
+            end
+            if slot.effectNativeGlow then
+                M.CustomMonitor.PaintGlow(slot.effectNativeGlow,trigger and not proc and IsSpellIcon(entry),nil,now)
+            end
         end
         if not view.preview then
             S.UpdateSkillSwipe(slot,group,now,effectVisible)
@@ -1839,26 +1904,20 @@ function S.Event(view,event,unit)
         end
         if unit=="player" then S.InvalidateMonitor(o,"special")end
         S.InvalidateMonitor(o,"cooldown")
-        if unit=="player" and o.skillKinds.usable then S.InvalidateMonitor(o,"usable")end
     elseif event=="PLAYER_EQUIPMENT_CHANGED" or event=="UPDATE_SHAPESHIFT_FORM" or event=="UPDATE_SHAPESHIFT_FORMS" then
         S.InvalidateMonitor(o,"special",true)
     elseif event=="PLAYER_TARGET_CHANGED" then
         o.nativeTargetGeneration=nil
         S.InvalidateMonitor(o,"debuff",true);S.InvalidateMonitor(o,"targetBuff",true)
-        S.InvalidateMonitor(o,"usable",true)
-        if o.skillKinds.blizzard or o.skillKinds.debuffCooldown then
-            for _,slot in ipairs(o.skillIcons)do
-                if slot.effect and (slot.effect.unit=="target" or slot.effect.alternate)then slot.effectAura=nil end
-            end
-            S.InvalidateMonitor(o,"cooldown",true)
+        for _,slot in ipairs(o.skillIcons)do
+            if slot.effect and (slot.effect.unit=="target" or slot.effect.alternate)then slot.effectAura=nil end
         end
+        S.InvalidateMonitor(o,"cooldown",true)
     elseif activation or event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" or event=="ACTIONBAR_SLOT_CHANGED" then
-        S.InvalidateMonitor(o,"usable")
-        if o.skillKinds.blizzard then S.InvalidateMonitor(o,"cooldown",activation)end
+        S.InvalidateMonitor(o,"cooldown",activation)
     elseif event=="SPELL_UPDATE_COOLDOWN" or event=="SPELL_UPDATE_CHARGES" or event=="SPELL_UPDATE_USES" or event=="UNIT_SPELLCAST_SUCCEEDED" then
         S.InvalidateMonitor(o,"gcd")
         S.InvalidateMonitor(o,"cooldown")
-        S.InvalidateMonitor(o,"usable")
     else
         learnedSpells=nil
         for _,slot in ipairs(o.skillIcons or {})do slot.needsInfo=true;slot.nextInfo=0;slot.effectDirty=true end
@@ -1870,7 +1929,7 @@ function S.BuildControls(e,parent,Row)
     local W=M.Widgets
     local choices={
         {name="跟随暴雪CDM",path="blizzard"},{name="法术冷却",path="cooldown"},
-        {name="Buff/Debuff",path="aura"},{name="可用触发法术",path="usable"},
+        {name="Buff/Debuff",path="aura"},{name="触发法术",path="usable"},
         {name="姿态/形态/光环",path="stance"},{name="装备触发",path="equipment"},
         {name="自定义代码",path="custom"},
     }
@@ -1889,8 +1948,17 @@ function S.BuildControls(e,parent,Row)
     local appearance=Panel(24,"skillMonitorAppearance")
     W.SettingsSectionTitle(appearance,"外观与显示",-8)
     local share=Panel(56,"skillMonitorSharing")
-    local panel=Panel(205,"skillMonitorEntry");e.skillMonitorPanel=panel
+    local panel=Panel(239,"skillMonitorEntry");e.skillMonitorPanel=panel
     local function Flush() if panel.edit and panel.edit:HasFocus() then panel.edit:ClearFocus() end end
+    local back=W.Button(panel,"返回",96,function()
+        Flush()
+        e.skillEntry=nil;e.propScroll:SetVerticalScroll(0)
+        M:RefreshEditor(true)
+    end)
+    back:SetPoint("TOPLEFT",0,0)
+    local backIcon=back:CreateTexture(nil,"OVERLAY");backIcon:SetSize(16,16)
+    backIcon:SetPoint("LEFT",6,0)
+    backIcon:SetTexture("Interface\\Buttons\\UI-SpellbookIcon-PrevPage-Up")
     imports.available=S.AddBlizzardCooldownButton and S.AddBlizzardCooldownButton(imports,Current,Flush)
     e.skillMonitorImport=imports
     W.SettingsSectionTitle(share,"配置分享",10)
@@ -1901,6 +1969,7 @@ function S.BuildControls(e,parent,Row)
     for _,option in ipairs({
         {"图标缩放","skillIconScale",.05},{"图标间距","skillIconSpacing",1},
         {"显示冷却刷","skillCooldownSwipe"},{"显示GCD","skillShowGCD"},{"显示快捷键","skillShowShortcut"},
+        {"超出法术距离变红","skillRangeRed"},
     })do
         local label,key,step=option[1],option[2],option[3]
         if step then
@@ -1917,7 +1986,7 @@ function S.BuildControls(e,parent,Row)
             local check=W.Check(parent,label,function(value)
                 local owner=Current()
                 if owner and M:CanEdit()then owner[key]=not not value;M:Commit()
-                elseif owner then globals[key]:SetChecked(owner[key]~=false)end
+                elseif owner then globals[key]:SetChecked(SkillChecked(owner,key))end
             end)
             Row(30,{{check,-4,0}}, {},key)
             globals[key]=check
@@ -1961,15 +2030,15 @@ function S.BuildControls(e,parent,Row)
             if value=="custom" then M.CustomMonitor.Defaults(entry) end
         end
     end)
-    kind:SetPoint("TOPLEFT",0,0)
+    kind:SetPoint("TOPLEFT",0,-34)
     local unit=Choice("单位",{{name="玩家",path="player"},{name="目标",path="target"}},115,function(entry,value)
         entry.type=AuraKind(value,Harmful(entry))
     end)
-    unit:SetPoint("TOPLEFT",160,0)
+    unit:SetPoint("TOPLEFT",160,-34)
     local filter=Choice("类型",{{name="Buff",path="buff"},{name="Debuff",path="debuff"}},115,function(entry,value)
         if auraTypes[entry.type] then entry.type=AuraKind(auraTypes[entry.type].unit,value=="debuff")end
     end)
-    filter:SetPoint("TOPLEFT",285,0)
+    filter:SetPoint("TOPLEFT",285,-34)
     local equipmentSlots={}
     for slot=1,19 do
         local name=({"HEADSLOT","NECKSLOT","SHOULDERSLOT","SHIRTSLOT","CHESTSLOT","WAISTSLOT","LEGSSLOT","FEETSLOT",
@@ -1978,9 +2047,9 @@ function S.BuildControls(e,parent,Row)
         equipmentSlots[slot]={name=_G[name] or tostring(slot),path=tostring(slot)}
     end
     local equipment=Choice("装备位置",equipmentSlots,190,function(entry,value)entry.slot=tonumber(value)end)
-    equipment:SetPoint("TOPLEFT",160,0)
+    equipment:SetPoint("TOPLEFT",160,-34)
 
-    local icon=CreateFrame("Button",nil,panel);icon:SetSize(26,26);icon:SetPoint("TOPLEFT",0,-58)
+    local icon=CreateFrame("Button",nil,panel);icon:SetSize(26,26);icon:SetPoint("TOPLEFT",0,-92)
     icon.texture=icon:CreateTexture(nil,"ARTWORK");icon.texture:SetAllPoints()
     local edit=W.Edit(panel,220);panel.edit=edit
     edit:SetMaxLetters(128);edit:SetTextInsets(6,6,0,0);edit:SetPoint("LEFT",icon,"RIGHT",8,0)
@@ -2021,7 +2090,7 @@ function S.BuildControls(e,parent,Row)
 
     local function EntryCheck(label,key,y)
         local check=W.Check(panel,label,function(value)Update(function(entry)entry[key]=not not value end)end)
-        check:SetPoint("TOPLEFT",-4,y)
+        check:SetPoint("TOPLEFT",-4,y-34)
         return check
     end
     local glow=EntryCheck("触发发光","triggerGlow",-96)
@@ -2048,7 +2117,7 @@ function S.BuildControls(e,parent,Row)
         for key,control in pairs(globals)do
             control.updating=true
             if skillNumeric[key]then control:SetValue(owner[key] or skillNumeric[key][3])
-            else control:SetChecked(owner[key]~=false)end
+            else control:SetChecked(SkillChecked(owner,key))end
             control.updating=false
         end
         if self.entry~=entry or self.owner~=owner then
@@ -2077,7 +2146,8 @@ function S.BuildControls(e,parent,Row)
             if not edit:HasFocus()then W.SetInputValue(edit,entry.value)end
         end
         RefreshIcon()
-        glow:SetChecked(entry.triggerGlow==true);maxGlow:SetChecked(entry.maxStackGlow==true)
+        glow:SetChecked(TriggerGlowEnabled(entry))
+        maxGlow:SetChecked(entry.maxStackGlow==true)
         reverse:SetChecked(entry.reverseDisplay==true)
         maxStacks.updating=true;maxStacks:SetValue(entry.maxStacks or 0);maxStacks.updating=false
         maxStacks:SetShown(entry.maxStackGlow==true);maxLabel:SetShown(entry.maxStackGlow==true)
