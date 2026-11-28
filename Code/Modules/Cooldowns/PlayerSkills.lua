@@ -15,6 +15,7 @@ local function SkillChecked(group,key)
     return group[key]~=false
 end
 local extraEntryFields={triggerGlow=true,maxStackGlow=true,triggerGlowColor=true,maxStackGlowColor=true,maxStacks=true,slot=true,blizzardCategory=true}
+local soundFields={soundEnabled=true,soundWhen=true,sound=true,soundPath=true,soundID=true}
 local whiteGlow={1,1,1,1}
 local validBlizzardCategories={Essential=true,Utility=true,TrackedBuff=true}
 local effectTypes={buffCooldown="buff",debuffCooldown="debuff"}
@@ -106,6 +107,11 @@ function S.ValidEntries(entries)
         if type(key)~="number" or key%1~=0 or key<1 or key>#entries or type(entry)~="table" then return false end
         if entry.type~="cooldown" and entry.type~="usable" and entry.type~="stance" and entry.type~="equipment" and not auraTypes[entry.type] and entry.type~="custom" and not IsCombined(entry)then return false end
         if not M.CustomMonitor.Valid(entry)then return false end
+        if entry.soundEnabled~=nil and type(entry.soundEnabled)~="boolean"then return false end
+        if entry.soundWhen~=nil and entry.soundWhen~="start" and entry.soundWhen~="finish" then return false end
+        for _,key in ipairs({"sound","soundPath","soundID"})do
+            if entry[key]~=nil and (type(entry[key])~="string" or #entry[key]>512)then return false end
+        end
         for _,key in ipairs({"triggerGlowColor","maxStackGlowColor"})do
             local color=entry[key]
             if color~=nil then
@@ -140,7 +146,8 @@ function S.ValidEntries(entries)
         if entry.slot~=nil and (type(entry.slot)~="number" or entry.slot%1~=0 or entry.slot<1 or entry.slot>19)then return false end
         for field in pairs(entry)do
             if field~="type" and field~="value" and field~="showShortcut" and field~="shortcut" and field~="shortcutColor"
-                and field~="reverseDisplay" and field~="onlyMine" and field~="effect" and field~="blizzardCooldownID" and not extraEntryFields[field] and not M.CustomMonitor.fields[field]then return false end
+                and field~="reverseDisplay" and field~="onlyMine" and field~="effect" and field~="blizzardCooldownID"
+                and not extraEntryFields[field] and not soundFields[field] and not M.CustomMonitor.fields[field]then return false end
         end
     end
     for i=1,#entries do if type(entries[i])~="table" then return false end end
@@ -795,6 +802,16 @@ local function AuraVisibilityMarker(parent)
     marker:SetAllPoints();marker:EnableMouse(false)
     return marker
 end
+local function ListenForCountdownEnd(slot,timer)
+    timer:HookScript("OnCooldownDone",function()
+        local state,entry=slot.skillSound,slot.entry
+        if state and state.entry==entry and entry.soundEnabled and entry.soundWhen=="finish"
+            and state.nativeTimer==timer and state.active and not state.ended then
+            state.ended=true
+            M.PlayerOtherMonitor.Play(entry)
+        end
+    end)
+end
 local function ApplySkillGlowBorder(glow,border)
     if glow.skinBorder==border then return end
     glow.skinBorder=border
@@ -886,6 +903,15 @@ local function StyleNativeAura(slot,frame,reversed,nativeGlows,nativeStacks)
     frame.monitorCount:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-1,1);frame:SetApplicationCount(frame.monitorCount,{})
     local presence=AuraVisibilityMarker(frame)
     nativeGlows[#nativeGlows+1]=CreateNativeGlowDisplay(slot,presence)
+    local tracker=nativeGlows[#nativeGlows]
+    if frame.SetDurationCooldown then
+        local timer=CreateFrame("Cooldown",nil,frame,"CooldownFrameTemplate")
+        timer:SetAllPoints();timer:EnableMouse(false)
+        timer:SetDrawEdge(false);timer:SetDrawBling(false);timer:SetDrawSwipe(false)
+        M.CustomMonitor.SetVisual(timer,"SetHideCountdownNumbers",true);timer.noCooldownCount=true
+        ListenForCountdownEnd(slot,timer)
+        tracker.timer=timer;frame:SetDurationCooldown(timer)
+    end
     local display={frame=frame}
     nativeStacks[#nativeStacks+1]=display
     BindNativeStackGlow(slot,display)
@@ -972,6 +998,7 @@ local function Icon(view,o,i)
     slot.countGate=CreateFrame("Frame",nil,slot);slot.countGate:SetAllPoints()
     slot.count=slot.countGate:CreateFontString(nil,"OVERLAY");CountFont(slot.count);slot.count:SetPoint("BOTTOMRIGHT",slot,"BOTTOMRIGHT",-1,1)
     slot.cooldown=CreateFrame("Cooldown",nil,slot.timerGate,"CooldownFrameTemplate");slot.cooldown:SetAllPoints();slot.cooldown:EnableMouse(false)
+    ListenForCountdownEnd(slot,slot.cooldown)
     slot.gcd=CreateFrame("Cooldown",nil,slot,"CooldownFrameTemplate")
     slot.gcd:SetAllPoints();slot.gcd:EnableMouse(false)
     slot.gcd:SetDrawEdge(false);slot.gcd:SetDrawBling(false);slot.gcd:SetDrawSwipe(true)
@@ -1137,6 +1164,7 @@ local function BindEffect(slot)
                 swipe.noCooldownCount=true;ConfigureSwipe(swipe)
                 swipe:SetDrawSwipe(slot.showCooldownSwipe)
                 slot.effectNativeSwipe=swipe
+                ListenForCountdownEnd(slot,swipe)
                 frame:SetDurationCooldown(swipe)
             end
             local count=frame:CreateFontString(nil,"OVERLAY");CountFont(count)
@@ -1840,6 +1868,37 @@ local function PaintTriggerGlow(slot,shouldGlow,watchCooldown,now,color)
     end
 end
 
+local function UpdateSkillSound(slot,now,active,expires,nativeTimer)
+    local entry=slot.entry
+    if not entry.soundEnabled then slot.skillSound=nil;return end
+    if active==nil then return end
+    local state=slot.skillSound
+    if not state or state.entry~=entry then
+        state={entry=entry,active=active}
+        slot.skillSound=state
+    elseif active and not state.active then
+        state.ended=nil
+        if entry.soundWhen~="finish" then M.PlayerOtherMonitor.Play(entry)end
+    elseif not state.ended and state.expires and state.expires<=now and
+        (not active or not expires or math.abs(state.expires-expires)>.25) then
+        state.ended=true
+        if entry.soundWhen=="finish" then M.PlayerOtherMonitor.Play(entry)end
+    end
+    if active and expires and expires>now and state.expires and expires>state.expires+.25 then
+        state.ended=nil -- refreshed timer; only the new expiry should play
+    end
+    state.active,state.expires,state.nativeTimer=active,active and expires or nil,nativeTimer
+    if not active then state.ended=nil end
+end
+
+local function NativeSoundTimer(marker,timer)
+    if not marker then return false end
+    local visible=Safe(marker.IsVisible,marker)
+    if not Readable(visible) or type(visible)~="boolean" then return nil end
+    if visible then return true,timer end
+    return false
+end
+
 function S.Paint(view,o,animateOnly)
     local group=view.byID[o.spec.parent]
     local shown=o.spec.enabled~=false and (view.preview or group.enabled~=false) and not(view.hidden and view.hidden[o.spec.id])
@@ -1994,6 +2053,10 @@ function S.Paint(view,o,animateOnly)
             if slot.customGlow then ApplySkillGlowBorder(slot.customGlow,nil)end
             ClearCooldown(slot.cooldown);slot.duration=nil
             local result=M.CustomMonitor.Apply(o,slot,view.preview)
+            if not view.preview then
+                local expires=Number(result.expirationTime)
+                UpdateSkillSound(slot,now,result.show and (not expires or expires>now),expires)
+            end
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);textureAlpha=1
             M.CustomMonitor.SetText(slot.text,result.text or S.FormatCountdown(result.expirationTime and result.expirationTime-now))
             M.CustomMonitor.SetText(slot.count,result.count and tostring(result.count)or "")
@@ -2100,6 +2163,27 @@ function S.Paint(view,o,animateOnly)
             if display and display.glow then
                 PaintNativeGlow(slot,display,threshold and useNativeEffect and display.threshold==threshold,now,entry.maxStackGlowColor)
             end
+            if not view.preview and entry.soundEnabled then
+                local soundActive,expires,nativeTimer=active,active and slot.expires or nil
+                if effectVisible then
+                    soundActive,expires=true,slot.effectExpires
+                elseif useNativeEffect then
+                    local nativeActive,timer=NativeSoundTimer(slot.effectPresence,slot.effectNativeSwipe)
+                    if nativeActive~=false then soundActive,expires,nativeTimer=nativeActive,nil,timer end
+                elseif useNative and not active then
+                    for _,watch in ipairs(slot.nativeGlows or {})do
+                        local nativeActive,timer=NativeSoundTimer(watch.marker,watch.timer)
+                        if nativeActive~=false then soundActive,nativeTimer=nativeActive,timer;break end
+                    end
+                end
+                if IsSpellIcon(entry) and not soundActive and slot.duration then
+                    local remaining=Number(Safe(slot.duration.GetRemainingDuration,slot.duration))
+                    if remaining then soundActive=remaining>0;expires=soundActive and now+remaining or nil
+                    elseif soundActive~=nil then soundActive,nativeTimer=NativeSoundTimer(slot.cooldown,slot.cooldown)end
+                end
+                if slot.effectGlow==true then soundActive=true end
+                UpdateSkillSound(slot,now,soundActive,expires,nativeTimer)
+            elseif not view.preview then slot.skillSound=nil end
         end
         if not view.preview then
             S.UpdateSkillSwipe(slot,group,now,effectVisible)
@@ -2151,6 +2235,8 @@ function S.Event(view,event,unit)
         S.InvalidateMonitor(o,"debuff",true);S.InvalidateMonitor(o,"targetBuff",true)
         for _,slot in ipairs(o.skillIcons)do
             if slot.effect and (slot.effect.unit=="target" or slot.effect.alternate)then slot.effectAura=nil end
+            local aura=slot.entry and auraTypes[slot.entry.type]
+            if (aura and aura.unit=="target") or (slot.effect and slot.effect.unit=="target")then slot.skillSound=nil end
         end
         S.InvalidateMonitor(o,"cooldown",true)
     elseif activation or event=="SPELL_UPDATE_USABLE" or event=="ACTIONBAR_UPDATE_USABLE" or event=="ACTIONBAR_SLOT_CHANGED" then
@@ -2188,8 +2274,11 @@ function S.BuildControls(e,parent,Row)
     local appearance=Panel(24,"skillMonitorAppearance")
     W.SettingsSectionTitle(appearance,"外观与显示",-8)
     local share=Panel(56,"skillMonitorSharing")
-    local panel=Panel(271,"skillMonitorEntry");e.skillMonitorPanel=panel
-    local function Flush() if panel.edit and panel.edit:HasFocus() then panel.edit:ClearFocus() end end
+    local panel,panelRow=Panel(271,"skillMonitorEntry");e.skillMonitorPanel=panel
+    local function Flush()
+        if panel.edit and panel.edit:HasFocus() then panel.edit:ClearFocus() end
+        if panel.soundInput and panel.soundInput:HasFocus() then panel.soundInput:ClearFocus() end
+    end
     local back=W.Button(panel,"返回",96,function()
         Flush()
         e.skillEntry=nil;e.propScroll:SetVerticalScroll(0)
@@ -2239,19 +2328,21 @@ function S.BuildControls(e,parent,Row)
         if Editable(owner,entry)then change(entry);M:Commit()end
     end
     local function Choice(label,options,width,change)
+        local function Choices()return type(options)=="function" and options() or options end
         local button
         button=W.MediaSelect(panel,label,width,"choice",function()
             if button.menu then button.menu:Hide();return end
             local owner,entry=panel.owner,panel.entry
-            W.MediaMenu(button,options,"choice",button.value,function(choice)
+            W.MediaMenu(button,Choices(),"choice",button.value,function(choice)
                 if panel.owner==owner and panel.entry==entry then Update(function(item)change(item,choice.path)end)end
             end)
         end)
         function button:SetValue(value)
             self.value=value
-            for _,choice in ipairs(options)do
+            for _,choice in ipairs(Choices())do
                 if choice.path==value then self:SetMedia(choice.name,value);return end
             end
+            self:SetMedia(value,value)
         end
         return button
     end
@@ -2353,9 +2444,40 @@ function S.BuildControls(e,parent,Row)
     end
     local triggerColor=GlowColor(glow,"triggerGlowColor")
     local stackColor=GlowColor(maxGlow,"maxStackGlowColor")
+    local playSound=EntryCheck("播放声音","soundEnabled",-228)
+    local when=Choice("播放时机",{{name="触发开始时播放",path="start"},{name="触发结束时播放",path="finish"}},208,
+        function(entry,value)entry.soundWhen=value end)
+    when:SetPoint("TOPLEFT",0,-292)
+    local sound=Choice("音效",M.PlayerOtherMonitor.Sounds,270,function(entry,value)entry.sound=value end)
+    sound:SetPoint("TOPLEFT",0,-346)
+    local hear=W.Button(panel,"试听",72,function()
+        Flush()
+        if Editable(panel.owner,panel.entry)then M.PlayerOtherMonitor.Play(panel.entry)end
+    end)
+    hear:SetPoint("LEFT",sound,"RIGHT",12,-11)
+    local soundLabel=W.Label(panel,"声音文件路径",11);soundLabel:SetPoint("TOPLEFT",0,-397)
+    local soundInput=W.Edit(panel,340);panel.soundInput=soundInput
+    soundInput:SetPoint("TOPLEFT",0,-414);soundInput:SetMaxLetters(512);soundInput:SetTextInsets(6,6,0,0)
+    soundInput:SetScript("OnEditFocusGained",function(self)
+        self.owner,self.entry=panel.owner,panel.entry
+        self.field=self.entry and (self.entry.sound=="id" and "soundID" or "soundPath")
+    end)
+    soundInput:SetScript("OnEditFocusLost",function(self)
+        local owner,entry,key=self.owner,self.entry,self.field
+        self.owner,self.entry,self.field=nil,nil,nil
+        if key and Editable(owner,entry)then
+            local value=S.Input(self:GetText())
+            if (entry[key] or "")~=value then entry[key]=value;M:Commit()end
+        end
+    end)
+    soundInput:SetScript("OnEnterPressed",function(self)self:ClearFocus()end)
+    soundInput:SetScript("OnEscapePressed",function(self)
+        if self.entry then self:SetText(self.entry[self.field] or "")end
+        self:ClearFocus()
+    end)
     panel:SetScript("OnHide",function()
         Flush()
-        for _,button in ipairs({kind,unit,filter,equipment})do if button.menu then button.menu:Hide()end end
+        for _,button in ipairs({kind,unit,filter,equipment,when,sound})do if button.menu then button.menu:Hide()end end
     end)
     function panel:Refresh(owner)
         local entry=e.skillEntry
@@ -2372,7 +2494,7 @@ function S.BuildControls(e,parent,Row)
         end
         if self.entry~=entry or self.owner~=owner then
             Flush()
-            for _,button in ipairs({kind,unit,filter,equipment})do if button.menu then button.menu:Hide()end end
+            for _,button in ipairs({kind,unit,filter,equipment,when,sound})do if button.menu then button.menu:Hide()end end
         end
         self.owner,self.entry=owner,entry
         if not entry then return end
@@ -2403,5 +2525,25 @@ function S.BuildControls(e,parent,Row)
         reverse:SetChecked(entry.reverseDisplay==true)
         onlyMine:SetShown(aura~=nil or combined~=nil or (entry.type=="blizzard" and entry.blizzardCategory=="TrackedBuff"))
         onlyMine:SetChecked(entry.onlyMine~=false)
+        local soundEnabled=entry.soundEnabled==true
+        local selectedSound=entry.sound or "kit:8960"
+        local extended=soundEnabled and (selectedSound=="id" or selectedSound=="custom")
+        playSound:SetChecked(soundEnabled)
+        -- Pull the sound row up for entries without the aura-source checkbox.
+        local offset=(aura or combined or (entry.type=="blizzard" and entry.blizzardCategory=="TrackedBuff")) and 0 or 33
+        playSound:SetPoint("TOPLEFT",-4,-262+offset)
+        when:SetPoint("TOPLEFT",0,-292+offset);sound:SetPoint("TOPLEFT",0,-346+offset)
+        soundLabel:SetPoint("TOPLEFT",0,-397+offset);soundInput:SetPoint("TOPLEFT",0,-414+offset)
+        when:SetShown(soundEnabled);sound:SetShown(soundEnabled);hear:SetShown(soundEnabled)
+        soundLabel:SetShown(extended);soundInput:SetShown(extended)
+        panelRow.height=(extended and 449 or (soundEnabled and 397 or 300))-offset
+        panel:SetHeight(panelRow.height)
+        if soundEnabled then when:SetValue(entry.soundWhen or "start");sound:SetValue(selectedSound)end
+        if extended then
+            soundLabel:SetText(selectedSound=="id" and "音效ID" or "声音文件路径")
+            if not soundInput:HasFocus()then
+                soundInput:SetText(entry[selectedSound=="id" and "soundID" or "soundPath"] or "")
+            end
+        end
     end
 end
