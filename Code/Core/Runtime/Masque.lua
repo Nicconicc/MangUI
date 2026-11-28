@@ -140,32 +140,43 @@ function K.Reparent(icon, parent)
     if entry and entry.frame and entry.frame:GetParent() ~= parent then Queue(entry) end
 end
 
+local glowShapes = {
+    Circle="Circle", Hexagon="Hexagon", ["Hexagon-Rotated"]="Hexagon-Rotated",
+    Modern="Modern", ["Modern-Lite"]="Modern", Square="Square", Classic="Square",
+}
 function K.GlowBorder(icon)
     local entry = entries[icon]
     if not entry or entry.failed or not entry.normal then return end
     local now = GetTime()
     if now < (entry.borderRefresh or 0) then return entry.glowBorder end
     entry.borderRefresh = now + .25
-    local ok, texture, atlas, width, height, coords = pcall(function()
-        -- Masque can replace the supplied Normal region when a skin has no
-        -- button states. That replacement is the border actually on screen.
+    local ok, texture, width, height = pcall(function()
         local config = entry.frame._MSQ_CFG
-        local normal = (config and config.Normal)
-            or (entry.group.GetLayer and entry.group:GetLayer(entry.frame,"Normal"))
-            or entry.normal
-        if not normal:IsShown() then return end
-        local texture, atlas = normal:GetTexture(), normal.GetAtlas and normal:GetAtlas()
-        local width, height = normal:GetWidth(), normal:GetHeight()
-        local coords = {normal:GetTexCoord()}
-        if (texture or atlas) and width > 0 and height > 0 and #coords >= 4 then
-            return texture, atlas, width, height, coords
+        local skin = config and config.Skin
+        if not skin then return end
+        local highlight = skin.Highlight
+        if type(highlight)=="table" and config.GetTypeSkin then highlight=config:GetTypeSkin(highlight)end
+        local path = type(highlight)=="table" and highlight.Texture
+        local w,h
+        -- The MangUITools glass Hover assets have a clear center and follow
+        -- the exact outlines, including rounded corners and shield points.
+        if type(path)=="string" and path:lower():find("manguitools\\media\\masque\\",1,true)
+            and path:lower():match("\\hover$") then
+            w,h=highlight.Width or 36,highlight.Height or 36
+        else
+            local shape=glowShapes[skin.Shape] or "Modern"
+            path="Interface\\AddOns\\Masque\\Textures\\"..shape.."\\SpellAlert-AltGlow"
+            local alert=type(skin.SpellAlert)=="table" and skin.SpellAlert
+            local alt=alert and type(alert.AltGlow)=="table" and alert.AltGlow
+            w,h=alt and alt.Width or 49,alt and alt.Height or 49
         end
+        if config.GetScaleSize then w,h=config:GetScaleSize(w,h)end
+        return M:TextureFile(path),w,h
     end)
-    if ok and width then
+    if ok and texture then
         local old = entry.glowBorder
-        if old and old.texture==texture and old.atlas==atlas and old.width==width and old.height==height
-            and table.concat(old.coords,",")==table.concat(coords,",") then return old end
-        entry.glowBorder = {texture=texture,atlas=atlas,width=width,height=height,coords=coords}
+        if old and old.texture==texture and old.width==width and old.height==height then return old end
+        entry.glowBorder = {texture=texture,width=width,height=height}
     else
         entry.glowBorder = nil
     end

@@ -799,17 +799,21 @@ local function ApplySkillGlowBorder(glow,border)
     if glow.skinBorder==border then return end
     glow.skinBorder=border
     if border then
-        if border.atlas and glow.edge.SetAtlas then glow.edge:SetAtlas(border.atlas)
-        else glow.edge:SetTexture(border.texture)end
-        glow.edge:SetTexCoord(unpack(border.coords))
-        glow.edge:SetSize(border.width,border.height)
+        glow.edge:SetTexture(border.texture)
+        glow.edge:SetTexCoord(0,1,0,1);glow.edge:SetSize(border.width+4,border.height+4)
         glow.edge:SetDesaturated(true)
-        glow.inner:Hide()
+        glow.inner:SetTexture(border.texture)
+        glow.inner:ClearAllPoints();glow.inner:SetPoint("CENTER")
+        glow.inner:SetSize(border.width,border.height)
+        glow.inner:SetDesaturated(true);glow.inner:Show()
     else
         glow.edge:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
         glow.edge:SetTexCoord(0,1,0,1);glow.edge:SetSize(72,72)
         glow.edge:SetDesaturated(false)
-        glow.inner:Show()
+        glow.inner:SetTexture(M:TextureFile("Interface\\AddOns\\MangUI\\Assets\\UI\\MonitorInnerGlow.tga"))
+        glow.inner:ClearAllPoints()
+        glow.inner:SetPoint("TOPLEFT",-2,2);glow.inner:SetPoint("BOTTOMRIGHT",2,-2)
+        glow.inner:SetDesaturated(false);glow.inner:Show()
     end
 end
 local function PaintSkillGlow(slot,glow,enabled,color,now)
