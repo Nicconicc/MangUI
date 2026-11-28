@@ -768,6 +768,36 @@ function S.CreateAuraBackdrop(parent,container)
     if ok then return backdrop end
     backdrop:Hide()
 end
+local function AuraVisibilityMarker(parent)
+    local marker=CreateFrame("Frame",nil,parent)
+    marker:SetAllPoints();marker:EnableMouse(false)
+    return marker
+end
+local function CreateNativeGlowDisplay(slot,marker)
+    -- The marker observes the aura, but the glow belongs to MangUI's slot.
+    local glow=M.CustomMonitor.CreateGlow(slot)
+    glow:SetFrameLevel(slot:GetFrameLevel()+25)
+    return {glow=glow,marker=marker}
+end
+local function PaintNativeGlow(display,enabled,now)
+    if not display or not display.glow then return end
+    local glow,marker=display.glow,display.marker
+    local visible=enabled and marker and Safe(marker.IsVisible,marker)
+    if type(visible)=="boolean" then
+        if not Readable(visible) then
+            if glow.SetAlphaFromBoolean then
+                glow:SetAlphaFromBoolean(visible,1,0)
+                M.CustomMonitor.PaintGlow(glow,true,nil,now)
+                return
+            end
+        elseif visible then
+            glow:SetAlpha(1)
+            M.CustomMonitor.PaintGlow(glow,true,nil,now)
+            return
+        end
+    end
+    glow:Hide()
+end
 local function BindNativeStackGlow(slot,display)
     local threshold=StackGlowThreshold(slot.entry)
     if display.threshold==threshold then return end
@@ -775,15 +805,16 @@ local function BindNativeStackGlow(slot,display)
     if threshold and frame.SetApplicationBar then
         if not display.bar then
             local bar=CreateFrame("StatusBar",nil,frame);bar:SetAllPoints();bar:EnableMouse(false)
-            display.bar=bar;display.glow=M.CustomMonitor.CreateGlow(bar)
-            display.glow:SetFrameLevel(slot:GetFrameLevel()+25)
+            display.bar=bar
+            local owned=CreateNativeGlowDisplay(slot,AuraVisibilityMarker(bar))
+            display.glow,display.marker=owned.glow,owned.marker
         end
         -- The engine owns bar visibility and applies the threshold even to
         -- aura applications that are unavailable to addon Lua in combat.
         if not pcall(frame.SetApplicationBar,frame,display.bar,{minApplications=threshold,maxApplications=threshold+1}) then return end
     elseif display.bar then
         display.glow:Hide()
-        if frame.ClearApplicationBar then frame:ClearApplicationBar()end
+        Safe(frame.ClearApplicationBar,frame)
     end
     display.threshold=threshold
 end
@@ -806,9 +837,8 @@ local function StyleNativeAura(slot,frame,reversed,nativeGlows,nativeStacks)
     frame:SetIcon(frame.monitorIcon);frame:SetDurationText(frame.monitorTime,S.DurationTextOptions())
     frame.monitorCount=frame:CreateFontString(nil,"OVERLAY");CountFont(frame.monitorCount)
     frame.monitorCount:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-1,1);frame:SetApplicationCount(frame.monitorCount,{})
-    local glow=M.CustomMonitor.CreateGlow(frame)
-    glow:SetFrameLevel(slot:GetFrameLevel()+25)
-    nativeGlows[#nativeGlows+1]=glow
+    local presence=AuraVisibilityMarker(frame)
+    nativeGlows[#nativeGlows+1]=CreateNativeGlowDisplay(slot,presence)
     local display={frame=frame}
     nativeStacks[#nativeStacks+1]=display
     BindNativeStackGlow(slot,display)
@@ -816,7 +846,7 @@ local function StyleNativeAura(slot,frame,reversed,nativeGlows,nativeStacks)
     -- The provider denies direct access to its AuraButtons once auras become
     -- secret. Our own child exposes inherited visibility as a secret boolean;
     -- pass it straight to the alpha setter without querying the AuraButton.
-    frame.monitorPresence=CreateFrame("Frame",nil,frame);frame.monitorPresence:SetAllPoints();frame.monitorPresence:EnableMouse(false)
+    frame.monitorPresence=presence
     -- Each native aura frame gates the annotation through engine alpha. This
     -- also handles private visibility without testing secret booleans in Lua.
     frame.shortcutGate=CreateFrame("Frame",nil,slot.shortcutGate or slot.shortcutFrame)
@@ -865,6 +895,8 @@ local function SelectNativeAura(slot,aura)
     if slot.nativeAuras and slot.nativeReversed==reversed then return end
     slot.nativeVariants=slot.nativeVariants or {}
     if slot.nativeAuras then
+        for _,display in ipairs(slot.nativeGlows or {})do display.glow:Hide()end
+        for _,display in ipairs(slot.nativeStacks or {})do if display.glow then display.glow:Hide()end end
         slot.nativeAuras:SetEnabled(false)
         if slot.nativeHost then slot.nativeHost:Hide() end
         local saved={}
@@ -1032,11 +1064,12 @@ local function BindEffect(slot)
             frame:SetFrameLevel(slot.baseIconFrame:GetFrameLevel()+2)
             local icon=frame:CreateTexture(nil,"ARTWORK");icon:SetAllPoints()
             slot.effectNativeIcon=icon
+            icon:SetDesaturated(slot.entry.reverseDisplay==true)
             M.MasqueIcons.Attach(icon,"playerSkillMonitor",40,40)
             frame:SetIcon(icon)
-            local glow=M.CustomMonitor.CreateGlow(frame)
-            glow:SetFrameLevel(slot:GetFrameLevel()+25)
-            slot.effectNativeGlow=glow
+            local presence=AuraVisibilityMarker(frame)
+            slot.effectPresence=presence
+            slot.effectNativeGlow=CreateNativeGlowDisplay(slot,presence)
             slot.effectNativeStack={frame=frame}
             BindNativeStackGlow(slot,slot.effectNativeStack)
             local timer=frame:CreateFontString(nil,"OVERLAY");Font(timer)
@@ -1054,8 +1087,6 @@ local function BindEffect(slot)
             end
             local count=frame:CreateFontString(nil,"OVERLAY");CountFont(count)
             count:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-1,1);frame:SetApplicationCount(count,{})
-            local presence=CreateFrame("Frame",nil,frame);presence:SetAllPoints();presence:EnableMouse(false)
-            slot.effectPresence=presence
         end})
         native:SetFlowLayoutAnchorPoint("TOPLEFT")
         native:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
@@ -1066,6 +1097,9 @@ local function BindEffect(slot)
     native:SetAuraGroupFilterString("effect",effect.filter)
     native:SetAuraGroupCandidateFilters("effect",{includeSpellIDs=effect.ids})
     if slot.effectNativeStack then BindNativeStackGlow(slot,slot.effectNativeStack)end
+    if slot.effectNativeIcon then
+        Safe(M.CustomMonitor.SetVisual,slot.effectNativeIcon,"SetDesaturated",slot.entry.reverseDisplay==true)
+    end
     native:SetEnabled(true);native:UpdateAllAuras()
 end
 
@@ -1175,12 +1209,13 @@ function S.Configure(view,o)
         o.skillKinds[entry.type]=true
         local slot=Icon(view,o,i);Resolve(slot,entry);slot.duration=nil;slot.expires=nil;slot.active=false;slot.stacks=nil
         slot.texture:SetVertexColor(1,1,1)
+        slot.appliedSpellR,slot.appliedSpellG,slot.appliedSpellB=1,1,1
         slot:SetScale(S.IconSize(group)/40)
         slot.rowX=nil;slot.sweepStart=nil;slot.maxCharges=nil;slot.auraDuration=nil;slot.item=nil
         slot.showCooldownSwipe=group.skillCooldownSwipe~=false
         slot.cooldown:SetDrawSwipe(slot.showCooldownSwipe)
         slot.effectSwipe:SetDrawSwipe(slot.showCooldownSwipe);ClearCooldown(slot.effectSwipe);slot.effectSwipe.monitorStart=nil
-        if slot.effectNativeSwipe then slot.effectNativeSwipe:SetDrawSwipe(slot.showCooldownSwipe)end
+        if slot.effectNativeSwipe then Safe(slot.effectNativeSwipe.SetDrawSwipe,slot.effectNativeSwipe,slot.showCooldownSwipe)end
         slot.cooldownDesaturates=nil;slot.spellR,slot.spellG,slot.spellB=1,1,1
         ClearCooldown(slot.gcd)
         slot.gcdStart=nil;slot.gcd.monitorStart=nil;slot.cooldown.monitorStart=nil
@@ -1598,9 +1633,18 @@ local function UpdateSpellColor(slot,group)
         if Readable(noPower) and (noPower==true or noPower==1)then r,g,b=.5,.5,1
         elseif Readable(noPower) then r,g,b=.4,.4,.4 end
     end
-    if slot.spellR~=r or slot.spellG~=g or slot.spellB~=b then
+    slot.spellR,slot.spellG,slot.spellB=r,g,b
+end
+local function PaintSpellColor(slot,reversed,faded)
+    local r,g,b=slot.spellR,slot.spellG,slot.spellB
+    if reversed and slot.entry.type=="blizzard" and (faded==true or (faded==nil and b>r)) then
+        -- Vertex tint is applied after desaturation. Use neutral RGB so the
+        -- reversed CDM icon stays gray even when the spell lacks resources.
+        r,g,b=1,1,1
+    end
+    if slot.appliedSpellR~=r or slot.appliedSpellG~=g or slot.appliedSpellB~=b then
         slot.texture:SetVertexColor(r,g,b)
-        slot.spellR,slot.spellG,slot.spellB=r,g,b
+        slot.appliedSpellR,slot.appliedSpellG,slot.appliedSpellB=r,g,b
     end
 end
 
@@ -1628,7 +1672,6 @@ local function PaintEffect(slot,now,reversed)
     local native=slot.effectNative
     local useNative=effect and native and not active and not slot.effectNeedsBind
     if native then native:SetAlpha(useNative and 1 or 0)end
-    if slot.effectNativeIcon then M.CustomMonitor.SetVisual(slot.effectNativeIcon,"SetDesaturated",reversed)end
     slot.countGate:SetAlpha(1)
     slot.timerGate:SetAlpha(1)
     M.CustomMonitor.SetVisual(slot.cooldown,"SetAlpha",active and 0 or 1)
@@ -1826,6 +1869,7 @@ function S.Paint(view,o,animateOnly)
         local slot=o.skillIcons[i]
         local textureAlpha=1
         local useCooldownNumbers=false
+        local spellFaded
         local reversed=slot.entry.reverseDisplay==true
         -- On Forever, a readable match can draw the complete faded icon even
         -- when the native button's inherited visibility is inaccessible.
@@ -1852,6 +1896,10 @@ function S.Paint(view,o,animateOnly)
         end
         if slot.entry.type=="custom"then
             if slot.restrictedStackGlow then slot.restrictedStackGlow:Hide()end
+            for _,display in ipairs(slot.nativeGlows or {})do PaintNativeGlow(display,false,now)end
+            for _,display in ipairs(slot.nativeStacks or {})do PaintNativeGlow(display,false,now)end
+            PaintNativeGlow(slot.effectNativeGlow,false,now)
+            PaintNativeGlow(slot.effectNativeStack,false,now)
             ClearCooldown(slot.cooldown);slot.duration=nil
             local result=M.CustomMonitor.Apply(o,slot,view.preview)
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);textureAlpha=1
@@ -1870,6 +1918,7 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetText(slot.text,"")
             local desat=DisplayCurve(desaturationCurves,reversed,0,1)
             if not slot.cooldownDesaturates then
+                spellFaded=reversed
                 M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",reversed)
             elseif desat and slot.duration.EvaluateRemainingDuration and slot.texture.SetDesaturation then
                 -- The engine consumes this potentially secret number directly.
@@ -1880,6 +1929,7 @@ function S.Paint(view,o,animateOnly)
                 if remaining then
                     useCooldownNumbers=false
                     local faded=(remaining>0)~=reversed
+                    spellFaded=faded
                     M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);Remaining(slot,remaining)
 
                 end
@@ -1891,6 +1941,7 @@ function S.Paint(view,o,animateOnly)
             local active=slot.active and (not slot.expires or slot.expires>now)
             local faded=(active==true)~=reversed
             if IsSpellIcon(slot.entry) and not slot.cooldownDesaturates then faded=reversed end
+            spellFaded=faded
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);Remaining(slot,active and slot.expires and slot.expires-now or nil)
             if not IsSpellIcon(slot.entry) then textureAlpha=faded and .5 or 1 end
 
@@ -1902,11 +1953,13 @@ function S.Paint(view,o,animateOnly)
             local hasTextTimer
             effectVisible,hasTextTimer=PaintEffect(slot,now,reversed)
             if hasTextTimer then useCooldownNumbers=false end
-            if effectVisible then textureAlpha=1
+            if effectVisible then textureAlpha=1;spellFaded=reversed
             elseif slot.blizzardDesaturated~=nil then
-                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",slot.blizzardDesaturated~=reversed)
+                spellFaded=slot.blizzardDesaturated~=reversed
+                M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",spellFaded)
                 textureAlpha=1
             end
+            PaintSpellColor(slot,reversed,spellFaded)
         end
         if slot.entry.type~="custom" then
             local entry=slot.entry
@@ -1933,19 +1986,17 @@ function S.Paint(view,o,animateOnly)
             local full=threshold and numeric and numeric>=threshold
             PaintTriggerGlow(slot,proc or full or false,trigger and IsSpellIcon(entry),now)
             PaintRestrictedStackGlow(slot,count,threshold,now)
-            for _,glow in ipairs(slot.nativeGlows or {})do
-                M.CustomMonitor.PaintGlow(glow,trigger and useNative,nil,now)
+            for _,display in ipairs(slot.nativeGlows or {})do
+                PaintNativeGlow(display,trigger and useNative,now)
             end
-            if slot.effectNativeGlow then
-                M.CustomMonitor.PaintGlow(slot.effectNativeGlow,trigger and not proc and IsSpellIcon(entry),nil,now)
-            end
+            local useNativeEffect=IsSpellIcon(entry) and slot.effect and not slot.effectNeedsBind and not effectVisible
+            PaintNativeGlow(slot.effectNativeGlow,trigger and not proc and useNativeEffect,now)
             for _,display in ipairs(slot.nativeStacks or {})do
-                if display.glow then M.CustomMonitor.PaintGlow(display.glow,threshold and useNative and display.threshold==threshold,nil,now)end
+                PaintNativeGlow(display,threshold and useNative and display.threshold==threshold,now)
             end
             local display=slot.effectNativeStack
             if display and display.glow then
-                M.CustomMonitor.PaintGlow(display.glow,threshold and not effectVisible and IsSpellIcon(entry)
-                    and display.threshold==threshold,nil,now)
+                PaintNativeGlow(display,threshold and useNativeEffect and display.threshold==threshold,now)
             end
         end
         if not view.preview then
