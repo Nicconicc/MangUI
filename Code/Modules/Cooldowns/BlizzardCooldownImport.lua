@@ -218,14 +218,15 @@ end
 function S.AddBlizzardCooldownButton(panel, current, flush)
     if M.Compat.interface ~= 16001 then return end
     local W=M.Widgets
-    local open=W.Button(panel,"打开冷却管理器",168,OpenBlizzardCooldownManager)
+    local buttonWidth=192
+    local open=W.Button(panel,"打开冷却管理器",buttonWidth,OpenBlizzardCooldownManager)
     open:SetPoint("TOPLEFT",0,0)
     open:SetHoverTextColor(1,.82,0)
     W.SettingsSectionTitle(panel,"法术冷却导入",-44)
     panel.blizzardSyncChecks={}
     for index,category in ipairs(categories)do
         local key=category.key
-        local button=W.Button(panel,category.label,192,function()
+        local button=W.Button(panel,category.label,buttonWidth,function()
             local group=current()
             if not group or not M:CanEdit() or not S.IsProfileBound(group.id) then return end
             flush()
