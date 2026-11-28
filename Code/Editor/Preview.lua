@@ -23,6 +23,13 @@ local monitorPreview={
     commonItems={list="commonItems",slots="itemIcons"},
 }
 
+local function SkillInsertion(group,targetIndex,x,center)
+    local onLeft=x<center
+    local reversed=M.PlayerSkillMonitor.Direction(group)=="LEFT"
+    local before=onLeft~=reversed
+    return targetIndex+(before and 0 or 1),onLeft and "LEFT" or "RIGHT"
+end
+
 local function MonitorTarget(e,drag)
     local group=Selected()
     local chat=group and group.id=="chatButtons"
@@ -58,9 +65,14 @@ local function MonitorTarget(e,drag)
             local ratio=slot:GetEffectiveScale()/scale
             if left then
                 left,right,top,bottom=left*ratio,right*ratio,top*ratio,bottom*ratio
-                local gap=math.abs(x-(left+right)/2)
-                if (drag or (x>=left and x<=right and y>=bottom and y<=top)) and (not distance or gap<distance)then
+                local center=(left+right)/2
+                local gap=math.abs(x-center)
+                local inBand=group.id~="playerSkillMonitor" or (y>=bottom-12 and y<=top+12)
+                if ((drag and inBand) or (x>=left and x<=right and y>=bottom and y<=top)) and (not distance or gap<distance)then
                     best,distance={group=group,list=list,entry=list[index],slot=slot,index=index,texture=item.texture},gap
+                    if drag and group.id=="playerSkillMonitor" then
+                        best.insertIndex,best.insertSide=SkillInsertion(group,index,x,center)
+                    end
                 end
             end
         end
@@ -68,21 +80,48 @@ local function MonitorTarget(e,drag)
     return best
 end
 
+local function SkillDragHasMoved(drag)
+    local x,y=GetCursorPosition()
+    return drag.moved or (x-drag.clickX)^2+(y-drag.clickY)^2>25
+end
+
 local function UpdateMonitorHighlight(e)
-    local target=MonitorTarget(e,e.monitorDrag)
     local drag=e.monitorDrag
-    if drag and e.monitorGhost then
+    local isSkillDrag=drag and drag.group.id=="playerSkillMonitor"
+    if isSkillDrag then drag.moved=SkillDragHasMoved(drag)end
+    local moving=drag and (not isSkillDrag or drag.moved)
+    local target=MonitorTarget(e,moving and drag or nil)
+    if moving and e.monitorGhost then
         local x,y=GetCursorPosition();local scale=e.monitorGhost:GetEffectiveScale()
         e.monitorGhost:ClearAllPoints()
         e.monitorGhost:SetPoint("CENTER",UIParent,"BOTTOMLEFT",(x+drag.offsetX)/scale,(y+drag.offsetY)/scale)
         drag.slot:SetAlpha(.3)
+        e.monitorGhost:Show()
     end
     local glow=e.monitorGlow
-    if target then
+    local insert=e.monitorInsert
+    local showLine=moving and isSkillDrag and target and target.insertSide
+    if insert then
+        if showLine then
+            local side=target.insertSide
+            local inset=side=="LEFT" and -2 or 2
+            local level=target.slot:GetFrameLevel()+32
+            if insert:GetFrameLevel()~=level then insert:SetFrameLevel(level)end
+            insert:ClearAllPoints()
+            insert:SetPoint("TOP",target.slot,"TOP"..side,inset,3)
+            insert:SetPoint("BOTTOM",target.slot,"BOTTOM"..side,inset,-3)
+        end
+        insert:SetShown(not not showLine)
+    end
+    if target and not (isSkillDrag and moving) then
+        local level=target.slot:GetFrameLevel()+32
+        if glow:GetFrameLevel()~=level then glow:SetFrameLevel(level)end
         glow:ClearAllPoints();glow:SetPoint("TOPLEFT",target.slot,"TOPLEFT",-1,1)
         glow:SetPoint("BOTTOMRIGHT",target.slot,"BOTTOMRIGHT",1,-1)
+        glow:Show()
+    else
+        glow:Hide()
     end
-    glow:SetShown(target~=nil)
 end
 
 local function BeginMonitorDrag(e,target)
@@ -91,6 +130,7 @@ local function BeginMonitorDrag(e,target)
     local scale=slot:GetEffectiveScale()
     local x,y=GetCursorPosition();local cx,cy=slot:GetCenter()
     if target.group.id=="chatButtons" then target.startX=x end
+    target.clickX,target.clickY=x,y
     target.offsetX,target.offsetY=cx and cx*scale-x or 0,cy and cy*scale-y or 0
     target.alpha=slot:GetAlpha()
     e.monitorDrag=target
@@ -98,7 +138,6 @@ local function BeginMonitorDrag(e,target)
     ghost.texture:SetTexture(M:TextureFile(icon and icon:GetTexture() or 134400))
     if icon then ghost.texture:SetTexCoord(icon:GetTexCoord())else ghost.texture:SetTexCoord(0,1,0,1)end
     UpdateMonitorHighlight(e)
-    ghost:Show()
 end
 
 local function CancelMonitorDrag(e)
@@ -106,23 +145,30 @@ local function CancelMonitorDrag(e)
     if drag and drag.alpha then drag.slot:SetAlpha(drag.alpha)end
     e.monitorDrag=nil
     if e.monitorGhost then e.monitorGhost:Hide()end
+    if e.monitorInsert then e.monitorInsert:Hide()end
 end
 
 local function EndMonitorDrag(e)
     local drag=e.monitorDrag
     if not drag then return end
+    local skill=drag.group.id=="playerSkillMonitor"
+    local moving=not skill or SkillDragHasMoved(drag)
+    local target=MonitorTarget(e,moving and drag or nil)
     CancelMonitorDrag(e)
-    local target=MonitorTarget(e,drag)
-    if target and target.entry==drag.entry and drag.group.id=="playerSkillMonitor" then
-        local clicked=MonitorTarget(e)
-        if clicked and clicked.entry==drag.entry then
+    if not target or drag.list[drag.index]~=drag.entry or not M:CanEdit()then return end
+    if skill and not moving then
+        if target.entry==drag.entry then
             e.skillEntry=drag.entry;e.propScroll:SetVerticalScroll(0)
             M:RefreshEditor(true)
         end
         return
     end
-    if not target or target.entry==drag.entry or drag.list[drag.index]~=drag.entry or not M:CanEdit()then return end
-    table.remove(drag.list,drag.index);table.insert(drag.list,target.index,drag.entry)
+    local index=target.index
+    if target.insertIndex then
+        index=target.insertIndex-(target.insertIndex>drag.index and 1 or 0)
+    end
+    if index==drag.index then return end
+    table.remove(drag.list,drag.index);table.insert(drag.list,index,drag.entry)
     M:Commit()
 end
 
@@ -232,6 +278,7 @@ local function RefreshSkillButtons(e,group)
     local function Flush()
         local panel=e.skillMonitorPanel
         if panel and panel.edit then panel.edit:ClearFocus()end
+        if panel and panel.soundInput then panel.soundInput:ClearFocus()end
     end
     if not e.skillAdd then
         e.skillAdd=W.Button(e.input,"+",32,function()
@@ -252,6 +299,11 @@ local function RefreshSkillButtons(e,group)
     local entries=object.entries or {}
     local rightIndex=S.Direction(group)=="LEFT" and 1 or #entries
     local rightSlot=#entries>0 and object.skillIcons[rightIndex]
+    local iconScale=(rightSlot or object.frame):GetEffectiveScale()/add:GetEffectiveScale()
+    local width,height
+    if rightSlot then width,height=rightSlot:GetWidth(),rightSlot:GetHeight()
+    else width=S.IconSize(group);height=width end
+    add:SetSize(width*iconScale,height*iconScale)
     add:ClearAllPoints()
     if rightSlot then add:SetPoint("LEFT",rightSlot,"RIGHT",6,0)
     else add:SetPoint("CENTER",object.frame,"CENTER",0,0)end
@@ -265,6 +317,12 @@ local function RefreshSkillButtons(e,group)
                 button=CreateFrame("Button",nil,e.input);button:SetSize(18,16)
                 button:RegisterForClicks("LeftButtonUp")
                 local label=W.Label(button,"×",15);label:SetPoint("CENTER");label:SetTextColor(1,.22,.22)
+                local highlight=button:CreateTexture(nil,"HIGHLIGHT")
+                highlight:SetPoint("TOPLEFT",-2,2);highlight:SetPoint("BOTTOMRIGHT",2,-2)
+                highlight:SetColorTexture(1,.25,.25,.27)
+                button:SetScript("OnEnter",function()label:SetTextColor(1,.72,.64)end)
+                local function Dim()label:SetTextColor(1,.22,.22)end
+                button:SetScript("OnLeave",Dim);button:SetScript("OnHide",Dim)
                 button:SetScript("OnClick",function(self)
                     local owner=Selected()
                     if owner~=self.owner or not M:CanEdit()then return end
@@ -318,7 +376,13 @@ function M:FitPreview()
         if left then minx,miny,maxx,maxy=left,bottom,right,top end
     end
     local moduleID=PreviewModuleID(selected)
-    if moduleID=="playerSkillMonitor" and #(e.view.nodes.playerSkillMonitorIcons.entries or {})>0 then maxx=maxx+42 end
+    if moduleID=="playerSkillMonitor" then
+        local object=e.view.nodes.playerSkillMonitorIcons
+        local geometry=geo.playerSkillMonitorIcons
+        if object and geometry and #(object.entries or {})>0 then
+            maxx=maxx+M.PlayerSkillMonitor.IconSize(selected)*geometry.s+6
+        end
+    end
     if HasDedicatedPreview(selected) and moduleID~="partyFrames" and moduleID~="systemMenu" then
         local availableWidth=math.max(1,e.canvas:GetWidth()-40)
         local preserveSize=moduleID=="bossFrames" or moduleID=="chatButtons" or moduleID=="combatNotices"
