@@ -676,6 +676,7 @@ function S.EntryIndex(group,entry)
     for i,current in ipairs(group.monitors or {})do if current==entry then return i end end
 end
 local desaturationCurves,reversedOpacityCurves={},{}
+local cdmReversedOpacity=.4
 local function DisplayCurve(curves,reversed,inactive,active)
     if not curves[reversed] and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
         local curve=C_CurveUtil.CreateCurve()
@@ -1065,7 +1066,8 @@ local function BindEffect(slot)
             local icon=frame:CreateTexture(nil,"ARTWORK");icon:SetAllPoints()
             slot.effectNativeIcon=icon
             local reversed=slot.entry.reverseDisplay==true
-            icon:SetDesaturated(reversed);icon:SetAlpha(reversed and .5 or 1)
+            local opacity=slot.entry.type=="blizzard" and cdmReversedOpacity or .5
+            icon:SetDesaturated(reversed);icon:SetAlpha(reversed and opacity or 1)
             M.MasqueIcons.Attach(icon,"playerSkillMonitor",40,40)
             frame:SetIcon(icon)
             local presence=AuraVisibilityMarker(frame)
@@ -1101,7 +1103,8 @@ local function BindEffect(slot)
     if slot.effectNativeIcon then
         local reversed=slot.entry.reverseDisplay==true
         Safe(M.CustomMonitor.SetVisual,slot.effectNativeIcon,"SetDesaturated",reversed)
-        Safe(M.CustomMonitor.SetVisual,slot.effectNativeIcon,"SetAlpha",reversed and .5 or 1)
+        local opacity=slot.entry.type=="blizzard" and cdmReversedOpacity or .5
+        Safe(M.CustomMonitor.SetVisual,slot.effectNativeIcon,"SetAlpha",reversed and opacity or 1)
     end
     native:SetEnabled(true);native:UpdateAllAuras()
 end
@@ -1969,9 +1972,9 @@ function S.Paint(view,o,animateOnly)
             PaintSpellColor(slot,reversed,spellFaded)
             if reversed and slot.entry.type=="blizzard" then
                 if spellFaded~=nil then
-                    textureAlpha=spellFaded and .5 or 1
+                    textureAlpha=spellFaded and cdmReversedOpacity or 1
                 elseif slot.duration and slot.duration.EvaluateRemainingDuration then
-                    local curve=DisplayCurve(reversedOpacityCurves,true,1,.5)
+                    local curve=DisplayCurve(reversedOpacityCurves,true,1,cdmReversedOpacity)
                     if curve then textureAlpha=slot.duration:EvaluateRemainingDuration(curve,1)end
                 end
             end
