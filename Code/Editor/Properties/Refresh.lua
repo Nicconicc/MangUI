@@ -41,30 +41,21 @@ local function RefreshProperties(self)
         if e.propScroll.ScrollBar then e.propScroll.ScrollBar:SetValue(0) end
     end
     local mainRoot=self.byID.mainComposite
-    local moduleID=PreviewModuleID(n);local module=moduleID and self.byID[moduleID]
     local decoration=n and n.id=="centerFire"
-    local showModuleEnabled=module~=nil and not decoration
-        and (moduleID~="mainComposite" or selectedID=="mainComposite")
-    local headerOffset=showModuleEnabled and 44 or 0
-    e.moduleEnabled:SetShown(showModuleEnabled)
-    e.moduleDivider:SetShown(showModuleEnabled)
-    if module then
-        e.moduleEnabled:SetChecked(module.enabled~=false)
-    end
     if selectedID=="mouseCircle" then
         for key,check in pairs(e.mouseShortcutChecks) do check:SetChecked(n[key]~=false) end
     end
     local showMainScale=e.mainPreview and n~=nil and n.id=="mainComposite" and mainRoot~=nil
     if e.propTitle then
         e.propTitle:ClearAllPoints()
-        e.propTitle:SetPoint("TOPLEFT",e.right,"TOPLEFT",13,-15-headerOffset)
+        e.propTitle:SetPoint("TOPLEFT",e.right,"TOPLEFT",13,-15)
         e.propTitle:SetTextColor(1,1,1)
     end
     if e.mainScaleHeader then
         if showMainScale then
             e.mainScaleHeader:ClearAllPoints()
-            e.mainScaleHeader:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,-15-headerOffset)
-            e.mainScaleHeader:SetPoint("TOPRIGHT",e.right,"TOPRIGHT",-30,-15-headerOffset)
+            e.mainScaleHeader:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,-15)
+            e.mainScaleHeader:SetPoint("TOPRIGHT",e.right,"TOPRIGHT",-30,-15)
         end
         e.mainScaleHeader:SetShown(showMainScale)
         if mainRoot then
@@ -83,7 +74,7 @@ local function RefreshProperties(self)
         ResetDividers(e);e.propertyLayoutSignature=nil
         e.props:Show();e.propTitle:Hide();e.empty:Hide()
         e.propScroll:ClearAllPoints()
-        e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,-96-headerOffset)
+        e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,-96)
         e.propScroll:SetPoint("BOTTOMRIGHT",e.right,"BOTTOMRIGHT",-30,12)
         e.propScroll:Hide();e.props:SetHeight(2)
         return
@@ -93,7 +84,7 @@ local function RefreshProperties(self)
         e.props:Show();e.propTitle:Show();e.empty:Hide()
         e.propTitle:SetText(n.label)
         e.propScroll:ClearAllPoints()
-        e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,-42-headerOffset)
+        e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,-42)
         e.propScroll:SetPoint("BOTTOMRIGHT",e.right,"BOTTOMRIGHT",-30,12)
         e.propScroll:Show()
         e.overallScaleLabel:SetText("缩放")
@@ -147,7 +138,7 @@ local function RefreshProperties(self)
     e.propTitle:SetShown(n~=nil and not IsUnitComposite(n) and n.id~="wa8d650f8d3a" and n.compound~="partyFrames" and n.compound~="bossFrames" and n.compound~="playerSkillMonitor" and n.compound~="playerOtherMonitor" and n.compound~="cooldownMonitor" and n.compound~="raidBuffs" and n.compound~="receivedBuffs" and n.compound~="raidVulnerability" and n.compound~="commonItems" and n.compound~="chatButtons" and n.compound~="combatNotices" and n.compound~="attackVoice" and n.compound~="systemMenu" and n.compound~="mouseCircle" and n.compound~="experienceBar" and n.compound~="targetThreat" and n.compound~="targetDistance")
     if not n then ResetDividers(e);e.propertyLayoutSignature=nil;return end
     e.propScroll:ClearAllPoints()
-    e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,((IsUnitComposite(n) or n.id=="wa8d650f8d3a" or n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="playerSkillMonitor" or n.compound=="playerOtherMonitor" or n.compound=="cooldownMonitor" or n.compound=="raidBuffs"or n.compound=="receivedBuffs"or n.compound=="raidVulnerability"or n.compound=="commonItems" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="attackVoice" or n.compound=="systemMenu" or n.compound=="mouseCircle" or n.compound=="experienceBar" or n.compound=="targetThreat" or n.compound=="targetDistance") and -12 or -42)-headerOffset)
+    e.propScroll:SetPoint("TOPLEFT",e.right,"TOPLEFT",12,((IsUnitComposite(n) or n.id=="wa8d650f8d3a" or n.compound=="partyFrames" or n.compound=="bossFrames" or n.compound=="playerSkillMonitor" or n.compound=="playerOtherMonitor" or n.compound=="cooldownMonitor" or n.compound=="raidBuffs"or n.compound=="receivedBuffs"or n.compound=="raidVulnerability"or n.compound=="commonItems" or n.compound=="chatButtons" or n.compound=="combatNotices" or n.compound=="attackVoice" or n.compound=="systemMenu" or n.compound=="mouseCircle" or n.compound=="experienceBar" or n.compound=="targetThreat" or n.compound=="targetDistance") and -12 or -42))
     e.propScroll:SetPoint("BOTTOMRIGHT",e.right,"BOTTOMRIGHT",-30,12)
     e.propScroll:Show()
     local valueTextTitle=n.id=="wadb51e41246" or n.id=="wa8ee62b16d6" or n.id=="wa6edbcf125a"
@@ -576,7 +567,7 @@ local function RefreshProperties(self)
     end
     OrganizePropertyRows(n,rows)
     local layoutKey={selectedID,tostring(n.compound),tostring(e.props:GetWidth()),tostring(e.propertyRatio),
-        tostring(headerOffset),M:EffectiveLanguage()}
+        M:EffectiveLanguage()}
     for _,entry in ipairs(rows) do
         layoutKey[#layoutKey+1]=tostring(entry.row.key)..":"..tostring(entry.visible)..":"..tostring(entry.section)
     end
@@ -696,8 +687,6 @@ local function LockModuleSettings(e)
     end
     e.moduleLockShield:SetFrameLevel(e.right:GetFrameLevel()+10000)
     e.moduleLockShield:SetShown(locked)
-    e.moduleEnabled:SetFrameLevel(e.moduleLockShield:GetFrameLevel()+1)
-    e.moduleEnabled:SetIgnoreParentAlpha(true);e.moduleEnabled:SetAlpha(1)
     if not locked then return end
     e.moduleLockedInputs={};e.moduleLockedTextures={}
     -- End any active color edit owned by this panel before blocking its controls.
@@ -710,7 +699,7 @@ local function LockModuleSettings(e)
         end
     end
     local function Desaturate(frame)
-        if frame==e.moduleLockShield or frame==e.moduleEnabled then return end
+        if frame==e.moduleLockShield then return end
         if frame.menu then frame.menu:Hide()end
         if frame.GetRegions then for _,region in ipairs({frame:GetRegions()})do
             if region.GetObjectType and region:GetObjectType()=="Texture"and region.IsDesaturated then

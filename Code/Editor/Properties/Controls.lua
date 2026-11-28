@@ -18,7 +18,6 @@ local ChangeHealthThreshold=private.ChangeHealthThreshold
 local CompositeName=private.CompositeName
 local AvatarXRange=private.AvatarXRange
 local Change=private.Change
-local PreviewModuleID=private.PreviewModuleID
 
 local mouseoverCastCVar="enableMouseoverCast"
 local function MouseoverCastState()
@@ -33,14 +32,6 @@ local function BuildProperties(e)
     local propertyWidth=470
     local scroll,content=W.Scroll(e.right);scroll:SetPoint("TOPLEFT",12,-42);scroll:SetPoint("BOTTOMRIGHT",-30,12);content:SetWidth(propertyWidth)
     e.propScroll=scroll;e.props=content;e.fields={};e.colors={};e.propRows={}
-    e.moduleEnabled=W.Check(e.right,"启动模块",function(enabled)
-        local moduleID=PreviewModuleID(Selected())
-        if not M:SetModuleEnabled(moduleID,enabled) then M:RefreshProperties() end
-    end)
-    e.moduleEnabled:SetPoint("TOPLEFT",8,-10);e.moduleEnabled.label:SetTextColor(1,.82,0)
-    e.moduleDivider=e.right:CreateTexture(nil,"ARTWORK")
-    e.moduleDivider:SetColorTexture(.5,.5,.5,.45);e.moduleDivider:SetHeight(1)
-    e.moduleDivider:SetPoint("TOPLEFT",12,-38);e.moduleDivider:SetPoint("TOPRIGHT",-42,-38)
     e.empty=W.Label(e.right,"从左侧列表或画布选择元素",12);e.empty:SetPoint("TOPLEFT",15,-53)
     e.propTitle=W.Label(e.right,"属性",13);e.propTitle:SetPoint("TOPLEFT",13,-15);e.propTitle:SetWidth(propertyWidth);e.propTitle:SetWordWrap(false)
     local y=0

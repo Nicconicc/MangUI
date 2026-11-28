@@ -9,6 +9,7 @@ local disabledModuleColor=private.disabledModuleColor
 local Selected=private.Selected
 local MainPreviewSelection=private.MainPreviewSelection
 local SetSelection=private.SetSelection
+local powerIcon=M.ART.."UI\\ModulePower.blp"
 local moduleNames={
     playerSkillMonitor="职业技能监控",
     playerOtherMonitor="装备触发与其他监控",
@@ -58,6 +59,39 @@ local function ShowModuleTip(owner,id,title)
     GameTooltip:SetText(M:T(title),1,.82,0)
     GameTooltip:AddLine(M:T(description),1,1,1,true)
     tooltipOwner=owner;GameTooltip:Show()
+end
+
+local function AddModuleSwitch(row)
+    local button=CreateFrame("Button",nil,row)
+    button:SetSize(26,24)
+    button:SetPoint("RIGHT",-6,0)
+    local icon=button:CreateTexture(nil,"ARTWORK")
+    icon:SetTexture(powerIcon)
+    icon:SetSize(17,17)
+    icon:SetPoint("CENTER")
+    local highlight=button:CreateTexture(nil,"HIGHLIGHT")
+    highlight:SetTexture(powerIcon)
+    highlight:SetAllPoints(icon)
+    highlight:SetBlendMode("ADD")
+    highlight:SetAlpha(.35)
+    function button:RefreshState(enabled)
+        if enabled then icon:SetVertexColor(1,.82,.28)
+        else icon:SetVertexColor(.51,.54,.58) end
+    end
+    button:SetScript("OnClick",function()
+        local node=row.node
+        if node then M:SetModuleEnabled(node.id,node.enabled==false) end
+    end)
+    button:SetScript("OnEnter",function(self)
+        if tooltipOwner then HideModuleTip(tooltipOwner) end
+        GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
+        GameTooltip:SetText(M:T("启动模块"),1,.82,0)
+        GameTooltip:Show()
+        tooltipOwner=self
+    end)
+    button:SetScript("OnLeave",HideModuleTip)
+    button:SetScript("OnHide",HideModuleTip)
+    return button
 end
 
 local function UpdateModuleColors(e,elapsed)
@@ -161,7 +195,8 @@ function M:RefreshTree()
             row.statusFlash=row:CreateTexture(nil,"OVERLAY",nil,1);row.statusFlash:SetAllPoints(row.statusIcon)
             row.statusFlash:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification",false)
             row.statusFlash:SetDesaturated(true);row.statusFlash:SetBlendMode("ADD");row.statusFlash:SetAlpha(0)
-            row.label=row:CreateFontString(nil,"OVERLAY","GameFontNormal");M:BindText(row.label);row.label:SetText("");row.label:SetTextColor(1,1,1);row.label:SetJustifyH("LEFT");row.label:SetJustifyV("MIDDLE");row.label:SetHeight(24);row.label:SetPoint("LEFT",28,0);row.label:SetPoint("RIGHT",-3,0);row.label:SetWordWrap(false)
+            row.moduleSwitch=AddModuleSwitch(row)
+            row.label=row:CreateFontString(nil,"OVERLAY","GameFontNormal");M:BindText(row.label);row.label:SetText("");row.label:SetTextColor(1,1,1);row.label:SetJustifyH("LEFT");row.label:SetJustifyV("MIDDLE");row.label:SetHeight(24);row.label:SetPoint("LEFT",28,0);row.label:SetPoint("RIGHT",row.moduleSwitch,"LEFT",-3,0);row.label:SetWordWrap(false)
             row:SetScript("OnClick",function()SetSelection(row.node.id)end)
             row:SetScript("OnEnter",function(self)
                 self.hovered=true;self:RefreshHighlight()
@@ -175,6 +210,7 @@ function M:RefreshTree()
         if n then
             row.node=n;row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-offset)
             local enabled=n.enabled~=false
+            row.moduleSwitch:RefreshState(enabled)
             if not enabled then row.statusFlash:SetAlpha(0) end
             row.statusGroup=groupIndex
             local statusColor=enabled and e.groupColors[groupIndex].color or disabledModuleColor
@@ -184,7 +220,7 @@ function M:RefreshTree()
                 row.statusEnabled=enabled;row.statusColor=statusColor
             end
             row.label:SetText(ModuleName(n));row.label:SetTextColor(n.enabled==false and .45 or .92,n.enabled==false and .45 or .92,n.enabled==false and .45 or .92)
-            M:FitLocaleText(row.label,row:GetWidth()-31,9.5)
+            M:FitLocaleText(row.label,row:GetWidth()-63,9.5)
             row.hovered=row:IsMouseOver();row:RefreshHighlight()
             if tooltipOwner==row then ShowModuleTip(row,n.id,ModuleName(n))end
             offset=offset+26
