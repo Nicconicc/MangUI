@@ -676,7 +676,7 @@ function S.EntryIndex(group,entry)
     for i,current in ipairs(group.monitors or {})do if current==entry then return i end end
 end
 local desaturationCurves,reversedOpacityCurves={},{}
-local cdmReversedOpacity=.4
+local reversedOpacity=.6
 local function DisplayCurve(curves,reversed,inactive,active)
     if not curves[reversed] and C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType then
         local curve=C_CurveUtil.CreateCurve()
@@ -875,7 +875,7 @@ local function NativeAura(slot,aura,reversed)
         if backdrop then
             slot.nativeBackdrop=backdrop:CreateTexture(nil,"ARTWORK");slot.nativeBackdrop:SetAllPoints()
             slot.nativeBackdrop:SetTexture(M:TextureFile(slot.customFallbackIcon))
-            slot.nativeBackdrop:SetDesaturated(reversed);slot.nativeBackdrop:SetAlpha(reversed and .5 or 1)
+            slot.nativeBackdrop:SetDesaturated(reversed);slot.nativeBackdrop:SetAlpha(reversed and reversedOpacity or 1)
             M.MasqueIcons.Attach(slot.nativeBackdrop,"playerSkillMonitor",40,40)
         end
     end
@@ -1066,8 +1066,7 @@ local function BindEffect(slot)
             local icon=frame:CreateTexture(nil,"ARTWORK");icon:SetAllPoints()
             slot.effectNativeIcon=icon
             local reversed=slot.entry.reverseDisplay==true
-            local opacity=slot.entry.type=="blizzard" and cdmReversedOpacity or .5
-            icon:SetDesaturated(reversed);icon:SetAlpha(reversed and opacity or 1)
+            icon:SetDesaturated(reversed);icon:SetAlpha(reversed and reversedOpacity or 1)
             M.MasqueIcons.Attach(icon,"playerSkillMonitor",40,40)
             frame:SetIcon(icon)
             local presence=AuraVisibilityMarker(frame)
@@ -1103,8 +1102,7 @@ local function BindEffect(slot)
     if slot.effectNativeIcon then
         local reversed=slot.entry.reverseDisplay==true
         Safe(M.CustomMonitor.SetVisual,slot.effectNativeIcon,"SetDesaturated",reversed)
-        local opacity=slot.entry.type=="blizzard" and cdmReversedOpacity or .5
-        Safe(M.CustomMonitor.SetVisual,slot.effectNativeIcon,"SetAlpha",reversed and opacity or 1)
+        Safe(M.CustomMonitor.SetVisual,slot.effectNativeIcon,"SetAlpha",reversed and reversedOpacity or 1)
     end
     native:SetEnabled(true);native:UpdateAllAuras()
 end
@@ -1919,7 +1917,8 @@ function S.Paint(view,o,animateOnly)
             M.CustomMonitor.SetVisual(slot.customGlow,"SetAlpha",1)
         elseif view.preview then
             local faded=(not o.skillEditorPreview and i%2==1)~=reversed
-            ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);textureAlpha=faded and .5 or 1
+            ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded)
+            textureAlpha=faded and (reversed and reversedOpacity or .5) or 1
             M.CustomMonitor.SetText(slot.text,S.FormatCountdown(30-i))
             M.CustomMonitor.SetText(slot.count,isAura and "3"or "2")
         elseif slot.duration then
@@ -1946,14 +1945,14 @@ function S.Paint(view,o,animateOnly)
             end
         elseif useNative then
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",reversed);M.CustomMonitor.SetText(slot.text,"");M.CustomMonitor.SetText(slot.count,"")
-            textureAlpha=reversed and .5 or 1
+            textureAlpha=reversed and reversedOpacity or 1
         else
             local active=slot.active and (not slot.expires or slot.expires>now)
             local faded=(active==true)~=reversed
             if IsSpellIcon(slot.entry) and not slot.cooldownDesaturates then faded=reversed end
             spellFaded=faded
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",faded);Remaining(slot,active and slot.expires and slot.expires-now or nil)
-            if not IsSpellIcon(slot.entry) then textureAlpha=faded and .5 or 1 end
+            if not IsSpellIcon(slot.entry) then textureAlpha=faded and (reversed and reversedOpacity or .5) or 1 end
 
             if isAura then CountText(slot.count,active and slot.stacks or nil,false)end
             if not isAura then SetCount(slot,slot.spellCount)end
@@ -1970,11 +1969,11 @@ function S.Paint(view,o,animateOnly)
                 textureAlpha=1
             end
             PaintSpellColor(slot,reversed,spellFaded)
-            if reversed and slot.entry.type=="blizzard" then
+            if reversed then
                 if spellFaded~=nil then
-                    textureAlpha=spellFaded and cdmReversedOpacity or 1
+                    textureAlpha=spellFaded and reversedOpacity or 1
                 elseif slot.duration and slot.duration.EvaluateRemainingDuration then
-                    local curve=DisplayCurve(reversedOpacityCurves,true,1,cdmReversedOpacity)
+                    local curve=DisplayCurve(reversedOpacityCurves,true,1,reversedOpacity)
                     if curve then textureAlpha=slot.duration:EvaluateRemainingDuration(curve,1)end
                 end
             end
