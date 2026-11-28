@@ -95,7 +95,7 @@ local function UpdateMonitorHighlight(e)
         local x,y=GetCursorPosition();local scale=e.monitorGhost:GetEffectiveScale()
         e.monitorGhost:ClearAllPoints()
         e.monitorGhost:SetPoint("CENTER",UIParent,"BOTTOMLEFT",(x+drag.offsetX)/scale,(y+drag.offsetY)/scale)
-        drag.slot:SetAlpha(.3)
+        drag.slot:SetAlpha(isSkillDrag and .5 or .3)
         e.monitorGhost:Show()
     end
     local glow=e.monitorGlow
@@ -126,6 +126,7 @@ end
 
 local function BeginMonitorDrag(e,target)
     local slot,ghost=target.slot,e.monitorGhost
+    ghost:SetAlpha(target.group.id=="playerSkillMonitor" and .5 or 1)
     local icon=target.texture
     local scale=slot:GetEffectiveScale()
     local x,y=GetCursorPosition();local cx,cy=slot:GetCenter()
