@@ -9,7 +9,6 @@ local disabledModuleColor=private.disabledModuleColor
 local Selected=private.Selected
 local MainPreviewSelection=private.MainPreviewSelection
 local SetSelection=private.SetSelection
-local powerIcon=M.ART.."UI\\ModulePower.blp"
 local moduleNames={
     playerSkillMonitor="职业技能监控",
     playerOtherMonitor="装备触发与其他监控",
@@ -62,25 +61,15 @@ local function ShowModuleTip(owner,id,title)
 end
 
 local function AddModuleSwitch(row)
-    local button=CreateFrame("Button",nil,row)
+    local button=W.Toggle(row)
     button:SetSize(26,24)
     button:SetPoint("RIGHT",-6,0)
-    local icon=button:CreateTexture(nil,"ARTWORK")
-    icon:SetTexture(powerIcon)
-    icon:SetSize(15.3,15.3)
-    icon:SetPoint("CENTER")
-    local highlight=button:CreateTexture(nil,"HIGHLIGHT")
-    highlight:SetTexture(powerIcon)
-    highlight:SetAllPoints(icon)
-    highlight:SetBlendMode("ADD")
-    highlight:SetAlpha(.35)
-    function button:RefreshColor(gray)
-        icon:SetVertexColor(gray,gray,gray)
-    end
-    button:SetScript("OnClick",function()
+    button.onToggle=function(self)
         local node=row.node
-        if node then M:SetModuleEnabled(node.id,node.enabled==false) end
-    end)
+        if node and not M:SetModuleEnabled(node.id,self:GetChecked()) then
+            self:SetChecked(node.enabled~=false)
+        end
+    end
     button:SetScript("OnEnter",function(self)
         if tooltipOwner then HideModuleTip(tooltipOwner) end
         GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
@@ -210,7 +199,7 @@ function M:RefreshTree()
             row.node=n;row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-offset)
             local enabled=n.enabled~=false
             local textGray=enabled and .92 or .45
-            row.moduleSwitch:RefreshColor(textGray)
+            row.moduleSwitch:SetChecked(enabled)
             if not enabled then row.statusFlash:SetAlpha(0) end
             row.statusGroup=groupIndex
             local statusColor=enabled and e.groupColors[groupIndex].color or disabledModuleColor

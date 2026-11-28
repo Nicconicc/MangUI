@@ -153,27 +153,27 @@ function M:OpenGeneral()
             end
         end)
         panel.language=dropdown
-        local check=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+        local check=W.Toggle(content)
         check:SetSize(28,28);check:SetPoint("TOPLEFT",12,-92)
         local text=Label(check,"显示小地图图标");text:SetPoint("LEFT",check,"RIGHT",5,0);text:SetTextColor(1,1,1)
-        check:SetScript("OnClick",function(self)M.db.minimap.hide=not self:GetChecked();M:CreateMinimap()end)
+        check.onToggle=function(self)M.db.minimap.hide=not self:GetChecked();M:CreateMinimap()end
         panel.minimapCheck=check
-        local profilerCheck=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+        local profilerCheck=W.Toggle(content)
         profilerCheck:SetSize(28,28);profilerCheck:SetPoint("TOPLEFT",12,-126)
         local profilerText=Label(profilerCheck,"关闭系统中CPU使用记录（降低性能）")
         profilerText:SetPoint("LEFT",profilerCheck,"RIGHT",5,0);profilerText:SetTextColor(1,1,1)
-        profilerCheck:SetScript("OnClick",function(self)
+        profilerCheck.onToggle=function(self)
             M.db.disableAddOnProfiler=not not self:GetChecked()
             M.CPUUsage.Restart(M.editor)
-        end)
+        end
         panel.cpuProfilerCheck=profilerCheck
-        local groundDensityCheck=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+        local groundDensityCheck=W.Toggle(content)
         groundDensityCheck:SetSize(28,28)
         groundDensityCheck:SetPoint("TOPLEFT",12,-160)
         local groundDensityText=Label(groundDensityCheck,"最大化地面植被显示")
         groundDensityText:SetPoint("LEFT",groundDensityCheck,"RIGHT",5,0)
         groundDensityText:SetTextColor(1,1,1)
-        groundDensityCheck:SetScript("OnClick",ToggleGroundDensity)
+        groundDensityCheck.onToggle=ToggleGroundDensity
         panel.groundDensityCheck=groundDensityCheck
         local systemOffset=68
         local archiveRow=self:ClientLanguage()=="zhCN" and 34 or 0
@@ -182,61 +182,61 @@ function M:OpenGeneral()
         content:SetHeight(581+displayOffset)
         Section(content,"显示",-145-systemOffset,306+archiveRow)
         if archiveRow>0 then
-            local archiveCheck=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+            local archiveCheck=W.Toggle(content)
             archiveCheck:SetSize(28,28);archiveCheck:SetPoint("TOPLEFT",12,-175-systemOffset)
             local archiveText=Label(archiveCheck,"反和谐（重启游戏生效）")
             archiveText:SetPoint("LEFT",archiveCheck,"RIGHT",5,0);archiveText:SetTextColor(1,1,1)
-            archiveCheck:SetScript("OnClick",SetArchiveSetting)
+            archiveCheck.onToggle=SetArchiveSetting
             panel.archiveCheck=archiveCheck
         end
-        local visibility=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+        local visibility=W.Toggle(content)
         visibility:SetSize(28,28);visibility:SetPoint("TOPLEFT",12,-175-displayOffset)
         local visibilityText=Label(visibility,"无目标时隐藏框体")
         visibilityText:SetPoint("LEFT",visibility,"RIGHT",5,0);visibilityText:SetTextColor(1,1,1)
-        visibility:SetScript("OnClick",function(self)
+        visibility.onToggle=function(self)
             M:SetHideWithoutTarget(self:GetChecked());M:RefreshOtherSettings()
-        end)
+        end
         panel.targetVisibilityCheck=visibility
-        local portrait=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+        local portrait=W.Toggle(content)
         portrait:SetSize(28,28);portrait:SetPoint("TOPLEFT",12,-203-displayOffset)
         local portraitText=Label(portrait,"3D头像")
         portraitText:SetPoint("LEFT",portrait,"RIGHT",5,0);portraitText:SetTextColor(1,1,1)
-        portrait:SetScript("OnClick",function(self)
+        portrait.onToggle=function(self)
             M:SetPortrait3D(self:GetChecked());M:RefreshOtherSettings()
-        end)
+        end
         panel.portrait3DCheck=portrait
-        local healthColor=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+        local healthColor=W.Toggle(content)
         healthColor:SetSize(28,28);healthColor:SetPoint("TOPLEFT",12,-231-displayOffset)
         local healthColorText=Label(healthColor,"按职业显示生命条颜色")
         healthColorText:SetPoint("LEFT",healthColor,"RIGHT",5,0);healthColorText:SetTextColor(1,1,1)
-        healthColor:SetScript("OnClick",function(self)
+        healthColor.onToggle=function(self)
             M:SetHealthClassColor(self:GetChecked());M:RefreshOtherSettings()
-        end)
+        end
         panel.healthClassColorCheck=healthColor
-        local targetTooltip=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+        local targetTooltip=W.Toggle(content)
         targetTooltip:SetSize(28,28);targetTooltip:SetPoint("TOPLEFT",12,-259-displayOffset)
         local targetTooltipText=Label(targetTooltip,"战斗中隐藏当前目标的鼠标悬浮提示")
         targetTooltipText:SetPoint("LEFT",targetTooltip,"RIGHT",5,0);targetTooltipText:SetTextColor(1,1,1)
-        targetTooltip:SetScript("OnClick",function(self)
+        targetTooltip.onToggle=function(self)
             M.db.hideCombatTargetTooltip=self:GetChecked()==true
             M:RefreshCombatTargetTooltip()
-        end)
+        end
         panel.targetTooltipCheck=targetTooltip
-        local uiScale=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+        local uiScale=W.Toggle(content)
         uiScale:SetSize(28,28);uiScale:SetPoint("TOPLEFT",12,-287-displayOffset)
         local uiScaleText=Label(uiScale,"适配4K分辨率的UI缩放")
         uiScaleText:SetPoint("LEFT",uiScale,"RIGHT",5,0);uiScaleText:SetTextColor(1,1,1)
-        uiScale:SetScript("OnClick",function(self)
+        uiScale.onToggle=function(self)
             M:SetAdapt4KUIScale(self:GetChecked());M:RefreshOtherSettings()
-        end)
+        end
         panel.uiScaleCheck=uiScale
-        local globalFont=CreateFrame("CheckButton",nil,content,"UICheckButtonTemplate")
+        local globalFont=W.Toggle(content)
         globalFont:SetSize(28,28);globalFont:SetPoint("TOPLEFT",12,-315-displayOffset)
         local globalFontText=Label(globalFont,"使用全局字体")
         globalFontText:SetPoint("LEFT",globalFont,"RIGHT",5,0);globalFontText:SetTextColor(1,1,1)
-        globalFont:SetScript("OnClick",function(self)
+        globalFont.onToggle=function(self)
             M:SetGlobalFont(self:GetChecked());M:RefreshOtherSettings()
-        end)
+        end
         panel.globalFontCheck=globalFont
         panel.globalFontSelect=W.MediaSelect(content,"字体",200,"font",function()M:OpenGlobalFontPicker()end)
         panel.globalFontSelect:SetPoint("TOPLEFT",16,-345-displayOffset)
