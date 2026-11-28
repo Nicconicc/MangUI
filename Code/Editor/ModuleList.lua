@@ -74,9 +74,8 @@ local function AddModuleSwitch(row)
     highlight:SetAllPoints(icon)
     highlight:SetBlendMode("ADD")
     highlight:SetAlpha(.35)
-    function button:RefreshState(enabled)
-        if enabled then icon:SetVertexColor(1,1,1)
-        else icon:SetVertexColor(.51,.54,.58) end
+    function button:RefreshColor(gray)
+        icon:SetVertexColor(gray,gray,gray)
     end
     button:SetScript("OnClick",function()
         local node=row.node
@@ -210,7 +209,8 @@ function M:RefreshTree()
         if n then
             row.node=n;row:ClearAllPoints();row:SetPoint("TOPLEFT",0,-offset)
             local enabled=n.enabled~=false
-            row.moduleSwitch:RefreshState(enabled)
+            local textGray=enabled and .92 or .45
+            row.moduleSwitch:RefreshColor(textGray)
             if not enabled then row.statusFlash:SetAlpha(0) end
             row.statusGroup=groupIndex
             local statusColor=enabled and e.groupColors[groupIndex].color or disabledModuleColor
@@ -219,7 +219,7 @@ function M:RefreshTree()
                 row.statusIcon:SetVertexColor(unpack(statusColor))
                 row.statusEnabled=enabled;row.statusColor=statusColor
             end
-            row.label:SetText(ModuleName(n));row.label:SetTextColor(n.enabled==false and .45 or .92,n.enabled==false and .45 or .92,n.enabled==false and .45 or .92)
+            row.label:SetText(ModuleName(n));row.label:SetTextColor(textGray,textGray,textGray)
             M:FitLocaleText(row.label,row:GetWidth()-63,9.5)
             row.hovered=row:IsMouseOver();row:RefreshHighlight()
             if tooltipOwner==row then ShowModuleTip(row,n.id,ModuleName(n))end
