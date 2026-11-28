@@ -477,7 +477,7 @@ local function RefreshProperties(self)
             elseif n.compound=="playerSkillMonitor" then
                 if e.skillEntry then visible=row.key=="skillMonitorEntry"
                 else
-                    visible=row.key=="skillIconScale" or row.key=="skillIconSpacing" or row.key=="skillMonitorDirection"
+                    visible=row.key=="skillMonitorAppearance" or row.key=="skillIconScale" or row.key=="skillIconSpacing" or row.key=="skillMonitorDirection"
                         or row.key=="skillMonitorHideWithoutTarget" or row.key=="skillCooldownSwipe" or row.key=="skillShowGCD"
                         or row.key=="skillShowShortcut" or row.key=="skillMonitorSharing"
                         or (row.key=="skillMonitorImport" and e.skillMonitorImport.available~=nil)

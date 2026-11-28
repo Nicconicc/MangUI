@@ -1,5 +1,11 @@
 local _, M = ...
 local S = M.PlayerSkillMonitor
+local categories = {
+    {key="Essential",label="重要技能冷却"},
+    {key="Utility",label="效能技能冷却"},
+    {key="TrackedBuff",label="追踪的增益效果"},
+}
+S.BlizzardCategories=categories
 
 local function SpellID(value)
     if M.Compat.Readable(value) and type(value) == "number" and value > 0 and value % 1 == 0 then
@@ -38,9 +44,9 @@ local function ReadDisplayData()
     return provider:GetDisplayData()
 end
 
-local function EssentialEntries(group, order, readInfo, overrides, defaultLayout)
-    local essential = Enum.CooldownViewerCategory.Essential
-    local existing = ExistingCooldowns(group)
+local function CategoryEntries(key, order, readInfo, overrides, defaultLayout)
+    local categoryID = Enum.CooldownViewerCategory[key]
+    local existing = {}
     local entries, total = {}, 0
     for _, cooldownID in ipairs(order) do
         local info = readInfo(cooldownID)
@@ -48,7 +54,7 @@ local function EssentialEntries(group, order, readInfo, overrides, defaultLayout
         local category=override and tonumber(override.category)
         local hiddenByDefault = defaultLayout and not category and info and info.flags and FlagsUtil and Enum.CooldownSetSpellFlags
             and FlagsUtil.IsSet(info.flags, Enum.CooldownSetSpellFlags.HideByDefault)
-        if info and (category or info.category) == essential and info.isKnown == true
+        if info and (category or info.category) == categoryID and info.isKnown == true
             and not hiddenByDefault and not (CDM_HIDE_INVISIBLE_ITEMS and info.isInvisible) then
             local base = SpellID(info.spellID)
             local id = SpellID(info.overrideSpellID) or base
@@ -59,6 +65,7 @@ local function EssentialEntries(group, order, readInfo, overrides, defaultLayout
                     existing[baseID], existing[resolvedID] = true, true
                     local entry = S.NewEntry()
                     entry.type, entry.value, entry.blizzardCooldownID = "blizzard", tostring(base or id), cooldownID
+                    entry.blizzardCategory=key
                     entries[#entries + 1] = entry
                 end
             end
@@ -67,12 +74,14 @@ local function EssentialEntries(group, order, readInfo, overrides, defaultLayout
     return entries, total
 end
 
-local function ReadEssentialCooldowns()
+local function ReadCategoryCooldowns(key)
+    key=key or "Essential"
+    local category=Enum and Enum.CooldownViewerCategory
+    if not category or category[key]==nil then return end
     local display = ReadDisplayData()
-    local empty={monitors={}}
     if display and display.orderedCooldownIDs and #display.orderedCooldownIDs>0
         and type(display.cooldownInfoByID)=="table" and next(display.cooldownInfoByID)then
-        return EssentialEntries(empty, display.orderedCooldownIDs, function(id) return display.cooldownInfoByID[id] end)
+        return CategoryEntries(key, display.orderedCooldownIDs, function(id) return display.cooldownInfoByID[id] end)
     end
     local api = C_CooldownViewer
     if not api or not api.GetCooldownViewerCategorySet or not api.GetCooldownViewerCooldownInfo then return end
@@ -87,36 +96,40 @@ local function ReadEssentialCooldowns()
         overrides=CooldownManagerLayout_GetCooldownInfo(layout,false)
         savedOrder=CooldownManagerLayout_GetOrderedCooldownIDs(layout)
     end
-    local category=Enum.CooldownViewerCategory
     local order,added={},{}
     local function Add(ids)
         for _,id in ipairs(ids or {})do
             if not added[id]then order[#order+1]=id;added[id]=true end
         end
     end
-    local essential=api.GetCooldownViewerCategorySet(category.Essential,true)
-    if not essential then return end
+    local selected=api.GetCooldownViewerCategorySet(category[key],true)
+    if not selected then return end
     Add(savedOrder)
-    Add(essential)
-    for _,key in ipairs({"Utility","TrackedBuff","TrackedBar","EquipSlotEssential","EquipSlotTracked","SpecAgnosticEssential","SpecAgnosticTracked"})do
+    Add(selected)
+    for _,key in ipairs({"Essential","Utility","TrackedBuff","TrackedBar","EquipSlotEssential","EquipSlotTracked","SpecAgnosticEssential","SpecAgnosticTracked"})do
         if category[key]~=nil then Add(api.GetCooldownViewerCategorySet(category[key],true))end
     end
     local infoByID={}
     for _,id in ipairs(order)do infoByID[id]=api.GetCooldownViewerCooldownInfo(id)end
-    if next(infoByID)then return EssentialEntries(empty,order,function(id)return infoByID[id]end,overrides,true)end
+    if #order>0 and not next(infoByID)then return end
+    return CategoryEntries(key,order,function(id)return infoByID[id]end,overrides,true)
 end
 
-S.ReadBlizzardCooldowns=ReadEssentialCooldowns
+S.ReadBlizzardCooldowns=ReadCategoryCooldowns
 
-function S.SyncBlizzardCooldowns(group,desired)
-    desired=desired or ReadEssentialCooldowns()
+function S.SyncBlizzardCooldowns(group,desired,key)
+    key=key or "Essential"
+    desired=desired or ReadCategoryCooldowns(key)
     if not desired then return end
     local current=group.monitors
     local manual,byCooldown={},{}
-    local function Managed(entry)return entry.type=="blizzard" and entry.blizzardCooldownID end
+    local function Managed(entry)
+        if entry.type=="blizzard" and (entry.blizzardCategory or "Essential")==key then return entry.blizzardCooldownID end
+    end
     for _,entry in ipairs(current)do
         local id=Managed(entry)
-        if id then byCooldown[id]=entry else manual[#manual+1]=entry end
+        if id then byCooldown[id]=entry
+        elseif entry.type~="blizzard" or not entry.blizzardCooldownID then manual[#manual+1]=entry end
     end
     local existing=ExistingCooldowns({monitors=manual})
     local ordered={}
@@ -164,7 +177,7 @@ function S.GetBlizzardCooldownInfo(entry, id)
     -- The client API also works when the official layout has not been built.
     local api = C_CooldownViewer
     if api and api.GetCooldownViewerCategorySet and api.GetCooldownViewerCooldownInfo then
-        for _, category in ipairs({Enum.CooldownViewerCategory.Essential, Enum.CooldownViewerCategory.Utility}) do
+        for _, category in ipairs({Enum.CooldownViewerCategory.Essential, Enum.CooldownViewerCategory.Utility, Enum.CooldownViewerCategory.TrackedBuff}) do
             for _, cooldownID in ipairs(api.GetCooldownViewerCategorySet(category, false) or {}) do
                 local info = api.GetCooldownViewerCooldownInfo(cooldownID)
                 if info and (info.spellID == id or info.spellID == base or info.overrideSpellID == id) then return info end
@@ -192,8 +205,7 @@ local function OpenBlizzardCooldownManager()
             return settings:IsVisible()
         end)
         if ok and M.Compat.Bool(visible) then
-            local window = M.editor and M.editor.window
-            if window then window:Hide() end
+            if settings.Raise then pcall(settings.Raise,settings)end
             return
         end
     end
@@ -205,26 +217,33 @@ end
 function S.AddBlizzardCooldownButton(panel, current, flush)
     if M.Compat.interface ~= 16001 then return end
     local W=M.Widgets
-    local check=W.Check(panel,"自动同步",function(enabled) S.SetBlizzardSyncEnabled(enabled)end)
-    local button = W.Button(panel, "从暴雪冷却管理器中导入", 230, function()
-        local group = current()
-        if not group or not M:CanEdit() or not S.IsProfileBound(group.id) then return end
-        flush()
-        if current() ~= group or not S.IsProfileBound(group.id) then return end
-
-        local ok, ready = pcall(S.SyncBlizzardCooldowns, group)
-        if not ok or not ready then
-            M:Print("暂时无法读取暴雪冷却设置，请打开暴雪冷却管理器后重试。")
-            return
-        end
-        M:Print("暴雪冷却监控已同步。")
-    end)
-    local openButton = W.Button(panel, "打开管理器", 108, OpenBlizzardCooldownManager)
-    button:SetPoint("TOPLEFT",panel,"TOPLEFT",0,0)
-    openButton:SetPoint("LEFT",button,"RIGHT",8,0)
-    check:SetPoint("LEFT",openButton,"RIGHT",12,0)
-    button:SetHoverTextColor(1, .82, 0)
-    openButton:SetHoverTextColor(1, .82, 0)
-    panel.blizzardSyncCheck=check
-    return button
+    local open=W.Button(panel,"打开冷却管理器",168,OpenBlizzardCooldownManager)
+    open:SetPoint("TOPLEFT",0,0)
+    open:SetHoverTextColor(1,.82,0)
+    W.SettingsSectionTitle(panel,"法术冷却导入",-44)
+    panel.blizzardSyncChecks={}
+    for index,category in ipairs(categories)do
+        local key=category.key
+        local button=W.Button(panel,category.label,192,function()
+            local group=current()
+            if not group or not M:CanEdit() or not S.IsProfileBound(group.id) then return end
+            flush()
+            if current()~=group or not S.IsProfileBound(group.id) then return end
+            local ok,ready=pcall(S.SyncBlizzardCooldowns,group,nil,key)
+            if not ok or not ready then
+                M:Print("暂时无法读取暴雪冷却设置，请打开暴雪冷却管理器后重试。")
+                return
+            end
+            M:Print("暴雪冷却监控已同步。")
+        end)
+        button:SetPoint("TOPLEFT",0,-58-(index-1)*34)
+        button:SetHoverTextColor(1,.82,0)
+        local check=W.Check(panel,"自动同步",function(enabled)
+            S.SetBlizzardSyncEnabled(enabled,key)
+            panel.blizzardSyncChecks[key]:SetChecked(S.BlizzardSyncEnabled(key))
+        end)
+        check:SetPoint("LEFT",button,"RIGHT",12,0)
+        panel.blizzardSyncChecks[key]=check
+    end
+    return open
 end

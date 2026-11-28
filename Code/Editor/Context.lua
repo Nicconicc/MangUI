@@ -140,7 +140,7 @@ local propertyCategories={
     partyFrames={{"scale","partySpacing","partyPlayerX"},{"partyMaterial","partyHealthColor","partyHealthEndColor"},
         {"partyFont","partyNameSize"},{"partyHideInRaid","partyHideNumbers","partyHidePlayer","partyBuffsTimedOnly","partyBuffsOnlyPlayer"},{"partyMouseoverCast"}},
     cast={{"overallScale","castHorizontalScale","castIconSize","castColor","castStageSound"},{"hidePlayerCastText","nameFont","castFontSize"},{"showRangedProgress","showMeleeProgress"}},
-    playerSkillMonitor={{"skillMonitorImport","skillIconScale","skillIconSpacing","skillMonitorDirection","skillMonitorHideWithoutTarget",
+    playerSkillMonitor={{"skillMonitorImport","skillMonitorAppearance","skillIconScale","skillIconSpacing","skillMonitorDirection","skillMonitorHideWithoutTarget",
         "skillCooldownSwipe","skillShowGCD","skillShowShortcut","skillMonitorEntry"},{"skillMonitorSharing"}},
     playerOtherMonitor={{"scale","skillMonitorHideWithoutTarget","skillMonitorDirection"},{"otherMonitorItems"},{"otherMonitorEquipment"},{"otherMonitorSharing"}},
     cooldownMonitor={{"scale"},{"minCooldown","maxCooldown"},{"blacklist"}},

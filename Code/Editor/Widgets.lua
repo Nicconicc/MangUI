@@ -57,6 +57,17 @@ function W.Label(parent,text,size,nativeSize)
     if not nativeSize then t.clientInterfaceNominalSize=size or 12 end
     M:BindText(t);t:SetText(text or "");t:SetTextColor(1,1,1);t:SetJustifyH("LEFT");return t
 end
+function W.SettingsSectionTitle(parent,text,offset)
+    local title=W.Label(parent,text,12)
+    title:SetPoint("CENTER",parent,"TOP",0,offset)
+    title:SetTextColor(1,.82,0);title:SetJustifyH("CENTER")
+    local left=parent:CreateTexture(nil,"ARTWORK")
+    left:SetHeight(1);left:SetColorTexture(.5,.5,.5,.45)
+    left:SetPoint("LEFT",parent,"TOPLEFT",0,offset);left:SetPoint("RIGHT",title,"LEFT",-8,0)
+    local right=parent:CreateTexture(nil,"ARTWORK")
+    right:SetHeight(1);right:SetColorTexture(.5,.5,.5,.45)
+    right:SetPoint("LEFT",title,"RIGHT",8,0);right:SetPoint("RIGHT",parent,"TOPRIGHT",0,offset)
+end
 function W.DragListHeader(panel,line)
     local label=W.Label(panel,"拖拽排序",12);panel.dragHint=label
     label:SetPoint("RIGHT",panel,"TOPRIGHT",0,12);label:SetTextColor(.65,.65,.65)

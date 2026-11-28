@@ -8,9 +8,10 @@ local auraTypes={
     playerDebuff={unit="player",filter="HARMFUL"},
 }
 local auraKinds={"buff","debuff","targetBuff","playerDebuff"}
-local skillNumeric={skillIconScale={.25,3,1},skillIconSpacing={0,40,4}}
+local skillNumeric={skillIconScale={.5,2,1},skillIconSpacing={0,10,4}}
 local skillChecks={"skillCooldownSwipe","skillShowGCD","skillShowShortcut"}
-local extraEntryFields={triggerGlow=true,maxStackGlow=true,maxStacks=true,slot=true}
+local extraEntryFields={triggerGlow=true,maxStackGlow=true,maxStacks=true,slot=true,blizzardCategory=true}
+local validBlizzardCategories={Essential=true,Utility=true,TrackedBuff=true}
 local effectTypes={buffCooldown="buff",debuffCooldown="debuff"}
 local function IsCombined(entry)return entry.type=="blizzard" or effectTypes[entry.type]~=nil end
 local function Readable(v)return not issecretvalue or not issecretvalue(v)end
@@ -82,6 +83,7 @@ function S.ValidEntries(entries)
         if not M.CustomMonitor.Valid(entry)then return false end
         if type(entry.value)~="string" or #entry.value>384 then return false end
         if entry.effect~=nil and (type(entry.effect)~="string" or #entry.effect>384)then return false end
+        if entry.blizzardCategory~=nil and not validBlizzardCategories[entry.blizzardCategory]then return false end
         local cooldownID=entry.blizzardCooldownID
         if cooldownID~=nil and (type(cooldownID)~="number" or cooldownID<=0 or cooldownID>2147483647 or cooldownID%1~=0)then return false end
         if entry.showShortcut~=nil and type(entry.showShortcut)~="boolean" then return false end
@@ -335,16 +337,30 @@ function S.BindCharacter(id)
     M[d.ensure](M,db.design);store.profiles[profile]=M.Copy(group[d.list])
     S.profileBindings[id]={root=MangUICharacterDB,character=character,profile=profile}
 end
-function S.BlizzardSyncEnabled()
+function S.BlizzardSyncEnabled(key)
     local store=M.characterDB and M.DisplayModes.CharacterProfile(M.characterDB).monitors.playerSkillMonitor
-    return not store or store.useBlizzardCooldownManager~=false
+    if not key then
+        for _,category in ipairs(S.BlizzardCategories or {})do
+            if S.BlizzardSyncEnabled(category.key)then return true end
+        end
+        return false
+    end
+    local value=store and type(store.blizzardSyncCategories)=="table" and store.blizzardSyncCategories[key]
+    if type(value)=="boolean" then return value end
+    return key=="Essential" and (not store or store.useBlizzardCooldownManager~=false)
 end
-local observedProfile,observedCooldowns
-function S.SetBlizzardSyncEnabled(enabled)
-    if M.Compat.interface~=16001 or not S.IsProfileBound("playerSkillMonitor") then return end
+local observed,requestedSync={},{}
+function S.SetBlizzardSyncEnabled(enabled,key)
+    if M.Compat.interface~=16001 or not S.IsProfileBound("playerSkillMonitor") or not M:CanEdit() then return end
+    key=key or "Essential"
+    if not validBlizzardCategories[key]then return end
     local store=CharacterStore("playerSkillMonitor")
-    store.useBlizzardCooldownManager=enabled==true
-    observedProfile,observedCooldowns=nil,nil
+    if type(store.blizzardSyncCategories)~="table"then store.blizzardSyncCategories={} end
+    store.blizzardSyncCategories[key]=enabled==true
+    observed[key]=nil
+    local mode=M.DisplayModes.Minimal() and "minimal:" or "standard:"
+    local profile=S.CurrentProfile()
+    requestedSync[key]=enabled and profile and mode..profile or nil
     if enabled then S.QueueBlizzardSync()end
 end
 
@@ -361,30 +377,40 @@ local observingBlizzard,blizzardSyncTimer,blizzardSyncAfterCombat
 local BLIZZARD_SYNC_FAST_RETRIES=4
 local BLIZZARD_STARTER_RETRIES=12
 local function ObserveBlizzardCooldowns()
-    if not M.db or not S.IsProfileBound("playerSkillMonitor") then return false,not observedProfile end
+    if not M.db or not S.IsProfileBound("playerSkillMonitor")then return false,false end
     local profile=S.CurrentProfile()
     if profile then profile=(M.DisplayModes.Minimal() and "minimal:" or "standard:")..profile end
     local group=CharacterGroup("playerSkillMonitor",M.db.design)
-    if not group or not profile then return false,not observedProfile end
+    if not group or not profile then return false,false end
     local store=CharacterStore("playerSkillMonitor")
-    local starter=NeedsBlizzardStarter(store,group)
-    local desired=Safe(S.ReadBlizzardCooldowns)
-    if not desired or (starter and #desired==0) then return false,starter end
-    local signature={}
-    for i,entry in ipairs(desired)do signature[i]=entry.blizzardCooldownID..":"..entry.value end
-    signature=table.concat(signature,",")
-
-    local changed=observedProfile and (profile~=observedProfile or signature~=observedCooldowns)
-    if changed or starter then
-        local ready,imported=Safe(S.SyncBlizzardCooldowns,group,desired)
-        if not ready or (starter and not imported) then return false,starter end
-        if starter then
-            store.blizzardStarterImported=true
-            store.blizzardStarterPending=nil
+    local ready,waitingForStarter=true,false
+    for _,category in ipairs(S.BlizzardCategories or {})do
+        local key=category.key
+        if S.BlizzardSyncEnabled(key)then
+            local starter=key=="Essential" and NeedsBlizzardStarter(store,group)
+            local desired=Safe(S.ReadBlizzardCooldowns,key)
+            if not desired or (starter and #desired==0)then
+                ready=false;waitingForStarter=waitingForStarter or starter
+            else
+                local signature={}
+                for i,entry in ipairs(desired)do signature[i]=entry.blizzardCooldownID..":"..entry.value end
+                signature=table.concat(signature,",")
+                local last=observed[key]
+                local changed=last and (profile~=last.profile or signature~=last.signature)
+                if changed or starter or requestedSync[key]==profile or (not last and key~="Essential") then
+                    local synced,imported=Safe(S.SyncBlizzardCooldowns,group,desired,key)
+                    if not synced or (starter and not imported)then return false,starter end
+                    if starter then
+                        store.blizzardStarterImported=true
+                        store.blizzardStarterPending=nil
+                    end
+                end
+                requestedSync[key]=nil
+                observed[key]={profile=profile,signature=signature}
+            end
         end
     end
-    observedProfile,observedCooldowns=profile,signature
-    return true
+    return ready,waitingForStarter
 end
 
 function S.QueueBlizzardSync(attempt)
@@ -450,7 +476,16 @@ function S.CleanCharacterSettings(settings)
             if id~="playerSkillMonitor" or type(raw.useBlizzardCooldownManager)~="boolean" then return end
             store.useBlizzardCooldownManager=raw.useBlizzardCooldownManager
         end
-        for key in pairs(raw)do if key~="profiles"and key~="template"and key~="useBlizzardCooldownManager"then return end end
+        if raw.blizzardSyncCategories~=nil then
+            if id~="playerSkillMonitor" or type(raw.blizzardSyncCategories)~="table"then return end
+            for key,enabled in pairs(raw.blizzardSyncCategories)do
+                if not validBlizzardCategories[key] or type(enabled)~="boolean" then return end
+            end
+            store.blizzardSyncCategories=M.Copy(raw.blizzardSyncCategories)
+        end
+        for key in pairs(raw)do
+            if key~="profiles" and key~="template" and key~="useBlizzardCooldownManager" and key~="blizzardSyncCategories" then return end
+        end
         result[id]=store
     end
     return result
@@ -461,7 +496,7 @@ function S.ExportCharacterSettings(mode)
         if not mode then S.SaveCharacter(id) end
         local store=CharacterStore(id,mode)
         result[id]={profiles=M.Copy(store.profiles),template=store.template and M.Copy(store.template),
-            useBlizzardCooldownManager=store.useBlizzardCooldownManager}
+            useBlizzardCooldownManager=store.useBlizzardCooldownManager,blizzardSyncCategories=store.blizzardSyncCategories}
     end
     return S.CleanCharacterSettings(result)
 end
@@ -739,7 +774,7 @@ local function StyleNativeAura(slot,frame,reversed)
     M.MasqueIcons.Attach(frame.monitorIcon,"playerSkillMonitor",40,40)
     frame:SetIcon(frame.monitorIcon);frame:SetDurationText(frame.monitorTime,S.DurationTextOptions())
     frame.monitorCount=frame:CreateFontString(nil,"OVERLAY");CountFont(frame.monitorCount)
-    frame.monitorCount:SetPoint("BOTTOM",frame,"TOP",0,29);frame:SetApplicationCount(frame.monitorCount,{})
+    frame.monitorCount:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-1,1);frame:SetApplicationCount(frame.monitorCount,{})
     if forever then return end
     -- The provider denies direct access to its AuraButtons once auras become
     -- secret. Our own child exposes inherited visibility as a secret boolean;
@@ -816,7 +851,7 @@ local function Icon(view,o,i)
     slot.timerGate=CreateFrame("Frame",nil,slot);slot.timerGate:SetAllPoints()
     slot.text=slot.timerGate:CreateFontString(nil,"OVERLAY");Font(slot.text);slot.text:SetPoint("BOTTOM",slot,"TOP",0,7)
     slot.countGate=CreateFrame("Frame",nil,slot);slot.countGate:SetAllPoints()
-    slot.count=slot.countGate:CreateFontString(nil,"OVERLAY");CountFont(slot.count);slot.count:SetPoint("BOTTOM",slot,"TOP",0,29)
+    slot.count=slot.countGate:CreateFontString(nil,"OVERLAY");CountFont(slot.count);slot.count:SetPoint("BOTTOMRIGHT",slot,"BOTTOMRIGHT",-1,1)
     slot.cooldown=CreateFrame("Cooldown",nil,slot.timerGate,"CooldownFrameTemplate");slot.cooldown:SetAllPoints();slot.cooldown:EnableMouse(false)
     slot.gcd=CreateFrame("Cooldown",nil,slot,"CooldownFrameTemplate")
     slot.gcd:SetAllPoints();slot.gcd:EnableMouse(false)
@@ -956,7 +991,7 @@ local function BindEffect(slot)
             timer:SetPoint("BOTTOM",frame,"TOP",0,7)
             frame:SetDurationText(timer,S.DurationTextOptions())
             local count=frame:CreateFontString(nil,"OVERLAY");CountFont(count)
-            count:SetPoint("BOTTOM",frame,"TOP",0,29);frame:SetApplicationCount(count,{})
+            count:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-1,1);frame:SetApplicationCount(count,{})
             local presence=CreateFrame("Frame",nil,frame);presence:SetAllPoints();presence:EnableMouse(false)
             slot.effectPresence=presence
         end})
@@ -992,8 +1027,9 @@ local function ResolveEffect(slot,preview)
                 local mapped=Number(Safe(C_UnitAuras and C_UnitAuras.GetCooldownAuraBySpellID,slot.effectSpell or id))
                 local lastStand=id==12975 or info.spellID==12975
                 local linked=info.linkedSpellIDs or {}
-                if not hidden and (lastStand or info.hasAura or #linked>0 or (mapped and mapped>0))then
-                    kind=(lastStand or info.selfAura) and "buff" or "debuff"
+                local tracked=entry.blizzardCategory=="TrackedBuff"
+                if not hidden and (tracked or lastStand or info.hasAura or #linked>0 or (mapped and mapped>0))then
+                    kind=(tracked or lastStand or info.selfAura) and "buff" or "debuff"
                     for _,linkedID in ipairs(linked)do if Number(linkedID)then ids[linkedID]=true end end
                     if mapped and mapped>0 then ids[mapped]=true end
                     local tooltipID=Number(info.overrideTooltipSpellID)
@@ -1427,16 +1463,18 @@ local function FindEffectAura(effect,now)
 end
 
 local function BlizzardHUDIcons()
-    local viewer=EssentialCooldownViewer
-    if not viewer or not M.Compat.Bool(Safe(viewer.IsVisible,viewer))then return end
-    local frames={viewer:GetChildren()}
     local byID,bySpell={},{}
-    for _,frame in ipairs(frames)do
-        if Readable(frame) and not M.Compat.Bool(Safe(frame.IsForbidden,frame))then
-            local id=Number(Safe(frame.GetCooldownID,frame))
-            local spell=Number(Safe(frame.GetBaseSpellID,frame))
-            if id then byID[id]=frame end
-            if spell then bySpell[spell]=frame end
+    for _,name in ipairs({"EssentialCooldownViewer","UtilityCooldownViewer","BuffIconCooldownViewer"})do
+        local viewer=_G[name]
+        if viewer and M.Compat.Bool(Safe(viewer.IsVisible,viewer))then
+            for _,frame in ipairs({viewer:GetChildren()})do
+                if Readable(frame) and not M.Compat.Bool(Safe(frame.IsForbidden,frame))then
+                    local id=Number(Safe(frame.GetCooldownID,frame))
+                    local spell=Number(Safe(frame.GetBaseSpellID,frame))
+                    if id then byID[id]=frame end
+                    if spell and not bySpell[spell]then bySpell[spell]=frame end
+                end
+            end
         end
     end
     return byID,bySpell
@@ -1847,22 +1885,15 @@ function S.BuildControls(e,parent,Row)
         Row(height,{{frame,0,0}}, {},key)
         return frame,e.propRows[#e.propRows]
     end
-    local imports=Panel(36,"skillMonitorImport")
+    local imports=Panel(162,"skillMonitorImport")
+    local appearance=Panel(24,"skillMonitorAppearance")
+    W.SettingsSectionTitle(appearance,"外观与显示",-8)
     local share=Panel(56,"skillMonitorSharing")
     local panel=Panel(205,"skillMonitorEntry");e.skillMonitorPanel=panel
     local function Flush() if panel.edit and panel.edit:HasFocus() then panel.edit:ClearFocus() end end
     imports.available=S.AddBlizzardCooldownButton and S.AddBlizzardCooldownButton(imports,Current,Flush)
     e.skillMonitorImport=imports
-    local title=W.Label(share,"配置分享",12);title:SetPoint("CENTER",share,"TOP",0,10)
-    title:SetTextColor(1,.82,0);title:SetJustifyH("CENTER")
-    for _,point in ipairs({"LEFT","RIGHT"})do
-        local line=share:CreateTexture(nil,"ARTWORK");line:SetHeight(1);line:SetColorTexture(.5,.5,.5,.45)
-        if point=="LEFT" then
-            line:SetPoint("LEFT",share,"TOPLEFT",0,10);line:SetPoint("RIGHT",title,"LEFT",-8,0)
-        else
-            line:SetPoint("RIGHT",share,"TOPRIGHT",0,10);line:SetPoint("LEFT",title,"RIGHT",8,0)
-        end
-    end
+    W.SettingsSectionTitle(share,"配置分享",10)
     local export=W.Button(share,"导出配置",150,function()Flush();M:ShowConfigStringDialog("export","skillsAll")end)
     local import=W.Button(share,"导入配置",150,function()Flush();M:ShowConfigStringDialog("import","skills")end)
     export:SetPoint("TOPLEFT",0,-24);import:SetPoint("LEFT",export,"RIGHT",8,0)
@@ -2012,7 +2043,8 @@ function S.BuildControls(e,parent,Row)
         if entry and not S.EntryIndex(owner,entry)then e.skillEntry=nil;entry=nil end
         local width=e.props:GetWidth()
         share:SetWidth(width);export:SetWidth((width-8)/2);import:SetWidth((width-8)/2)
-        if imports.blizzardSyncCheck then imports.blizzardSyncCheck:SetChecked(S.BlizzardSyncEnabled())end
+        imports:SetWidth(width);appearance:SetWidth(width)
+        for key,check in pairs(imports.blizzardSyncChecks or {})do check:SetChecked(S.BlizzardSyncEnabled(key))end
         for key,control in pairs(globals)do
             control.updating=true
             if skillNumeric[key]then control:SetValue(owner[key] or skillNumeric[key][3])
