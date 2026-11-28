@@ -24,6 +24,11 @@ end
 local function TriggerGlowEnabled(entry)
     return entry.triggerGlow==true or (entry.type=="usable" and entry.triggerGlow==nil)
 end
+local function StackGlowThreshold(entry,automatic)
+    if entry.maxStackGlow~=true then return end
+    if entry.maxStacks and entry.maxStacks>0 then return entry.maxStacks end
+    if automatic and automatic>1 then return automatic end
+end
 local function Readable(v)return not issecretvalue or not issecretvalue(v)end
 local function Number(v)return Readable(v) and type(v)=="number" and v or nil end
 local function Safe(fn,...)
@@ -763,7 +768,26 @@ function S.CreateAuraBackdrop(parent,container)
     if ok then return backdrop end
     backdrop:Hide()
 end
-local function StyleNativeAura(slot,frame,reversed,nativeGlows)
+local function BindNativeStackGlow(slot,display)
+    local threshold=StackGlowThreshold(slot.entry)
+    if display.threshold==threshold then return end
+    local frame=display.frame
+    if threshold and frame.SetApplicationBar then
+        if not display.bar then
+            local bar=CreateFrame("StatusBar",nil,frame);bar:SetAllPoints();bar:EnableMouse(false)
+            display.bar=bar;display.glow=M.CustomMonitor.CreateGlow(bar)
+            display.glow:SetFrameLevel(slot:GetFrameLevel()+25)
+        end
+        -- The engine owns bar visibility and applies the threshold even to
+        -- aura applications that are unavailable to addon Lua in combat.
+        if not pcall(frame.SetApplicationBar,frame,display.bar,{minApplications=threshold,maxApplications=threshold+1}) then return end
+    elseif display.bar then
+        display.glow:Hide()
+        if frame.ClearApplicationBar then frame:ClearApplicationBar()end
+    end
+    display.threshold=threshold
+end
+local function StyleNativeAura(slot,frame,reversed,nativeGlows,nativeStacks)
     frame:SetSize(40,40);frame:EnableMouse(false);frame:EnableMouseMotion(true)
     frame:SetTooltipAnchorPoint("ANCHOR_RIGHT");frame:SetHideTooltipInCombat(false)
     local forever=slot.nativeHost~=nil
@@ -785,6 +809,9 @@ local function StyleNativeAura(slot,frame,reversed,nativeGlows)
     local glow=M.CustomMonitor.CreateGlow(frame)
     glow:SetFrameLevel(slot:GetFrameLevel()+25)
     nativeGlows[#nativeGlows+1]=glow
+    local display={frame=frame}
+    nativeStacks[#nativeStacks+1]=display
+    BindNativeStackGlow(slot,display)
     if forever then return end
     -- The provider denies direct access to its AuraButtons once auras become
     -- secret. Our own child exposes inherited visibility as a secret boolean;
@@ -811,7 +838,7 @@ local function NativeAura(slot,aura,reversed)
     end
     local container=CreateFrame("AuraContainer",nil,parent,"CustomAuraContainerTemplate")
     container:SetEnabled(false);container:SetUnit(aura.unit);container:SetPoint("TOPLEFT",slot,"TOPLEFT",0,0)
-    slot.nativeFrames={};slot.nativeGlows={};slot.nativeAuras=container
+    slot.nativeFrames={};slot.nativeGlows={};slot.nativeStacks={};slot.nativeAuras=container
     if slot.nativeHost then
         local backdrop=S.CreateAuraBackdrop(slot.nativeHost,container)
         if backdrop then
@@ -822,9 +849,9 @@ local function NativeAura(slot,aura,reversed)
         end
     end
     local width=slot.nativeBackdrop and S.auraBackdropLayoutWidth or 40
-    local nativeGlows=slot.nativeGlows
+    local nativeGlows,nativeStacks=slot.nativeGlows,slot.nativeStacks
     container:AddAuraGroup("monitor",aura.filter,{maxFrameCount=0,
-        initializeFrame=function(frame)StyleNativeAura(slot,frame,reversed,nativeGlows)end})
+        initializeFrame=function(frame)StyleNativeAura(slot,frame,reversed,nativeGlows,nativeStacks)end})
     container:SetFlowLayoutAnchorPoint("TOPLEFT")
     container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right,AnchorUtil.FlowDirection.Down)
     container:SetFlowLayoutMaximumLineSize(width+.001)
@@ -832,7 +859,7 @@ local function NativeAura(slot,aura,reversed)
 end
 -- Native AuraButtons can become inaccessible after initialization. Keep one
 -- initialized container per style and switch containers without restyling them.
-local nativeVariantFields={"nativeAuras","nativeHost","nativeBackdrop","nativeFrames","nativeGlows","nativeAuraType","shortcutGate","baseIconGate"}
+local nativeVariantFields={"nativeAuras","nativeHost","nativeBackdrop","nativeFrames","nativeGlows","nativeStacks","nativeAuraType","shortcutGate","baseIconGate"}
 local function SelectNativeAura(slot,aura)
     local reversed=slot.entry.reverseDisplay==true
     if slot.nativeAuras and slot.nativeReversed==reversed then return end
@@ -985,6 +1012,7 @@ local function BindAura(slot,enabled)
     for id in pairs(slot.observedAuraIDs or {})do ids[id]=true end
     slot.boundAuraIDs,slot.nativeAuraDirty=ids,nil
     slot.nativeAuras:SetAuraGroupCandidateFilters("monitor",{includeSpellIDs=ids})
+    for _,display in ipairs(slot.nativeStacks or {})do BindNativeStackGlow(slot,display)end
     slot.nativeAuras:SetAuraGroupMaxFrameCount("monitor",1)
     slot.nativeSpellID=slot.spellID
     slot.nativeAuras:SetEnabled(true);slot.nativeAuras:UpdateAllAuras()
@@ -1009,6 +1037,8 @@ local function BindEffect(slot)
             local glow=M.CustomMonitor.CreateGlow(frame)
             glow:SetFrameLevel(slot:GetFrameLevel()+25)
             slot.effectNativeGlow=glow
+            slot.effectNativeStack={frame=frame}
+            BindNativeStackGlow(slot,slot.effectNativeStack)
             local timer=frame:CreateFontString(nil,"OVERLAY");Font(timer)
             timer:SetPoint("BOTTOM",frame,"TOP",0,7)
             frame:SetDurationText(timer,S.DurationTextOptions())
@@ -1035,6 +1065,7 @@ local function BindEffect(slot)
     native:SetUnit(effect.unit)
     native:SetAuraGroupFilterString("effect",effect.filter)
     native:SetAuraGroupCandidateFilters("effect",{includeSpellIDs=effect.ids})
+    if slot.effectNativeStack then BindNativeStackGlow(slot,slot.effectNativeStack)end
     native:SetEnabled(true);native:UpdateAllAuras()
 end
 
@@ -1159,7 +1190,7 @@ function S.Configure(view,o)
         end
         slot.timerGate:SetAlpha(1);M.CustomMonitor.SetVisual(slot.cooldown,"SetAlpha",1)
         if slot.effectNative then slot.effectNative:SetAlpha(0)end
-        slot.spellCount=nil;slot.countGate:SetAlpha(1)
+        slot.spellCount=nil;slot.chargeCount=nil;slot.countGate:SetAlpha(1)
         CountFont(slot.count);M.CustomMonitor.SetText(slot.count,"")
         M.CustomMonitor.SetText(slot.text,"");ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
         Font(slot.text)
@@ -1234,6 +1265,7 @@ local function Cooldown(entry,slot,cache)
     local key=SpellIconID(slot) or entry.value
     local charges,maximum,chargeStart,chargeDuration,chargeRate=SpellCharges(key)
     slot.spellCount=SpellCount(slot,key,charges,maximum)
+    slot.chargeCount=charges
     slot.maxCharges=Number(maximum)
     slot.cooldownDesaturates=not (slot.maxCharges and slot.maxCharges>1 and Number(charges) and charges>0)
     if C_Spell and C_Spell.GetSpellCooldownDuration then
@@ -1580,6 +1612,11 @@ local function PaintEffect(slot,now,reversed)
     slot.effectExpires=timed and expires or nil
     local stacks=active and aura.applications
     local amount=Number(stacks)
+    slot.effectStackCount=nil
+    if active then
+        if amount then slot.effectStackCount=math.max(1,amount)
+        else slot.effectStackCount=stacks end
+    end
     local display=amount and amount>1 and amount or nil
     if active and not Readable(stacks) then
         local id=Number(aura.auraInstanceID)
@@ -1618,6 +1655,29 @@ local function PaintEffect(slot,now,reversed)
         end
     end
     if slot.blizzardTimer then return false,true end
+end
+
+local stackCurves={}
+local function PaintRestrictedStackGlow(slot,count,threshold,now)
+    local alpha
+    if threshold and not Readable(count) and type(count)=="number" and C_CurveUtil and C_CurveUtil.CreateCurve
+        and Enum and Enum.LuaCurveType then
+        local curve=stackCurves[threshold]
+        if not curve then
+            curve=C_CurveUtil.CreateCurve();curve:SetType(Enum.LuaCurveType.Step)
+            curve:AddPoint(0,0);curve:AddPoint(threshold,1);stackCurves[threshold]=curve
+        end
+        alpha=Safe(curve.Evaluate,curve,count)
+    end
+    local shown=type(alpha)=="number"
+    if shown and not slot.restrictedStackGlow then
+        slot.restrictedStackGlow=M.CustomMonitor.CreateGlow(slot)
+        slot.restrictedStackGlow:SetFrameLevel(slot:GetFrameLevel()+25)
+    end
+    if slot.restrictedStackGlow then
+        if shown then M.CustomMonitor.SetVisual(slot.restrictedStackGlow,"SetAlpha",alpha)end
+        M.CustomMonitor.PaintGlow(slot.restrictedStackGlow,shown,nil,now)
+    end
 end
 
 local function PaintTriggerGlow(slot,shouldGlow,watchCooldown,now)
@@ -1791,6 +1851,7 @@ function S.Paint(view,o,animateOnly)
             else frame.shortcutGate:SetAlpha(1);frame.baseIconGate:SetAlpha(1)end
         end
         if slot.entry.type=="custom"then
+            if slot.restrictedStackGlow then slot.restrictedStackGlow:Hide()end
             ClearCooldown(slot.cooldown);slot.duration=nil
             local result=M.CustomMonitor.Apply(o,slot,view.preview)
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);textureAlpha=1
@@ -1849,20 +1910,42 @@ function S.Paint(view,o,animateOnly)
         end
         if slot.entry.type~="custom" then
             local entry=slot.entry
-            local count=Number(slot.stacks) or Number(slot.spellCount)
-            local max=entry.maxStacks and entry.maxStacks>0 and entry.maxStacks or slot.maxCharges
             local trigger=not view.preview and TriggerGlowEnabled(entry)
             local active=slot.active and (not slot.expires or slot.expires>now)
+            local threshold=not view.preview and StackGlowThreshold(entry,slot.maxCharges)
+            local count
+            if isAura or entry.type=="equipment" or entry.type=="stance" then
+                if active then
+                    if type(slot.stacks)=="nil" then count=1 else count=slot.stacks end
+                end
+            else
+                count=slot.spellCount
+                if type(count)=="nil" then count=slot.chargeCount end
+                if effectVisible and (type(count)=="nil" or not Readable(slot.effectStackCount)
+                    or (Number(slot.effectStackCount) or 0)>1) then
+                    count=slot.effectStackCount
+                end
+            end
+            local numeric=Number(count)
+            if Readable(count) and type(count)=="string" then numeric=tonumber(count)end
             local proc=trigger and (effectVisible==true or slot.effectGlow==true or slot.blizzardAuraActive==true
                 or ((isAura or entry.type=="stance" or entry.type=="equipment") and active))
-            local full=entry.maxStackGlow==true and count and max and max>1 and count>=max
-                and (not isAura or slot.active)
+            local full=threshold and numeric and numeric>=threshold
             PaintTriggerGlow(slot,proc or full or false,trigger and IsSpellIcon(entry),now)
+            PaintRestrictedStackGlow(slot,count,threshold,now)
             for _,glow in ipairs(slot.nativeGlows or {})do
                 M.CustomMonitor.PaintGlow(glow,trigger and useNative,nil,now)
             end
             if slot.effectNativeGlow then
                 M.CustomMonitor.PaintGlow(slot.effectNativeGlow,trigger and not proc and IsSpellIcon(entry),nil,now)
+            end
+            for _,display in ipairs(slot.nativeStacks or {})do
+                if display.glow then M.CustomMonitor.PaintGlow(display.glow,threshold and useNative and display.threshold==threshold,nil,now)end
+            end
+            local display=slot.effectNativeStack
+            if display and display.glow then
+                M.CustomMonitor.PaintGlow(display.glow,threshold and not effectVisible and IsSpellIcon(entry)
+                    and display.threshold==threshold,nil,now)
             end
         end
         if not view.preview then
@@ -2098,7 +2181,7 @@ function S.BuildControls(e,parent,Row)
     local reverse=EntryCheck("反转褪色效果","reverseDisplay",-162)
     local maxLabel=W.Label(panel,"层数上限（0 = 自动）")
     maxLabel:SetPoint("LEFT",maxGlow.label,"RIGHT",18,0)
-    local maxStacks=W.SpinBox(panel,76,0,999,1)
+    local maxStacks=W.SpinBox(panel,84,0,999,1,true)
     maxStacks:SetPoint("LEFT",maxLabel,"RIGHT",8,0)
     maxStacks:SetScript("OnValueChanged",function(self,value)
         if not self.updating then Update(function(entry)entry.maxStacks=value end)end

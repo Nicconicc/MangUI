@@ -328,7 +328,7 @@ function W.Edit(parent,width)
 end
 -- Appearance and drag interaction follow WeakAurasSpinBox. Textures are bundled
 -- locally so these controls work without WeakAuras being installed or enabled.
-function W.SpinBox(parent,width,minimum,maximum,step)
+function W.SpinBox(parent,width,minimum,maximum,step,arrowsOnly)
     local f=CreateFrame("Slider",nil,parent)
     local enabled=true
     f:SetSize(width or 200,19);f:SetOrientation("HORIZONTAL");f:EnableMouse(false)
@@ -345,14 +345,17 @@ function W.SpinBox(parent,width,minimum,maximum,step)
     M:BindInputFont(edit)
     edit:SetJustifyH("CENTER");edit:SetTextInsets(0,0,3,3);edit:EnableMouse(true);edit:EnableMouseWheel(false)
     edit:SetPoint("LEFT",left,"RIGHT",8,0);edit:SetPoint("RIGHT",right,"LEFT",-2,0)
-    local progress=edit:CreateTexture(nil,"ARTWORK")
-    progress:SetTexture(M:TextureFile(skin.."overlay"));progress:SetVertexColor(.5,.5,.5,1)
-    progress:SetPoint("TOPLEFT",edit,"TOPLEFT",-2,-3);progress:SetPoint("BOTTOMLEFT",edit,"BOTTOMLEFT",-2,3)
-    local handle=CreateFrame("Frame",nil,edit);handle:EnableMouse(true)
-    handle:SetSize(28,28);handle:SetPoint("CENTER",progress,"RIGHT",0,0)
-    local highlight=handle:CreateTexture(nil,"ARTWORK")
-    highlight:SetAllPoints();highlight:SetTexture("Interface\\Buttons\\UI-ScrollBar-Knob")
-    handle:Hide()
+    local progress=not arrowsOnly and edit:CreateTexture(nil,"ARTWORK")
+    local handle,highlight
+    if progress then
+        progress:SetTexture(M:TextureFile(skin.."overlay"));progress:SetVertexColor(.5,.5,.5,1)
+        progress:SetPoint("TOPLEFT",edit,"TOPLEFT",-2,-3);progress:SetPoint("BOTTOMLEFT",edit,"BOTTOMLEFT",-2,3)
+        handle=CreateFrame("Frame",nil,edit);handle:EnableMouse(true)
+        handle:SetSize(28,28);handle:SetPoint("CENTER",progress,"RIGHT",0,0)
+        highlight=handle:CreateTexture(nil,"ARTWORK")
+        highlight:SetAllPoints();highlight:SetTexture("Interface\\Buttons\\UI-ScrollBar-Knob")
+        handle:Hide()
+    end
     local function Update()
         local value=f:GetValue() or 0;local lo,hi=f:GetMinMaxValues()
         if not edit:HasFocus() then
@@ -360,8 +363,10 @@ function W.SpinBox(parent,width,minimum,maximum,step)
             edit:SetText(f.isPercent and tostring(math.floor(value*1000+.5)/10).."%" or tostring(number))
         end
         left:SetEnabled(enabled and value>lo);right:SetEnabled(enabled and value<hi)
-        local p=hi>lo and M.Clamp((value-lo)/(hi-lo),0,1) or 0
-        progress:SetWidth(math.max(1,p*math.max(1,f:GetWidth()-47)));progress:SetTexCoord(0,p,0,1)
+        if progress then
+            local p=hi>lo and M.Clamp((value-lo)/(hi-lo),0,1) or 0
+            progress:SetWidth(math.max(1,p*math.max(1,f:GetWidth()-47)));progress:SetTexCoord(0,p,0,1)
+        end
     end
     local function Apply(value)
         if not enabled then Update();return end
@@ -380,37 +385,42 @@ function W.SpinBox(parent,width,minimum,maximum,step)
     end)
     edit:SetScript("OnEscapePressed",function(self)self:ClearFocus();Update()end)
     edit:SetScript("OnEditFocusLost",Update)
-    edit:SetScript("OnEnter",function()if enabled and not edit:HasFocus() then handle:Show() end end)
-    edit:SetScript("OnEditFocusGained",function()handle:Hide()end)
-    handle:SetScript("OnMouseDown",function(self,button)
-        if not enabled or button~="LeftButton" then return end
-        M.EditorUndo.Begin(self)
-        edit:ClearFocus();self.dragging=true;self.startX=GetCursorPosition();self.original=f:GetValue()
-    end)
-    handle:SetScript("OnMouseUp",function(self,button)
-        if button=="LeftButton" and self.dragging then self.dragging=false;M.EditorUndo.Finish(self) end
-    end)
-    handle:SetScript("OnUpdate",function(self)
-        if not enabled then self.dragging=false;M.EditorUndo.Finish(self);self:Hide();return end
-        if self.dragging and not IsMouseButtonDown("LeftButton") then self.dragging=false;M.EditorUndo.Finish(self) end
-        if self.dragging then
-            local x=GetCursorPosition();local lo,hi=f:GetMinMaxValues();local increment=f:GetValueStep()
-            local delta=(x-self.startX)/edit:GetEffectiveScale()/math.max(1,f:GetWidth()-47)*(hi-lo)
-            Apply(math.floor((self.original+delta)/increment+.5)*increment)
-        elseif edit:HasFocus() or not M.Compat.MouseOver(f) then self:Hide() end
-        if self.dragging then highlight:SetVertexColor(1,.82,.4,1)
-        elseif M.Compat.MouseOver(self) then highlight:SetVertexColor(1,1,.75,1)
-        else highlight:SetVertexColor(1,1,1,1) end
-    end)
+    if handle then
+        edit:SetScript("OnEnter",function()if enabled and not edit:HasFocus() then handle:Show() end end)
+        edit:SetScript("OnEditFocusGained",function()handle:Hide()end)
+        handle:SetScript("OnMouseDown",function(self,button)
+            if not enabled or button~="LeftButton" then return end
+            M.EditorUndo.Begin(self)
+            edit:ClearFocus();self.dragging=true;self.startX=GetCursorPosition();self.original=f:GetValue()
+        end)
+        handle:SetScript("OnMouseUp",function(self,button)
+            if button=="LeftButton" and self.dragging then self.dragging=false;M.EditorUndo.Finish(self) end
+        end)
+        handle:SetScript("OnUpdate",function(self)
+            if not enabled then self.dragging=false;M.EditorUndo.Finish(self);self:Hide();return end
+            if self.dragging and not IsMouseButtonDown("LeftButton") then self.dragging=false;M.EditorUndo.Finish(self) end
+            if self.dragging then
+                local x=GetCursorPosition();local lo,hi=f:GetMinMaxValues();local increment=f:GetValueStep()
+                local delta=(x-self.startX)/edit:GetEffectiveScale()/math.max(1,f:GetWidth()-47)*(hi-lo)
+                Apply(math.floor((self.original+delta)/increment+.5)*increment)
+            elseif edit:HasFocus() or not M.Compat.MouseOver(f) then self:Hide() end
+            if self.dragging then highlight:SetVertexColor(1,.82,.4,1)
+            elseif M.Compat.MouseOver(self) then highlight:SetVertexColor(1,1,.75,1)
+            else highlight:SetVertexColor(1,1,1,1) end
+        end)
+    end
     -- Refresh directly on programmatic changes, including while hidden. The
     -- caller installs its own OnValueChanged handler after constructing this control.
     local nativeSetValue,nativeSetMinMaxValues=f.SetValue,f.SetMinMaxValues
     function f:SetValue(value)nativeSetValue(self,value);Update()end
     function f:SetMinMaxValues(lo,hi)nativeSetMinMaxValues(self,lo,hi);Update()end
     f:HookScript("OnShow",Update);f:HookScript("OnSizeChanged",Update)
-    f:HookScript("OnHide",function()handle.dragging=false;M.EditorUndo.Finish(handle);handle:Hide();edit:ClearFocus()end)
+    f:HookScript("OnHide",function()
+        if handle then handle.dragging=false;M.EditorUndo.Finish(handle);handle:Hide()end
+        edit:ClearFocus()
+    end)
     function f:SetHoverTooltip(title,text)
-        for _,control in ipairs({left,edit,handle,right}) do
+        for _,control in ipairs({left,edit,right,handle}) do
             control:HookScript("OnEnter",function(self)
                 GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
                 GameTooltip:SetText(M:T(title))
@@ -430,8 +440,11 @@ function W.SpinBox(parent,width,minimum,maximum,step)
     function f:SetEnabled(value)
         enabled=value~=false
         if enabled then edit:Enable()
-        else edit:ClearFocus();edit:Disable();handle.dragging=false;M.EditorUndo.Finish(handle);handle:Hide() end
-        edit:EnableMouse(enabled);handle:EnableMouse(enabled)
+        else
+            edit:ClearFocus();edit:Disable()
+            if handle then handle.dragging=false;M.EditorUndo.Finish(handle);handle:Hide()end
+        end
+        edit:EnableMouse(enabled);if handle then handle:EnableMouse(enabled)end
         self:SetAlpha(enabled and 1 or .45);Update()
     end
     function f:SetText(value)
