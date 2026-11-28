@@ -14,7 +14,7 @@ local function SkillChecked(group,key)
     if key=="skillRangeRed" then return group[key]==true end
     return group[key]~=false
 end
-local extraEntryFields={triggerGlow=true,maxStackGlow=true,triggerGlowColor=true,maxStackGlowColor=true,maxStacks=true,slot=true,blizzardCategory=true}
+local extraEntryFields={triggerGlow=true,maxStackGlow=true,triggerGlowColor=true,maxStackGlowColor=true,maxStacks=true,slot=true,blizzardCategory=true,onlyWhenTriggered=true}
 local soundFields={soundEnabled=true,soundWhen=true,sound=true,soundPath=true,soundID=true}
 local whiteGlow={1,1,1,1}
 local validBlizzardCategories={Essential=true,Utility=true,TrackedBuff=true}
@@ -139,7 +139,7 @@ function S.ValidEntries(entries)
             end
             for k in pairs(entry.shortcutColor)do if type(k)~="number" or k%1~=0 or k<1 or k>4 then return false end end
         end
-        for _,key in ipairs({"triggerGlow","maxStackGlow"})do
+        for _,key in ipairs({"triggerGlow","maxStackGlow","onlyWhenTriggered"})do
             if entry[key]~=nil and type(entry[key])~="boolean" then return false end
         end
         if entry.maxStacks~=nil and (type(entry.maxStacks)~="number" or entry.maxStacks%1~=0 or entry.maxStacks<0 or entry.maxStacks>999)then return false end
@@ -805,11 +805,21 @@ end
 local function ListenForCountdownEnd(slot,timer)
     timer:HookScript("OnCooldownDone",function()
         local state,entry=slot.skillSound,slot.entry
-        if state and state.entry==entry and entry.soundEnabled and entry.soundWhen=="finish"
-            and state.nativeTimer==timer and state.active and not state.ended then
-            state.ended=true
-            M.PlayerOtherMonitor.Play(entry)
+        if not slot.resettingSoundTimer and state and state.entry==entry and (entry.soundEnabled or entry.onlyWhenTriggered)
+            and state.nativeTimer==timer and state.active then
+            if timer==slot.soundTimer then state.soundTimerArmed=nil end
+            state.completedTimer=timer
         end
+    end)
+end
+local function ObserveNativeAuraSound(slot,frame,timer)
+    frame:HookScript("OnShow",function()
+        if not slot.resettingSoundTimer and slot.entry and (slot.entry.soundEnabled or slot.entry.onlyWhenTriggered) then
+            slot.auraSoundTimer=timer
+        end
+    end)
+    frame:HookScript("OnHide",function()
+        if slot.auraSoundTimer==timer then slot.auraSoundTimer=nil end
     end)
 end
 local function ApplySkillGlowBorder(glow,border)
@@ -910,6 +920,7 @@ local function StyleNativeAura(slot,frame,reversed,nativeGlows,nativeStacks)
         timer:SetDrawEdge(false);timer:SetDrawBling(false);timer:SetDrawSwipe(false)
         M.CustomMonitor.SetVisual(timer,"SetHideCountdownNumbers",true);timer.noCooldownCount=true
         ListenForCountdownEnd(slot,timer)
+        ObserveNativeAuraSound(slot,frame,timer)
         tracker.timer=timer;frame:SetDurationCooldown(timer)
     end
     local display={frame=frame}
@@ -1132,9 +1143,10 @@ local function BindEffect(slot)
     if InCombatLockdown() then return end
     local native=slot.effectNative
     local effect=slot.effect
+    slot.resettingSoundTimer=true
     if native then native:SetEnabled(false)end
     slot.boundEffect=nil
-    if not effect or not next(effect.ids) or not NativeAurasAvailable() then return end
+    if not effect or not next(effect.ids) or not NativeAurasAvailable() then slot.resettingSoundTimer=nil;return end
     if not native then
         native=CreateFrame("AuraContainer",nil,slot,"CustomAuraContainerTemplate")
         slot.effectNative=native
@@ -1165,6 +1177,7 @@ local function BindEffect(slot)
                 swipe:SetDrawSwipe(slot.showCooldownSwipe)
                 slot.effectNativeSwipe=swipe
                 ListenForCountdownEnd(slot,swipe)
+                ObserveNativeAuraSound(slot,frame,swipe)
                 frame:SetDurationCooldown(swipe)
             end
             local count=frame:CreateFontString(nil,"OVERLAY");CountFont(count)
@@ -1186,6 +1199,7 @@ local function BindEffect(slot)
     end
     native:SetEnabled(true);native:UpdateAllAuras()
     slot.boundEffect=effect
+    slot.resettingSoundTimer=nil
 end
 
 local function SameEffectBinding(first,second)
@@ -1214,6 +1228,7 @@ local function ResolveEffect(slot,preview)
     slot.resolvedBlizzardEntry,slot.resolvedBlizzardSpell=nil,nil
     slot.effect,slot.effectAura,slot.effectSpell,slot.effectGlow,slot.effectRevenge=nil,nil,nil,nil,nil
     slot.blizzardID,slot.blizzardTimer,slot.blizzardDesaturated,slot.blizzardAuraActive=nil,nil,nil,nil
+    slot.blizzardEnd=nil
     slot.effectKnown=true
     if not preview and IsCombined(entry) then
         local kind=effectTypes[entry.type]
@@ -1315,7 +1330,6 @@ function S.Configure(view,o)
     o.skillIcons=o.skillIcons or {};o.nativeTargetGeneration=nil
     S.ResetMonitorRefresh(o)
     o.skillKinds={}
-    o.skillDirection=nil
     local group=view.byID[o.spec.parent]
     o.skillEditorPreview=view.preview and view.previewScope=="playerSkillMonitor"
     local draft=o.skillEditorPreview and M.editor and M.editor.skillEntry
@@ -1327,7 +1341,7 @@ function S.Configure(view,o)
         slot.texture:SetVertexColor(1,1,1)
         slot.appliedSpellR,slot.appliedSpellG,slot.appliedSpellB=1,1,1
         slot:SetScale(S.IconSize(group)/40)
-        slot.rowX=nil;slot.sweepStart=nil;slot.maxCharges=nil;slot.auraDuration=nil;slot.item=nil
+        slot.rowX=nil;slot.rowVisible=nil;slot.sweepStart=nil;slot.maxCharges=nil;slot.auraDuration=nil;slot.item=nil
         slot.showCooldownSwipe=group.skillCooldownSwipe~=false
         slot.cooldown:SetDrawSwipe(slot.showCooldownSwipe)
         slot.effectSwipe:SetDrawSwipe(slot.showCooldownSwipe);ClearCooldown(slot.effectSwipe);slot.effectSwipe.monitorStart=nil
@@ -1343,7 +1357,9 @@ function S.Configure(view,o)
         if slot.effectNative then slot.effectNative:SetAlpha(0)end
         slot.spellCount=nil;slot.chargeCount=nil;slot.countGate:SetAlpha(1)
         CountFont(slot.count);M.CustomMonitor.SetText(slot.count,"")
+        slot.resettingSoundTimer=true
         M.CustomMonitor.SetText(slot.text,"");ClearCooldown(slot.cooldown);M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false)
+        slot.resettingSoundTimer=nil
         Font(slot.text)
         Shortcut(slot,group)
         if slot.nativeTime then Font(slot.nativeTime)end
@@ -1697,8 +1713,16 @@ function S.BlizzardSpellInRange(spell,base)
     if Readable(outside) and outside==true then return false end
 end
 
+local function CountdownEnd(timer)
+    if not timer then return end
+    local start,duration=Safe(timer.GetCooldownTimes,timer)
+    start,duration=Number(start),Number(duration)
+    if start and duration then return duration>0 and (start+duration)/1000 or 0 end
+end
+
 local function ReadBlizzardPresentation(slot,frame)
     slot.blizzardTimer,slot.blizzardDesaturated,slot.blizzardAuraActive=nil,nil,nil
+    slot.blizzardEnd=nil
     local usesAura=frame and frame.cooldownUseAuraDisplayTime
     local ownTracked=slot.entry.blizzardCategory=="TrackedBuff" and slot.entry.onlyMine~=false
     -- The unfiltered CDM label cannot verify the caster. Use our filtered
@@ -1712,6 +1736,12 @@ local function ReadBlizzardPresentation(slot,frame)
     end
     local timer=frame and Safe(frame.GetCooldownFrame,frame)
     if not Readable(timer) or not timer then return end
+    if slot.entry.soundEnabled or slot.entry.onlyWhenTriggered then
+        local actual=Safe(function()return frame.isOnActualCooldown end)
+        if slot.blizzardAuraActive or (Readable(actual) and actual==true) then
+            slot.blizzardEnd=CountdownEnd(timer)
+        end
+    end
     local label=Safe(timer.GetCountdownFontString,timer)
     if Readable(label) and label and M.Compat.Bool(Safe(label.IsVisible,label))then
         local text=Safe(label.GetText,label)
@@ -1870,33 +1900,129 @@ end
 
 local function UpdateSkillSound(slot,now,active,expires,nativeTimer)
     local entry=slot.entry
-    if not entry.soundEnabled then slot.skillSound=nil;return end
-    if active==nil then return end
+    if not entry.soundEnabled and not entry.onlyWhenTriggered then slot.skillSound=nil;return end
     local state=slot.skillSound
     if not state or state.entry~=entry then
-        state={entry=entry,active=active}
+        state={entry=entry,active=active==true}
         slot.skillSound=state
-    elseif active and not state.active then
-        state.ended=nil
-        if entry.soundWhen~="finish" then M.PlayerOtherMonitor.Play(entry)end
-    elseif not state.ended and state.expires and state.expires<=now and
-        (not active or not expires or math.abs(state.expires-expires)>.25) then
+    end
+    local completed=state.completedTimer
+    state.completedTimer=nil
+    local oldEnd=state.expires
+    if not state.ended and (completed or (oldEnd and oldEnd<=now)) then
         state.ended=true
-        if entry.soundWhen=="finish" then M.PlayerOtherMonitor.Play(entry)end
+        if entry.soundEnabled and entry.soundWhen=="finish" then M.PlayerOtherMonitor.Play(entry)end
     end
-    if active and expires and expires>now and state.expires and expires>state.expires+.25 then
-        state.ended=nil -- refreshed timer; only the new expiry should play
+    if active==nil then return end
+    if active and not state.active then
+        state.ended=nil
+        if entry.soundEnabled and entry.soundWhen~="finish" then M.PlayerOtherMonitor.Play(entry)end
     end
-    state.active,state.expires,state.nativeTimer=active,active and expires or nil,nativeTimer
-    if not active then state.ended=nil end
+    if expires and expires>now and (not oldEnd or expires>oldEnd+.25) then state.ended=nil end
+    if active then
+        -- A live aura may temporarily supply only visibility instead of its
+        -- deadline. Keep its clock until it ends or is explicitly replaced.
+        if expires then state.expires=expires
+        elseif nativeTimer~=state.nativeTimer then state.expires=nil end
+        state.nativeTimer=nativeTimer
+    elseif not state.castUntil or now>=state.castUntil then
+        state.expires,state.nativeTimer,state.ended=nil,nil,nil
+    else return end
+    state.active=active
 end
 
-local function NativeSoundTimer(marker,timer)
-    if not marker then return false end
-    local visible=Safe(marker.IsVisible,marker)
-    if not Readable(visible) or type(visible)~="boolean" then return nil end
-    if visible then return true,timer end
-    return false
+local function NativeSoundTimer(slot,marker,timer,now)
+    local expires=CountdownEnd(timer)
+    if expires and expires>now then return true,expires,timer end
+    if marker then
+        local visible=Safe(marker.IsVisible,marker)
+        if Readable(visible) and type(visible)=="boolean" then
+            if visible then return true,nil,timer end
+            return false
+        end
+    end
+    if timer and slot.auraSoundTimer==timer then return true,nil,timer end
+    if expires then return false end
+end
+
+local function SpellSoundTimer(slot,now)
+    if slot.duration then
+        local remaining=Number(Safe(slot.duration.GetRemainingDuration,slot.duration))
+        if remaining then return remaining>0,remaining>0 and now+remaining or nil,slot.cooldown end
+        local expires=CountdownEnd(slot.cooldown)
+        if expires then return expires>now,expires>now and expires or nil,slot.cooldown end
+        local running=Safe(slot.duration.IsActive,slot.duration)
+        if Readable(running) and type(running)=="boolean" then return running,nil,slot.cooldown end
+        return nil,nil,slot.cooldown
+    end
+    return slot.active==true and slot.expires~=nil and slot.expires>now,slot.expires
+end
+
+local function ArmOpaqueSpellSound(slot,now,active,nativeTimer)
+    local state=slot.skillSound
+    if not state or state.entry~=slot.entry or (slot.entry.soundWhen~="finish" and not slot.entry.onlyWhenTriggered) or not slot.duration
+        or nativeTimer~=slot.cooldown then return active,nativeTimer end
+    local castIsPending=state.castUntil and now<state.castUntil
+    if active==false or (active==nil and not castIsPending and not state.soundTimerArmed)then
+        return active,nativeTimer
+    end
+    if state.soundTimerArmed then return true,slot.soundTimer end
+    if state.completedTimer or (state.ended and state.armedCast==state.castUntil)then return active,nativeTimer end
+    if not slot.soundTimer then
+        local timer=CreateFrame("Cooldown",nil,slot,"CooldownFrameTemplate")
+        timer:SetSize(1,1);timer:SetPoint("CENTER");timer:EnableMouse(false)
+        timer:SetDrawSwipe(false);timer:SetDrawEdge(false);timer:SetDrawBling(false)
+        M.CustomMonitor.SetVisual(timer,"SetHideCountdownNumbers",true);timer.noCooldownCount=true
+        ListenForCountdownEnd(slot,timer)
+        slot.soundTimer=timer
+    end
+    local timer=slot.soundTimer
+    if not timer.SetCooldownFromDurationObject then return active,nativeTimer end
+    if pcall(timer.SetCooldownFromDurationObject,timer,slot.duration,true) then
+        state.soundTimerArmed,state.armedCast=true,state.castUntil
+        return true,timer
+    end
+    return active,nativeTimer
+end
+
+local function LayoutSkillRow(view,o,entries,group)
+    local direction=S.Direction(group)
+    local changed=o.rowDirection~=direction
+    local count=0
+    for i=1,#entries do
+        local slot=o.skillIcons[i]
+        local entry=slot.entry
+        local visible=view.preview or ((entry.type~="blizzard" or slot.effectKnown)
+            and (entry.onlyWhenTriggered~=true or slot.triggerVisible==true))
+        if visible then count=count+1 end
+        if slot.rowVisible~=visible then
+            changed=true
+            slot.rowVisible=visible
+            -- Keep the slot itself shown so native aura children can still
+            -- report activation while the icon is excluded from the row.
+            if not slot:IsShown() then slot:Show()end
+            M.CustomMonitor.SetVisual(slot,"SetAlpha",visible and 1 or 0)
+            M.CustomMonitor.SetVisual(slot,"EnableMouse",not view.preview and visible)
+        end
+    end
+    if not changed and o.rowCount==count then return end
+    o.rowDirection=direction
+    o.rowCount=count
+    local width=count>0 and S.IconSize(group)+(count-1)*S.IconPitch(group) or 1
+    if o.rowWidth~=width then o.frame:SetSize(width,66);o.rowWidth=width end
+    local visibleIndex=0
+    for i=1,#entries do
+        local slot=o.skillIcons[i]
+        if slot.rowVisible then
+            visibleIndex=visibleIndex+1
+            local x=S.IconOffset(group,visibleIndex,count)
+            if slot.rowX~=x then
+                slot:ClearAllPoints()
+                slot:SetPoint("CENTER",o.frame,"CENTER",x/slot:GetScale(),-7/slot:GetScale())
+                slot.rowX=x
+            end
+        end
+    end
 end
 
 function S.Paint(view,o,animateOnly)
@@ -1927,11 +2053,7 @@ function S.Paint(view,o,animateOnly)
                     if o.usesNativeAuras and not InCombatLockdown() then BindAura(slot,group.enabled~=false)end
                 end
                 if IsSpellIcon(entry) then
-                    if slot.effectDirty then
-                        local known=slot.effectKnown
-                        ResolveEffect(slot,false)
-                        if known~=slot.effectKnown then o.skillDirection=nil end
-                    end
+                    if slot.effectDirty then ResolveEffect(slot,false)end
                     if slot.effectNeedsBind and not InCombatLockdown()then
                         BindEffect(slot);slot.effectNeedsBind=false
                     end
@@ -1987,34 +2109,6 @@ function S.Paint(view,o,animateOnly)
             slot:SetScale(S.IconSize(group)/40)
         end
     end
-    local direction=S.Direction(group)
-    if view.preview or o.skillDirection~=direction then
-        o.skillDirection=direction
-        local visibleCount=0
-        for i=1,#entries do
-            local slot=o.skillIcons[i]
-            local alpha=1
-            if not view.preview and slot.entry.type=="blizzard" and not slot.effectKnown then alpha=0 end
-            local readable=Readable(alpha)
-            slot.rowVisible=not readable or alpha==1
-            if slot.rowVisible then visibleCount=visibleCount+1 end
-            if slot:IsShown()~=slot.rowVisible then slot:SetShown(slot.rowVisible) end
-            M.CustomMonitor.SetVisual(slot,"SetAlpha",alpha)
-            M.CustomMonitor.SetVisual(slot,"EnableMouse",not view.preview and readable and slot.rowVisible)
-        end
-        o.rowCount=visibleCount
-        local width=math.max(1,S.IconSize(group)+math.max(0,visibleCount-1)*S.IconPitch(group))
-        if o.rowWidth~=width then o.frame:SetSize(width,66);o.rowWidth=width end
-        local visibleIndex=0
-        for i=1,#entries do
-            local slot=o.skillIcons[i]
-            if slot.rowVisible then
-                visibleIndex=visibleIndex+1
-                local x=S.IconOffset(group,visibleIndex,visibleCount)
-                if slot.rowX~=x then slot:ClearAllPoints();slot:SetPoint("CENTER",o.frame,"CENTER",x/slot:GetScale(),-7/slot:GetScale());slot.rowX=x end
-            end
-        end
-    end
     for i=1,#entries do
         local slot=o.skillIcons[i]
         local textureAlpha=1
@@ -2055,7 +2149,8 @@ function S.Paint(view,o,animateOnly)
             local result=M.CustomMonitor.Apply(o,slot,view.preview)
             if not view.preview then
                 local expires=Number(result.expirationTime)
-                UpdateSkillSound(slot,now,result.show and (not expires or expires>now),expires)
+                slot.triggerVisible=result.show and (not expires or expires>now)
+                UpdateSkillSound(slot,now,slot.triggerVisible,expires)
             end
             M.CustomMonitor.SetVisual(slot.texture,"SetDesaturated",false);textureAlpha=1
             M.CustomMonitor.SetText(slot.text,result.text or S.FormatCountdown(result.expirationTime and result.expirationTime-now))
@@ -2163,26 +2258,34 @@ function S.Paint(view,o,animateOnly)
             if display and display.glow then
                 PaintNativeGlow(slot,display,threshold and useNativeEffect and display.threshold==threshold,now,entry.maxStackGlowColor)
             end
-            if not view.preview and entry.soundEnabled then
+            if not view.preview and (entry.soundEnabled or entry.onlyWhenTriggered) then
                 local soundActive,expires,nativeTimer=active,active and slot.expires or nil
+                local auraUnknown
                 if effectVisible then
                     soundActive,expires=true,slot.effectExpires
                 elseif useNativeEffect then
-                    local nativeActive,timer=NativeSoundTimer(slot.effectPresence,slot.effectNativeSwipe)
-                    if nativeActive~=false then soundActive,expires,nativeTimer=nativeActive,nil,timer end
+                    local nativeActive,finish,timer=NativeSoundTimer(slot,slot.effectPresence,slot.effectNativeSwipe,now)
+                    if nativeActive then soundActive,expires,nativeTimer=true,finish,timer
+                    else auraUnknown=nativeActive==nil and slot.effectPresence~=nil end
                 elseif useNative and not active then
                     for _,watch in ipairs(slot.nativeGlows or {})do
-                        local nativeActive,timer=NativeSoundTimer(watch.marker,watch.timer)
-                        if nativeActive~=false then soundActive,nativeTimer=nativeActive,timer;break end
+                        local nativeActive,finish,timer=NativeSoundTimer(slot,watch.marker,watch.timer,now)
+                        if nativeActive then soundActive,expires,nativeTimer=true,finish,timer;break end
+                        if nativeActive==nil then auraUnknown=true end
                     end
                 end
-                if IsSpellIcon(entry) and not soundActive and slot.duration then
-                    local remaining=Number(Safe(slot.duration.GetRemainingDuration,slot.duration))
-                    if remaining then soundActive=remaining>0;expires=soundActive and now+remaining or nil
-                    elseif soundActive~=nil then soundActive,nativeTimer=NativeSoundTimer(slot.cooldown,slot.cooldown)end
+                if slot.blizzardEnd and slot.blizzardEnd>now and not expires then
+                    soundActive,expires=true,slot.blizzardEnd
+                elseif IsSpellIcon(entry) and not expires and not nativeTimer then
+                    local running,finish,timer=SpellSoundTimer(slot,now)
+                    if not finish then running,timer=ArmOpaqueSpellSound(slot,now,running,timer)end
+                    if not soundActive or running then soundActive,expires,nativeTimer=running,finish,timer end
                 end
-                if slot.effectGlow==true then soundActive=true end
+                if not soundActive and auraUnknown then soundActive=nil end
+                if slot.effectGlow==true or slot.blizzardAuraActive==true then soundActive=true end
                 UpdateSkillSound(slot,now,soundActive,expires,nativeTimer)
+                local tracking=slot.skillSound
+                slot.triggerVisible=soundActive==true or (soundActive==nil and tracking and tracking.active and not tracking.ended)
             elseif not view.preview then slot.skillSound=nil end
         end
         if not view.preview then
@@ -2193,6 +2296,7 @@ function S.Paint(view,o,animateOnly)
         M.CustomMonitor.SetVisual(slot.texture,"SetAlpha",textureAlpha)
         M.CustomMonitor.SetVisual(slot.shortcutFrame,"SetAlpha",1)
     end
+    LayoutSkillRow(view,o,entries,group)
 end
 local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=true,SPELL_UPDATE_CHARGES=true,SPELL_UPDATE_USES=true,
     SPELL_UPDATE_USABLE=true,ACTIONBAR_UPDATE_USABLE=true,ACTIONBAR_SLOT_CHANGED=true,
@@ -2203,7 +2307,7 @@ local events={PLAYER_TARGET_CHANGED=true,UNIT_AURA=true,SPELL_UPDATE_COOLDOWN=tr
     ACTIVE_TALENT_GROUP_CHANGED=true,PLAYER_TALENT_UPDATE=true,PLAYER_SPECIALIZATION_CHANGED=true,TRAIT_CONFIG_UPDATED=true,
     ACTIVE_COMBAT_CONFIG_CHANGED=true,ACTIVE_PLAYER_SPECIALIZATION_CHANGED=true,
     COOLDOWN_VIEWER_DATA_LOADED=true,COOLDOWN_VIEWER_TABLE_HOTFIXED=true,COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED=true}
-function S.Event(view,event,unit)
+function S.Event(view,event,unit,castGUID,spellID)
     if not events[event] or (event=="UNIT_AURA" and unit~="target"and unit~="player") or (event=="UNIT_SPELLCAST_SUCCEEDED" and unit~="player")then return end
     ObserveBlizzardEvent(event,unit)
     local activation=event=="SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" or event=="SPELL_ACTIVATION_OVERLAY_GLOW_HIDE"
@@ -2218,6 +2322,36 @@ function S.Event(view,event,unit)
     if event=="SPELLS_CHANGED" or event=="LEARNED_SPELL_IN_TAB" or event=="PLAYER_ENTERING_WORLD" then learnedSpells=nil end
     local o=view.nodes.playerSkillMonitorIcons
     if not o or not o.monitorDirty then return end
+    if event=="UNIT_SPELLCAST_SUCCEEDED" and Number(spellID) and o.frame:IsShown() then
+        local now=GetTime()
+        local base=Number(Safe(C_Spell and C_Spell.GetBaseSpell,spellID))
+        for _,slot in ipairs(o.skillIcons)do
+            local entry=slot.entry
+            if entry and (entry.type=="cooldown" or (entry.type=="blizzard" and entry.blizzardCategory~="TrackedBuff")
+                or (entry.type=="usable" and entry.onlyWhenTriggered))
+                and (entry.onlyWhenTriggered or (entry.soundEnabled and (entry.type=="cooldown" or entry.soundWhen=="finish")))
+                and (slot.spellID==spellID or (base and slot.spellID==base) or SpellIconID(slot)==spellID) then
+                local state=slot.skillSound
+                if not state or state.entry~=entry then state={entry=entry};slot.skillSound=state end
+                if not Readable(castGUID) or castGUID==nil or state.castGUID~=castGUID then
+                    state.castGUID=Readable(castGUID) and castGUID or nil
+                    state.castUntil=now+.75
+                    if entry.soundEnabled and entry.type=="cooldown" then state.active=true end
+                    state.soundTimerArmed=nil
+                    if entry.soundEnabled and entry.type=="cooldown" and entry.soundWhen~="finish" then
+                        M.PlayerOtherMonitor.Play(entry)
+                    end
+                    if slot.duration or (Number(Safe(GetSpellBaseCooldown or (C_Spell and C_Spell.GetSpellBaseCooldown),spellID)) or 0)>0
+                        or (slot.maxCharges or 0)>1 then
+                        state.nativeTimer=slot.cooldown
+                        state.ended=nil
+                    elseif not entry.soundEnabled then
+                        state.castUntil=nil
+                    end
+                end
+            end
+        end
+    end
     if event=="ACTIONBAR_PAGE_CHANGED" or event=="UPDATE_BONUS_ACTIONBAR" or event=="UPDATE_BINDINGS" then
         -- Shortcut labels update via bindingRevision. Paging may change
         -- action usability, but it must not tear down a live aura timer.
@@ -2424,10 +2558,11 @@ function S.BuildControls(e,parent,Row)
         check:SetPoint("TOPLEFT",-4,y-34)
         return check
     end
-    local glow=EntryCheck("触发发光","triggerGlow",-96)
-    local maxGlow=EntryCheck("最大层数发光","maxStackGlow",-129)
-    local reverse=EntryCheck("反转褪色效果","reverseDisplay",-162)
-    local onlyMine=EntryCheck("只来源于自己","onlyMine",-195)
+    local onlyWhenTriggered=EntryCheck("仅触发时显示","onlyWhenTriggered",-96)
+    local glow=EntryCheck("触发发光","triggerGlow",-129)
+    local maxGlow=EntryCheck("最大层数发光","maxStackGlow",-162)
+    local reverse=EntryCheck("反转褪色效果","reverseDisplay",-195)
+    local onlyMine=EntryCheck("只来源于自己","onlyMine",-228)
     local function GlowColor(check,key)
         local owner,entry
         local swatch=W.ColorSwatch(panel,function(color)
@@ -2444,20 +2579,20 @@ function S.BuildControls(e,parent,Row)
     end
     local triggerColor=GlowColor(glow,"triggerGlowColor")
     local stackColor=GlowColor(maxGlow,"maxStackGlowColor")
-    local playSound=EntryCheck("播放声音","soundEnabled",-228)
+    local playSound=EntryCheck("播放声音","soundEnabled",-261)
     local when=Choice("播放时机",{{name="触发开始时播放",path="start"},{name="触发结束时播放",path="finish"}},208,
         function(entry,value)entry.soundWhen=value end)
-    when:SetPoint("TOPLEFT",0,-292)
+    when:SetPoint("TOPLEFT",0,-325)
     local sound=Choice("音效",M.PlayerOtherMonitor.Sounds,270,function(entry,value)entry.sound=value end)
-    sound:SetPoint("TOPLEFT",0,-346)
+    sound:SetPoint("TOPLEFT",0,-379)
     local hear=W.Button(panel,"试听",72,function()
         Flush()
         if Editable(panel.owner,panel.entry)then M.PlayerOtherMonitor.Play(panel.entry)end
     end)
     hear:SetPoint("LEFT",sound,"RIGHT",12,-11)
-    local soundLabel=W.Label(panel,"声音文件路径",11);soundLabel:SetPoint("TOPLEFT",0,-397)
+    local soundLabel=W.Label(panel,"声音文件路径",11);soundLabel:SetPoint("TOPLEFT",0,-430)
     local soundInput=W.Edit(panel,340);panel.soundInput=soundInput
-    soundInput:SetPoint("TOPLEFT",0,-414);soundInput:SetMaxLetters(512);soundInput:SetTextInsets(6,6,0,0)
+    soundInput:SetPoint("TOPLEFT",0,-447);soundInput:SetMaxLetters(512);soundInput:SetTextInsets(6,6,0,0)
     soundInput:SetScript("OnEditFocusGained",function(self)
         self.owner,self.entry=panel.owner,panel.entry
         self.field=self.entry and (self.entry.sound=="id" and "soundID" or "soundPath")
@@ -2518,6 +2653,7 @@ function S.BuildControls(e,parent,Row)
             if not edit:HasFocus()then W.SetInputValue(edit,entry.value)end
         end
         RefreshIcon()
+        onlyWhenTriggered:SetChecked(entry.onlyWhenTriggered==true)
         glow:SetChecked(TriggerGlowEnabled(entry))
         maxGlow:SetChecked(entry.maxStackGlow==true)
         triggerColor:SetColor(entry.triggerGlowColor or whiteGlow)
@@ -2531,12 +2667,12 @@ function S.BuildControls(e,parent,Row)
         playSound:SetChecked(soundEnabled)
         -- Pull the sound row up for entries without the aura-source checkbox.
         local offset=(aura or combined or (entry.type=="blizzard" and entry.blizzardCategory=="TrackedBuff")) and 0 or 33
-        playSound:SetPoint("TOPLEFT",-4,-262+offset)
-        when:SetPoint("TOPLEFT",0,-292+offset);sound:SetPoint("TOPLEFT",0,-346+offset)
-        soundLabel:SetPoint("TOPLEFT",0,-397+offset);soundInput:SetPoint("TOPLEFT",0,-414+offset)
+        playSound:SetPoint("TOPLEFT",-4,-295+offset)
+        when:SetPoint("TOPLEFT",0,-325+offset);sound:SetPoint("TOPLEFT",0,-379+offset)
+        soundLabel:SetPoint("TOPLEFT",0,-430+offset);soundInput:SetPoint("TOPLEFT",0,-447+offset)
         when:SetShown(soundEnabled);sound:SetShown(soundEnabled);hear:SetShown(soundEnabled)
         soundLabel:SetShown(extended);soundInput:SetShown(extended)
-        panelRow.height=(extended and 449 or (soundEnabled and 397 or 300))-offset
+        panelRow.height=(extended and 482 or (soundEnabled and 430 or 333))-offset
         panel:SetHeight(panelRow.height)
         if soundEnabled then when:SetValue(entry.soundWhen or "start");sound:SetValue(selectedSound)end
         if extended then
